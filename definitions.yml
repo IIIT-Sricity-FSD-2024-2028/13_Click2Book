@@ -1,0 +1,220 @@
+# Domain: Click2Book
+# Problem Statement: Online Ticket Reservation System
+# Last Updated: 2026-01-28
+
+
+<DomainTerm1>::TripSchedule
+definition:
+  A planned and time-bound trip or event published by a service provider
+  and made available for customers to book.
+examples:
+  - A bus trip departing at 7:00 PM
+  - A movie show scheduled on 14th February at 9:30 PM
+aliases:
+  - Scheduled Trip
+  - Event
+  - Journey
+
+
+<DomainTerm2>::TicketAvailability
+definition:
+  The remaining booking capacity for a specific trip schedule
+  at a given point in time.
+examples:
+  - Five seats available for the evening bus trip
+  - No tickets left for the morning show
+aliases:
+  - Availability
+  - Remaining Capacity
+
+
+<DomainTerm3>::TicketReservation
+definition:
+  A temporary hold placed on one or more tickets for a trip schedule
+  while the customer completes the booking process.
+examples:
+  - Two seats held for 10 minutes during payment
+aliases:
+  - Ticket Hold
+  - Reservation
+
+
+<DomainTerm4>::Booking
+definition:
+  A completed agreement where one or more tickets are successfully
+  booked and confirmed for a specific trip schedule.
+examples:
+  - A confirmed booking for two bus tickets
+aliases:
+  - Ticket Booking
+  - Sale
+
+
+<DomainTerm5>::Ticket
+definition:
+  A confirmed right granted to a customer to attend a specific
+  trip schedule at a defined time and place.
+examples:
+  - A reserved seat on a bus journey
+  - A balcony seat ticket for a movie show
+aliases:
+  - Admission Right
+  - Entry Pass
+
+
+<DomainTerm6>::Cancellation
+definition:
+  The act of withdrawing a previously confirmed booking
+  before the scheduled trip or event occurs.
+examples:
+  - Cancelling a movie ticket before showtime
+aliases:
+  - Booking Cancellation
+  - Ticket Cancellation
+
+
+<DomainTerm7>::Refund
+definition:
+  The return of payment to a customer after a booking
+  has been successfully cancelled according to policy.
+examples:
+  - Refunding the ticket amount after cancellation
+aliases:
+  - Payment Reversal
+  - Reimbursement
+
+
+<DomainTerm8>::Customer
+definition:
+  A person who searches trip schedules, reserves tickets,
+  and completes bookings through the system.
+examples:
+  - A passenger booking a bus ticket
+  - A moviegoer purchasing a show ticket
+aliases:
+  - Passenger
+  - Attendee
+
+
+
+
+<DomainTerm9>::ServiceProvider
+definition:
+  An organization or individual responsible for creating
+  trip schedules and delivering the actual service.
+examples:
+  - A bus operator publishing daily routes
+  - A cinema managing movie shows
+aliases:
+  - Operator
+  - Organizer
+
+
+<DomainTerm10>::Administrator
+definition:
+  A role responsible for overseeing system operations,
+  managing customers, and monitoring daily bookings.
+examples:
+  - Reviewing daily booking reports
+aliases:
+  - System Admin
+  - Platform Manager
+
+
+<DomainTerm11>::CustomerSupport
+definition:
+  A support role that assists customers with booking issues,
+  cancellations, and general inquiries.
+examples:
+  - Helping customers resolve booking problems
+aliases:
+  - Support Team
+  - Help Desk
+
+  
+<DomainTerm12>::Payment
+definition:
+  The act of providing money by a customer to complete
+  a booking for selected tickets.
+examples:
+  - Paying online to confirm a bus ticket booking
+aliases:
+  - Ticket Payment
+  - Fare Payment
+
+
+<DomainTerm13>::BookingConfirmation
+definition:
+  An acknowledgement issued after successful payment
+  that confirms the booking and ticket allocation.
+examples:
+  - Receiving confirmation after booking a movie ticket
+aliases:
+  - Booking Acknowledgement
+  - Confirmation Notice
+
+
+<DomainTerm14>::DailyBookingReport
+definition:
+  A summarized record of all bookings made
+  for trip schedules on a particular day.
+examples:
+  - Viewing all ticket bookings for today
+aliases:
+  - Daily Booking Summary
+  - Booking Report
+
+
+<DomainTerm15>::ScheduleManagement
+definition:
+  The activity of creating, updating, or removing
+  trip schedules by a service provider.
+examples:
+  - Adding a new bus route for weekends
+aliases:
+  - Trip Scheduling
+  - Schedule Control
+
+
+<DomainTerm16>::TripConfirmation
+definition:
+  The act of verifying and approving a trip schedule
+  before it becomes available for booking.
+examples:
+  - Confirming a newly added bus trip
+aliases:
+  - Schedule Confirmation
+  - Trip Approval
+
+
+<DomainTerm17>::AssistanceRequest
+definition:
+  A request raised by a customer seeking help
+  related to booking, cancellation, or payment.
+examples:
+  - Asking support to resolve a failed booking
+aliases:
+  - Support Request
+  - Help Request
+
+
+<DomainTerm18>::SeatAllocation
+definition:
+  The assignment of specific seats to tickets
+  during the booking process.
+examples:
+  - Allocating seat number 12A for a bus ticket
+aliases:
+  - Seat Assignment
+  - Seat Mapping
+
+
+<DomainTerm19>::BookingPolicy
+definition:
+  A set of rules that define conditions for booking,
+  cancellation, and refund of tickets.
+examples:
+  - No refund allowed after trip departure
+aliases:
+  - Ticket Policy
+  - Reservation Policy

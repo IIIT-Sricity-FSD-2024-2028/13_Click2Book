@@ -1,0 +1,219 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Support Tickets – Click2Book</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<!-- Notification Popup -->
+<div class="notif-overlay" id="notifOverlay" onclick="closeNotif()"></div>
+<div class="notif-panel" id="notifPanel" style="display:none;">
+  <div class="notif-panel-header">
+    <h3>Notifications <span class="notif-count-badge">4</span></h3>
+    <button class="notif-close-btn" onclick="closeNotif()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="notif-list">
+    <div class="notif-item unread"><div class="notif-icon-wrap urgent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="notif-text"><h4>New Escalated Ticket</h4><p>TKT006 – Seat double booked on Rajdhani Express.</p><time>Just now</time></div></div>
+    <div class="notif-item unread"><div class="notif-icon-wrap warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="notif-text"><h4>SLA Breach Warning</h4><p>TKT001 has been open for 48 hours without resolution.</p><time>15 mins ago</time></div></div>
+    <div class="notif-item unread"><div class="notif-icon-wrap info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="notif-text"><h4>Customer Reply</h4><p>Rahul Sharma replied to ticket TKT001 with new information.</p><time>30 mins ago</time></div></div>
+    <div class="notif-item unread"><div class="notif-icon-wrap success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div class="notif-text"><h4>Ticket Resolved</h4><p>TKT003 marked as Resolved by Agent.</p><time>1 hour ago</time></div></div>
+  </div>
+  <div class="notif-panel-footer"><a href="#">View all notifications &rarr;</a></div>
+</div>
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">SP</div>
+      <div><div class="brand-title">Support Panel</div><div class="brand-sub">Click2Book</div></div>
+    </div>
+    <div class="agent-profile">
+      <div class="agent-avatar">SA</div>
+      <div><div class="agent-name">Support Agent</div><div class="agent-status">&#9679; Online</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="index.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+      <a class="nav-item active" href="tickets.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Support Tickets
+        <span class="nav-badge">2</span>
+      </a>
+      <a class="nav-item" href="escalated.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Escalated Issues
+      </a>
+    </nav>
+    <div class="sidebar-bottom">
+      <a class="nav-item" href="../landing page/staff-access.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Staff Portal
+      </a>
+      <a class="nav-item" href="#">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M4.93 4.93a10 10 0 0 0 14.14 14.14"/></svg>
+        Settings
+      </a>
+      <a class="nav-item danger" href="#" onclick="doLogout()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Logout
+      </a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Support Tickets</h1>
+        <p>Manage &amp; Resolve Tickets</p>
+      </div>
+      <div class="topbar-right">
+        <div class="notif-btn" id="bellBtn" onclick="toggleNotif()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <div class="notif-count-dot">4</div>
+        </div>
+        <div class="topbar-avatar">SA</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="page-heading">All Support Tickets</div>
+      <div class="filter-bar">
+        <input class="search-input" id="search" type="text" placeholder="Search by ID, customer or subject..." oninput="filterTickets()"/>
+        <select class="filter-select" id="f-priority" onchange="filterTickets()">
+          <option value="">All Priorities</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+        <select class="filter-select" id="f-status" onchange="filterTickets()">
+          <option value="">All Statuses</option>
+          <option value="Open">Open</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Resolved">Resolved</option>
+          <option value="Escalated">Escalated</option>
+        </select>
+      </div>
+      <div class="table-card">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Customer</th><th>Subject</th><th>Priority</th><th>Status</th><th>Action</th></tr>
+          </thead>
+          <tbody id="tickets-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast-container"></div>
+<script>
+const TICKETS = [
+  { id:'TKT001', customer:'Rahul Sharma',  subject:'Booking not confirmed after payment',       priority:'High',   status:'Open'        },
+  { id:'TKT002', customer:'Priya Patel',   subject:'Refund not received after 7 days',          priority:'High',   status:'In Progress' },
+  { id:'TKT003', customer:'Kiran Kumar',   subject:'Bus arrived 2 hours late',                  priority:'Medium', status:'Resolved'    },
+  { id:'TKT004', customer:'Meera Singh',   subject:'Seat was different from what I selected',   priority:'High',   status:'Escalated'   },
+  { id:'TKT005', customer:'Vijay Menon',   subject:'App crashes during payment',                priority:'Low',    status:'Open'        },
+  { id:'TKT006', customer:'Anitha Reddy',  subject:'Double charge on booking',                  priority:'High',   status:'Open'        },
+  { id:'TKT007', customer:'Suresh Babu',   subject:'Cannot cancel booking online',              priority:'Medium', status:'In Progress' },
+  { id:'TKT008', customer:'Deepa Nair',    subject:'Wrong bus picked me up',                    priority:'High',   status:'Escalated'   },
+  { id:'TKT009', customer:'Arjun Das',     subject:'OTP not received during login',             priority:'Low',    status:'Resolved'    },
+  { id:'TKT010', customer:'Sunita Verma',  subject:'Refund status not updating',                priority:'Medium', status:'Open'        },
+];
+
+function pBadge(p) {
+  const m = { High:'badge-high', Medium:'badge-medium', Low:'badge-low' };
+  return `<span class="badge ${m[p]||''}">${p}</span>`;
+}
+function sBadge(s) {
+  const m = { 'Open':'badge-open','In Progress':'badge-inprogress','Resolved':'badge-resolved','Escalated':'badge-escalated' };
+  return `<span class="badge ${m[s]||''}">${s}</span>`;
+}
+
+function renderTickets(list) {
+  const tbody = document.getElementById('tickets-body');
+  if (!list.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No tickets found.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(t => `
+    <tr>
+      <td><span class="ticket-id">${t.id}</span></td>
+      <td><span class="customer-name">${t.customer}</span></td>
+      <td>${t.subject}</td>
+      <td>${pBadge(t.priority)}</td>
+      <td id="status-${t.id}">${sBadge(t.status)}</td>
+      <td>
+        ${t.status === 'Resolved'
+          ? '<span style="color:#9ca3af;font-size:.75rem">Closed</span>'
+          : `<button class="btn-resolve" onclick="resolve('${t.id}')">Resolve</button>`}
+      </td>
+    </tr>`).join('');
+}
+
+function filterTickets() {
+  const q   = document.getElementById('search').value.toLowerCase();
+  const pri = document.getElementById('f-priority').value;
+  const sta = document.getElementById('f-status').value;
+  const f   = TICKETS.filter(t =>
+    (!q   || t.id.toLowerCase().includes(q) || t.customer.toLowerCase().includes(q) || t.subject.toLowerCase().includes(q)) &&
+    (!pri || t.priority === pri) &&
+    (!sta || t.status   === sta)
+  );
+  renderTickets(f);
+}
+
+function resolve(id) {
+  const t = TICKETS.find(x => x.id === id);
+  if (!t || t.status === 'Resolved') return;
+  t.status = 'Resolved';
+  filterTickets();
+  showToast(`Ticket ${id} marked as Resolved.`, 'success');
+}
+
+function doLogout() {
+  localStorage.removeItem('c2b_session');
+  localStorage.removeItem('c2b_state');
+  window.location.href = '../landing page/index.html';
+}
+
+function showToast(msg, type='info') {
+  const colors = { success:{bg:'#dcfce7',border:'#22c55e',text:'#15803d',icon:'&#10003;'}, info:{bg:'#eff6ff',border:'#3b82f6',text:'#1d4ed8',icon:'&#9432;'} };
+  const c = colors[type] || colors.info;
+  const t = document.createElement('div');
+  t.style.cssText = `background:${c.bg};border-left:3px solid ${c.border};color:${c.text};padding:11px 16px;border-radius:10px;font-size:.82rem;font-weight:500;box-shadow:0 4px 18px rgba(0,0,0,.12);display:flex;align-items:center;gap:10px;pointer-events:auto;max-width:300px;animation:toastIn .25s ease both;font-family:'Inter',sans-serif;`;
+  t.innerHTML = `<span>${c.icon}</span><span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(t);
+  setTimeout(() => { t.style.animation = 'toastOut .25s ease forwards'; setTimeout(() => t.remove(), 280); }, 3000);
+}
+
+document.addEventListener('DOMContentLoaded', () => renderTickets(TICKETS));
+
+function toggleNotif() {
+  var panel = document.getElementById('notifPanel');
+  var overlay = document.getElementById('notifOverlay');
+  var isOpen = panel.style.display === 'block';
+  panel.style.display = isOpen ? 'none' : 'block';
+  overlay.style.display = isOpen ? 'none' : 'block';
+}
+function closeNotif() {
+  document.getElementById('notifPanel').style.display = 'none';
+  document.getElementById('notifOverlay').style.display = 'none';
+}
+</script>
+
+  <!-- ═══ CRUD Engine (localStorage + Data Manager panel) ═══ -->
+  <script src="../crud functions/js/mock_data.js"></script>
+  <script src="../crud functions/js/script.js"></script>
+  <script src="../crud functions/js/ui-shared.js"></script>
+  <script src="../crud functions/js/ui-support.js"></script>
+</body>
+</html>
+
+

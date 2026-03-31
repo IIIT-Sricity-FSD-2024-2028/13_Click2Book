@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Offers & Deals – Click2Book</title>
+  <meta name="description" content="Exclusive bus booking offers and promo codes on Click2Book. Save big on your next journey."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--p:#f97316;--pd:#ea580c;--pl:rgba(249,115,22,.13);--navy:#0f1f3d;--dark:#0a0f1e;--card:rgba(255,255,255,.04);--b:rgba(255,255,255,.08);--tw:rgba(255,255,255,.75);--tm:rgba(255,255,255,.42);--rm:12px;--rx:18px}
+    html{scroll-behavior:smooth}
+    body{font-family:'Inter',sans-serif;background:var(--dark);color:#fff;min-height:100vh}
+    /* NAV */
+    .nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 6%;background:rgba(10,15,30,.9);backdrop-filter:blur(18px);border-bottom:1px solid var(--b)}
+    .logo{display:flex;align-items:center;gap:9px;text-decoration:none}
+    .logo-icon{width:34px;height:34px;border-radius:9px;background:var(--p);display:flex;align-items:center;justify-content:center}
+    .logo-txt{font-size:1.05rem;font-weight:800;color:#fff}.logo-txt span{color:var(--p)}
+    .nav-links{display:flex;align-items:center;gap:26px;list-style:none}
+    .nav-links a{font-size:.84rem;font-weight:500;color:var(--tw);text-decoration:none;transition:color .2s}
+    .nav-links a:hover,.nav-links a.on{color:var(--p)}
+    .btn-nav{padding:9px 20px;border-radius:50px;background:var(--p);color:#fff;font-family:'Inter',sans-serif;font-size:.83rem;font-weight:700;border:none;cursor:pointer;text-decoration:none;transition:background .2s}
+    .btn-nav:hover{background:var(--pd)}
+    /* HERO */
+    .hero{min-height:260px;display:flex;align-items:center;justify-content:center;padding:120px 6% 60px;text-align:center;background:linear-gradient(135deg,#0a0f1e 0%,#0f1f3d 60%,#162a4a 100%);position:relative;overflow:hidden}
+    .hero::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 60%,rgba(249,115,22,.1) 0%,transparent 55%)}
+    .hc{position:relative;z-index:2}
+    .htag{display:inline-flex;align-items:center;gap:6px;padding:5px 16px;border-radius:50px;background:var(--pl);border:1px solid rgba(249,115,22,.3);font-size:.72rem;font-weight:700;color:var(--p);margin-bottom:16px}
+    .ht{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:900;line-height:1.15;margin-bottom:10px}
+    .ht span{color:var(--p)}
+    .hs{font-size:.9rem;color:var(--tm);margin-bottom:28px}
+    /* FILTER TABS */
+    .filter-row{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:40px}
+    .ftab{padding:8px 20px;border-radius:50px;border:1.5px solid var(--b);background:transparent;color:var(--tw);font-family:'Inter',sans-serif;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s}
+    .ftab.on{background:var(--p);border-color:var(--p);color:#fff}
+    .ftab:hover:not(.on){border-color:var(--p);color:var(--p)}
+    /* OFFERS GRID */
+    .offers-wrap{max-width:1200px;margin:0 auto;padding:0 6% 80px}
+    .ogrid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+    .ocard{background:var(--navy);border:1.5px solid var(--b);border-radius:var(--rx);overflow:hidden;transition:border-color .25s,transform .25s;position:relative}
+    .ocard:hover{border-color:rgba(249,115,22,.35);transform:translateY(-3px)}
+    .oc-top{padding:20px 22px 14px;position:relative}
+    .oc-badge{display:inline-flex;align-items:center;gap:4px;font-size:.62rem;font-weight:800;letter-spacing:.5px;padding:3px 10px;border-radius:50px;margin-bottom:12px}
+    .badge-new{background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.25)}
+    .badge-hot{background:rgba(249,115,22,.15);color:var(--p);border:1px solid rgba(249,115,22,.25)}
+    .badge-lim{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.25)}
+    .badge-exc{background:rgba(139,92,246,.15);color:#8b5cf6;border:1px solid rgba(139,92,246,.25)}
+    .oc-title{font-size:1rem;font-weight:800;margin-bottom:6px}
+    .oc-desc{font-size:.78rem;color:var(--tm);line-height:1.65;margin-bottom:14px}
+    .oc-details{display:flex;flex-direction:column;gap:7px;margin-bottom:16px}
+    .od{display:flex;align-items:center;gap:8px;font-size:.75rem;color:var(--tw)}
+    .od-icon{width:22px;height:22px;border-radius:6px;background:var(--pl);display:flex;align-items:center;justify-content:center;font-size:.7rem;flex-shrink:0}
+    .oc-divider{border:none;border-top:1px solid var(--b);margin:0 22px}
+    .oc-bot{padding:14px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .code-wrap{display:flex;align-items:center;gap:8px}
+    .code-box{padding:7px 14px;border-radius:8px;border:1.5px dashed rgba(249,115,22,.5);background:var(--pl);font-size:.85rem;font-weight:800;letter-spacing:1.5px;color:var(--p);cursor:pointer;transition:background .2s;font-family:'Inter',sans-serif}
+    .code-box:hover{background:rgba(249,115,22,.2)}
+    .copy-btn{padding:7px 14px;border-radius:8px;border:none;background:rgba(255,255,255,.06);color:var(--tw);font-family:'Inter',sans-serif;font-size:.74rem;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:5px}
+    .copy-btn:hover{background:rgba(255,255,255,.12);color:#fff}
+    .book-btn{padding:9px 20px;border-radius:50px;background:linear-gradient(135deg,var(--p),var(--pd));color:#fff;font-family:'Inter',sans-serif;font-size:.8rem;font-weight:700;border:none;cursor:pointer;white-space:nowrap;transition:transform .2s,box-shadow .2s}
+    .book-btn:hover{transform:scale(1.04);box-shadow:0 6px 18px rgba(249,115,22,.4)}
+    .discount-badge{position:absolute;top:18px;right:18px;padding:5px 12px;border-radius:50px;font-size:.75rem;font-weight:800;color:#fff}
+    .disc-green{background:linear-gradient(135deg,#16a34a,#15803d)}
+    .disc-orange{background:linear-gradient(135deg,var(--p),var(--pd))}
+    .disc-purple{background:linear-gradient(135deg,#7c3aed,#6d28d9)}
+    /* TOAST */
+    .toast{position:fixed;bottom:28px;right:28px;z-index:999;padding:12px 22px;border-radius:var(--rm);background:#1a2e4a;border-left:4px solid #22c55e;color:#fff;font-size:.83rem;font-weight:600;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+    .toast.show{opacity:1;transform:translateY(0)}
+    /* PROMO BANNER */
+    .promo-banner{background:linear-gradient(135deg,var(--p) 0%,var(--pd) 100%);padding:40px 6%;text-align:center;margin-bottom:0}
+    .pb-t{font-size:1.5rem;font-weight:800;margin-bottom:8px}
+    .pb-s{font-size:.88rem;color:rgba(255,255,255,.8);margin-bottom:20px}
+    .pb-btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:50px;background:#fff;color:var(--p);font-family:'Inter',sans-serif;font-size:.9rem;font-weight:800;border:none;cursor:pointer;text-decoration:none;transition:transform .2s}
+    .pb-btn:hover{transform:translateY(-2px)}
+    /* FOOTER mini */
+    .fline{background:var(--navy);border-top:1px solid var(--b);padding:20px 6%;display:flex;align-items:center;justify-content:space-between;font-size:.75rem;color:var(--tm);flex-wrap:wrap;gap:10px}
+    .fline a{color:var(--tm);text-decoration:none}.fline a:hover{color:var(--p)}
+    .fline-links{display:flex;gap:16px}
+    @media(max-width:700px){.ogrid{grid-template-columns:1fr}.nav-links{display:none}}
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <a href="index.html" class="logo">
+    <div class="logo-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="8" width="20" height="12" rx="3" fill="white" opacity=".9"/><rect x="5" y="5" width="14" height="5" rx="2" fill="white" opacity=".6"/><circle cx="6.5" cy="20" r="1.5" fill="#f97316"/><circle cx="17.5" cy="20" r="1.5" fill="#f97316"/></svg>
+    </div>
+    <span class="logo-txt">CLICK<span>2</span>BOOK</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="../customer/get-support.html">Support</a></li>
+    <li><a href="#">Track Order</a></li>
+    <li><a href="offers.html" class="on">Offers</a></li>
+  </ul>
+  <a href="login.html" class="btn-nav">Sign In →</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hc">
+    <div class="htag">🎁 &nbsp;Exclusive Deals</div>
+    <h1 class="ht">Amazing <span>Offers</span> Just For You</h1>
+    <p class="hs">Save big on your next journey with our handpicked promo codes and exclusive discounts</p>
+    <div class="filter-row">
+      <button class="ftab on" onclick="filter(this,'all')">All Offers</button>
+      <button class="ftab" onclick="filter(this,'first')">First Ride</button>
+      <button class="ftab" onclick="filter(this,'group')">Group</button>
+      <button class="ftab" onclick="filter(this,'weekend')">Weekend</button>
+      <button class="ftab" onclick="filter(this,'student')">Student</button>
+    </div>
+  </div>
+</div>
+
+<!-- OFFERS -->
+<div class="offers-wrap">
+  <div class="ogrid" id="ogrid">
+
+    <!-- Card 1 -->
+    <div class="ocard" data-cat="first">
+      <div class="oc-top">
+        <div class="discount-badge disc-green" style="position:absolute;top:18px;right:18px">FLAT ₹100 OFF</div>
+        <span class="oc-badge badge-new">✦ FIRST RIDE FREE</span>
+        <div class="oc-title">Your First Booking Discount</div>
+        <p class="oc-desc">Enjoy ₹100 off on your very first bus booking with Click2Book. Valid for all routes across India.</p>
+        <div class="oc-details">
+          <div class="od"><span class="od-icon">📅</span> Expires: March 31, 2026</div>
+          <div class="od"><span class="od-icon">🚌</span> Valid on: All Bus Routes</div>
+          <div class="od"><span class="od-icon">💰</span> Min amount: ₹250</div>
+          <div class="od"><span class="od-icon">👤</span> New users only</div>
+        </div>
+      </div>
+      <hr class="oc-divider"/>
+      <div class="oc-bot">
+        <div class="code-wrap">
+          <button class="code-box" onclick="copyCode('FIRSTBUS100',this)">FIRSTBUS100</button>
+          <button class="copy-btn" onclick="copyCode('FIRSTBUS100',this)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+        <button class="book-btn" onclick="bookNow('FIRSTBUS100')">Book Now →</button>
+      </div>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="ocard" data-cat="weekend">
+      <div class="oc-top">
+        <div class="discount-badge disc-orange" style="position:absolute;top:18px;right:18px">15% OFF</div>
+        <span class="oc-badge badge-hot">🔥 WEEKEND SPECIAL</span>
+        <div class="oc-title">Weekend Travel Saver</div>
+        <p class="oc-desc">Get 15% off on all bookings made for Saturday and Sunday travel. Perfect for weekend getaways!</p>
+        <div class="oc-details">
+          <div class="od"><span class="od-icon">📅</span> Expires: April 30, 2026</div>
+          <div class="od"><span class="od-icon">🚌</span> Valid on: Sat & Sun Travel</div>
+          <div class="od"><span class="od-icon">💰</span> Max discount: ₹200</div>
+          <div class="od"><span class="od-icon">🔄</span> Unlimited usage</div>
+        </div>
+      </div>
+      <hr class="oc-divider"/>
+      <div class="oc-bot">
+        <div class="code-wrap">
+          <button class="code-box" onclick="copyCode('WEEKEND15',this)">WEEKEND15</button>
+          <button class="copy-btn" onclick="copyCode('WEEKEND15',this)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+        <button class="book-btn" onclick="bookNow('WEEKEND15')">Book Now →</button>
+      </div>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="ocard" data-cat="group">
+      <div class="oc-top">
+        <div class="discount-badge disc-green" style="position:absolute;top:18px;right:18px">20% OFF</div>
+        <span class="oc-badge badge-new">👥 GROUP BOOKING</span>
+        <div class="oc-title">Group Booking Discount</div>
+        <p class="oc-desc">Book 5 or more seats in one transaction and get a flat 20% off across all routes and operators.</p>
+        <div class="oc-details">
+          <div class="od"><span class="od-icon">📅</span> Expires: May 15, 2026</div>
+          <div class="od"><span class="od-icon">🚌</span> Valid on: All Routes</div>
+          <div class="od"><span class="od-icon">👥</span> Min 5 seats required</div>
+          <div class="od"><span class="od-icon">💰</span> Max discount: ₹500</div>
+        </div>
+      </div>
+      <hr class="oc-divider"/>
+      <div class="oc-bot">
+        <div class="code-wrap">
+          <button class="code-box" onclick="copyCode('GROUP20',this)">GROUP20</button>
+          <button class="copy-btn" onclick="copyCode('GROUP20',this)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+        <button class="book-btn" onclick="bookNow('GROUP20')">Book Now →</button>
+      </div>
+    </div>
+
+    <!-- Card 4 -->
+    <div class="ocard" data-cat="first">
+      <div class="oc-top">
+        <div class="discount-badge disc-orange" style="position:absolute;top:18px;right:18px">FLAT ₹75 OFF</div>
+        <span class="oc-badge badge-hot">⚡ EARLY BIRD OFFER</span>
+        <div class="oc-title">Book Early, Save More</div>
+        <p class="oc-desc">Book your ticket 15+ days in advance and get ₹75 off. Plan ahead and save on your journey!</p>
+        <div class="oc-details">
+          <div class="od"><span class="od-icon">📅</span> Expires: June 30, 2026</div>
+          <div class="od"><span class="od-icon">🚌</span> Valid on: AC Buses Only</div>
+          <div class="od"><span class="od-icon">📆</span> Book 15+ days ahead</div>
+          <div class="od"><span class="od-icon">💰</span> Min amount: ₹400</div>
+        </div>
+      </div>
+      <hr class="oc-divider"/>
+      <div class="oc-bot">
+        <div class="code-wrap">
+          <button class="code-box" onclick="copyCode('EARLYBIRD',this)">EARLYBIRD</button>
+          <button class="copy-btn" onclick="copyCode('EARLYBIRD',this)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+        <button class="book-btn" onclick="bookNow('EARLYBIRD')">Book Now →</button>
+      </div>
+    </div>
+
+    <!-- Card 5 -->
+    <div class="ocard" data-cat="student">
+      <div class="oc-top">
+        <div class="discount-badge disc-purple" style="position:absolute;top:18px;right:18px">₹50 OFF</div>
+        <span class="oc-badge badge-exc">🎓 STUDENT SAVER</span>
+        <div class="oc-title">Student Travel Discount</div>
+        <p class="oc-desc">Exclusive ₹50 off for students with a valid college ID. Perfect for weekend trips and college tours.</p>
+        <div class="oc-details">
+          <div class="od"><span class="od-icon">📅</span> Expires: December 31, 2026</div>
+          <div class="od"><span class="od-icon">🎓</span> Valid student ID needed</div>
+          <div class="od"><span class="od-icon">💰</span> Min amount: ₹200</div>
+          <div class="od"><span class="od-icon">🔄</span> Once per month</div>
+        </div>
+      </div>
+      <hr class="oc-divider"/>
+      <div class="oc-bot">
+        <div class="code-wrap">
+          <button class="code-box" onclick="copyCode('STUDENT50',this)">STUDENT50</button>
+          <button class="copy-btn" onclick="copyCode('STUDENT50',this)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+        <button class="book-btn" onclick="bookNow('STUDENT50')">Book Now →</button>
+      </div>
+    </div>
+
+    <!-- Card 6 -->
+    <div class="ocard" data-cat="weekend">
+      <div class="oc-top">
+        <div class="discount-badge disc-orange" style="position:absolute;top:18px;right:18px">FLAT ₹150 OFF</div>
+        <span class="oc-badge badge-lim">⏰ FLASH DEAL</span>
+        <div class="oc-title">Flash Sale – Limited Time!</div>
+        <p class="oc-desc">Only 48 hours! Grab ₹150 off on your next long-distance bus booking. Don't miss this limited flash deal.</p>
+        <div class="oc-details">
+          <div class="od"><span class="od-icon">📅</span> Expires: March 29, 2026</div>
+          <div class="od"><span class="od-icon">🚌</span> Valid on: Inter-city routes</div>
+          <div class="od"><span class="od-icon">💰</span> Min amount: ₹500</div>
+          <div class="od"><span class="od-icon">⏳</span> Limited slots only!</div>
+        </div>
+      </div>
+      <hr class="oc-divider"/>
+      <div class="oc-bot">
+        <div class="code-wrap">
+          <button class="code-box" onclick="copyCode('FLASH150',this)">FLASH150</button>
+          <button class="copy-btn" onclick="copyCode('FLASH150',this)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+        <button class="book-btn" onclick="bookNow('FLASH150')">Book Now →</button>
+      </div>
+    </div>
+
+    <!-- Card 7 -->
+    <div class="ocard" data-cat="first">
+      <div class="oc-top">
+        <div class="discount-badge disc-green" style="position:absolute;top:18px;right:18px">10% CASHBACK</div>
+        <span class="oc-badge badge-new">💸 CASHBACK BONANZA</span>
+        <div class="oc-title">10% Cashback on UPI</div>
+        <p class="oc-desc">Pay via any UPI app and get 10% cashback credited directly to your Click2Book wallet. Use it on future rides!</p>
+        <div class="oc-details">
+          <div class="od"><span class="od-icon">📅</span> Expires: April 15, 2026</div>
+          <div class="od"><span class="od-icon">💳</span> Pay via UPI/GPay/PhonePe</div>
+          <div class="od"><span class="od-icon">💰</span> Max cashback: ₹100</div>
+          <div class="od"><span class="od-icon">🔄</span> 3 uses per user</div>
+        </div>
+      </div>
+      <hr class="oc-divider"/>
+      <div class="oc-bot">
+        <div class="code-wrap">
+          <button class="code-box" onclick="copyCode('UPICASH10',this)">UPICASH10</button>
+          <button class="copy-btn" onclick="copyCode('UPICASH10',this)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+        <button class="book-btn" onclick="bookNow('UPICASH10')">Book Now →</button>
+      </div>
+    </div>
+
+    <!-- Card 8 -->
+    <div class="ocard" data-cat="group">
+      <div class="oc-top">
+        <div class="discount-badge disc-purple" style="position:absolute;top:18px;right:18px">FREE UPGRADE</div>
+        <span class="oc-badge badge-exc">⭐ PREMIUM CLASS UPGRADE</span>
+        <div class="oc-title">Free Seat Class Upgrade</div>
+        <p class="oc-desc">Book any Semi-Sleeper ticket and get upgraded to Sleeper AC class for free. Subject to availability at the time of boarding.</p>
+        <div class="oc-details">
+          <div class="od"><span class="od-icon">📅</span> Expires: May 31, 2026</div>
+          <div class="od"><span class="od-icon">🚌</span> Semi-Sleeper bookings only</div>
+          <div class="od"><span class="od-icon">💺</span> Subject to availability</div>
+          <div class="od"><span class="od-icon">💰</span> Min amount: ₹350</div>
+        </div>
+      </div>
+      <hr class="oc-divider"/>
+      <div class="oc-bot">
+        <div class="code-wrap">
+          <button class="code-box" onclick="copyCode('PREMIUM',this)">PREMIUM</button>
+          <button class="copy-btn" onclick="copyCode('PREMIUM',this)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+        <button class="book-btn" onclick="bookNow('PREMIUM')">Book Now →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- PROMO BANNER -->
+<div class="promo-banner">
+  <div class="pb-t">🚌 &nbsp;Ready to Book Your Journey?</div>
+  <p class="pb-s">Use any of the codes above at checkout and save big on your next trip!</p>
+  <a href="login.html" class="pb-btn">Search Buses Now →</a>
+</div>
+
+<!-- FOOTER -->
+<div class="fline">
+  <span>© 2026 Click2Book. All rights reserved.</span>
+  <div class="fline-links">
+    <a href="index.html">Home</a>
+    <a href="about.html">About</a>
+    <a href="privacy.html">Privacy</a>
+    <a href="terms.html">Terms</a>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+  function filter(btn, cat) {
+    document.querySelectorAll('.ftab').forEach(t => t.classList.remove('on'));
+    btn.classList.add('on');
+    document.querySelectorAll('.ocard').forEach(c => {
+      c.style.display = (cat === 'all' || c.dataset.cat === cat) ? 'block' : 'none';
+    });
+    // Animate filtered cards
+    document.querySelectorAll('.ocard[style="display: block;"], .ocard:not([style])').forEach((c,i) => {
+      c.style.animation = 'none';
+      setTimeout(() => { c.style.animation = 'fadeInUp 0.3s ease ' + (i*0.06) + 's both'; }, 10);
+    });
+  }
+
+  function copyCode(code, el) {
+    navigator.clipboard.writeText(code).catch(() => {
+      // Fallback for browsers that don't support clipboard
+      const ta = document.createElement('textarea');
+      ta.value = code;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    });
+    showToast('✅ Code "' + code + '" copied to clipboard!');
+  }
+
+  function bookNow(code) {
+    // Store the promo code so it can be applied at checkout
+    sessionStorage.setItem('promoCode', code);
+    sessionStorage.setItem('searchFrom', '');
+    sessionStorage.setItem('searchTo', '');
+    // Go directly to search page (guest-friendly flow)
+    window.location.href = '../customer/search-trips.html';
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+</script>
+</body>
+</html>

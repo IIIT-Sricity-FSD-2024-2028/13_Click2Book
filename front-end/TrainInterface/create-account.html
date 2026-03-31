@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account | Click2Book</title>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link rel="stylesheet" href="user-styles.css">
+</head>
+<body>
+    <div class="split-layout">
+        <!-- LEFT PANEL -->
+        <div class="split-left">
+            <a href="../landing page/index.html" class="home-btn">
+                <i data-feather="home" style="width: 16px; height: 16px;"></i> Home
+            </a>
+            
+            <div class="auth-hero">
+                <div class="auth-logo">
+                    <div class="logo-icon">
+                        <i data-feather="truck"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h1>CLICK2BOOK</h1>
+                        <p>Join Our Community</p>
+                    </div>
+                </div>
+                
+                <h2>Start Your Journey Today</h2>
+                <p>Join thousands of travelers who trust CLICK2BOOK for seamless bus and train bookings.</p>
+                
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <i data-feather="check-circle"></i>
+                        <span>Instant Booking Confirmation</span>
+                    </div>
+                    <div class="feature-item">
+                        <i data-feather="shield"></i>
+                        <span>Secure Payment Gateway</span>
+                    </div>
+                    <div class="feature-item">
+                        <i data-feather="headphones"></i>
+                        <span>24/7 Customer Support</span>
+                    </div>
+                    <div class="feature-item">
+                        <i data-feather="award"></i>
+                        <span>Exclusive Offers & Discounts</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- RIGHT PANEL (FORM) -->
+        <div class="split-right">
+            <div class="form-container">
+                <div class="form-header">
+                    <h2>Create Account 🚀</h2>
+                    <p>Join CLICK2BOOK and start traveling smarter</p>
+                </div>
+                
+                <form id="createAccountForm" onsubmit="handleCreate(event)">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <div class="input-with-icon">
+                            <i data-feather="user"></i>
+                            <input type="text" class="form-control" placeholder="John Doe" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <div class="input-with-icon">
+                            <i data-feather="mail"></i>
+                            <input type="email" class="form-control" placeholder="you@example.com" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Phone Number</label>
+                        <div class="input-with-icon">
+                            <i data-feather="phone"></i>
+                            <input type="tel" class="form-control" placeholder="9876543210" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Password</label>
+                        <div class="input-with-icon">
+                            <i data-feather="lock"></i>
+                            <input type="password" class="form-control" placeholder="••••••••" required>
+                            <i data-feather="eye" class="toggle-password"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Confirm Password</label>
+                        <div class="input-with-icon">
+                            <i data-feather="lock"></i>
+                            <input type="password" class="form-control" placeholder="••••••••" required>
+                            <i data-feather="eye" class="toggle-password"></i>
+                        </div>
+                    </div>
+                    
+                    <p class="terms-text">
+                        I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+                    </p>
+                    
+                    <button type="submit" class="btn-primary">
+                        Create My Account <i data-feather="arrow-right" style="width: 18px; height: 18px;"></i>
+                    </button>
+                    
+                    <p class="auth-footer">
+                        Already have an account? <a href="login train.html">Sign In</a>
+                    </p>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        feather.replace();
+
+        function handleCreate(e) {
+            e.preventDefault();
+            // Mark new user as logged in
+            sessionStorage.setItem('trainLoggedIn', 'true');
+            // Redirect to return page (from booking flow) or default to search
+            const returnPage = sessionStorage.getItem('trainReturnPage') || 'train-search.html';
+            sessionStorage.removeItem('trainReturnPage');
+            window.location.href = returnPage;
+        }
+    </script>
+</body>
+</html>

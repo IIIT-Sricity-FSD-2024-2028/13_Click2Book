@@ -1,0 +1,515 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings | Click2Book</title>
+    <!-- Feather Icons for lightweight SVGs -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="settings-specific.css">
+</head>
+<body>
+    <div class="settings-container">
+        <!-- Header -->
+        <header class="settings-header">
+            <div class="header-left">
+                <div class="header-icon">
+                    <i data-feather="user"></i>
+                </div>
+                <div class="header-title">
+                    <h1>Settings</h1>
+                    <p>Manage your account preferences</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <a href="dashboard.html" class="btn btn-home">
+                    <i data-feather="home" style="width: 16px; height: 16px;"></i> Home
+                </a>
+                <button class="btn btn-back" onclick="history.back()">
+                    <i data-feather="arrow-left" style="width: 16px; height: 16px;"></i> Back
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="settings-content">
+            <!-- Sidebar Navigation -->
+            <aside class="settings-sidebar">
+                <nav class="sidebar-menu">
+                    <a class="menu-item active" onclick="showPane('account', this)">
+                        <i data-feather="user"></i> Account
+                    </a>
+                    <a class="menu-item" onclick="showPane('profile', this)">
+                        <i data-feather="user-check"></i> Profile
+                    </a>
+                    <a class="menu-item" onclick="showPane('security', this)">
+                        <i data-feather="lock"></i> Security
+                    </a>
+                    <a class="menu-item" onclick="showPane('notifications', this)">
+                        <i data-feather="bell"></i> Notifications
+                    </a>
+                    <a class="menu-item" onclick="showPane('payment', this)">
+                        <i data-feather="credit-card"></i> Payment
+                    </a>
+                    <a class="menu-item" onclick="showPane('help', this)">
+                        <i data-feather="help-circle"></i> Help
+                    </a>
+                    <a class="menu-item" onclick="showPane('appearance', this)">
+                        <i data-feather="sun"></i> Appearance
+                    </a>
+                    <a class="menu-item" onclick="showPane('privacy', this)">
+                        <i data-feather="shield"></i> Privacy
+                    </a>
+                </nav>
+            </aside>
+
+            <!-- Settings Panes -->
+            <main class="settings-panes-wrapper" style="flex-grow: 1;">
+                
+                <!-- Account Pane -->
+                <div id="account-pane" class="settings-pane active">
+                    <div class="settings-card">
+                        <h2>Account Information</h2>
+                        <div class="account-row">
+                            <div class="account-info">
+                                <h3>Account Type</h3>
+                                <p>Standard User</p>
+                            </div>
+                            <button class="btn-premium">Upgrade to Premium</button>
+                        </div>
+                        
+                        <div style="padding-top: 1.5rem;">
+                            <h3 style="font-size: 0.875rem; font-weight: 600; margin: 0 0 1rem 0;">Account Statistics</h3>
+                            <div class="stats-container">
+                                <div class="stat-box">
+                                    <div class="stat-number">24</div>
+                                    <div class="stat-label">Total Bookings</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-number">2</div>
+                                    <div class="stat-label">Active Trips</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-number">Jan 2024</div>
+                                    <div class="stat-label">Member Since</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <h2>Linked Accounts</h2>
+                        <div class="account-row">
+                            <div class="account-info">
+                                <h3>Google</h3>
+                                <p>rahul1@gmail.com</p>
+                            </div>
+                            <a class="link-action disconnect">Disconnect</a>
+                        </div>
+                        <div class="account-row" style="border-bottom: none; padding-bottom: 0; margin-bottom: 0;">
+                            <div class="account-info">
+                                <h3>Facebook</h3>
+                                <p>Not connected</p>
+                            </div>
+                            <a class="link-action connect">Connect</a>
+                        </div>
+                    </div>
+
+                    <div class="settings-card" style="border: 1px solid #fecaca;">
+                        <h2 class="danger-title">Danger Zone</h2>
+                        <button class="danger-btn">
+                            <i data-feather="log-out"></i> Sign Out from All Devices
+                        </button>
+                        <button class="danger-btn">
+                            <i data-feather="trash-2"></i> Delete Account Permanently
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Appearance Pane -->
+                <div id="appearance-pane" class="settings-pane">
+                    <div class="settings-card">
+                        <h2>Theme</h2>
+                        <div class="theme-selector">
+                            <div class="theme-card active">
+                                <i data-feather="sun" style="width: 28px; height: 28px;"></i>
+                                <h4>Light Mode</h4>
+                            </div>
+                            <div class="theme-card">
+                                <i data-feather="moon" style="width: 28px; height: 28px;"></i>
+                                <h4>Dark Mode</h4>
+                            </div>
+                        </div>
+                        <p class="theme-note">Coming soon: Dark mode is currently in development</p>
+                    </div>
+
+                    <div class="settings-card">
+                        <h2>Display Preferences</h2>
+                        
+                        <div class="preference-row">
+                            <div class="pref-info">
+                                <h4>Compact View</h4>
+                                <p>Show more content in less space</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        
+                        <div class="preference-row">
+                            <div class="pref-info">
+                                <h4>Show Animations</h4>
+                                <p>Enable smooth transitions and effects</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        
+                        <div class="preference-row" style="border-bottom: none; padding-bottom: 0; margin-bottom: 0;">
+                            <div class="pref-info">
+                                <h4>High Contrast</h4>
+                                <p>Increase contrast for better visibility</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Notifications Pane -->
+                <div id="notifications-pane" class="settings-pane">
+                    <div class="settings-card">
+                        <h2>Notification Preferences</h2>
+                        
+                        <h3 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem;">Channels</h3>
+                        <div class="preference-row">
+                            <div class="pref-info" style="display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-feather="mail" style="width: 16px; height: 16px; color: var(--set-text-muted);"></i>
+                                <h4>Email Notifications</h4>
+                            </div>
+                            <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+                        </div>
+                        <div class="preference-row">
+                            <div class="pref-info" style="display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-feather="smartphone" style="width: 16px; height: 16px; color: var(--set-text-muted);"></i>
+                                <h4>SMS Alerts</h4>
+                            </div>
+                            <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+                        </div>
+                        <div class="preference-row" style="border-bottom: none; padding-bottom: 0;">
+                            <div class="pref-info" style="display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-feather="bell" style="width: 16px; height: 16px; color: var(--set-text-muted);"></i>
+                                <h4>Push Notifications</h4>
+                            </div>
+                            <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+                        </div>
+
+                        <h3 style="font-size: 0.875rem; font-weight: 600; margin: 2rem 0 1rem 0;">Types</h3>
+                        <div class="preference-row">
+                            <div class="pref-info">
+                                <h4>Booking Updates</h4>
+                                <p>Trip confirmations, cancellations, and changes</p>
+                            </div>
+                            <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+                        </div>
+                        <div class="preference-row">
+                            <div class="pref-info">
+                                <h4>Offers & Promotions</h4>
+                                <p>Special deals and discount codes</p>
+                            </div>
+                            <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+                        </div>
+                        <div class="preference-row" style="border-bottom: none; padding-bottom: 0; margin-bottom: 0;">
+                            <div class="pref-info">
+                                <h4>Newsletter</h4>
+                                <p>Weekly travel tips and updates</p>
+                            </div>
+                            <label class="switch"><input type="checkbox"><span class="slider"></span></label>
+                        </div>
+
+                        <button class="btn-block-primary">Save Preferences</button>
+                    </div>
+                </div>
+
+                <!-- Payment Pane -->
+                <div id="payment-pane" class="settings-pane">
+                    <div class="settings-card">
+                        <h2>Payment Methods</h2>
+                        
+                        <div class="account-row">
+                            <div class="account-info" style="display: flex; align-items: center; gap: 0.75rem;">
+                                <i data-feather="credit-card" style="color: var(--set-text-muted);"></i>
+                                <div>
+                                    <h3 style="display: inline-block; margin-right: 0.25rem;">Debit Card</h3>
+                                    <span style="font-size: 0.75rem; color: var(--set-text-muted);">Rupay • 1234</span>
+                                </div>
+                            </div>
+                            <a class="link-action disconnect">Remove</a>
+                        </div>
+                        <div class="account-row" style="border-bottom: none; padding-bottom: 0; margin-bottom: 1.5rem;">
+                            <div class="account-info" style="display: flex; align-items: center; gap: 0.75rem;">
+                                <i data-feather="credit-card" style="color: var(--set-text-muted);"></i>
+                                <div>
+                                    <h3 style="display: inline-block; margin-right: 0.25rem;">PhonePe</h3>
+                                </div>
+                            </div>
+                            <a class="link-action disconnect">Remove</a>
+                        </div>
+
+                        <button class="btn-block-primary">Add New Payment Method</button>
+                    </div>
+                </div>
+
+                <!-- Help Pane -->
+                <div id="help-pane" class="settings-pane">
+                    <div class="settings-card">
+                        <h2>Help & Support</h2>
+                        <div class="help-list">
+                            <div class="help-item">
+                                <div class="help-item-left">
+                                    <i data-feather="mail" class="help-icon"></i>
+                                    <div class="help-text">
+                                        <h4>Contact Support</h4>
+                                        <p>Get help with your account</p>
+                                    </div>
+                                </div>
+                                <a href="#" class="help-link">Visit &rarr;</a>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-item-left">
+                                    <i data-feather="help-circle" class="help-icon"></i>
+                                    <div class="help-text">
+                                        <h4>About CLICK2BOOK</h4>
+                                        <p>Learn about our platform</p>
+                                    </div>
+                                </div>
+                                <a href="#" class="help-link">Visit &rarr;</a>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-item-left">
+                                    <i data-feather="file-text" class="help-icon"></i>
+                                    <div class="help-text">
+                                        <h4>Terms of Service</h4>
+                                        <p>Review our terms and conditions</p>
+                                    </div>
+                                </div>
+                                <a href="#" class="help-link">Visit &rarr;</a>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-item-left">
+                                    <i data-feather="shield" class="help-icon"></i>
+                                    <div class="help-text">
+                                        <h4>Privacy Policy</h4>
+                                        <p>Learn about our privacy practices</p>
+                                    </div>
+                                </div>
+                                <a href="#" class="help-link">Visit &rarr;</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-box orange">
+                        <h3><i data-feather="help-circle" style="width:18px;height:18px;"></i> Need Immediate Help?</h3>
+                        <p>Our customer support team is available 24/7 to assist you with any questions or concerns.</p>
+                        <button class="btn-sm-primary">Contact Support Now</button>
+                    </div>
+                </div>
+
+                <!-- Privacy Pane -->
+                <div id="privacy-pane" class="settings-pane">
+                    <div class="settings-card">
+                        <h2>Privacy Settings</h2>
+                        
+                        <div class="setting-section">
+                            <h4>Profile Visibility</h4>
+                            <p>Who can see your profile information</p>
+                            <select class="select-box">
+                                <option>Everyone</option>
+                                <option>Friends Only</option>
+                                <option>Private</option>
+                            </select>
+                        </div>
+                        <div class="setting-section">
+                            <h4>Search Visibility</h4>
+                            <p>Allow others to find you by email or phone</p>
+                            <select class="select-box">
+                                <option>Everyone</option>
+                                <option>None</option>
+                            </select>
+                        </div>
+                        <div class="setting-section">
+                            <h4>Activity Status</h4>
+                            <p>Show when you're active</p>
+                            <select class="select-box">
+                                <option>Everyone</option>
+                                <option>Invisible</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <h2>Data & Storage</h2>
+                        <button class="data-action-btn download">
+                            Download Your Data
+                            <i data-feather="globe" style="width:16px;height:16px;color:var(--set-text-muted);"></i>
+                        </button>
+                        <button class="data-action-btn delete">
+                            Delete My Account
+                        </button>
+                    </div>
+
+                    <div class="info-box blue">
+                        <h3><i data-feather="info" style="width:18px;height:18px;"></i> Privacy Information</h3>
+                        <p>Learn more about how we protect your privacy and handle your data.</p>
+                        <a href="#" class="help-link">Read Privacy Policy &rarr;</a>
+                    </div>
+                </div>
+
+                <!-- Profile Pane -->
+                <div id="profile-pane" class="settings-pane">
+                    <div class="settings-card">
+                        <h2>Profile Information</h2>
+                        
+                        <div class="profile-pic-area">
+                            <div class="profile-avatar">RS</div>
+                            <div class="profile-pic-actions">
+                                <h4>Profile Picture</h4>
+                                <div class="profile-pic-btn-group">
+                                    <button class="btn-premium">Upload New</button>
+                                    <a class="link-action" style="color: var(--set-text-muted);">Remove</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Full Name</label>
+                            <div class="form-input-wrapper">
+                                <i data-feather="user" class="icon-left" style="width:18px; height:18px;"></i>
+                                <input type="text" class="form-input" value="Rahul">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Email Address</label>
+                            <div class="form-input-wrapper">
+                                <i data-feather="mail" class="icon-left" style="width:18px; height:18px;"></i>
+                                <input type="email" class="form-input" value="rahul1@email.com">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Phone Number</label>
+                            <div class="form-input-wrapper">
+                                <i data-feather="smartphone" class="icon-left" style="width:18px; height:18px;"></i>
+                                <input type="text" class="form-input" value="+91 98765 43210">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Language</label>
+                            <div class="form-input-wrapper">
+                                <i data-feather="type" class="icon-left" style="width:18px; height:18px;"></i>
+                                <input type="text" class="form-input" placeholder="">
+                            </div>
+                        </div>
+
+                        <button class="btn-block-primary" style="display:flex; justify-content:center; align-items:center; gap:0.5rem; margin-top: 2rem;">
+                            <i data-feather="save" style="width:18px; height:18px;"></i> Save Changes
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Security Pane -->
+                <div id="security-pane" class="settings-pane">
+                    <div class="settings-card">
+                        <h2>Change Password</h2>
+
+                        <div class="form-group">
+                            <label class="form-label">Current Password</label>
+                            <div class="form-input-wrapper">
+                                <i data-feather="lock" class="icon-left" style="width:18px; height:18px;"></i>
+                                <input type="password" class="form-input has-right-icon" placeholder="Enter current password">
+                                <i data-feather="eye" class="icon-right" style="width:18px; height:18px;"></i>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">New Password</label>
+                            <div class="form-input-wrapper">
+                                <i data-feather="lock" class="icon-left" style="width:18px; height:18px;"></i>
+                                <input type="password" class="form-input has-right-icon" placeholder="Enter new password">
+                                <i data-feather="eye" class="icon-right" style="width:18px; height:18px;"></i>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Confirm New Password</label>
+                            <div class="form-input-wrapper">
+                                <i data-feather="lock" class="icon-left" style="width:18px; height:18px;"></i>
+                                <input type="password" class="form-input has-right-icon" placeholder="Confirm new password">
+                                <i data-feather="eye" class="icon-right" style="width:18px; height:18px;"></i>
+                            </div>
+                        </div>
+
+                        <button class="btn-blue" style="margin-top: 1rem;">Update Password</button>
+                    </div>
+
+                    <div class="settings-card">
+                        <h2>Two-Factor Authentication</h2>
+                        <p style="font-size: 0.875rem; color: var(--set-text-muted); margin-bottom: 1rem;">Add an extra layer of security to your account by enabling two-factor authentication.</p>
+                        <button class="btn-success-light">Enable 2FA</button>
+                    </div>
+
+                    <div class="settings-card">
+                        <h2>Active Sessions</h2>
+                        
+                        <div class="account-row">
+                            <div class="account-info">
+                                <h3 style="font-size: 0.875rem; color: #111827;">Chrome on Windows</h3>
+                                <p>Mumbai, India • Active now</p>
+                            </div>
+                            <a class="link-action disconnect">Revoke</a>
+                        </div>
+                        <div class="account-row" style="border-bottom: none; padding-bottom: 0; margin-bottom: 0;">
+                            <div class="account-info">
+                                <h3 style="font-size: 0.875rem; color: #111827;">Safari on iPhone</h3>
+                                <p>Mumbai, India • 2 hours ago</p>
+                            </div>
+                            <a class="link-action disconnect">Revoke</a>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <script>
+        feather.replace();
+
+        // Simple script to toggle panes
+        function showPane(paneId, element) {
+            // Update active menu item
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+
+            // Hide all panes
+            document.querySelectorAll('.settings-pane').forEach(el => el.classList.remove('active'));
+
+            // Show selected pane
+            const targetPane = document.getElementById(paneId + '-pane');
+            if(targetPane) {
+                targetPane.classList.add('active');
+            }
+        }
+    </script>
+
+  <!-- ═══ CRUD Engine (localStorage + Data Manager panel) ═══ -->
+  <script src="../crud functions/js/mock_data.js"></script>
+  <script src="../crud functions/js/script.js"></script>
+  <script src="../crud functions/js/ui-shared.js"></script>
+  <script src="../crud functions/js/ui-provider.js"></script>
+</body>
+</html>
+

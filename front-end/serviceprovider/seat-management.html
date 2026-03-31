@@ -1,0 +1,196 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seat Management | Click2Book</title>
+    <!-- Feather Icons for lightweight SVGs -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="dashboard-specific.css">
+</head>
+<body>
+    <!-- Notification Popup -->
+    <div class="notif-overlay" id="notifOverlay" onclick="closeNotif()"></div>
+    <div class="notif-panel" id="notifPanel" style="display:none;">
+        <div class="notif-panel-header">
+            <h3>Notifications <span class="notif-count-badge">3</span></h3>
+            <button class="notif-close-btn" onclick="closeNotif()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="notif-list">
+            <div class="notif-item unread"><div class="notif-icon-wrap info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="notif-text"><h4>New Booking Received</h4><p>3 new seat bookings on SriCity → Chennai route (06:00 AM trip).</p><time>5 mins ago</time></div></div>
+            <div class="notif-item unread"><div class="notif-icon-wrap warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="notif-text"><h4>Seat Capacity Alert</h4><p>Tada → Hyderabad (09:00 AM) is now fully booked. 40/40 seats taken.</p><time>30 mins ago</time></div></div>
+            <div class="notif-item unread"><div class="notif-icon-wrap success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div class="notif-text"><h4>Trip Confirmed</h4><p>Pune → Mumbai (20:00) trip has been confirmed by the system.</p><time>1 hour ago</time></div></div>
+        </div>
+        <div class="notif-panel-footer"><a href="#">View all notifications &rarr;</a></div>
+    </div>
+    <div class="dash-layout">
+        <!-- Sidebar -->
+        <aside class="dash-sidebar">
+            <div class="dash-sidebar-header">
+                <div class="logo-icon">
+                    <i data-feather="truck"></i>
+                </div>
+                <div class="logo-text">
+                    <div class="main-title">Provider Panel</div>
+                    <div class="sub-title">Click2Book</div>
+                </div>
+            </div>
+
+            <div class="dash-user-profile">
+                <div class="avatar">KT</div>
+                <div class="user-info">
+                    <h4>Kiran Travels</h4>
+                    <p>Service Provider</p>
+                </div>
+            </div>
+
+            <nav class="dash-nav-menu">
+                <a href="dashboard.html" class="nav-link">
+                    <i data-feather="grid"></i> Dashboard
+                </a>
+                <a href="manage-schedules.html" class="nav-link">
+                    <i data-feather="calendar"></i> Manage Schedules
+                </a>
+                <a href="add-schedule.html" class="nav-link">
+                    <i data-feather="plus"></i> Add Schedule
+                </a>
+                <a href="confirm-trips.html" class="nav-link">
+                    <i data-feather="check-circle"></i> Confirm Trips
+                </a>
+                <a href="seat-management.html" class="nav-link active">
+                    <i data-feather="users"></i> Seat Management
+                </a>
+            </nav>
+
+            <div class="dash-sidebar-bottom">
+                <a href="../staff-access.html" class="nav-link"><i data-feather="shield"></i> Staff Portal
+                </a>
+                <a href="settings.html" class="nav-link">
+                    <i data-feather="settings"></i> Settings
+                </a>
+                <a href="../landing page/index.html" class="nav-link logout">
+                    <i data-feather="log-out"></i> Logout
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="dash-main-content">
+            <!-- Topbar Equivalent (Title area) -->
+            <header class="dash-header" style="display:flex; align-items:center; justify-content:space-between;">
+                <div class="page-title">
+                    <h2>Seat Management</h2>
+                    <p>Service Provider Portal</p>
+                </div>
+                <div class="notif-bell-btn" id="bellBtn" onclick="toggleNotif()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                    <span class="notif-count-dot">3</span>
+                </div>
+            </header>
+
+            <div class="dash-content-wrapper">
+                <div class="page-header-actions">
+                    <div>
+                        <h3>Seat Management</h3>
+                        <p>View and manage seat availability</p>
+                    </div>
+                </div>
+                
+                <p style="color: #4b5563; font-size: 0.875rem; margin-bottom: 1.5rem;">Select a schedule to manage seats:</p>
+
+                <!-- seat card 1 -->
+                <div class="seat-mg-card">
+                    <div class="seat-mg-header">
+                        <div>
+                            <div class="seat-mg-title">SriCity &rarr; Chennai</div>
+                            <div class="seat-mg-sub">06:00 &middot; Volvo A/C B12</div>
+                        </div>
+                        <div class="seat-mg-stats">
+                            <div class="seat-mg-count">32/40</div>
+                            <div class="seat-mg-label">Booked/Total</div>
+                        </div>
+                    </div>
+                    <div class="seat-mg-progress">
+                        <div class="seat-mg-bar green" style="width: 80%;"></div>
+                    </div>
+                </div>
+
+                <!-- seat card 2 -->
+                <div class="seat-mg-card">
+                    <div class="seat-mg-header">
+                        <div>
+                            <div class="seat-mg-title">Tada &rarr; Vizag</div>
+                            <div class="seat-mg-sub">14:00 &middot; Scania AC</div>
+                        </div>
+                        <div class="seat-mg-stats">
+                            <div class="seat-mg-count">28/45</div>
+                            <div class="seat-mg-label">Booked/Total</div>
+                        </div>
+                    </div>
+                    <div class="seat-mg-progress">
+                        <div class="seat-mg-bar green" style="width: 62%;"></div>
+                    </div>
+                </div>
+
+                <!-- seat card 3 -->
+                <div class="seat-mg-card">
+                    <div class="seat-mg-header">
+                        <div>
+                            <div class="seat-mg-title">Tada &rarr; Hyderabad</div>
+                            <div class="seat-mg-sub">09:00 &middot; Volvo A/C B12</div>
+                        </div>
+                        <div class="seat-mg-stats">
+                            <div class="seat-mg-count">40/40</div>
+                            <div class="seat-mg-label">Booked/Total</div>
+                        </div>
+                    </div>
+                    <div class="seat-mg-progress">
+                        <div class="seat-mg-bar red" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <!-- seat card 4 -->
+                <div class="seat-mg-card">
+                    <div class="seat-mg-header">
+                        <div>
+                            <div class="seat-mg-title">Pune &rarr; Mumbai</div>
+                            <div class="seat-mg-sub">20:00 &middot; Sleeper Bus</div>
+                        </div>
+                        <div class="seat-mg-stats">
+                            <div class="seat-mg-count">15/36</div>
+                            <div class="seat-mg-label">Booked/Total</div>
+                        </div>
+                    </div>
+                    <div class="seat-mg-progress">
+                        <div class="seat-mg-bar green" style="width: 41%;"></div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        feather.replace();
+        function toggleNotif() {
+            var panel = document.getElementById('notifPanel');
+            var overlay = document.getElementById('notifOverlay');
+            var isOpen = panel.style.display === 'block';
+            panel.style.display = isOpen ? 'none' : 'block';
+            overlay.style.display = isOpen ? 'none' : 'block';
+        }
+        function closeNotif() {
+            document.getElementById('notifPanel').style.display = 'none';
+            document.getElementById('notifOverlay').style.display = 'none';
+        }
+    </script>
+
+  <!-- ═══ CRUD Engine (localStorage + Data Manager panel) ═══ -->
+  <script src="../crud functions/js/mock_data.js"></script>
+  <script src="../crud functions/js/script.js"></script>
+  <script src="../crud functions/js/ui-shared.js"></script>
+  <script src="../crud functions/js/ui-provider.js"></script>
+</body>
+</html>
+

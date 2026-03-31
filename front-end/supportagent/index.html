@@ -1,0 +1,202 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Support Dashboard – Click2Book</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<!-- Notification Popup -->
+<div class="notif-overlay" id="notifOverlay" onclick="closeNotif()"></div>
+<div class="notif-panel" id="notifPanel" style="display:none;">
+  <div class="notif-panel-header">
+    <h3>Notifications <span class="notif-count-badge">4</span></h3>
+    <button class="notif-close-btn" onclick="closeNotif()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="notif-list">
+    <div class="notif-item unread"><div class="notif-icon-wrap urgent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="notif-text"><h4>New Escalated Ticket</h4><p>TKT006 – Seat double booked on Rajdhani Express. Priority: High</p><time>Just now</time></div></div>
+    <div class="notif-item unread"><div class="notif-icon-wrap warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="notif-text"><h4>SLA Breach Warning</h4><p>TKT001 has been open for 48 hours without resolution.</p><time>15 mins ago</time></div></div>
+    <div class="notif-item unread"><div class="notif-icon-wrap info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="notif-text"><h4>Customer Reply</h4><p>Rahul Sharma replied to ticket TKT001 with new information.</p><time>30 mins ago</time></div></div>
+    <div class="notif-item unread"><div class="notif-icon-wrap success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div class="notif-text"><h4>Ticket Resolved</h4><p>TKT003 (Bus arrived 2 hours late) marked as Resolved by Agent.</p><time>1 hour ago</time></div></div>
+  </div>
+  <div class="notif-panel-footer"><a href="#">View all notifications &rarr;</a></div>
+</div>
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">SP</div>
+      <div><div class="brand-title">Support Panel</div><div class="brand-sub">Click2Book</div></div>
+    </div>
+    <div class="agent-profile">
+      <div class="agent-avatar">SA</div>
+      <div><div class="agent-name">Support Agent</div><div class="agent-status">&#9679; Online</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" href="index.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+      <a class="nav-item" href="tickets.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Support Tickets
+        <span class="nav-badge">2</span>
+      </a>
+      <a class="nav-item" href="escalated.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Escalated Issues
+      </a>
+    </nav>
+    <div class="sidebar-bottom">
+      <a class="nav-item" href="../landing page/staff-access.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Staff Portal
+      </a>
+      <a class="nav-item" href="#">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M4.93 4.93a10 10 0 0 0 14.14 14.14"/></svg>
+        Settings
+      </a>
+      <a class="nav-item danger" href="#" onclick="doLogout()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Logout
+      </a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Support Dashboard</h1>
+        <p>Customer Support Portal</p>
+      </div>
+      <div class="topbar-right">
+        <div class="notif-btn" id="bellBtn" onclick="toggleNotif()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <div class="notif-count-dot">4</div>
+        </div>
+        <div class="topbar-avatar">SA</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- STAT CARDS -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-trend">&#8593; +3</div>
+          <div class="stat-icon orange">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2.2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <div class="stat-value">12</div>
+          <div class="stat-label">Open Tickets</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-trend" style="color:#3b82f6">&#8593;</div>
+          <div class="stat-icon blue">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="stat-value" style="color:#3b82f6">8</div>
+          <div class="stat-label">In Progress</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-trend">&#8593; +8</div>
+          <div class="stat-icon green">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="stat-value" style="color:#16a34a">24</div>
+          <div class="stat-label">Resolved Today</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-trend" style="color:#e11d48">&#8593; +1</div>
+          <div class="stat-icon red">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div class="stat-value" style="color:#e11d48">3</div>
+          <div class="stat-label">Escalated</div>
+        </div>
+      </div>
+
+      <!-- RECENT TICKETS -->
+      <div class="table-card">
+        <div class="table-header">
+          <h2>Recent Tickets</h2>
+          <a class="btn-view-all" href="tickets.html">View All &#8594;</a>
+        </div>
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Customer</th><th>Subject</th><th>Priority</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="ticket-id">TKT001</span></td>
+              <td><span class="customer-name">Rahul Sharma</span></td>
+              <td>Booking not confirmed after payment</td>
+              <td><span class="badge badge-high">High</span></td>
+              <td><span class="badge badge-open">Open</span></td>
+            </tr>
+            <tr>
+              <td><span class="ticket-id">TKT002</span></td>
+              <td><span class="customer-name">Priya Patel</span></td>
+              <td>Refund not received after 7 days</td>
+              <td><span class="badge badge-high">High</span></td>
+              <td><span class="badge badge-inprogress">In Progress</span></td>
+            </tr>
+            <tr>
+              <td><span class="ticket-id">TKT003</span></td>
+              <td><span class="customer-name">Kiran Kumar</span></td>
+              <td>Bus arrived 2 hours late</td>
+              <td><span class="badge badge-medium">Medium</span></td>
+              <td><span class="badge badge-resolved">Resolved</span></td>
+            </tr>
+            <tr>
+              <td><span class="ticket-id">TKT004</span></td>
+              <td><span class="customer-name">Meera Singh</span></td>
+              <td>Seat was different from what I selected</td>
+              <td><span class="badge badge-high">High</span></td>
+              <td><span class="badge badge-escalated">Escalated</span></td>
+            </tr>
+            <tr>
+              <td><span class="ticket-id">TKT005</span></td>
+              <td><span class="customer-name">Vijay Menon</span></td>
+              <td>App crashes during payment</td>
+              <td><span class="badge badge-low">Low</span></td>
+              <td><span class="badge badge-open">Open</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast-container"></div>
+<script>
+  function doLogout() {
+    if (confirm('Are you sure you want to logout?')) {
+      window.location.href = '../landing page/index.html';
+    }
+  }
+  function toggleNotif() {
+    var panel = document.getElementById('notifPanel');
+    var overlay = document.getElementById('notifOverlay');
+    var isOpen = panel.style.display === 'block';
+    panel.style.display = isOpen ? 'none' : 'block';
+    overlay.style.display = isOpen ? 'none' : 'block';
+  }
+  function closeNotif() {
+    document.getElementById('notifPanel').style.display = 'none';
+    document.getElementById('notifOverlay').style.display = 'none';
+  }
+</script>
+
+  <!-- ═══ CRUD Engine (localStorage + Data Manager panel) ═══ -->
+  <script src="../crud functions/js/mock_data.js"></script>
+  <script src="../crud functions/js/script.js"></script>
+  <script src="../crud functions/js/ui-shared.js"></script>
+  <script src="../crud functions/js/ui-support.js"></script>
+</body>
+</html>
+

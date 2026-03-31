@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Provider Login | Click2Book</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Feather Icons for lightweight SVGs -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="provider-auth-layout">
+
+        <!-- Left Side: Login Form -->
+        <div class="provider-auth-left">
+            <a href="../landing page/index.html" class="provider-home-btn">
+                <i data-feather="home" style="width: 16px; height: 16px;"></i> Home
+            </a>
+
+            <div class="provider-form-wrapper">
+                <div class="provider-logo-container">
+                    <div class="provider-logo-icon">
+                        <i data-feather="truck" style="color: white; fill: white; width: 24px; height: 24px;"></i>
+                    </div>
+                    <div class="provider-logo-text">
+                        <div class="main-text">CLICK<span>2</span>BOOK</div>
+                        <div class="sub-text">PROVIDER ACCESS</div>
+                    </div>
+                </div>
+
+                <div class="provider-titles">
+                    <h1>Provider Login</h1>
+                    <p>Access your fleet management dashboard</p>
+                </div>
+
+                <div class="system-status-card">
+                    <div class="status-left">
+                        <span class="status-label">SYSTEM STATUS</span>
+                        <div class="status-message">
+                            <span class="status-dot"></span> All Systems Operational
+                        </div>
+                    </div>
+                    <div class="status-right">
+                        <div class="uptime-value">98%</div>
+                        <div class="uptime-label">Uptime</div>
+                    </div>
+                </div>
+
+                <form class="provider-login-form" action="dashboard.html" method="GET">
+                    <div class="provider-form-group">
+                        <label for="email">Provider Email</label>
+                        <div class="provider-input-wrapper">
+                            <i data-feather="mail" class="input-icon"></i>
+                            <input type="email" id="email" placeholder="provider@company.com" required>
+                        </div>
+                    </div>
+
+                    <div class="provider-form-group">
+                        <label for="password">Password</label>
+                        <div class="provider-input-wrapper">
+                            <i data-feather="lock" class="input-icon"></i>
+                            <input type="password" id="password" placeholder="Enter your password" required>
+                            <i data-feather="eye" class="toggle-password"></i>
+                        </div>
+                    </div>
+
+                    <div class="provider-form-options">
+                        <label class="provider-checkbox">
+                            <input type="checkbox" id="remember">
+                            <span>Remember me</span>
+                        </label>
+                        <a href="#" class="provider-forgot">Forgot Password?</a>
+                    </div>
+
+                    <button type="submit" class="provider-submit-btn">
+                        <i data-feather="truck"></i> Access Provider Dashboard
+                    </button>
+                </form>
+
+                <div class="provider-footer-note">
+                    🚌 Powering seamless travel experiences across the network
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Info Panel -->
+        <div class="provider-auth-right">
+            <!-- Vertical decorative line -->
+            <div class="vertical-line"></div>
+
+            <div class="right-content-wrapper">
+                <div class="portal-badge">
+                    <i data-feather="truck"></i> Service Provider Portal
+                </div>
+
+                <h1 class="right-heading">Manage Your<br>Fleet & Routes</h1>
+                <p class="right-description">Complete control over schedules, bookings, and<br>seat management for your
+                    transportation services.</p>
+
+                <div class="stats-grid-container">
+                    <div class="stat-box">
+                        <div class="stat-box-header">
+                            <i data-feather="map-pin"></i> Active Routes
+                        </div>
+                        <div class="stat-box-value">6</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-box-header">
+                            <i data-feather="calendar"></i> Today's Trips
+                        </div>
+                        <div class="stat-box-value">12</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-box-header">
+                            <i data-feather="users"></i> Seat Bookings
+                        </div>
+                        <div class="stat-box-value">277</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-box-header">
+                            <i data-feather="trending-up"></i> Revenue
+                        </div>
+                        <div class="stat-box-value">10,982/-</div>
+                    </div>
+                </div>
+
+                <ul class="features-bullet-list">
+                    <li>Real-time seat availability updates</li>
+                    <li>Comprehensive booking management</li>
+                    <li>Schedule & route optimization</li>
+                    <li>Performance analytics & reports</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        feather.replace();
+    </script>
+</body>
+
+</html>

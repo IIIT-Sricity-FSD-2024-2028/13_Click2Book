@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Terms of Service – Click2Book</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--p:#f97316;--pd:#ea580c;--pl:rgba(249,115,22,.1)}
+    body{font-family:'Inter',sans-serif;background:#f8fafc;color:#0f172a;line-height:1.7}
+    .nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 6%;background:rgba(10,15,30,.92);backdrop-filter:blur(18px);border-bottom:1px solid rgba(255,255,255,.08)}
+    .logo{display:flex;align-items:center;gap:9px;text-decoration:none}
+    .logo-i{width:34px;height:34px;border-radius:9px;background:var(--p);display:flex;align-items:center;justify-content:center}
+    .logo-t{font-size:1.05rem;font-weight:800;color:#fff}.logo-t span{color:var(--p)}
+    .nav-links{display:flex;gap:24px;list-style:none}
+    .nav-links a{font-size:.83rem;font-weight:500;color:rgba(255,255,255,.75);text-decoration:none;transition:color .2s}
+    .nav-links a:hover{color:var(--p)}
+    .btn-nav{padding:9px 20px;border-radius:50px;background:var(--p);color:#fff;font-family:'Inter',sans-serif;font-size:.83rem;font-weight:700;border:none;cursor:pointer;text-decoration:none}
+    /* LAYOUT */
+    .page{max-width:820px;margin:0 auto;padding:108px 24px 80px}
+    /* BANNER */
+    .banner{background:linear-gradient(135deg,var(--p) 0%,var(--pd) 100%);border-radius:16px;padding:28px 32px;margin-bottom:32px;position:relative;overflow:hidden}
+    .banner::after{content:'📋';position:absolute;right:28px;top:50%;transform:translateY(-50%);font-size:3rem;opacity:.2}
+    .banner-tag{font-size:.7rem;font-weight:700;color:rgba(255,255,255,.8);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+    .banner-t{font-size:1.5rem;font-weight:900;color:#fff;margin-bottom:6px}
+    .banner-s{font-size:.82rem;color:rgba(255,255,255,.8)}
+    /* NOTICE */
+    .notice{background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:14px 18px;margin-bottom:28px;display:flex;gap:10px;align-items:flex-start;font-size:.81rem;color:#92400e}
+    .notice svg{flex-shrink:0;margin-top:2px}
+    /* CONTENT CARD */
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:36px;box-shadow:0 2px 12px rgba(0,0,0,.05);margin-bottom:24px}
+    h2{font-size:1.05rem;font-weight:800;color:#0f172a;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid #f1f5f9;display:flex;align-items:center;gap:8px}
+    h2 span{background:var(--pl);color:var(--p);width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;flex-shrink:0}
+    p{font-size:.84rem;color:#475569;margin-bottom:10px;line-height:1.8}
+    ul{list-style:none;display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+    ul li{font-size:.83rem;color:#475569;display:flex;align-items:flex-start;gap:8px;line-height:1.7}
+    ul li::before{content:'→';color:var(--p);font-weight:700;flex-shrink:0;margin-top:1px}
+    /* FOOTER LINKS */
+    .flinks-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:28px}
+    .flink-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:16px;text-align:center;text-decoration:none;transition:all .2s}
+    .flink-card:hover{border-color:var(--p);box-shadow:0 4px 14px rgba(249,115,22,.12)}
+    .flc-i{font-size:1.5rem;margin-bottom:6px}
+    .flc-t{font-size:.82rem;font-weight:700;color:#0f172a;margin-bottom:3px}
+    .flc-s{font-size:.72rem;color:#64748b}
+    /* CTA */
+    .cta{background:linear-gradient(135deg,#0f1f3d,#1e3a5f);border-radius:14px;padding:26px 28px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+    .cta-t{font-size:1rem;font-weight:800;color:#fff;margin-bottom:4px}
+    .cta-s{font-size:.8rem;color:rgba(255,255,255,.65)}
+    .cta-btn{padding:11px 24px;border-radius:50px;background:var(--p);color:#fff;font-family:'Inter',sans-serif;font-size:.85rem;font-weight:700;border:none;cursor:pointer;text-decoration:none;white-space:nowrap;transition:background .2s}
+    .cta-btn:hover{background:var(--pd)}
+    /* FOOTER */
+    .fline{text-align:center;margin-top:24px;font-size:.74rem;color:#94a3b8}
+    .fline a{color:var(--p);text-decoration:none}
+    @media(max-width:600px){.nav-links{display:none}.flinks-row{grid-template-columns:1fr 1fr}.cta{flex-direction:column;text-align:center}}
+  </style>
+</head>
+<body>
+<nav class="nav">
+  <a href="index.html" class="logo"><div class="logo-i"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="8" width="20" height="12" rx="3" fill="white" opacity=".9"/><rect x="5" y="5" width="14" height="5" rx="2" fill="white" opacity=".6"/><circle cx="6.5" cy="20" r="1.5" fill="#f97316"/><circle cx="17.5" cy="20" r="1.5" fill="#f97316"/></svg></div><span class="logo-t">CLICK<span>2</span>BOOK</span></a>
+  <ul class="nav-links"><li><a href="index.html">Home</a></li><li><a href="about.html">About</a></li><li><a href="offers.html">Offers</a></li></ul>
+  <a href="login.html" class="btn-nav">Sign In →</a>
+</nav>
+
+<div class="page">
+  <div class="banner"><div class="banner-tag">Legal · Last Updated: March 1, 2026</div><div class="banner-t">Terms of Service</div><div class="banner-s">Please read these terms carefully before using Click2Book. By using our platform, you agree to be bound by these terms.</div></div>
+
+  <div class="notice"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg><span><strong>Important Notice:</strong> These Terms of Service govern your use of the Click2Book platform and services. By creating an account or making a booking, you agree to these terms. If you do not agree, please do not use our services.</span></div>
+
+  <div class="card">
+    <h2><span>1</span>Acceptance of Terms</h2>
+    <p>Welcome to Click2Book! By accessing or using our website, mobile application, or any related services, you ("User") agree to be legally bound by these Terms of Service ("Terms") with Click2Book Technologies Pvt. Ltd. ("Company", "we", "us").</p>
+    <ul><li>You must be at least 18 years of age to use this platform independently.</li><li>If you are using this service on behalf of an organization, you warrant you have the authority to bind that organization.</li><li>Continued use of the platform after any modifications to Terms constitutes acceptance of the revised Terms.</li></ul>
+  </div>
+
+  <div class="card">
+    <h2><span>2</span>User Account &amp; Registration</h2>
+    <p>To access booking features, you must create a Click2Book account. By registering, you agree to:</p>
+    <ul><li>Provide accurate, current, and complete registration information at all times.</li><li>Maintain the security of your password and accept responsibility for all activities under your account.</li><li>Notify us immediately of any unauthorized use of your account at support@click2book.in.</li><li>Not share your account credentials with any third party or allow anyone else to access your account.</li></ul>
+  </div>
+
+  <div class="card">
+    <h2><span>3</span>Booking &amp; Payment</h2>
+    <p>All bookings made on Click2Book are subject to seat availability and operator confirmation. By completing a booking, you agree that:</p>
+    <ul><li>Ticket prices displayed include all applicable taxes unless stated otherwise. A convenience fee of ₹25 per booking may apply.</li><li>Payment must be completed within the session timeout window (15 minutes) or the booking will be released.</li><li>Click2Book acts as an intermediary between passengers and bus operators. We are not the carrier.</li><li>In case of operator cancellations, refunds will be processed within 7 business days to the original payment method.</li></ul>
+  </div>
+
+  <div class="card">
+    <h2><span>4</span>Cancellation &amp; Refund Policy</h2>
+    <p>Cancellations are subject to the bus operator's policy. Standard Click2Book cancellation guidelines:</p>
+    <ul><li>Cancellations made 48+ hours before departure: Full refund minus ₹50 cancellation fee.</li><li>Cancellations made 24–48 hours before departure: 50% refund of the ticket amount.</li><li>Cancellations within 24 hours of departure: No refund applicable.</li><li>Refunds are credited back to the original payment method within 5–7 business days.</li><li>Click2Book Wallet refunds are processed instantly and can be used for future bookings.</li></ul>
+  </div>
+
+  <div class="card">
+    <h2><span>5</span>User Responsibilities</h2>
+    <p>As a user of Click2Book, you agree to use the platform responsibly. You must not:</p>
+    <ul><li>Use the platform to make fraudulent bookings or provide false passenger information.</li><li>Attempt to reverse engineer, scrape, or access our systems through automated means without permission.</li><li>Resell or transfer tickets obtained through our platform for commercial gain without written consent.</li><li>Engage in any conduct that restricts or inhibits other users' enjoyment of the platform.</li></ul>
+  </div>
+
+  <div class="card">
+    <h2><span>6</span>Intellectual Property</h2>
+    <p>All content on the Click2Book platform — including logos, designs, text, software, and data — is the exclusive property of Click2Book Technologies Pvt. Ltd. and protected by applicable intellectual property laws.</p>
+    <ul><li>You may not reproduce, distribute, or create derivative works without explicit written permission.</li><li>User-generated content (reviews, feedback) grants us a non-exclusive license to use it for service improvement.</li></ul>
+  </div>
+
+  <div class="card">
+    <h2><span>7</span>Limitation of Liability</h2>
+    <p>Click2Book's liability is limited to the extent permitted by applicable law. We are not liable for:</p>
+    <ul><li>Delays, cancellations, or service disruptions caused by bus operators, weather, or force majeure events.</li><li>Loss of baggage, personal injury, or any incident occurring during actual travel on the bus.</li><li>Indirect, incidental, or consequential damages arising from use of the platform, to the maximum extent permitted by law.</li><li>Our total liability for any claim shall not exceed the amount paid for the specific booking in question.</li></ul>
+  </div>
+
+  <div class="card">
+    <h2><span>8</span>Privacy &amp; Data Protection</h2>
+    <p>Your privacy is important to us. Our collection and use of personal information is governed by our <a href="privacy.html" style="color:var(--p);font-weight:600">Privacy Policy</a>, which is incorporated into these Terms by reference. Key points:</p>
+    <ul><li>We collect only the data necessary to provide our booking services.</li><li>Your payment data is never stored on our servers — all transactions are processed by PCI-DSS certified payment gateways.</li><li>We do not sell your personal data to third parties for marketing purposes.</li></ul>
+  </div>
+
+  <div class="card">
+    <h2><span>9</span>Modifications to Terms</h2>
+    <p>We reserve the right to modify these Terms at any time. We will notify users of material changes via email or a prominent notice on our platform at least 14 days before the changes take effect.</p>
+    <ul><li>Your continued use of the platform after the effective date constitutes acceptance of the revised Terms.</li><li>If you do not agree to the modified Terms, you must discontinue use and close your account.</li></ul>
+  </div>
+
+  <div class="card">
+    <h2><span>10</span>Governing Law &amp; Disputes</h2>
+    <p>These Terms shall be governed by and construed in accordance with the laws of India. Any disputes arising shall be subject to the exclusive jurisdiction of courts in Hyderabad, Telangana, India.</p>
+    <ul><li>We encourage users to first contact our support team at support@click2book.in to resolve disputes amicably.</li><li>For unresolved disputes, binding arbitration under the Arbitration and Conciliation Act, 1996 shall apply.</li></ul>
+  </div>
+
+  <!-- QUICK LINKS -->
+  <div class="flinks-row">
+    <a href="privacy.html" class="flink-card"><div class="flc-i">🔒</div><div class="flc-t">Privacy Policy</div><div class="flc-s">How we handle your data</div></a>
+    <a href="about.html" class="flink-card"><div class="flc-i">ℹ️</div><div class="flc-t">About Click2Book</div><div class="flc-s">Our story and mission</div></a>
+    <a href="customer/get-support.html" class="flink-card"><div class="flc-i">🎧</div><div class="flc-t">Contact Support</div><div class="flc-s">Get help from our team</div></a>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta">
+    <div><div class="cta-t">Questions About Our Terms?</div><div class="cta-s">Our legal team is happy to clarify any questions you may have.</div></div>
+    <a href="customer/get-support.html" class="cta-btn">Contact Support →</a>
+  </div>
+
+  <div class="fline">© 2026 Click2Book Technologies Pvt. Ltd. · <a href="index.html">Home</a> · <a href="privacy.html">Privacy Policy</a></div>
+</div>
+</body>
+</html>

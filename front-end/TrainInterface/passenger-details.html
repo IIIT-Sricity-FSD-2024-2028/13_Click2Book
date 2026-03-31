@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passenger Details | Click2Book</title>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="user-styles.css">
+    <link rel="stylesheet" href="user-dashboard.css">
+    <style>
+        .stepper-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            max-width: 600px;
+            margin: 0 auto 2rem;
+            position: relative;
+        }
+        .step-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            z-index: 2;
+        }
+        .step-circle {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.8rem; font-weight: 700;
+            background: #F3F4F6; color: #9CA3AF;
+            margin-bottom: 0.5rem; border: 2px solid #E5E7EB;
+        }
+        .step-circle.completed { background: #DCFCE7; color: #16A34A; border-color: #16A34A; }
+        .step-circle.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .step-label { font-size: 0.75rem; font-weight: 600; color: #9CA3AF; }
+        .step-label.completed { color: #16A34A; }
+        .step-label.active { color: var(--primary); }
+        
+        .step-line {
+            flex: 1; height: 2px;
+            background: #E5E7EB;
+            margin: 0 1rem; position: relative; top: -10px;
+        }
+        .step-line.completed { background: #16A34A; }
+        
+        .back-btn-top {
+            position: absolute; left: 0; top: 0;
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            border: 1px solid var(--primary-light);
+            background: #FFF7ED; color: var(--primary);
+            font-weight: 600; font-size: 0.875rem;
+            text-decoration: none;
+        }
+
+        .booking-form-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 2.5rem;
+        }
+        .b-card-header h2 { font-size: 1.5rem; font-weight: 800; color: #111827; margin: 0 0 0.25rem 0; }
+        .b-card-header p { font-size: 0.875rem; color: #6B7280; margin: 0 0 2rem 0; }
+        
+        .gender-group {
+            display: flex; gap: 1rem;
+        }
+        .gender-btn {
+            flex: 1; padding: 0.75rem;
+            text-align: center; border-radius: 8px;
+            border: 1px solid #E5E7EB; color: #6B7280;
+            font-weight: 600; cursor: pointer; transition: all 0.2s;
+            background: white; font-size: 0.875rem;
+        }
+        .gender-btn.active {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: #FFF7ED;
+        }
+
+        .user-main-content .form-group label {
+            font-size: 0.75rem; font-weight: 700; color: #374151;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            margin-bottom: 0.5rem; display: block;
+        }
+        .user-main-content .input-with-icon .form-control {
+            background: #F8FAFC; border: 1px solid #E2E8F0; color: #111827;
+        }
+        .user-main-content .input-with-icon svg { color: #9CA3AF; }
+    </style>
+</head>
+<body>
+    <div class="user-dash-layout">
+        <!-- Sidebar -->
+        <aside class="user-sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <div class="icon"><i data-feather="truck" style="color: white; width: 18px; height: 18px;"></i></div>
+                    <div class="text">CLICK<span style="color:var(--primary);">2</span>BOOK</div>
+                </div>
+                <i data-feather="menu" style="color: white; cursor: pointer;"></i>
+            </div>
+            
+            <div class="sidebar-profile">
+                <div class="avatar">RS</div>
+                <div class="info">
+                    <h4>Customer Profile</h4>
+                    <p>Premium Member</p>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="search-trains.html" class="nav-link nav-item active">
+                    <i data-feather="search"></i> Search Trips
+                </a>
+                <a href="my-bookings.html" class="nav-link nav-item">
+                    <i data-feather="book"></i> My Bookings
+                </a>
+                <a href="cancel-ticket.html" class="nav-link nav-item">
+                    <i data-feather="x"></i> Cancel Ticket
+                </a>
+                <a href="get-support.html" class="nav-link nav-item">
+                    <i data-feather="headphones"></i> Get Support
+                </a>
+                <a href="my-profile.html" class="nav-link nav-item">
+                    <i data-feather="user"></i> My Profile
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <a href="login train.html" class="nav-link nav-item">
+                    <i data-feather="log-out"></i> Logout
+                </a>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <div class="user-main-content">
+            <div class="top-header">
+                <div class="page-titles">
+                    <h1>Passenger Details</h1>
+                    <p>Welcome back, Rahul!</p>
+                </div>
+                <div class="notification-bell">
+                    <i data-feather="bell"></i>
+                </div>
+            </div>
+            
+            <div class="dashboard-wrapper">
+                
+                <div style="position: relative; max-width: 800px; margin: 0 auto;">
+                    <a href="book-train-tickets.html" class="back-btn-top">
+                        <i data-feather="arrow-left" style="width: 14px; height: 14px;"></i> Back
+                    </a>
+                    
+                    <div class="stepper-container">
+                        <div class="step-item">
+                            <div class="step-circle completed"><i data-feather="check"></i></div>
+                            <div class="step-label completed">Select Bus</div>
+                        </div>
+                        <div class="step-line completed"></div>
+                        <div class="step-item">
+                            <div class="step-circle completed"><i data-feather="check"></i></div>
+                            <div class="step-label completed">Choose Seat</div>
+                        </div>
+                        <div class="step-line border"></div>
+                        <div class="step-item">
+                            <div class="step-circle active">3</div>
+                            <div class="step-label active">Passenger Info</div>
+                        </div>
+                        <div class="step-line border"></div>
+                        <div class="step-item">
+                            <div class="step-circle">4</div>
+                            <div class="step-label">Payment</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="booking-form-card">
+                    <div class="b-card-header">
+                        <h2>Passenger Details</h2>
+                        <p>Enter traveler information</p>
+                    </div>
+                    
+                    <form action="train-payment.html" method="GET">
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label>FULL NAME</label>
+                            <div class="input-with-icon">
+                                <i data-feather="user"></i>
+                                <input type="text" class="form-control" placeholder="Enter full name" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label>AGE</label>
+                            <div class="input-with-icon">
+                                <i data-feather="user"></i>
+                                <input type="number" class="form-control" placeholder="Enter age" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label>EMAIL ADDRESS</label>
+                            <div class="input-with-icon">
+                                <i data-feather="mail"></i>
+                                <input type="email" class="form-control" placeholder="email@example.com" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label>PHONE NUMBER</label>
+                            <div class="input-with-icon">
+                                <i data-feather="phone"></i>
+                                <input type="tel" class="form-control" placeholder="+91 XXXXXXXXXX" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 2.5rem;">
+                            <label>GENDER</label>
+                            <div class="gender-group">
+                                <div class="gender-btn active">Male</div>
+                                <div class="gender-btn">Female</div>
+                                <div class="gender-btn">Other</div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 1rem; border-radius: 8px;">
+                            Proceed to Payment <i data-feather="arrow-right"></i>
+                        </button>
+                    </form>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        feather.replace();
+    </script>
+</body>
+</html>

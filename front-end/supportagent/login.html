@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Support Agent Login – Click2Book</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --purple:#7C3AED;--purple-d:#6d28d9;--purple-l:#9d5cf0;
+      --navy:#0D1B2A;--border:rgba(255,255,255,.09);
+      --tw:rgba(255,255,255,.78);--tm:rgba(255,255,255,.42)
+    }
+    html,body{height:100%}
+    body{
+      font-family:'Inter',sans-serif;
+      background: linear-gradient(145deg, #0D1B2A 0%, #130d24 55%, #1a0e35 100%);
+      display:flex;align-items:center;justify-content:center;
+      min-height:100vh;padding:20px;position:relative;overflow:hidden
+    }
+    /* BG glow */
+    body::before{
+      content:'';position:fixed;inset:0;pointer-events:none;
+      background:
+        radial-gradient(circle at 25% 55%,rgba(124,58,237,.12) 0%,transparent 55%),
+        radial-gradient(circle at 75% 25%,rgba(157,92,240,.08) 0%,transparent 45%);
+    }
+    /* Floating dots */
+    .dot{position:fixed;border-radius:50%;background:rgba(124,58,237,.1);animation:fl linear infinite;pointer-events:none}
+    @keyframes fl{0%{transform:translateY(0)}100%{transform:translateY(-110vh)}}
+
+    /* BACK BTN */
+    .back-btn{
+      position:fixed;top:20px;left:20px;z-index:100;
+      display:inline-flex;align-items:center;gap:7px;
+      padding:8px 16px;border-radius:50px;
+      background:rgba(255,255,255,.08);border:1px solid var(--border);
+      color:var(--tw);font-family:'Inter',sans-serif;font-size:.8rem;font-weight:600;
+      text-decoration:none;transition:all .2s
+    }
+    .back-btn:hover{background:rgba(255,255,255,.14);color:#fff}
+
+    /* CARD */
+    .card{
+      position:relative;z-index:2;
+      width:100%;max-width:440px;
+      background:rgba(255,255,255,.04);border:1.5px solid var(--border);
+      border-radius:24px;padding:44px 40px;
+      backdrop-filter:blur(20px);
+      box-shadow:0 32px 80px rgba(0,0,0,.45)
+    }
+
+    /* LOGO */
+    .logo-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:32px}
+    .logo-icon{
+      width:62px;height:62px;border-radius:18px;
+      background:linear-gradient(135deg,#5b21b6,#7C3AED);
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 8px 24px rgba(124,58,237,.45)
+    }
+    .logo-name{font-size:1.1rem;font-weight:900;color:#fff;letter-spacing:-.5px}
+    .logo-name span{color:var(--purple-l)}
+    .support-badge{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:4px 12px;border-radius:50px;
+      background:rgba(124,58,237,.18);border:1px solid rgba(124,58,237,.35);
+      font-size:.7rem;font-weight:700;color:#c4b5fd;letter-spacing:.5px
+    }
+
+    /* TITLE */
+    .card-title{font-size:1.5rem;font-weight:900;color:#fff;text-align:center;margin-bottom:6px}
+    .card-sub{font-size:.83rem;color:var(--tm);text-align:center;margin-bottom:28px}
+
+    /* FIELDS */
+    .field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+    .field label{font-size:.73rem;font-weight:700;color:var(--tw);letter-spacing:.4px}
+    .inp-wrap{position:relative}
+    .inp-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--tm);width:16px;height:16px}
+    .finput{
+      width:100%;padding:13px 42px;
+      background:rgba(255,255,255,.06);border:1.5px solid var(--border);
+      border-radius:10px;color:#fff;font-family:'Inter',sans-serif;font-size:.88rem;outline:none;
+      transition:border-color .2s,background .2s
+    }
+    .finput::placeholder{color:var(--tm)}
+    .finput:focus{border-color:var(--purple-l);background:rgba(124,58,237,.1)}
+    .eye-btn{position:absolute;right:13px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--tm);padding:3px;display:flex}
+    .eye-btn:hover{color:#fff}
+
+    .row2{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+    .chk{display:flex;align-items:center;gap:7px;font-size:.79rem;color:var(--tm);cursor:pointer}
+    .chk input{accent-color:var(--purple-l);width:14px;height:14px}
+    .link-sm{font-size:.79rem;font-weight:700;color:#c4b5fd;text-decoration:none}
+    .link-sm:hover{color:#e9d5ff}
+
+    /* BTN */
+    .btn-login{
+      width:100%;padding:13px;border-radius:10px;
+      background:linear-gradient(135deg,#5b21b6,#7C3AED);
+      color:#fff;font-family:'Inter',sans-serif;font-size:.93rem;font-weight:700;
+      border:none;cursor:pointer;
+      box-shadow:0 6px 20px rgba(124,58,237,.4);
+      transition:transform .2s,box-shadow .2s;
+      display:flex;align-items:center;justify-content:center;gap:8px
+    }
+    .btn-login:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(124,58,237,.52)}
+
+    /* ERROR */
+    .err{display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:10px 14px;font-size:.79rem;color:#f87171;font-weight:600;margin-bottom:14px}
+    .err.show{display:block}
+
+    /* divider */
+    .div-line{border:none;border-top:1px solid var(--border);margin:20px 0}
+
+    .back-link{display:flex;align-items:center;justify-content:center;gap:6px;font-size:.8rem;color:var(--tm);text-decoration:none;transition:color .2s}
+    .back-link:hover{color:#fff}
+
+    /* SECURITY FOOTER */
+    .sec-bar{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:18px;font-size:.72rem;color:var(--tm)}
+    .sec-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e}
+
+    @media(max-width:480px){.card{padding:28px 22px}}
+  </style>
+</head>
+<body>
+
+<!-- Floating dots -->
+<div class="dot" style="width:65px;height:65px;bottom:18%;left:7%;animation-duration:21s"></div>
+<div class="dot" style="width:38px;height:38px;bottom:52%;right:10%;animation-duration:17s;animation-delay:3s;background:rgba(157,92,240,.08)"></div>
+<div class="dot" style="width:22px;height:22px;bottom:72%;left:24%;animation-duration:24s;animation-delay:6s"></div>
+
+<!-- BACK TO PORTAL -->
+<a href="../landing page/staff-access.html" class="back-btn">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+  Back to Portal
+</a>
+
+<!-- CARD -->
+<div class="card">
+  <div class="logo-wrap">
+    <div class="logo-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+        <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/>
+        <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
+      </svg>
+    </div>
+    <span class="logo-name">CLICK<span>2</span>BOOK</span>
+    <div class="support-badge">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+        <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/>
+        <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
+      </svg>
+      Support Agent Access
+    </div>
+  </div>
+
+  <div class="card-title">Agent Login 🎧</div>
+  <p class="card-sub">Secure access to the customer support panel</p>
+
+  <div class="err" id="errMsg"></div>
+
+  <div class="field">
+    <label>Agent Email</label>
+    <div class="inp-wrap">
+      <svg class="inp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+      <input type="email" id="email" class="finput" placeholder="agent@click2book.in" autocomplete="username"/>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Password</label>
+    <div class="inp-wrap">
+      <svg class="inp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <input type="password" id="password" class="finput" placeholder="••••••••" autocomplete="current-password"/>
+      <button class="eye-btn" type="button" onclick="togglePass()" id="eyeBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="row2">
+    <label class="chk"><input type="checkbox" id="remember"/> Remember me</label>
+    <a href="#" class="link-sm">Forgot Password?</a>
+  </div>
+
+  <button class="btn-login" id="loginBtn" onclick="doLogin()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+    Login to Support Panel
+  </button>
+
+  <hr class="div-line"/>
+
+  <a href="../landing page/staff-access.html" class="back-link">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    Back to Staff Access Portal
+  </a>
+
+  <div class="sec-bar">
+    <span class="sec-dot"></span>
+    All support sessions are encrypted and monitored
+  </div>
+</div>
+
+<script>
+  function togglePass() {
+    const inp = document.getElementById('password'), btn = document.getElementById('eyeBtn');
+    const show = inp.type === 'password';
+    inp.type = show ? 'text' : 'password';
+    btn.innerHTML = show
+      ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`
+      : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  }
+
+  function doLogin() {
+    const email = document.getElementById('email').value.trim();
+    const pass  = document.getElementById('password').value;
+    const err   = document.getElementById('errMsg');
+    err.classList.remove('show');
+    if (!email || !email.includes('@')) {
+      err.textContent = '⚠️ Please enter a valid agent email.';
+      err.classList.add('show'); return;
+    }
+    if (!pass || pass.length < 6) {
+      err.textContent = '⚠️ Password must be at least 6 characters.';
+      err.classList.add('show'); return;
+    }
+    const btn = document.getElementById('loginBtn');
+    btn.textContent = 'Authenticating…'; btn.disabled = true;
+    setTimeout(() => window.location.href = 'index.html', 1000);
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+</script>
+</body>
+</html>

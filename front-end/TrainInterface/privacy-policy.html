@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy | Click2Book</title>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="user-styles.css">
+    <style>
+        body { background-color: var(--bg-page); font-family: 'Inter', sans-serif;}
+        
+        /* Top Navigation specific to static pages */
+        .page-nav { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 5%; background: white; border-bottom: 1px solid #E2E8F0; }
+        .page-nav .logo-icon { width: 36px; height: 36px; background: #22C55E; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; }
+        .page-nav-text h2 { font-size: 1.25rem; font-weight: 800; margin: 0; color: var(--navy-dark); line-height: 1; }
+        .page-nav-text p { font-size: 0.65rem; color: #16A34A; font-weight: 700; margin: 2px 0 0 0; }
+        .page-nav-dates { margin-left: 1rem; padding-left: 1rem; border-left: 1px solid #E2E8F0; font-size: 0.75rem; color: #64748B; display: flex; align-items: center; gap: 0.5rem; }
+        .nav-actions { display: flex; gap: 0.5rem; }
+        .nav-actions a { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.875rem; font-weight: 600; text-decoration: none; }
+        .btn-light { background: #F1F5F9; color: #475569; }
+        .btn-light:hover { background: #E2E8F0; }
+        .btn-orange-outline { background: #FFF7ED; color: var(--primary); border: 1px solid var(--primary-light); }
+        
+        .content-container { max-width: 800px; margin: 3rem auto 5rem auto; padding: 0 1rem; }
+        
+        .privacy-intro-card { background: white; border: 1px solid #E2E8F0; border-radius: 16px; padding: 2rem; margin-bottom: 2rem; text-align: center; }
+        .privacy-intro-card h1 { font-size: 1.5rem; font-weight: 800; color: #111827; margin: 0 0 1rem 0; }
+        .privacy-intro-card p { font-size: 0.875rem; color: #64748B; line-height: 1.6; margin: 0 0 1rem 0; }
+        
+        .trust-badges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem; }
+        .trust-badge { background: white; border: 1px solid #E2E8F0; padding: 1.5rem 1rem; border-radius: 12px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; font-size: 0.875rem; font-weight: 700; color: #111827; }
+        .trust-badge i { width: 24px; height: 24px; }
+        .tb-green { color: #16A34A; }
+        .tb-blue { color: #3B82F6; }
+        .tb-orange { color: var(--primary); }
+
+        .policy-section { background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; display: flex; gap: 1.5rem; }
+        .section-icon { width: 40px; height: 40px; background: #F8FAFC; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .section-icon i { width: 18px; height: 18px; }
+        
+        .policy-content h3 { font-size: 1.125rem; font-weight: 800; color: #111827; margin: 0 0 1rem 0; padding-top: 0.5rem; }
+        .policy-content ul { padding-left: 1.25rem; margin: 0; }
+        .policy-content li { font-size: 0.875rem; color: #475569; margin-bottom: 0.75rem; line-height: 1.5; }
+        .policy-content li strong { color: #111827; font-weight: 600; }
+        
+        .alert-box { border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; display: flex; gap: 1rem; }
+        .alert-box h4 { font-size: 1rem; font-weight: 700; margin: 0 0 0.5rem 0; }
+        .alert-box p { font-size: 0.875rem; margin: 0; line-height: 1.5; }
+        .alert-yellow { background: #FEF9C3; border: 1px solid #FEF08A; color: #854D0E; }
+        .alert-yellow h4 { color: #713F12; }
+        .alert-blue { background: #EFF6FF; border: 1px solid #DBEAFE; color: #1E40AF; }
+        .alert-blue h4 { color: #1E3A8A; }
+        
+        .text-section { margin-bottom: 2rem; padding: 1rem; }
+        .text-section h4 { font-size: 1rem; font-weight: 700; color: #111827; margin: 0 0 0.5rem 0; }
+        .text-section p { font-size: 0.875rem; color: #64748B; margin: 0; line-height: 1.6; }
+        
+        .contact-cta { background: #16A34A; color: white; border-radius: 16px; padding: 3rem; text-align: center; margin-bottom: 3rem; box-shadow: 0 10px 25px rgba(22, 163, 74, 0.2); }
+        .contact-cta h2 { font-size: 1.5rem; font-weight: 800; margin: 0 0 1rem 0; }
+        .contact-cta p { font-size: 0.875rem; margin: 0 0 2rem 0; opacity: 0.9; }
+        .contact-cta .contact-info { display: inline-block; text-align: left; background: rgba(0,0,0,0.1); padding: 1rem 1.5rem; border-radius: 12px; margin-bottom: 2rem; font-size: 0.875rem; }
+        .contact-cta .contact-info div { margin-bottom: 0.5rem; }
+        .contact-cta .btn { background: white; color: #16A34A; padding: 0.75rem 2rem; border-radius: 30px; font-weight: 700; font-size: 0.875rem; text-decoration: none; display: inline-block; }
+        
+        .related-info { text-align: center; }
+        .related-info h3 { font-size: 1.25rem; font-weight: 800; color: #111827; margin-bottom: 1.5rem; }
+        .related-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+        .related-card { background: white; border: 1px solid #E2E8F0; padding: 1.5rem; border-radius: 12px; text-align: left; }
+        .related-card .icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; }
+        .related-card h4 { font-size: 0.875rem; font-weight: 800; color: #111827; margin: 0 0 0.5rem 0; }
+        .related-card p { font-size: 0.75rem; color: #64748B; margin: 0 0 1rem 0; line-height: 1.4; }
+        .related-card a { font-size: 0.75rem; font-weight: 700; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 0.25rem; }
+    </style>
+</head>
+<body>
+    
+    <nav class="page-nav">
+        <div style="display: flex; align-items: center;">
+            <a href="index.html" style="text-decoration: none; display: flex; align-items: center; gap: 0.75rem;">
+                <div class="logo-icon"><i data-feather="shield"></i></div>
+                <div class="page-nav-text">
+                    <h2>Privacy Policy</h2>
+                    <p>CLICK2BOOK PRIVACY CENTER</p>
+                </div>
+            </a>
+            <div class="page-nav-dates">
+                <i data-feather="calendar" style="width: 14px;"></i> Last updated: March 15, 2026
+            </div>
+        </div>
+        <div class="nav-actions">
+            <a href="index.html" class="btn-orange-outline"><i data-feather="home" style="width: 14px;"></i> Home</a>
+            <button class="btn-light" style="border:none; cursor:pointer;" onclick="history.back()"><i data-feather="arrow-left" style="width: 14px;"></i> Back</button>
+            <button class="btn-light" style="border:none; cursor:pointer;" onclick="window.print()">Print <i data-feather="printer" style="width: 14px;"></i></button>
+        </div>
+    </nav>
+    
+    <div class="content-container">
+        
+        <div class="privacy-intro-card">
+            <h1>Your Privacy Matters to Us</h1>
+            <p>At CLICK2BOOK, we are committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your data when you use our services.</p>
+            <p>By using CLICK2BOOK, you agree to the collection and use of information in accordance with this policy. If you do not agree with our policies and practices, please do not use our services.</p>
+        </div>
+        
+        <div class="trust-badges">
+            <div class="trust-badge">
+                <i data-feather="lock" class="tb-green"></i> Bank-Grade Encryption
+            </div>
+            <div class="trust-badge">
+                <i data-feather="shield" class="tb-blue"></i> PCI DSS Compliant
+            </div>
+            <div class="trust-badge">
+                <i data-feather="user-check" class="tb-orange"></i> Full Data Control
+            </div>
+        </div>
+
+        <div class="policy-section">
+            <div class="section-icon" style="color: var(--primary);"><i data-feather="file-text"></i></div>
+            <div class="policy-content">
+                <h3>Information We Collect</h3>
+                <ul>
+                    <li><strong>Personal Information:</strong> Names, email, phone number, date of birth, gender.</li>
+                    <li><strong>Payment Information:</strong> Credit/debit cards, net banking, UPI IDs, wallet information (encrypted).</li>
+                    <li><strong>Travel Information:</strong> Booking history, preferences, passenger details.</li>
+                    <li><strong>Device Information:</strong> IP address, browser type, device type, operating system.</li>
+                    <li><strong>Location Data:</strong> GPS location (with permission) for nearby services.</li>
+                    <li><strong>Usage Data:</strong> Pages visited, features used, time spent on platform.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="policy-section">
+            <div class="section-icon" style="color: #3B82F6;"><i data-feather="eye"></i></div>
+            <div class="policy-content">
+                <h3>How We Use Your Information</h3>
+                <ul>
+                    <li>Process bookings and send confirmation details.</li>
+                    <li>Communicate about your trips, offers, and updates.</li>
+                    <li>Improve our services and user experience.</li>
+                    <li>Prevent fraud and enhance platform security.</li>
+                    <li>Provide customer support and resolve issues.</li>
+                    <li>Send promotional offers (you can opt-out anytime).</li>
+                    <li>Comply with legal obligations and regulations.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="policy-section">
+            <div class="section-icon" style="color: #10B981;"><i data-feather="share-2"></i></div>
+            <div class="policy-content">
+                <h3>Information Sharing</h3>
+                <ul>
+                    <li><strong>Bus Operators:</strong> Share passenger details for travel booking.</li>
+                    <li><strong>Payment Processors:</strong> Process transactions securely.</li>
+                    <li><strong>Service Providers:</strong> Cloud hosting, SMS/email gateways, analytics.</li>
+                    <li><strong>Legal Requirements:</strong> When required by law or court orders.</li>
+                    <li><strong>Business Transfers:</strong> In case of merger, acquisition, or sale.</li>
+                    <li>We DO NOT sell your personal information to third parties.</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="policy-section">
+            <div class="section-icon" style="color: #A855F7;"><i data-feather="lock"></i></div>
+            <div class="policy-content">
+                <h3>Data Security</h3>
+                <ul>
+                    <li>256-bit SSL encryption for all data transmissions.</li>
+                    <li>PCI-DSS standard payment processing.</li>
+                    <li>Regular security audits and vulnerability scanning.</li>
+                    <li>Access controls and authentication measures.</li>
+                    <li>Encrypted storage of sensitive information.</li>
+                    <li>Employee training on data protection.</li>
+                    <li>Incident response plan for potential breaches.</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="alert-box alert-yellow">
+            <div style="padding-top:2px;"><i data-feather="alert-triangle"></i></div>
+            <div>
+                <h4>Children's Privacy</h4>
+                <p>Our services are not intended for children under 18. We do not knowingly collect personal information from children. If you are a parent or guardian and believe your child has provided us with personal information, please contact us immediately.</p>
+            </div>
+        </div>
+        
+        <div class="alert-box alert-blue">
+            <div style="padding-top:2px;"><i data-feather="globe"></i></div>
+            <div>
+                <h4>International Data Transfers</h4>
+                <p>Your information may be transferred to, and maintained on, servers located outside of India. We ensure appropriate safeguards are in place to protect your data in compliance with applicable data protection laws.</p>
+            </div>
+        </div>
+
+        <div class="text-section">
+            <h4>Changes to This Policy</h4>
+            <p>We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new policy on this page and updating the "Last updated" date. You are advised to review this policy periodically for any changes.</p>
+        </div>
+
+        <div class="contact-cta">
+            <h2>Have Privacy Concerns?</h2>
+            <p>Contact our Data Protection Officer for any privacy-related queries or requests.</p>
+            <div class="contact-info">
+                <div><strong>Email:</strong> privacy@click2book.com</div>
+                <div><strong>Phone:</strong> 1800-123-4567</div>
+            </div>
+            <br>
+            <a href="#" class="btn">Contact Privacy Team</a>
+        </div>
+        
+        <div class="related-info">
+            <h3>Related Information</h3>
+            <div class="related-grid">
+                <div class="related-card">
+                    <div class="icon" style="background:#DBEAFE; color:#3B82F6;"><i data-feather="file-text"></i></div>
+                    <h4>Terms of Service</h4>
+                    <p>Read our complete terms and conditions.</p>
+                    <a href="#">Read More <i data-feather="arrow-right" style="width:12px;"></i></a>
+                </div>
+                <div class="related-card">
+                    <div class="icon" style="background:#FFF7ED; color:var(--primary);"><i data-feather="info"></i></div>
+                    <h4>About CLICK2BOOK</h4>
+                    <p>Learn about our company and values.</p>
+                    <a href="about-us.html">Learn More <i data-feather="arrow-right" style="width:12px;"></i></a>
+                </div>
+                <div class="related-card">
+                    <div class="icon" style="background:#F3E8FF; color:#9333EA;"><i data-feather="star"></i></div>
+                    <h4>Customer Reviews</h4>
+                    <p>Read what our customers experience.</p>
+                    <a href="#">View Reviews <i data-feather="arrow-right" style="width:12px;"></i></a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    
+    <script>
+        feather.replace();
+    </script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Trains | Click2Book</title>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="user-styles.css">
+    <style>
+        .page-header {
+            background-color: var(--navy-dark);
+            color: white;
+            padding: 4rem 2rem 10rem 2rem;
+            text-align: center;
+            position: relative;
+        }
+        .header-content { max-width: 800px; margin: 0 auto; }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 0.5rem; color: #9CA3AF; 
+            text-decoration: none; font-size: 0.875rem; font-weight: 500;
+            position: absolute; left: 5%; top: 2rem;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: white; }
+        .header-chip {
+            display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #E2E8F0; padding: 0.4rem 1.25rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin-bottom: 1.5rem; letter-spacing: 0.5px;
+        }
+        .page-header h1 { font-size: 2.75rem; font-weight: 800; margin-bottom: 0.75rem; letter-spacing: -0.5px; }
+        .page-header p { font-size: 1rem; color: #9CA3AF; font-weight: 400; }
+
+        .search-card-wrapper {
+            max-width: 800px;
+            margin: -6rem auto 5rem auto;
+            position: relative;
+            z-index: 10;
+            padding: 0 1rem;
+        }
+        .ts-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+            padding: 2.5rem;
+            border: 1px solid #E2E8F0;
+        }
+        .ts-title {
+            font-size: 1.25rem; font-weight: 800; color: #111827; margin-bottom: 1.5rem;
+        }
+        
+        .ts-submit-btn {
+            background: var(--primary); color: white; border: none; width: 100%; border-radius: 8px; padding: 1.125rem 1rem; font-weight: 700; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer; transition: background 0.2s; margin-bottom: 2rem; box-shadow: 0 4px 15px rgba(249, 115, 22, 0.2); text-decoration: none;
+        }
+        .ts-submit-btn:hover { background: var(--primary-hover); box-shadow: 0 6px 20px rgba(249, 115, 22, 0.3); }
+
+        .ts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .ts-form-group { text-align: left; }
+        .ts-label { display: block; font-size: 0.75rem; font-weight: 700; color: #111827; margin-bottom: 0.5rem; }
+        
+        .ts-input-box {
+            display: flex; align-items: center; gap: 0.75rem; border: 1px solid #E2E8F0; border-radius: 8px; padding: 1rem; background: #F8FAFC; transition: border-color 0.2s;
+        }
+        .ts-input-box:focus-within { border-color: var(--primary); background: white; }
+        .ts-input-box svg { color: var(--primary); width: 18px; height: 18px; }
+        .ts-input-box input { border: none; outline: none; flex: 1; font-size: 1rem; color: #111827; font-weight: 700; background: transparent; font-family: 'Inter', sans-serif;}
+        
+        @media (max-width: 600px) {
+            .ts-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body style="background-color: var(--bg-page); margin: 0; font-family: 'Inter', sans-serif;">
+
+    <header class="page-header">
+        <a href="../landing%20page/index.html" class="back-link"><i data-feather="chevron-left" style="width: 16px; height: 16px;"></i> Back to Home</a>
+        <div class="header-content">
+            <div class="header-chip"><i data-feather="train" style="width: 14px; height: 14px;"></i> Train Booking</div>
+            <h1>Book Train Tickets</h1>
+            <p>Instant booking, real-time seat availability, and confirmed tickets in minutes</p>
+        </div>
+    </header>
+
+    <div class="search-card-wrapper">
+        <form action="available-trains.html" method="GET" class="ts-card">
+            <h2 class="ts-title">Search Trains</h2>
+            
+            <button type="submit" class="ts-submit-btn">
+                <i data-feather="train"></i> Search Trains <i data-feather="arrow-right" style="width: 18px;"></i>
+            </button>
+            
+            <div class="ts-grid">
+                <div class="ts-form-group">
+                    <label class="ts-label">From Station</label>
+                    <div class="ts-input-box">
+                        <i data-feather="map-pin"></i>
+                        <input type="text" value="GUNTUR" required>
+                    </div>
+                </div>
+                
+                <div class="ts-form-group">
+                    <label class="ts-label">To Station</label>
+                    <div class="ts-input-box">
+                        <i data-feather="map-pin"></i>
+                        <input type="text" value="SULLURPETA" required>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="ts-form-group" style="max-width: 50%;">
+                <label class="ts-label">Journey Date</label>
+                <div class="ts-input-box">
+                    <i data-feather="calendar"></i>
+                    <input type="text" value="12-03-2026" required>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-grid">
+            <div class="footer-col">
+                <div class="footer-logo">
+                    <div class="logo-icon" style="background: var(--primary); display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 8px;">
+                        <i data-feather="truck" style="color: white; width: 20px; height: 20px;"></i>
+                    </div>
+                    <div class="footer-logo-text">
+                        <h2 style="font-size: 1.5rem; font-weight: 800; margin: 0; line-height: 1; color: white;">CLICK2BOOK</h2>
+                        <p style="font-size: 0.65rem; color: var(--primary); font-weight: 700; letter-spacing: 1px; margin-top: 2px;">TRAVEL SMARTER</p>
+                    </div>
+                </div>
+                <p class="footer-desc">
+                    India's most trusted online ticket reservation platform. Book bus tickets, manage your journeys, and travel with confidence.
+                </p>
+            </div>
+            <!-- Additional columns omitted to match simplicity of user-styles.css -->
+        </div>
+    </footer>
+
+    <script>
+        feather.replace();
+    </script>
+</body>
+</html>

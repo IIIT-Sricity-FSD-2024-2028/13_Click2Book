@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Bookings – Click2Book</title>
+  <meta name="description" content="View and manage all your bus bookings on Click2Book." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="common.css" />
+  <style>
+    .bookings-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .booking-card {
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow .25s, transform .2s, border-color .2s;
+    }
+
+    .booking-card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+      border-color: rgba(249, 115, 22, .18);
+    }
+
+    .booking-left {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .booking-route-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .booking-route {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .status-badge {
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: .5px;
+      padding: 3px 10px;
+      border-radius: 50px;
+    }
+
+    .status-confirmed {
+      background: #d1fae5;
+      color: #059669;
+    }
+
+    .status-completed {
+      background: #dbeafe;
+      color: #2563eb;
+    }
+
+    .status-cancelled {
+      background: #f1f5f9;
+      color: #64748b;
+    }
+
+    .booking-details {
+      font-size: .8rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .booking-pnr {
+      font-size: .75rem;
+      color: var(--text-light);
+      font-weight: 600;
+    }
+
+    .booking-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .booking-price {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .booking-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+
+    .btn-more {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 14px;
+      border-radius: 50px;
+      border: 1.5px solid var(--border);
+      background: var(--off-white);
+      color: var(--text-muted);
+      font-family: 'Inter', sans-serif;
+      font-size: .75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .btn-more:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: var(--primary-light);
+    }
+
+    .action-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-ticket {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 13px;
+      border-radius: 50px;
+      background: var(--primary);
+      color: white;
+      font-family: 'Inter', sans-serif;
+      font-size: .72rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      transition: background .2s, transform .2s;
+    }
+
+    .btn-ticket:hover {
+      background: var(--primary-dark);
+      transform: scale(1.05);
+    }
+
+    .btn-cancel-sm {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 13px;
+      border-radius: 50px;
+      background: #fff1f2;
+      color: #ef4444;
+      font-family: 'Inter', sans-serif;
+      font-size: .72rem;
+      font-weight: 700;
+      border: 1.5px solid #fecaca;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .btn-cancel-sm:hover {
+      background: #ef4444;
+      color: white;
+      border-color: #ef4444;
+      transform: scale(1.05);
+    }
+
+    .booking-card.is-cancelled {
+      opacity: .7;
+    }
+
+    .booking-card.is-cancelled .btn-ticket,
+    .booking-card.is-cancelled .btn-cancel-sm {
+      opacity: .4;
+      pointer-events: none;
+    }
+
+    /* Filter tabs */
+    .filter-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .filter-tab {
+      padding: 7px 18px;
+      border-radius: 50px;
+      border: 1.5px solid var(--border);
+      background: var(--white);
+      color: var(--text-muted);
+      font-family: 'Inter', sans-serif;
+      font-size: .78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .filter-tab:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .filter-tab.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      display: none;
+    }
+
+    .empty-icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+    }
+
+    .empty-text {
+      font-size: .9rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Notification Popup -->
+  <div class="notif-overlay" id="notifOverlay" onclick="closeNotif()"></div>
+  <div class="notif-panel" id="notifPanel" style="display:none;">
+    <div class="notif-panel-header">
+      <h3>Notifications <span class="notif-count-badge">3</span></h3>
+      <button class="notif-close-btn" onclick="closeNotif()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg></button>
+    </div>
+    <div class="notif-list">
+      <div class="notif-item unread">
+        <div class="notif-icon-wrap success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
+          </svg></div>
+        <div class="notif-text">
+          <h4>Booking Confirmed!</h4>
+          <p>Your Mumbai → Pune ticket (PNR: RP1234567) is confirmed.</p><time>5 mins ago</time>
+        </div>
+      </div>
+      <div class="notif-item unread">
+        <div class="notif-icon-wrap info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg></div>
+        <div class="notif-text">
+          <h4>Payment Successful</h4>
+          <p>₹550 paid via UPI for Royal Express Seat A4.</p><time>10 mins ago</time>
+        </div>
+      </div>
+      <div class="notif-item unread">
+        <div class="notif-icon-wrap warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg></div>
+        <div class="notif-text">
+          <h4>Journey Reminder</h4>
+          <p>Your Mumbai → Pune journey departs tomorrow at 06:00 AM.</p><time>1 hour ago</time>
+        </div>
+      </div>
+      <div class="notif-item">
+        <div class="notif-icon-wrap success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg></div>
+        <div class="notif-text">
+          <h4>Support Reply</h4>
+          <p>Our team responded to your support request. Check your inbox.</p><time>Yesterday</time>
+        </div>
+      </div>
+    </div>
+    <div class="notif-panel-footer"><a href="#">View all notifications →</a></div>
+  </div>
+
+  <!-- ═══════ SIDEBAR ═══════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <rect x="2" y="8" width="20" height="12" rx="3" fill="white" opacity=".9" />
+          <rect x="5" y="5" width="14" height="5" rx="2" fill="white" opacity=".6" />
+          <circle cx="6.5" cy="20" r="1.5" fill="#f97316" />
+          <circle cx="17.5" cy="20" r="1.5" fill="#f97316" />
+          <rect x="7" y="11" width="3" height="3" rx=".5" fill="#1e3a5f" opacity=".6" />
+          <rect x="11" y="11" width="3" height="3" rx=".5" fill="#1e3a5f" opacity=".6" />
+          <rect x="15" y="11" width="3" height="3" rx=".5" fill="#1e3a5f" opacity=".6" />
+        </svg>
+      </div>
+      <span class="logo-text">CLICK<span class="logo-accent">2</span>BOOK</span>
+    </div>
+
+    <div class="profile-card" onclick="window.location.href='my-profile.html'" style="cursor:pointer">
+      <div class="profile-avatar">RS</div>
+      <div class="profile-info">
+        <p class="profile-name">CUSTOMER PROFILE</p>
+        <p class="profile-badge">Premium Member</p>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="search-trips.html" class="nav-item">
+        <span class="nav-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+        </span>
+        <span>Search Trips</span>
+      </a>
+      <a href="my-bookings.html" class="nav-item active">
+        <span class="nav-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        </span>
+        <span>My Bookings</span>
+      </a>
+      <a href="cancel-ticket.html" class="nav-item">
+        <span class="nav-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="m15 9-6 6" />
+            <path d="m9 9 6 6" />
+          </svg>
+        </span>
+        <span>Cancel Ticket</span>
+      </a>
+      <a href="offers.html" class="nav-item">
+        <span class="nav-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+            <line x1="7" y1="7" x2="7.01" y2="7"/>
+          </svg>
+        </span>
+        <span>Offers</span>
+      </a>
+      <a href="get-support.html" class="nav-item">
+        <span class="nav-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z" />
+            <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+          </svg>
+        </span>
+        <span>Get Support</span>
+      </a>
+      <a href="my-profile.html" class="nav-item">
+        <span class="nav-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+        </span>
+        <span>My Profile</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a href="#" class="logout-btn" id="logoutBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <polyline points="16 17 21 12 16 7" />
+          <line x1="21" y1="12" x2="9" y2="12" />
+        </svg>
+        <span>Logout</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- ═══════ MAIN ═══════ -->
+  <main class="main-content">
+    <header class="top-header">
+      <div class="header-left">
+        <h2 class="header-title">My Bookings</h2>
+        <p class="header-subtitle">Welcome back, Rahul!</p>
+      </div>
+      <div class="header-right">
+        <button class="notif-btn" id="notifBtn" aria-label="Notifications">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          <span class="notif-count-dot">3</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="page-body fade-up">
+      <h1 class="page-heading">My Bookings</h1>
+      <p class="page-subhead">Track and manage your tickets</p>
+
+      <!-- Filter tabs -->
+      <div class="filter-tabs">
+        <button class="filter-tab active" onclick="filterBookings(this,'all')">All</button>
+        <button class="filter-tab" onclick="filterBookings(this,'confirmed')">Confirmed</button>
+        <button class="filter-tab" onclick="filterBookings(this,'completed')">Completed</button>
+        <button class="filter-tab" onclick="filterBookings(this,'cancelled')">Cancelled</button>
+      </div>
+
+      <!-- Booking Cards — populated from localStorage DB -->
+      <div class="bookings-list" id="bookingsList"></div>
+
+      <div class="empty-state" id="emptyState" style="display:none">
+        <div class="empty-icon">🎫</div>
+        <p class="empty-text">No bookings found for this filter.</p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    /* ── shared current filter ── */
+    let _activeFilter = 'all';
+
+    /* ── Filter tab handler (now re-renders from DB cache) ── */
+    function filterBookings(btn, status) {
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      _activeFilter = status;
+      renderBookings();
+    }
+
+    /* ── Toast ── */
+    function showToast(message, type) {
+      document.querySelectorAll('.c2b-toast').forEach(t => t.remove());
+      const toast = document.createElement('div');
+      toast.className = 'c2b-toast c2b-toast-' + type;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; });
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(12px)';
+        setTimeout(() => toast.remove(), 400);
+      }, 3000);
+    }
+
+    /* ── Notification popup ── */
+    document.getElementById('notifBtn').addEventListener('click', toggleNotif);
+    function toggleNotif() {
+      var panel = document.getElementById('notifPanel');
+      var overlay = document.getElementById('notifOverlay');
+      var isOpen = panel.style.display === 'block';
+      panel.style.display = isOpen ? 'none' : 'block';
+      overlay.style.display = isOpen ? 'none' : 'block';
+    }
+    function closeNotif() {
+      document.getElementById('notifPanel').style.display = 'none';
+      document.getElementById('notifOverlay').style.display = 'none';
+    }
+
+    /* ── Logout ── */
+    document.getElementById('logoutBtn').addEventListener('click', e => {
+      e.preventDefault();
+      if (confirm('Are you sure you want to logout?')) {
+        showToast('👋 Logged out successfully!', 'success');
+        setTimeout(() => { window.location.href = '../landing page/login.html'; }, 1500);
+      }
+    });
+  </script>
+  <script src="auth.js"></script>
+
+  <!-- ═══ CRUD Engine (localStorage + Data Manager panel) ═══ -->
+  <script src="../crud functions/js/mock_data.js"></script>
+  <script src="../crud functions/js/script.js"></script>
+  <script src="../crud functions/js/ui-shared.js"></script>
+  <script src="../crud functions/js/ui-customer.js"></script>
+  <!-- ═══ DB-driven My Bookings renderer (runs after DB is ready) ═══ -->
+  <script>
+  (function initMyBookings() {
+    /* ── Helpers ── */
+    function getCustomerId() {
+      return sessionStorage.getItem('c2b_loggedInId')
+          || localStorage.getItem('c2b_loggedInId')
+          || 'C001'; // demo fallback
+    }
+
+    function statusClass(s) {
+      const map = {
+        CONFIRMED: 'status-confirmed',
+        COMPLETED: 'status-completed',
+        CANCELLED: 'status-cancelled',
+        PENDING:   'status-pending'
+      };
+      return map[s] || 'status-pending';
+    }
+
+    function resolveRoute(booking) {
+      try {
+        const sf = sessionStorage.getItem('searchFrom');
+        const st = sessionStorage.getItem('searchTo');
+        if (sf && st) return (sf.charAt(0).toUpperCase() + sf.slice(1)) + ' → ' + (st.charAt(0).toUpperCase() + st.slice(1));
+        
+        const trip     = DB.trips.getById(booking.trip_id);
+        if (!trip.success) return 'Unknown Route';
+        const schedArr = DB.schedules.find(sc => sc.schedule_id === trip.data.schedule_id);
+        if (!schedArr.length) return 'Unknown Route';
+        const routeArr = DB.routes.find(r => r.route_id === schedArr[0].route_id);
+        if (!routeArr.length) return 'Unknown Route';
+        return routeArr[0].source + ' → ' + routeArr[0].destination;
+      } catch(e) { return 'Unknown Route'; }
+    }
+
+    function resolveDate(booking) {
+      try {
+        const trip     = DB.trips.getById(booking.trip_id);
+        if (!trip.success) return booking.booking_date;
+        const schedArr = DB.schedules.find(sc => sc.schedule_id === trip.data.schedule_id);
+        return schedArr.length ? schedArr[0].journey_date : booking.booking_date;
+      } catch(e) { return booking.booking_date; }
+    }
+
+    function resolveFare(booking) {
+      try {
+        const pays = DB.payments.find(p => p.booking_id === booking.booking_id);
+        return pays.length ? pays[0].amount : 0;
+      } catch(e) { return 0; }
+    }
+
+    /* ── Card builder ── */
+    function buildCard(b, idx) {
+      const route    = resolveRoute(b);
+      const date     = resolveDate(b);
+      const fare     = resolveFare(b);
+      const status   = b.booking_status;          // e.g. 'CONFIRMED'
+      const statusLo = status.toLowerCase();       // for data-status attr
+      const isCancellable = ['CONFIRMED','PENDING'].includes(status);
+      const isCancelled   = status === 'CANCELLED';
+      const isCompleted   = status === 'COMPLETED';
+
+      const cancelBtn = isCancellable
+        ? `<button class="btn-cancel-sm" onclick="quickCancel('${b.booking_id}',this)">✕ Cancel</button>`
+        : `<button class="btn-cancel-sm" disabled style="opacity:.4;cursor:not-allowed">✕ Cancel</button>`;
+
+      return `
+        <div class="booking-card fade-up ${isCancelled ? 'is-cancelled' : ''}" data-status="${statusLo}" data-id="${b.booking_id}" style="animation-delay:${idx * 0.06}s">
+          <div class="booking-left">
+            <div class="booking-route-row">
+              <span class="booking-route">${route}</span>
+              <span class="status-badge ${statusClass(status)}">${status.charAt(0) + status.slice(1).toLowerCase()}</span>
+            </div>
+            <div class="booking-details">Booking Date: ${b.booking_date} · ${date}</div>
+            <div class="booking-pnr">ID: ${b.booking_id}</div>
+          </div>
+          <div class="booking-right">
+            <div class="booking-actions">
+              <button class="btn-more" onclick="showToast('📄 Booking ${b.booking_id} details loaded','success')">
+                More
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+              <div class="action-row">
+                <button class="btn-ticket" onclick="showToast('🎫 Ticket for ${b.booking_id} downloaded!','success')">⬇ Ticket</button>
+                ${cancelBtn}
+              </div>
+            </div>
+            <span class="booking-price">₹${fare.toLocaleString('en-IN')}</span>
+          </div>
+        </div>`;
+    }
+
+    /* ── Main render ── */
+    window.renderBookings = function() {
+      const customerId = getCustomerId();
+      const list       = document.getElementById('bookingsList');
+      const empty      = document.getElementById('emptyState');
+
+      let bookings = DB.bookings.find(b => b.customer_id === customerId);
+
+      // Apply active filter
+      if (_activeFilter !== 'all') {
+        bookings = bookings.filter(b => b.booking_status.toLowerCase() === _activeFilter);
+      }
+
+      if (!bookings.length) {
+        list.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      list.innerHTML = bookings.map((b, i) => buildCard(b, i)).join('');
+    };
+
+    /* ── Quick cancel from booking card ── */
+    window.quickCancel = function(bookingId, btn) {
+      if (!confirm('Cancel booking ' + bookingId + '? This cannot be undone.')) return;
+      const result = DB.cancelBooking(bookingId);
+      if (result.success) {
+        showToast('✅ Booking ' + bookingId + ' cancelled. Refund initiated.', 'success');
+        renderBookings(); // re-render from live DB
+      } else {
+        showToast('❌ ' + (result.error || 'Could not cancel booking.'), 'error');
+      }
+    };
+
+    /* ── Boot ── */
+    renderBookings();
+  })();
+  </script>
+</body>
+
+</html>

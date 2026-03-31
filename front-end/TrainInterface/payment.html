@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment | Click2Book</title>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="user-styles.css">
+    <style>
+        .page-header {
+            background-color: var(--navy-dark);
+            color: white;
+            padding: 4rem 2rem 8rem 2rem;
+            text-align: center;
+        }
+        .header-content { max-width: 800px; margin: 0 auto; }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 0.5rem; color: #9CA3AF; 
+            text-decoration: none; font-size: 0.875rem; font-weight: 500;
+            position: absolute; left: 5%; top: 2rem;
+            background: rgba(255, 255, 255, 0.1); padding: 0.4rem 1rem; border-radius: 20px;
+        }
+        .header-chip {
+            display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #E2E8F0; padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin-bottom: 1rem;
+        }
+        .page-header h1 { font-size: 2.5rem; font-weight: 800; margin-bottom: 0.5rem; letter-spacing: -0.5px; }
+        .page-header p { font-size: 1rem; color: #9CA3AF; }
+
+        .auth-card {
+            background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+            max-width: 650px; margin: -5rem auto 5rem; padding: 3rem; border: 1px solid var(--border);
+        }
+        .auth-card h2 { font-size: 1.5rem; font-weight: 800; color: #111827; margin: 0 0 1.5rem 0; }
+        
+        .booking-summary {
+            background: #F8FAFC; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; border: 1px solid #E2E8F0;
+        }
+        .summary-title { font-size: 0.875rem; font-weight: 700; color: #374151; margin: 0 0 1rem 0; }
+        .summary-list { list-style: none; padding: 0; margin: 0; }
+        .summary-list li {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; font-size: 0.875rem; color: #6B7280;
+        }
+        .summary-list li strong { color: #111827; font-weight: 600; }
+        .summary-total {
+            display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed #CBD5E1; padding-top: 1rem; margin-top: 1rem; font-size: 1.125rem; font-weight: 800; color: #111827;
+        }
+        .summary-total .total-price { color: var(--primary); font-size: 1.5rem; }
+
+        .payment-methods-title {
+            font-size: 0.75rem; font-weight: 700; color: #374151; text-transform: uppercase; margin-bottom: 1rem; letter-spacing: 0.5px;
+        }
+        
+        .payment-method-box {
+            display: flex; align-items: center; gap: 1rem; border: 1px solid #E2E8F0; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1rem; cursor: pointer; transition: all 0.2s;
+        }
+        .payment-method-box:hover { border-color: var(--primary-light); background: #FFF7ED; }
+        .payment-method-box.active { border-color: var(--primary); background: #FFF7ED; box-shadow: inset 0 0 0 1px var(--primary); }
+        .pm-icon { width: 24px; height: 24px; color: var(--primary); display: flex; align-items: center; justify-content: center; }
+        .pm-text { font-size: 0.875rem; font-weight: 600; color: #111827; flex: 1; }
+
+        .btn-success {
+            background: #16A34A; color: white; border: none; width: 100%; border-radius: 8px; padding: 1.25rem 1rem; font-weight: 700; font-size: 1.125rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer; transition: background 0.2s; margin-top: 2rem; box-shadow: 0 4px 15px rgba(22, 163, 74, 0.2);
+        }
+        .btn-success:hover { background: #15803D; box-shadow: 0 6px 20px rgba(22, 163, 74, 0.3); }
+
+    </style>
+</head>
+<body style="background-color: var(--bg-page); margin: 0;">
+
+    <header class="page-header">
+        <a href="book-train-tickets.html" class="back-link"><i data-feather="arrow-left" style="width: 14px; height: 14px;"></i> Back</a>
+        <div class="header-content">
+            <div class="header-chip"><i data-feather="train" style="width: 14px; height: 14px;"></i> Train Booking</div>
+            <h1>Book Train Tickets</h1>
+            <p>Instant booking, real-time seat availability, and confirmed tickets in minutes</p>
+        </div>
+    </header>
+
+    <div class="auth-card">
+        <h2>Payment</h2>
+        
+        <div class="booking-summary">
+            <h4 class="summary-title">Booking Summary</h4>
+            <ul class="summary-list">
+                <li><span>Train:</span> <strong>Rajdhani Express</strong></li>
+                <li><span>Route:</span> <strong>Mumbai &rarr; Pune</strong></li>
+                <li><span>Date:</span> <strong>9/3/2026</strong></li>
+                <li><span>Passenger:</span> <strong>cdxsxw</strong></li>
+                <li><span>Class:</span> <strong>AC First Class (1A)</strong></li>
+                <li><span>Base Fare:</span> <strong>&#8377;3000</strong></li>
+            </ul>
+            <div class="summary-total">
+                <span>Total Amount:</span>
+                <span class="total-price">&#8377;3000</span>
+            </div>
+        </div>
+
+        <form action="ticket-downloaded.html" method="GET">
+            <div class="payment-methods-title">Select Payment Method</div>
+            
+            <div class="payment-method-box active">
+                <div class="pm-icon"><i data-feather="credit-card"></i></div>
+                <div class="pm-text">Credit/Debit Card</div>
+            </div>
+            
+            <div class="payment-method-box">
+                <div class="pm-icon"><i data-feather="smartphone"></i></div>
+                <div class="pm-text">UPI Payment</div>
+            </div>
+            
+            <div class="payment-method-box">
+                <div class="pm-icon"><i data-feather="monitor"></i></div>
+                <div class="pm-text">Net Banking</div>
+            </div>
+            
+            <div class="payment-method-box">
+                <div class="pm-icon"><i data-feather="briefcase"></i></div>
+                <div class="pm-text">Wallet</div>
+            </div>
+            
+            <button class="btn-success" type="submit">
+                <i data-feather="shield" style="width: 20px; height: 20px;"></i> Pay &#8377;3000 Securely
+            </button>
+        </form>
+    </div>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-grid">
+            <div class="footer-col">
+                <div class="footer-logo">
+                    <div class="logo-icon" style="background: var(--primary); display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 8px;">
+                        <i data-feather="truck" style="color: white; width: 20px; height: 20px;"></i>
+                    </div>
+                    <div class="footer-logo-text">
+                        <h2 style="font-size: 1.5rem; font-weight: 800; margin: 0; line-height: 1; color: white;">CLICK2BOOK</h2>
+                        <p style="font-size: 0.65rem; color: var(--primary); font-weight: 700; letter-spacing: 1px; margin-top: 2px;">TRAVEL SMARTER</p>
+                    </div>
+                </div>
+                <p class="footer-desc">
+                    India's most trusted online ticket reservation platform. Book bus tickets, manage your journeys, and travel with confidence.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        feather.replace();
+    </script>
+</body>
+</html>

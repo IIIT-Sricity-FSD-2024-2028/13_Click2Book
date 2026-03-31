@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>About Us – Click2Book</title>
+  <meta name="description" content="Learn about Click2Book — India's most trusted bus booking platform built to make travel simple and accessible."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--p:#f97316;--pd:#ea580c;--pl:rgba(249,115,22,.1);--navy:#0f1f3d;--dark:#0a0f1e;--b:rgba(255,255,255,.08);--tw:rgba(255,255,255,.75);--tm:rgba(255,255,255,.42);--rm:12px;--rx:18px}
+    html{scroll-behavior:smooth}
+    body{font-family:'Inter',sans-serif;background:#fff;color:#0f1f3d;line-height:1.6}
+    /* NAV */
+    .nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 6%;background:rgba(10,15,30,.92);backdrop-filter:blur(18px);border-bottom:1px solid var(--b)}
+    .logo{display:flex;align-items:center;gap:9px;text-decoration:none}
+    .logo-i{width:34px;height:34px;border-radius:9px;background:var(--p);display:flex;align-items:center;justify-content:center}
+    .logo-t{font-size:1.05rem;font-weight:800;color:#fff}.logo-t span{color:var(--p)}
+    .nav-links{display:flex;align-items:center;gap:26px;list-style:none}
+    .nav-links a{font-size:.84rem;font-weight:500;color:var(--tw);text-decoration:none;transition:color .2s}
+    .nav-links a:hover,.nav-links a.on{color:var(--p)}
+    .btn-nav{padding:9px 20px;border-radius:50px;background:var(--p);color:#fff;font-family:'Inter',sans-serif;font-size:.83rem;font-weight:700;border:none;cursor:pointer;text-decoration:none}
+    /* HERO */
+    .hero{padding:130px 6% 70px;background:linear-gradient(180deg,var(--dark) 0%,var(--navy) 60%,#fff 100%);text-align:center;position:relative;overflow:hidden}
+    .hero::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(249,115,22,.1) 0%,transparent 55%)}
+    .hc{position:relative;z-index:2;max-width:700px;margin:0 auto}
+    .htag{display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:50px;background:var(--pl);border:1px solid rgba(249,115,22,.3);font-size:.72rem;font-weight:700;color:var(--p);margin-bottom:16px}
+    .ht{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:900;color:#fff;line-height:1.15;margin-bottom:12px}
+    .hs{font-size:.92rem;color:var(--tw);line-height:1.75;margin-bottom:36px}
+    .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;background:rgba(255,255,255,.06);border:1px solid var(--b);border-radius:var(--rx);padding:24px 28px;backdrop-filter:blur(10px)}
+    .sr-item{text-align:center}.sr-v{font-size:1.8rem;font-weight:900;color:var(--p)}.sr-l{font-size:.72rem;color:var(--tw);margin-top:3px}
+    /* SECTIONS */
+    section{padding:72px 6%}
+    .sh{text-align:center;margin-bottom:44px}
+    .stag{display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:50px;background:var(--pl);border:1px solid rgba(249,115,22,.2);font-size:.7rem;font-weight:700;color:var(--p);letter-spacing:.5px;margin-bottom:12px}
+    .st{font-size:clamp(1.4rem,3vw,2rem);font-weight:800;color:#0f1f3d;margin-bottom:8px}
+    .ss{font-size:.87rem;color:#64748b;max-width:520px;margin:0 auto}
+    /* STORY */
+    .story-grid{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center}
+    .story-img{background:linear-gradient(135deg,#0f1f3d 0%,#1e3a5f 100%);border-radius:var(--rx);height:340px;display:flex;align-items:center;justify-content:center;font-size:5rem;position:relative;overflow:hidden}
+    .story-img::after{content:'🚌';position:absolute;font-size:6rem;opacity:.12;bottom:-10px;right:-10px;transform:rotate(-15deg)}
+    .story-t{font-size:1.25rem;font-weight:800;color:#0f1f3d;margin-bottom:14px}
+    .story-p{font-size:.85rem;color:#475569;line-height:1.85;margin-bottom:14px}
+    /* DIFF */
+    .diff-sec{background:#f8fafc}
+    .diff-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;max-width:860px;margin:0 auto}
+    .dcard{background:#fff;border:1.5px solid #e2e8f0;border-radius:var(--rm);padding:20px;display:flex;gap:14px;align-items:flex-start;transition:border-color .2s,box-shadow .2s}
+    .dcard:hover{border-color:var(--p);box-shadow:0 4px 18px rgba(249,115,22,.1)}
+    .dicon{width:40px;height:40px;border-radius:10px;background:var(--pl);border:1px solid rgba(249,115,22,.2);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+    .dn{font-size:.9rem;font-weight:700;color:#0f1f3d;margin-bottom:5px}
+    .dd{font-size:.78rem;color:#64748b;line-height:1.65}
+    /* VALUES */
+    .val-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+    .vcard{text-align:center;padding:28px 20px;border-radius:var(--rx);background:#f8fafc;border:1.5px solid #e2e8f0;transition:border-color .2s,transform .2s}
+    .vcard:hover{border-color:var(--p);transform:translateY(-3px)}
+    .vi{font-size:2rem;margin-bottom:12px}
+    .vn{font-size:.95rem;font-weight:800;color:#0f1f3d;margin-bottom:6px}
+    .vd{font-size:.78rem;color:#64748b}
+    /* TEAM */
+    .team-sec{background:var(--dark)}
+    .team-sec .st{color:#fff}.team-sec .ss{color:var(--tw)}
+    .team-sec .stag{background:rgba(249,115,22,.15);border-color:rgba(249,115,22,.3)}
+    .tgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+    .tmcard{background:rgba(255,255,255,.04);border:1px solid var(--b);border-radius:var(--rx);padding:24px;text-align:center;transition:border-color .2s,transform .2s}
+    .tmcard:hover{border-color:rgba(249,115,22,.35);transform:translateY(-3px)}
+    .tmav{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--pd));display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:800;color:#fff;margin:0 auto 14px;box-shadow:0 6px 18px rgba(249,115,22,.3)}
+    .tmn{font-size:.9rem;font-weight:700;color:#fff;margin-bottom:4px}
+    .tmr{font-size:.75rem;color:var(--tm)}
+    /* FEATURES GRD */
+    .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+    .fcard{padding:20px;border-radius:var(--rm);background:#f8fafc;border:1.5px solid #e2e8f0;transition:all .2s}
+    .fcard:hover{border-color:var(--p);transform:translateY(-2px)}
+    .fc-i{font-size:1.4rem;margin-bottom:10px}
+    .fc-n{font-size:.9rem;font-weight:700;color:#0f1f3d;margin-bottom:5px}
+    .fc-d{font-size:.77rem;color:#64748b;line-height:1.6}
+    /* TESTIMONIALS */
+    .testi-sec{background:#f8fafc}
+    .tres{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .tcard{background:#fff;border:1.5px solid #e2e8f0;border-radius:var(--rx);padding:22px;transition:border-color .2s}
+    .tcard:hover{border-color:var(--p)}
+    .tstars{color:var(--p);font-size:.85rem;margin-bottom:10px}
+    .tq{font-size:.78rem;color:#475569;line-height:1.7;margin-bottom:14px;font-style:italic}
+    .tauth{display:flex;align-items:center;gap:10px}
+    .tav{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--pd));display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;color:#fff;flex-shrink:0}
+    .tn{font-size:.8rem;font-weight:700;color:#0f1f3d}.tr{font-size:.7rem;color:#94a3b8}
+    /* CTA */
+    .cta-sec{background:linear-gradient(135deg,var(--p) 0%,var(--pd) 100%);padding:72px 6%;text-align:center}
+    .cta-t{font-size:clamp(1.4rem,3vw,2.1rem);font-weight:900;color:#fff;margin-bottom:10px}
+    .cta-s{font-size:.9rem;color:rgba(255,255,255,.8);margin-bottom:26px}
+    .btn-wh{display:inline-flex;align-items:center;gap:8px;padding:14px 28px;border-radius:50px;background:#fff;color:var(--p);font-family:'Inter',sans-serif;font-size:.9rem;font-weight:800;border:none;cursor:pointer;text-decoration:none;transition:transform .2s}
+    .btn-wh:hover{transform:translateY(-2px)}
+    /* FOOTER */
+    .fline{background:var(--dark);border-top:1px solid var(--b);padding:20px 6%;display:flex;align-items:center;justify-content:space-between;font-size:.75rem;color:var(--tm);flex-wrap:wrap;gap:10px}
+    .fline a{color:var(--tm);text-decoration:none}.fline a:hover{color:var(--p)}
+    .fline-l{display:flex;gap:16px}
+    @media(max-width:900px){.story-grid{grid-template-columns:1fr}.tgrid{grid-template-columns:repeat(2,1fr)}.tres{grid-template-columns:1fr 1fr}.val-grid{grid-template-columns:1fr 1fr}.feat-grid{grid-template-columns:1fr 1fr}}
+    @media(max-width:600px){.nav-links{display:none}.diff-grid{grid-template-columns:1fr}.stats-row{grid-template-columns:repeat(2,1fr)}.tgrid{grid-template-columns:1fr 1fr}.tres{grid-template-columns:1fr}.val-grid{grid-template-columns:1fr}.feat-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="logo"><div class="logo-i"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="8" width="20" height="12" rx="3" fill="white" opacity=".9"/><rect x="5" y="5" width="14" height="5" rx="2" fill="white" opacity=".6"/><circle cx="6.5" cy="20" r="1.5" fill="#f97316"/><circle cx="17.5" cy="20" r="1.5" fill="#f97316"/></svg></div><span class="logo-t">CLICK<span>2</span>BOOK</span></a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="customer/get-support.html">Support</a></li>
+    <li><a href="#">Track Order</a></li>
+    <li><a href="offers.html">Offers</a></li>
+  </ul>
+  <a href="login.html" class="btn-nav">Sign In →</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hc">
+    <div class="htag">🏢 About Us</div>
+    <h1 class="ht">Making Travel Simple &amp; Accessible</h1>
+    <p class="hs">Click2Book is on a mission to revolutionize bus travel in India by offering a fast, affordable and reliable booking experience for millions of travelers.</p>
+    <div class="stats-row">
+      <div class="sr-item"><div class="sr-v">10+</div><div class="sr-l">Years of Service</div></div>
+      <div class="sr-item"><div class="sr-v">5+</div><div class="sr-l">Cities Covered</div></div>
+      <div class="sr-item"><div class="sr-v">4.8/5</div><div class="sr-l">Customer Rating</div></div>
+      <div class="sr-item"><div class="sr-v">5+</div><div class="sr-l">Bus Operators</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- OUR STORY -->
+<section>
+  <div class="story-grid">
+    <div>
+      <div class="htag" style="background:var(--pl);border-color:rgba(249,115,22,.2);">📖 Our Story</div>
+      <div class="story-t">How Click2Book Started</div>
+      <p class="story-p">Click2Book was founded in 2016 by a team of passionate travelers who were frustrated with the complicated, unreliable bus booking experience in India. We believed that technology could solve this — making bus travel as easy as ordering food online.</p>
+      <p class="story-p">Starting with just 3 routes, we've grown to cover 250+ routes across 15+ cities, partnering with India's best bus operators to deliver a premium, hassle-free booking experience to millions of customers.</p>
+      <p class="story-p">Today, Click2Book is India's most trusted bus booking platform with a 4.8-star rating and over 10 lakh satisfied travelers who choose us for every journey.</p>
+    </div>
+    <div class="story-img">🚌</div>
+  </div>
+</section>
+
+<!-- WHAT MAKES US DIFFERENT -->
+<section class="diff-sec">
+  <div class="sh">
+    <div class="stag">Our Edge</div>
+    <h2 class="st">What Makes Click2Book Different</h2>
+    <p class="ss">We're not just another booking platform — we're built around the traveler's needs</p>
+  </div>
+  <div class="diff-grid">
+    <div class="dcard"><div class="dicon">⚡</div><div><div class="dn">Comprehensive Route Finder</div><p class="dd">Access 250+ routes across 15 major cities with real-time seat availability and live tracking updates.</p></div></div>
+    <div class="dcard"><div class="dicon">🔒</div><div><div class="dn">Streamlined Checkout Process</div><p class="dd">Complete your booking in under 60 seconds with our intuitive 5-step checkout built for speed.</p></div></div>
+    <div class="dcard"><div class="dicon">🛡️</div><div><div class="dn">Bank-Grade Security</div><p class="dd">All payments are protected with 256-bit SSL encryption and PCI-DSS compliance for total safety.</p></div></div>
+    <div class="dcard"><div class="dicon">📱</div><div><div class="dn">Mobile Command Center</div><p class="dd">Manage bookings, track buses, and get e-tickets right from your smartphone — anytime, anywhere.</p></div></div>
+    <div class="dcard"><div class="dicon">↩️</div><div><div class="dn">Transparent Pricing</div><p class="dd">No hidden fees, no surprises. What you see is exactly what you pay — always.</p></div></div>
+    <div class="dcard"><div class="dicon">🎯</div><div><div class="dn">Personalized Planning</div><p class="dd">AI-powered recommendations based on your travel history to help you discover the best routes and deals.</p></div></div>
+  </div>
+</section>
+
+<!-- CORE VALUES -->
+<section>
+  <div class="sh">
+    <div class="stag">What We Stand For</div>
+    <h2 class="st">Our Core Values</h2>
+    <p class="ss">The principles that guide every decision we make at Click2Book</p>
+  </div>
+  <div class="val-grid">
+    <div class="vcard"><div class="vi">❤️</div><div class="vn">Customer First</div><p class="vd">Every product decision starts with the traveler. Your experience is our top priority.</p></div>
+    <div class="vcard"><div class="vi">🔐</div><div class="vn">Safety &amp; Security</div><p class="vd">We never compromise on the safety of your data, payments or travel experience.</p></div>
+    <div class="vcard"><div class="vi">⚡</div><div class="vn">On-Time Progress</div><p class="vd">We ship fast, iterate constantly, and always look for ways to improve the platform.</p></div>
+    <div class="vcard"><div class="vi">🌱</div><div class="vn">Innovation</div><p class="vd">We embrace new technology to solve old problems in bus travel and mobility.</p></div>
+    <div class="vcard"><div class="vi">🤝</div><div class="vn">Transparency</div><p class="vd">We operate with full transparency — no hidden fees, no misleading information.</p></div>
+    <div class="vcard"><div class="vi">🌍</div><div class="vn">Accessibility</div><p class="vd">Bus travel should be accessible to everyone. We work hard to keep prices fair and service universal.</p></div>
+  </div>
+</section>
+
+<!-- LEADERSHIP TEAM -->
+<section class="team-sec">
+  <div class="sh">
+    <div class="stag" style="background:rgba(249,115,22,.15);border-color:rgba(249,115,22,.3)">👥 Leadership Team</div>
+    <h2 class="st">Meet the Team</h2>
+    <p class="ss">The passionate people behind Click2Book who work hard every day for travelers like you</p>
+  </div>
+  <div class="tgrid">
+    <div class="tmcard"><div class="tmav">NV</div><div class="tmn">Nathesh Vijay Reddy</div><div class="tmr">Co-Founder &amp; CEO</div></div>
+    <div class="tmcard"><div class="tmav">DA</div><div class="tmn">Daksh</div><div class="tmr">Co-Founder &amp; CTO</div></div>
+    <div class="tmcard"><div class="tmav">YA</div><div class="tmav" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)">YA</div><div class="tmn">Yash</div><div class="tmr">Head of Design</div></div>
+    <div class="tmcard"><div class="tmav" style="background:linear-gradient(135deg,#16a34a,#15803d)">GR</div><div class="tmn">Gabriel Reddy</div><div class="tmr">Head of Operations</div></div>
+  </div>
+</section>
+
+<!-- KEY FEATURES -->
+<section>
+  <div class="sh">
+    <div class="stag">Platform Features</div>
+    <h2 class="st">Key Features</h2>
+    <p class="ss">Everything built into Click2Book to make your journey seamless</p>
+  </div>
+  <div class="feat-grid">
+    <div class="fcard"><div class="fc-i">🎟️</div><div class="fc-n">Seat Selection</div><p class="fc-d">Interactive seat maps showing real-time availability for all buses on every route.</p></div>
+    <div class="fcard"><div class="fc-i">💳</div><div class="fc-n">Instant Payments</div><p class="fc-d">Pay via UPI, debit/credit card, net banking or wallets — all in one place.</p></div>
+    <div class="fcard"><div class="fc-i">📡</div><div class="fc-n">Real-time Updates</div><p class="fc-d">Get instant notifications about your booking, departure reminders and delays.</p></div>
+    <div class="fcard"><div class="fc-i">📱</div><div class="fc-n">Mobile Dashboard</div><p class="fc-d">Manage, cancel and reschedule bookings right from your dashboard on any device.</p></div>
+    <div class="fcard"><div class="fc-i">🎁</div><div class="fc-n">Exclusive Offers</div><p class="fc-d">Unlocked promo codes, cashbacks and loyalty points for every journey you take.</p></div>
+    <div class="fcard"><div class="fc-i">📌</div><div class="fc-n">Multiple Bus Selection</div><p class="fc-d">Compare AC, Non-AC, Sleeper and Semi-Sleeper options side by side instantly.</p></div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="testi-sec">
+  <div class="sh">
+    <div class="stag">Reviews</div>
+    <h2 class="st">What Our Customers Say</h2>
+    <p class="ss">Real stories from real travelers who chose Click2Book</p>
+  </div>
+  <div class="tres">
+    <div class="tcard"><div class="tstars">★★★★★</div><p class="tq">"Incredibly smooth booking experience! I booked 3 seats for my family in under 2 minutes. The seat map is very intuitive."</p><div class="tauth"><div class="tav">PK</div><div><div class="tn">Priya Kulkarni</div><div class="tr">Pune · 2 years user</div></div></div></div>
+    <div class="tcard"><div class="tstars">★★★★★</div><p class="tq">"The cancellation and refund process is really transparent. Got my refund in 4 days. Will always use Click2Book!"</p><div class="tauth"><div class="tav" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)">AM</div><div><div class="tn">Aarav Mehta</div><div class="tr">Mumbai · 1.5 years user</div></div></div></div>
+    <div class="tcard"><div class="tstars">★★★★☆</div><p class="tq">"Best bus booking app in India. The offers are genuinely good and the customer support team is very responsive 24/7."</p><div class="tauth"><div class="tav" style="background:linear-gradient(135deg,#16a34a,#15803d)">SR</div><div><div class="tn">Sana Reddy</div><div class="tr">Hyderabad · 3 years user</div></div></div></div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div class="cta-sec">
+  <div class="cta-t">+ Join Millions of Happy Travelers</div>
+  <p class="cta-s">Book your next journey with Click2Book and experience the difference</p>
+  <a href="customer/search-trips.html" class="btn-wh">Book a Bus Now →</a>
+</div>
+
+<!-- FOOTER -->
+<div class="fline">
+  <span>© 2026 Click2Book. All rights reserved.</span>
+  <div class="fline-l"><a href="index.html">Home</a><a href="offers.html">Offers</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a></div>
+</div>
+</body>
+</html>

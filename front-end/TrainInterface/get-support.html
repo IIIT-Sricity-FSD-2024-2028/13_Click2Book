@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get Support | Click2Book</title>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="user-styles.css">
+    <link rel="stylesheet" href="user-dashboard.css">
+    <style>
+        .page-header-center { text-align: center; margin-bottom: 2rem; margin-top: 1rem; }
+        .page-header-center h2 { font-size: 1.5rem; font-weight: 800; color: #111827; margin: 0 0 0.25rem 0; }
+        .page-header-center p { font-size: 0.875rem; color: #6B7280; margin: 0; }
+        
+        .gs-form-wrapper { max-width: 600px; margin: 0 auto; }
+        
+        .gs-card {
+            background: white; border: 1px solid #E5E7EB; border-radius: 12px;
+            padding: 2rem; margin-bottom: 1.5rem;
+        }
+        
+        .gs-label { font-size: 0.875rem; font-weight: 700; color: #111827; margin-bottom: 1rem; display: block; }
+        
+        .category-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+        }
+        
+        .category-btn {
+            background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;
+            padding: 0.875rem 1rem; display: flex; align-items: center; gap: 0.75rem;
+            cursor: pointer; transition: all 0.2s; font-size: 0.875rem; font-weight: 500; color: #475569;
+        }
+        .category-btn svg { width: 16px; height: 16px; color: #9CA3AF; }
+        
+        .category-btn.active {
+            background: #FFF7ED; border-color: var(--primary); color: var(--primary);
+        }
+        .category-btn.active svg { color: var(--primary); }
+        
+        .gs-input {
+            width: 100%; box-sizing: border-box; border: 1px solid #E2E8F0; border-radius: 8px;
+            padding: 1rem; font-size: 0.875rem; font-family: 'Inter', sans-serif;
+            background: #F8FAFC; color: #111827; transition: border-color 0.2s; margin-bottom: 1rem;
+        }
+        .gs-input:focus { outline: none; border-color: var(--primary); background: white; }
+        .gs-input::placeholder { color: #9CA3AF; }
+        
+        .gs-textarea {
+            width: 100%; box-sizing: border-box; border: 1px solid #E2E8F0; border-radius: 8px;
+            padding: 1rem; font-size: 0.875rem; font-family: 'Inter', sans-serif;
+            background: #F8FAFC; color: #111827; transition: border-color 0.2s; min-height: 120px; resize: vertical;
+        }
+        .gs-textarea:focus { outline: none; border-color: var(--primary); background: white; }
+        .gs-textarea::placeholder { color: #9CA3AF; }
+        
+        .gs-submit {
+            width: 100%; border: none; border-radius: 8px; background: var(--primary); color: white;
+            padding: 1rem; font-size: 1rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .gs-submit:hover { background: var(--primary-hover); }
+        
+    </style>
+</head>
+<body>
+    <div class="user-dash-layout">
+        <aside class="user-sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <div class="icon"><i data-feather="truck" style="color: white; width: 18px; height: 18px;"></i></div>
+                    <div class="text">CLICK<span style="color:var(--primary);">2</span>BOOK</div>
+                </div>
+                <i data-feather="menu" style="color: white; cursor: pointer;"></i>
+            </div>
+            
+            <div class="sidebar-profile">
+                <div class="avatar">RS</div>
+                <div class="info">
+                    <h4>Customer Profile</h4>
+                    <p>Premium Member</p>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="search-trains.html" class="nav-link nav-item">
+                    <i data-feather="search"></i> Search Trips
+                </a>
+                <a href="my-bookings.html" class="nav-link nav-item">
+                    <i data-feather="book"></i> My Bookings
+                </a>
+                <a href="cancel-ticket.html" class="nav-link nav-item">
+                    <i data-feather="x"></i> Cancel Ticket
+                </a>
+                <a href="get-support.html" class="nav-link nav-item active">
+                    <i data-feather="headphones"></i> Get Support
+                </a>
+                <a href="my-profile.html" class="nav-link nav-item">
+                    <i data-feather="user"></i> My Profile
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <a href="login train.html" class="nav-link nav-item">
+                    <i data-feather="log-out"></i> Logout
+                </a>
+            </div>
+        </aside>
+        
+        <div class="user-main-content">
+            <div class="top-header">
+                <div class="page-titles">
+                    <h1>Get Support</h1>
+                    <p>Welcome back, Rahul!</p>
+                </div>
+                <div class="notification-bell">
+                    <i data-feather="bell"></i>
+                </div>
+            </div>
+            
+            <div class="dashboard-wrapper">
+                <div class="page-header-center">
+                    <h2>Request Assistance</h2>
+                    <p>Our team is here to help you 24/7</p>
+                </div>
+                
+                <div class="gs-form-wrapper">
+                    <div class="gs-card" style="margin-bottom: 1rem;">
+                        <label class="gs-label">Issue Category</label>
+                        <div class="category-grid">
+                            <div class="category-btn active">
+                                <i data-feather="tag"></i> Booking Issue
+                            </div>
+                            <div class="category-btn">
+                                <i data-feather="refresh-cw"></i> Refund
+                            </div>
+                            <div class="category-btn">
+                                <i data-feather="alert-circle"></i> Complaint
+                            </div>
+                            <div class="category-btn">
+                                <i data-feather="file-text"></i> Other
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="gs-card" style="padding: 1.5rem 2rem;">
+                        <input type="text" class="gs-input" placeholder="Booking ID (optional)">
+                        <textarea class="gs-textarea" placeholder="Describe your issue in detail..."></textarea>
+                    </div>
+                    
+                    <button class="gs-submit">
+                        <i data-feather="headphones" style="width: 18px; height: 18px;"></i> Submit Request
+                    </button>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+    <script> feather.replace(); </script>
+</body>
+</html>

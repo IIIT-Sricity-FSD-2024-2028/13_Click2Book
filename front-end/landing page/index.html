@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Click2Book – Book Your Bus Journey</title>
+  <meta name="description" content="Book bus tickets instantly with Click2Book. Secure payments, easy cancellation, 24/7 support."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --primary:#f97316;--pd:#ea580c;--pl:rgba(249,115,22,.12);
+      --navy:#0f1f3d;--navyd:#0a0f1e;--navyl:rgba(255,255,255,.05);
+      --border:rgba(255,255,255,.08);--tw:rgba(255,255,255,.75);--tm:rgba(255,255,255,.45);
+      --rl:8px;--rm:12px;--rl2:16px;--rx:24px;
+    }
+    html{scroll-behavior:smooth}
+    body{font-family:'Inter',sans-serif;background:var(--navyd);color:#fff;overflow-x:hidden;line-height:1.6}
+
+    /* NAV */
+    .nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 6%;background:rgba(10,15,30,.88);backdrop-filter:blur(18px);border-bottom:1px solid var(--border)}
+    .logo{display:flex;align-items:center;gap:9px;text-decoration:none}
+    .logo-icon{width:34px;height:34px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center}
+    .logo-txt{font-size:1.05rem;font-weight:800;color:#fff;letter-spacing:-.5px}.logo-txt span{color:var(--primary)}
+    .nav-links{display:flex;align-items:center;gap:28px;list-style:none}
+    .nav-links a{font-size:.84rem;font-weight:500;color:var(--tw);text-decoration:none;transition:color .2s}
+    .nav-links a:hover,.nav-links a.on{color:#fff}
+    .nav-links a.on{color:var(--primary)}
+    .btn-nav{padding:9px 22px;border-radius:50px;background:var(--primary);color:#fff;font-family:'Inter',sans-serif;font-size:.84rem;font-weight:700;border:none;cursor:pointer;text-decoration:none;transition:background .2s,transform .2s}
+    .btn-nav:hover{background:var(--pd);transform:translateY(-1px)}
+
+    /* HERO */
+    .hero{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:130px 6% 90px;position:relative;overflow:hidden;text-align:center;background:linear-gradient(135deg,#0a0f1e 0%,#0f1f3d 45%,#162a4a 70%,#0f1f3d 100%)}
+    .hero::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 18% 50%,rgba(249,115,22,.09) 0%,transparent 50%),radial-gradient(circle at 82% 20%,rgba(249,115,22,.07) 0%,transparent 40%)}
+    /* Floating dots */
+    .hdot{position:absolute;border-radius:50%;background:rgba(249,115,22,.15);animation:float linear infinite}
+    @keyframes float{0%{transform:translateY(0) rotate(0)}100%{transform:translateY(-100vh) rotate(360deg)}}
+    .hc{position:relative;z-index:2;max-width:800px;margin:0 auto}
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:5px 16px;border-radius:50px;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3);font-size:.72rem;font-weight:700;color:var(--primary);margin-bottom:22px;animation:fu .6s ease both}
+    .hero-h{font-size:clamp(2rem,5vw,3.5rem);font-weight:900;line-height:1.12;margin-bottom:14px;animation:fu .7s .1s ease both}
+    .hero-h span{color:var(--primary)}
+    .hero-sub{font-size:.95rem;color:var(--tm);margin-bottom:38px;animation:fu .7s .2s ease both}
+    @keyframes fu{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+
+    /* SEARCH CARD */
+    .sc{background:rgba(255,255,255,.07);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.13);border-radius:var(--rx);padding:26px;animation:fu .7s .3s ease both;margin-bottom:28px}
+    .tabs{display:flex;gap:4px;margin-bottom:18px}
+    .tab{padding:7px 18px;border-radius:50px;font-family:'Inter',sans-serif;font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:all .2s;color:var(--tm);background:transparent}
+    .tab.on{background:var(--primary);color:#fff}
+    .tab:not(.on):hover{background:rgba(255,255,255,.08);color:var(--tw)}
+    .srow{display:grid;grid-template-columns:1fr 44px 1fr 1fr auto;gap:10px;align-items:end}
+    .sf{display:flex;flex-direction:column;gap:5px}
+    .sf label{font-size:.65rem;font-weight:700;letter-spacing:1px;color:var(--tm);text-transform:uppercase}
+    .sf input{padding:13px 15px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.1);border-radius:var(--rm);color:#fff;font-family:'Inter',sans-serif;font-size:.88rem;font-weight:500;outline:none;transition:border-color .2s,background .2s;width:100%}
+    .sf input::placeholder{color:var(--tm)}
+    .sf input:focus{border-color:var(--primary);background:rgba(249,115,22,.07)}
+    .sf input[type=date]{color-scheme:dark}
+    .swp{display:flex;align-items:flex-end;padding-bottom:1px}
+    .swp-btn{width:42px;height:48px;border-radius:50%;background:rgba(249,115,22,.18);border:1.5px solid var(--primary);color:var(--primary);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .25s}
+    .swp-btn:hover{background:var(--primary);color:#fff;transform:rotate(180deg)}
+    .find-btn{padding:13px 26px;border-radius:var(--rm);background:linear-gradient(135deg,var(--primary) 0%,var(--pd) 100%);color:#fff;font-family:'Inter',sans-serif;font-size:.9rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 8px 24px rgba(249,115,22,.4);transition:transform .2s,box-shadow .2s;white-space:nowrap;display:flex;align-items:center;gap:7px;align-self:flex-end}
+    .find-btn:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(249,115,22,.5)}
+    .perks{display:flex;align-items:center;justify-content:center;gap:22px;flex-wrap:wrap;animation:fu .7s .4s ease both}
+    .perk{display:flex;align-items:center;gap:6px;font-size:.76rem;font-weight:500;color:var(--tw)}
+    .pdot{width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0}
+
+    /* SECTIONS */
+    section{padding:80px 6%}
+    .sh{text-align:center;margin-bottom:46px}
+    .stag{display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:50px;background:var(--pl);border:1px solid rgba(249,115,22,.25);font-size:.7rem;font-weight:700;color:var(--primary);letter-spacing:.5px;margin-bottom:12px}
+    .st{font-size:clamp(1.5rem,3vw,2.1rem);font-weight:800;margin-bottom:8px}
+    .ss{font-size:.88rem;color:var(--tm);max-width:480px;margin:0 auto}
+
+    /* DESTINATIONS (white bg) */
+    .dest-sec{background:#fff;color:#0f1f3d}
+    .dest-sec .st{color:#0f1f3d}
+    .dest-sec .ss{color:#64748b}
+    .dest-sec .stag{background:rgba(249,115,22,.1);color:var(--primary);border-color:rgba(249,115,22,.2)}
+    .dgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+    .dcard{border-radius:var(--rl2);overflow:hidden;position:relative;height:210px;cursor:pointer;transition:transform .3s;box-shadow:0 4px 20px rgba(0,0,0,.15)}
+    .dcard:hover{transform:translateY(-5px)}
+    .dimg{width:100%;height:100%;object-fit:cover;transition:transform .4s}
+    .dcard:hover .dimg{transform:scale(1.07)}
+    .dov{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.78) 0%,transparent 55%)}
+    .dinfo{position:absolute;bottom:14px;left:14px;right:14px}
+    .droute{font-size:.92rem;font-weight:700;color:#fff;display:block}
+    .dprice{font-size:.75rem;color:rgba(255,255,255,.7)}
+    .dtag{display:inline-block;padding:3px 8px;border-radius:4px;background:var(--primary);color:#fff;font-size:.63rem;font-weight:700;margin-bottom:4px}
+    .dbadge{position:absolute;top:12px;right:12px;padding:3px 10px;border-radius:50px;background:var(--primary);color:#fff;font-size:.62rem;font-weight:700}
+    /* Fallback bg if image fails */
+    .dcard:nth-child(1) .dimg-wrap{background:linear-gradient(135deg,#1a365d,#2d6a4f)}
+    .dcard:nth-child(2) .dimg-wrap{background:linear-gradient(135deg,#7c3aed,#1e3a5f)}
+    .dcard:nth-child(3) .dimg-wrap{background:linear-gradient(135deg,#065f46,#1e3a5f)}
+    .dcard:nth-child(4) .dimg-wrap{background:linear-gradient(135deg,#9a3412,#1e3a5f)}
+    .explore{text-align:center;margin-top:34px}
+    .btn-ol{display:inline-flex;align-items:center;gap:7px;padding:12px 28px;border-radius:50px;border:2px solid var(--primary);color:var(--primary);font-family:'Inter',sans-serif;font-size:.87rem;font-weight:700;background:none;cursor:pointer;text-decoration:none;transition:all .2s}
+    .btn-ol:hover{background:var(--primary);color:#fff}
+
+    /* STATS */
+    .stats-s{background:var(--navy);padding:56px 6%}
+    .sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:40px;max-width:860px;margin:0 auto;text-align:center}
+    .sv{font-size:2.4rem;font-weight:900;color:var(--primary);display:block;line-height:1}
+    .sl{font-size:.78rem;color:var(--tm);font-weight:500;margin-top:5px}
+
+    /* FEATURES */
+    .feat-sec{background:var(--navyd)}
+    .fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+    .fc{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--rl2);padding:24px;transition:border-color .25s,transform .25s,background .25s}
+    .fc:hover{border-color:rgba(249,115,22,.3);transform:translateY(-3px);background:rgba(249,115,22,.04)}
+    .ficon{width:44px;height:44px;border-radius:var(--rl);background:var(--pl);border:1px solid rgba(249,115,22,.25);display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:1.2rem}
+    .fn{font-size:.93rem;font-weight:700;margin-bottom:6px}
+    .fd{font-size:.79rem;color:var(--tm);line-height:1.7}
+
+    /* HOW IT WORKS */
+    .how-sec{background:#fff}
+    .how-sec .st{color:#0f1f3d}
+    .how-sec .ss{color:#64748b}
+    .how-sec .stag{background:rgba(249,115,22,.1);color:var(--primary);border-color:rgba(249,115,22,.2)}
+    .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;position:relative}
+    .steps::before{content:'';position:absolute;top:36px;left:12%;right:12%;height:2px;background:linear-gradient(to right,var(--primary),rgba(249,115,22,.3),var(--primary));z-index:0}
+    .scard{text-align:center;position:relative;z-index:1}
+    .snum{width:72px;height:72px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 8px 24px rgba(249,115,22,.35);font-size:1.4rem}
+    .stitle{font-size:.92rem;font-weight:700;color:#0f1f3d;margin-bottom:6px}
+    .sdesc{font-size:.77rem;color:#64748b;line-height:1.6}
+
+    /* TESTIMONIALS */
+    .testi-sec{background:var(--navy)}
+    .tc{max-width:680px;margin:0 auto;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:var(--rx);padding:40px;text-align:center}
+    .tstars{font-size:1.2rem;margin-bottom:16px;color:var(--primary)}
+    .tquote{font-size:.95rem;font-style:italic;color:var(--tw);line-height:1.85;margin-bottom:22px}
+    .tauth{display:flex;align-items:center;justify-content:center;gap:12px}
+    .tav{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--pd));display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:800;color:#fff}
+    .tname{font-size:.87rem;font-weight:700}
+    .trole{font-size:.73rem;color:var(--tm)}
+
+    /* CTA */
+    .cta-sec{background:linear-gradient(135deg,var(--primary) 0%,var(--pd) 100%);padding:80px 6%;text-align:center}
+    .cta-t{font-size:clamp(1.4rem,3vw,2.2rem);font-weight:900;margin-bottom:12px}
+    .cta-s{font-size:.93rem;color:rgba(255,255,255,.8);margin-bottom:30px}
+    .btn-wh{display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:50px;background:#fff;color:var(--primary);font-family:'Inter',sans-serif;font-size:.93rem;font-weight:800;border:none;cursor:pointer;text-decoration:none;transition:transform .2s,box-shadow .2s;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+    .btn-wh:hover{transform:translateY(-2px);box-shadow:0 14px 32px rgba(0,0,0,.3)}
+
+    /* FOOTER */
+    footer{background:var(--navyd);border-top:1px solid var(--border);padding:60px 6% 0}
+    .fg{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:48px;padding-bottom:48px;border-bottom:1px solid var(--border)}
+    .fdesc{font-size:.8rem;color:var(--tm);line-height:1.8;margin:14px 0 18px}
+    .fci{display:flex;align-items:center;gap:8px;font-size:.77rem;color:var(--tm);margin-bottom:8px}
+    .fci svg{color:var(--primary);flex-shrink:0}
+    .fsoc{display:flex;gap:8px;margin-top:18px}
+    .sbtn{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--tm);cursor:pointer;transition:all .2s;background:none}
+    .sbtn:hover{border-color:var(--primary);color:var(--primary)}
+    .fcol h4{font-size:.8rem;font-weight:700;color:#fff;letter-spacing:.5px;text-transform:uppercase;margin-bottom:16px}
+    .flinks{display:flex;flex-direction:column;gap:10px;list-style:none}
+    .flinks a{font-size:.8rem;color:var(--tm);text-decoration:none;transition:color .2s}
+    .flinks a:hover{color:var(--primary)}
+    .fbot{display:flex;align-items:center;justify-content:space-between;padding:18px 0;font-size:.73rem;color:var(--tm);flex-wrap:wrap;gap:10px}
+    .fbot-l{display:flex;gap:18px}
+    .fbot-l a{color:var(--tm);text-decoration:none}
+    .fbot-l a:hover{color:var(--primary)}
+
+    /* SCROLL ANIMATIONS */
+    .fu{opacity:0;transform:translateY(28px);transition:opacity .65s ease,transform .65s ease}
+    .fu.vis{opacity:1;transform:translateY(0)}
+
+    /* RESPONSIVE */
+    @media(max-width:900px){
+      .srow{grid-template-columns:1fr 1fr}.swp{display:none}.find-btn{grid-column:span 2;justify-content:center}
+      .dgrid{grid-template-columns:repeat(2,1fr)}.fgrid{grid-template-columns:repeat(2,1fr)}
+      .steps{grid-template-columns:repeat(2,1fr)}.steps::before{display:none}
+      .fg{grid-template-columns:1fr 1fr}.sgrid{grid-template-columns:repeat(2,1fr)}
+    }
+    @media(max-width:600px){
+      .nav-links{display:none}.srow{grid-template-columns:1fr}
+      .find-btn{width:100%;justify-content:center}.dgrid{grid-template-columns:1fr 1fr}
+      .fgrid{grid-template-columns:1fr}.steps{grid-template-columns:1fr 1fr}
+      .fg{grid-template-columns:1fr}.sgrid{grid-template-columns:repeat(2,1fr)}
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <a href="index.html" class="logo">
+    <div class="logo-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <rect x="2" y="8" width="20" height="12" rx="3" fill="white" opacity=".9"/>
+        <rect x="5" y="5" width="14" height="5" rx="2" fill="white" opacity=".6"/>
+        <circle cx="6.5" cy="20" r="1.5" fill="#f97316"/><circle cx="17.5" cy="20" r="1.5" fill="#f97316"/>
+      </svg>
+    </div>
+    <span class="logo-txt">CLICK<span>2</span>BOOK</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="index.html" class="on">Home</a></li>
+    <li><a href="../customer/get-support.html">Support</a></li>
+    <li><a href="offers.html">Offers</a></li>
+  </ul>
+  <a href="login.html" class="btn-nav">Sign In →</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <!-- floating dots -->
+  <div class="hdot" style="width:8px;height:8px;left:10%;animation-duration:18s;animation-delay:0s"></div>
+  <div class="hdot" style="width:5px;height:5px;left:25%;animation-duration:22s;animation-delay:3s"></div>
+  <div class="hdot" style="width:10px;height:10px;left:70%;animation-duration:16s;animation-delay:1s"></div>
+  <div class="hdot" style="width:6px;height:6px;left:85%;animation-duration:20s;animation-delay:5s"></div>
+  <div class="hdot" style="width:4px;height:4px;left:50%;animation-duration:25s;animation-delay:2s"></div>
+
+  <div class="hc">
+    <h1 class="hero-h">Book Your Journey<br>with <span>CLICK2BOOK</span></h1>
+    <p class="hero-sub">Your ticket to go far ahead — fast, safe and affordable</p>
+
+    <div class="sc">
+      <div class="tabs">
+        <button class="tab on" id="tabBus" onclick="setTab(this,'bus')">🚌 &nbsp;Bus</button>
+        <button class="tab" id="tabTrain" onclick="setTab(this,'train')">🚆 &nbsp;Train</button>
+      </div>
+      <div class="srow">
+        <div class="sf">
+          <label>From</label>
+          <input type="text" id="fromCity" placeholder="Departure city" value="Mumbai"/>
+        </div>
+        <div class="swp">
+          <button class="swp-btn" onclick="swapCities()" aria-label="Swap cities">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>
+            </svg>
+          </button>
+        </div>
+        <div class="sf">
+          <label>To</label>
+          <input type="text" id="toCity" placeholder="Destination city" value="Pune"/>
+        </div>
+        <div class="sf">
+          <label>Travel Date</label>
+          <input type="date" id="travelDate"/>
+        </div>
+        <button class="find-btn" id="findBtn" onclick="findNow()">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <span id="findBtnLabel">Find Buses</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="perks">
+      <div class="perk"><span class="pdot"></span> No Hidden Fees</div>
+      <div class="perk"><span class="pdot"></span> Easy Cancellation</div>
+      <div class="perk"><span class="pdot"></span> 24/7 Help</div>
+      <div class="perk"><span class="pdot"></span> Instant E-Ticket</div>
+    </div>
+  </div>
+</section>
+
+<!-- DESTINATIONS -->
+<section class="dest-sec fu" id="destinations">
+  <div class="sh">
+    <div class="stag">✈ Popular Routes</div>
+    <h2 class="st">Top Travel Destinations</h2>
+    <p class="ss">Discover the most popular bus routes across India, handpicked just for you</p>
+  </div>
+  <div class="dgrid">
+    <div class="dcard" onclick="qs('Mumbai','Pune')">
+      <img class="dimg" src="https://images.unsplash.com/photo-1529253355930-ddbe423a2ac7?w=500&q=75" alt="Mumbai" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#1a365d,#0f1f3d)'"/>
+      <div class="dov"></div><span class="dbadge">HOT</span>
+      <div class="dinfo"><span class="dtag">Bus</span><span class="droute">Mumbai → Pune</span><span class="dprice">From ₹350 · 3½ hrs</span></div>
+    </div>
+    <div class="dcard" onclick="qs('Delhi','Agra')">
+      <img class="dimg" src="https://images.unsplash.com/photo-1564507592333-c60657eea523?w=500&q=75" alt="Delhi Agra" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#2d1b69,#1e3a5f)'"/>
+      <div class="dov"></div><span class="dbadge">POPULAR</span>
+      <div class="dinfo"><span class="dtag">Bus</span><span class="droute">Delhi → Agra</span><span class="dprice">From ₹280 · 4 hrs</span></div>
+    </div>
+    <div class="dcard" onclick="qs('Bangalore','Mysore')">
+      <img class="dimg" src="https://images.unsplash.com/photo-1596176530529-78163a4f7af2?w=500&q=75" alt="Bangalore" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#064e3b,#0f1f3d)'"/>
+      <div class="dov"></div>
+      <div class="dinfo"><span class="dtag">Bus</span><span class="droute">Bangalore → Mysore</span><span class="dprice">From ₹200 · 3 hrs</span></div>
+    </div>
+    <div class="dcard" onclick="qs('Chennai','Pondicherry')">
+      <img class="dimg" src="https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=500&q=75" alt="Chennai" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#7c2d12,#1e3a5f)'"/>
+      <div class="dov"></div>
+      <div class="dinfo"><span class="dtag">Bus</span><span class="droute">Chennai → Pondicherry</span><span class="dprice">From ₹150 · 3 hrs</span></div>
+    </div>
+  </div>
+  <div class="explore"><a href="login.html" class="btn-ol">Explore All Routes →</a></div>
+</section>
+
+<!-- STATS -->
+<div class="stats-s fu">
+  <div class="sgrid">
+    <div><span class="sv">250<span style="color:#fff">+</span></span><span class="sl">Routes Available</span></div>
+    <div><span class="sv">30<span style="color:#fff">+</span></span><span class="sl">Bus Partners</span></div>
+    <div><span class="sv">15<span style="color:#fff">+</span></span><span class="sl">Cities Covered</span></div>
+    <div><span class="sv">4.7</span><span class="sl">⭐ Average Rating</span></div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section class="feat-sec fu" id="features">
+  <div class="sh">
+    <div class="stag">Why Choose Us</div>
+    <h2 class="st">Travel Smarter with Click2Book</h2>
+    <p class="ss">Everything you need for a seamless journey experience</p>
+  </div>
+  <div class="fgrid">
+    <div class="fc"><div class="ficon">🛡️</div><div class="fn">100% Safe Travel</div><p class="fd">All buses are verified, sanitized and meet safety standards. Travel with peace of mind.</p></div>
+    <div class="fc"><div class="ficon">⚡</div><div class="fn">Instant Booking</div><p class="fd">Book your ticket in under 60 seconds. Instant confirmation sent to your phone and email.</p></div>
+    <div class="fc"><div class="ficon">🔒</div><div class="fn">Secure Payments</div><p class="fd">All transactions are 256-bit encrypted. Pay via UPI, card, net banking or wallet safely.</p></div>
+    <div class="fc"><div class="ficon">↩️</div><div class="fn">Easy Refunds</div><p class="fd">Cancel anytime and get your refund processed within 5–7 business days. No hassle.</p></div>
+    <div class="fc"><div class="ficon">🎧</div><div class="fn">24/7 Support</div><p class="fd">Our dedicated team is available around the clock via chat, email and phone.</p></div>
+    <div class="fc"><div class="ficon">🏆</div><div class="fn">No. 1 on Board</div><p class="fd">Rated India's most trusted bus booking platform with over 10 lakh happy travelers.</p></div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-sec fu" id="how">
+  <div class="sh">
+    <div class="stag">Simple Steps</div>
+    <h2 class="st">How It Works</h2>
+    <p class="ss">Book your perfect bus ticket in just 4 easy steps</p>
+  </div>
+  <div class="steps">
+    <div class="scard"><div class="snum">🔍</div><div class="stitle">Search Buses</div><p class="sdesc">Enter origin, destination and date to find available buses on your route</p></div>
+    <div class="scard"><div class="snum">💺</div><div class="stitle">Choose Your Seat</div><p class="sdesc">Pick your preferred seat from the live interactive seat map</p></div>
+    <div class="scard"><div class="snum">📝</div><div class="stitle">Fill Details</div><p class="sdesc">Enter passenger info and apply promo codes to get the best deal</p></div>
+    <div class="scard"><div class="snum">✅</div><div class="stitle">Confirm & Pay</div><p class="sdesc">Pay securely and receive your e-ticket instantly on your phone</p></div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="testi-sec fu">
+  <div class="sh">
+    <div class="stag">Reviews</div>
+    <h2 class="st">What Travelers Say</h2>
+  </div>
+  <div class="tc">
+    <div class="tstars">★★★★★</div>
+    <p class="tquote">"I've been using Click2Book for over a year and it has completely transformed how I travel. The booking process is lightning-fast, seat selection is smooth, and I've never had any issue with refunds. Highly recommended to every traveler!"</p>
+    <div class="tauth">
+      <div class="tav">RK</div>
+      <div><div class="tname">Rahul Kumar</div><div class="trole">Frequent Traveler · Mumbai</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-sec">
+  <h2 class="cta-t">Ready to Start Your Journey?</h2>
+  <p class="cta-s">Join 10 lakh+ happy travelers booking smarter with Click2Book</p>
+  <a href="login.html" class="btn-wh">Create Your Account →</a>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="fg">
+    <div>
+      <a href="index.html" class="logo" style="margin-bottom:12px;display:inline-flex">
+        <div class="logo-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="8" width="20" height="12" rx="3" fill="white" opacity=".9"/><rect x="5" y="5" width="14" height="5" rx="2" fill="white" opacity=".6"/><circle cx="6.5" cy="20" r="1.5" fill="#f97316"/><circle cx="17.5" cy="20" r="1.5" fill="#f97316"/></svg></div>
+        <span class="logo-txt">CLICK<span>2</span>BOOK</span>
+      </a>
+      <p class="fdesc">India's most trusted online bus booking platform. Book fast, travel safe, and enjoy every journey.</p>
+      <div class="fci"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 3.09 4.18 2 2 0 0 1 5.07 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L9.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>+91 1800-123-4567</div>
+      <div class="fci"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>support@click2book.in</div>
+      <div class="fsoc">
+        <button class="sbtn" title="Facebook"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></button>
+        <button class="sbtn" title="Twitter"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"/></svg></button>
+        <button class="sbtn" title="Instagram"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg></button>
+        <button class="sbtn" title="YouTube"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.6.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19.08C5.12 19.5 12 19.5 12 19.5s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.95-1.96 29 29 0 0 0 .45-5.29 29 29 0 0 0-.46-5.37z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg></button>
+      </div>
+    </div>
+    <div class="fcol"><h4>Company</h4><ul class="flinks"><li><a href="#">About Us</a></li><li><a href="#">Careers</a></li><li><a href="#">Press</a></li><li><a href="#">Blog</a></li></ul></div>
+    <div class="fcol"><h4>Services</h4><ul class="flinks"><li><a href="login.html">Bus Booking</a></li><li><a href="#">Special Offers</a></li><li><a href="login.html">Cancel Ticket</a></li><li><a href="#">Customer Review</a></li></ul></div>
+    <div class="fcol"><h4>Support</h4><ul class="flinks"><li><a href="#">Help Centre</a></li><li><a href="../customer/get-support.html">Contact Us</a></li><li><a href="#">Terms of Service</a></li><li><a href="#">Privacy Policy</a></li></ul></div>
+  </div>
+  <div class="fbot">
+    <span>© 2026 Click2Book. All rights reserved.</span>
+    <div class="fbot-l"><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Contact</a></div>
+  </div>
+</footer>
+
+<script>
+  // Set default date to today
+  document.getElementById('travelDate').valueAsDate = new Date();
+
+  let activeMode = 'bus'; // 'bus' or 'train'
+
+  function setTab(btn, mode) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+    btn.classList.add('on');
+    activeMode = mode;
+    document.getElementById('findBtnLabel').textContent = mode === 'train' ? 'Search Trains' : 'Find Buses';
+    // Update placeholders
+    document.getElementById('fromCity').placeholder = mode === 'train' ? 'Departure station' : 'Departure city';
+    document.getElementById('toCity').placeholder   = mode === 'train' ? 'Destination station' : 'Destination city';
+  }
+
+  function findNow() {
+    const from = document.getElementById('fromCity').value.trim();
+    const to   = document.getElementById('toCity').value.trim();
+    const date = document.getElementById('travelDate').value;
+    if (!from || !to) { alert('Please enter departure and destination.'); return; }
+    if (from.toLowerCase() === to.toLowerCase()) { alert('Departure and destination cannot be the same.'); return; }
+    // Store search params in sessionStorage
+    sessionStorage.setItem('searchFrom', from);
+    sessionStorage.setItem('searchTo', to);
+    sessionStorage.setItem('searchDate', date);
+    if (activeMode === 'train') {
+      // Redirect directly to the train booking page (Guntur → Sullurpeta flow)
+      sessionStorage.setItem('trainFrom', from);
+      sessionStorage.setItem('trainTo', to);
+      sessionStorage.setItem('trainDate', date);
+      window.location.href = '../TrainInterface/available-trains.html';
+    } else {
+      // Bus: go directly to search-trips (no login required to browse)
+      window.location.href = '../customer/search-trips.html';
+    }
+  }
+
+  function swapCities() {
+    const f = document.getElementById('fromCity'), t = document.getElementById('toCity');
+    const tmp = f.value; f.value = t.value; t.value = tmp;
+  }
+
+  function qs(from, to) {
+    document.getElementById('fromCity').value = from;
+    document.getElementById('toCity').value = to;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Scroll-reveal
+  const obs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) e.target.classList.add('vis'); }), { threshold: 0.1 });
+  document.querySelectorAll('.fu').forEach(el => obs.observe(el));
+</script>
+</body>
+</html>

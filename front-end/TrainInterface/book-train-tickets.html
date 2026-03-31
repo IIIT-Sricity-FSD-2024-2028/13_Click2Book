@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Train Tickets | Click2Book</title>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link rel="stylesheet" href="user-styles.css">
+</head>
+<body class="booking-page-layout">
+    
+    <!-- Top Navy Header -->
+    <header class="booking-header-section">
+        <div class="booking-top-nav">
+            <a href="available-trains.html" class="back-btn">
+                <i data-feather="chevron-left"></i> Back
+            </a>
+            <div style="width: 70px;"></div> <!-- Spacer -->
+        </div>
+        
+        <div class="booking-chip">
+            <i data-feather="train" style="width: 14px; height: 14px;"></i> Train Booking
+        </div>
+        <h1>Book Train Tickets</h1>
+        <p>Instant booking, real-time seat availability, and confirmed tickets in minutes</p>
+    </header>
+
+    <!-- Main Content over Header -->
+    <main class="booking-main-content">
+        <div class="booking-form-card">
+            <h3>Passenger Details</h3>
+            
+            <div class="train-summary-card">
+                <div class="train-details-left">
+                    <h4 id="bk-name">Rajdhani Express</h4>
+                    <p id="bk-route">Mumbai &rarr; Pune &bull; 9/3/2026</p>
+                </div>
+                <div class="train-details-right">
+                    <div class="train-price" id="bk-price">&#8377;3000</div>
+                    <div class="train-class" id="bk-class">AC First Class (1A)</div>
+                </div>
+            </div>
+            
+            <form action="train-payment.html" id="passenger-form">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <div class="input-with-icon">
+                        <i data-feather="user"></i>
+                        <input type="text" class="form-control" placeholder="Enter your full name" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <div class="input-with-icon">
+                            <i data-feather="mail"></i>
+                            <input type="email" class="form-control" placeholder="your@email.com" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number</label>
+                        <div class="input-with-icon">
+                            <i data-feather="phone"></i>
+                            <input type="tel" class="form-control" placeholder="+91 98765 43210" required>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Age</label>
+                        <div class="input-with-icon">
+                            <i data-feather="user"></i>
+                            <input type="number" class="form-control" placeholder="Enter your age" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>IRCTC ID</label>
+                        <div class="input-with-icon">
+                            <i data-feather="user"></i>
+                            <input type="text" class="form-control" placeholder="Enter your IRCTC ID" required>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn-primary btn-large">
+                    continue for payment <i data-feather="arrow-right"></i>
+                </button>
+            </form>
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-grid">
+            <div class="footer-col">
+                <div class="footer-logo">
+                    <div class="logo-icon" style="background: var(--primary); display: flex; align-items: center; justify-content: center;">
+                        <i data-feather="truck" style="color: white;"></i>
+                    </div>
+                    <div class="footer-logo-text">
+                        <h2>CLICK2BOOK</h2>
+                        <p>TRAVEL SMARTER</p>
+                    </div>
+                </div>
+                <p class="footer-desc">
+                    India's most trusted online ticket reservation platform. Book bus tickets, manage your journeys, and travel with confidence.
+                </p>
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <i data-feather="phone-call"></i> 1800-123-CLICK (24/7 Support)
+                    </div>
+                    <div class="contact-item">
+                        <i data-feather="mail"></i> support@click2book.in
+                    </div>
+                    <div class="contact-item">
+                        <i data-feather="map-pin"></i> Mumbai, Maharashtra, India
+                    </div>
+                </div>
+                <div class="social-links">
+                    <a href="#"><i data-feather="facebook" style="width: 14px; height: 14px;"></i></a>
+                    <a href="#"><i data-feather="twitter" style="width: 14px; height: 14px;"></i></a>
+                    <a href="#"><i data-feather="instagram" style="width: 14px; height: 14px;"></i></a>
+                    <a href="#"><i data-feather="linkedin" style="width: 14px; height: 14px;"></i></a>
+                </div>
+            </div>
+            
+            <div class="footer-col">
+                <h4>COMPANY</h4>
+                <ul class="footer-links">
+                    <li><a href="about-us.html">About Us</a></li>
+                    <li><a href="#">Careers</a></li>
+                    <li><a href="#">Press</a></li>
+                    <li><a href="#">Blog</a></li>
+                </ul>
+            </div>
+            
+            <div class="footer-col">
+                <h4>SUPPORT</h4>
+                <ul class="footer-links">
+                    <li><a href="#">Help Center</a></li>
+                    <li><a href="#">Contact Us</a></li>
+                    <li><a href="privacy-policy.html">Terms of Service</a></li>
+                    <li><a href="privacy-policy.html">Privacy Policy</a></li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <div class="copyright">
+                &copy; 2026 Click2Book. All rights reserved. Built with <span style="color: red;">&hearts;</span> for travelers.
+            </div>
+            <div class="footer-bottom-links">
+                <a href="#">Terms</a>
+                <a href="#">Privacy</a>
+                <a href="#">Cookies</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        feather.replace();
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const tName = sessionStorage.getItem('bkTrainName');
+            const tCode = sessionStorage.getItem('bkClassCode');
+            const tClass = sessionStorage.getItem('bkClassName');
+            const tPrice = sessionStorage.getItem('bkPrice');
+            
+            const from = sessionStorage.getItem('trainFrom') || 'Mumbai';
+            const to = sessionStorage.getItem('trainTo') || 'Pune';
+            const date = sessionStorage.getItem('trainDate') || '9/3/2026';
+            
+            if (tName) document.getElementById('bk-name').textContent = tName;
+            if (tPrice) document.getElementById('bk-price').innerHTML = tPrice;
+            if (tCode && tClass) document.getElementById('bk-class').textContent = `${tClass} (${tCode})`;
+            
+            document.getElementById('bk-route').innerHTML = `${from} &rarr; ${to} &bull; ${date}`;
+        });
+
+        document.getElementById('passenger-form').addEventListener('submit', function(e) {
+            e.preventDefault(); // Prevent POST request which fails on static servers
+            const inputs = this.querySelectorAll('input');
+            const passengerName = inputs[0].value;
+            sessionStorage.setItem('trainPassenger', passengerName);
+            window.location.href = 'train-payment.html';
+        });
+    </script>
+</body>
+</html>

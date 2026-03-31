@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cancel Ticket | Click2Book</title>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="user-styles.css">
+    <link rel="stylesheet" href="user-dashboard.css">
+    <style>
+        .page-header-center { text-align: center; margin-bottom: 3rem; margin-top: 1rem; }
+        .page-header-center h2 { font-size: 1.5rem; font-weight: 800; color: #111827; margin: 0 0 0.25rem 0; }
+        .page-header-center p { font-size: 0.875rem; color: #6B7280; margin: 0; }
+        
+        .success-content { max-width: 500px; margin: 0 auto; text-align: center; }
+        
+        .huge-icon {
+            width: 72px; height: 72px; background: #22C55E; color: white;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 1.5rem; border: 4px solid #DCFCE7;
+        }
+        .huge-icon svg { width: 32px; height: 32px; }
+        
+        .success-content h3 { font-size: 1.5rem; font-weight: 800; color: #111827; margin: 0 0 0.5rem 0; }
+        .success-content p { font-size: 1rem; color: #6B7280; margin: 0 0 0.25rem 0; }
+        .success-content p strong { color: #22C55E; font-weight: 700; }
+        .success-content .sub-text { font-size: 0.75rem; color: #9CA3AF; margin-bottom: 2rem; }
+        
+        .timeline-box-green {
+            background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 12px;
+            padding: 1.5rem 2rem; text-align: left;
+        }
+        
+        .tl-item {
+            display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem; position: relative;
+        }
+        .tl-item:last-child { margin-bottom: 0; }
+        
+        .tl-icon {
+            width: 20px; height: 20px; color: #16A34A; display: flex; align-items: center; justify-content: center; z-index: 2; background: #F0FDF4;
+        }
+        .tl-icon svg { width: 18px; height: 18px; }
+        
+        .tl-content { padding-top: 2px; }
+        .tl-title { font-size: 0.875rem; font-weight: 600; color: #16A34A; margin: 0; }
+        
+        /* The connecting line */
+        .tl-item:not(:last-child)::after {
+            content: ''; position: absolute; left: 9px; top: 22px; bottom: -20px;
+            width: 2px; background: #BBF7D0; z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="user-dash-layout">
+        <aside class="user-sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <div class="icon"><i data-feather="truck" style="color: white; width: 18px; height: 18px;"></i></div>
+                    <div class="text">CLICK<span style="color:var(--primary);">2</span>BOOK</div>
+                </div>
+                <i data-feather="menu" style="color: white; cursor: pointer;"></i>
+            </div>
+            
+            <div class="sidebar-profile">
+                <div class="avatar">RS</div>
+                <div class="info">
+                    <h4>Customer Profile</h4>
+                    <p>Premium Member</p>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="search-trains.html" class="nav-link nav-item">
+                    <i data-feather="search"></i> Search Trips
+                </a>
+                <a href="my-bookings.html" class="nav-link nav-item">
+                    <i data-feather="book"></i> My Bookings
+                </a>
+                <a href="cancel-ticket.html" class="nav-link nav-item active">
+                    <i data-feather="x"></i> Cancel Ticket
+                </a>
+                <a href="get-support.html" class="nav-link nav-item">
+                    <i data-feather="headphones"></i> Get Support
+                </a>
+                <a href="my-profile.html" class="nav-link nav-item">
+                    <i data-feather="user"></i> My Profile
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <a href="login train.html" class="nav-link nav-item">
+                    <i data-feather="log-out"></i> Logout
+                </a>
+            </div>
+        </aside>
+        
+        <div class="user-main-content">
+            <div class="top-header">
+                <div class="page-titles">
+                    <h1>Cancel Ticket</h1>
+                    <p>Welcome back, Rahul!</p>
+                </div>
+                <div class="notification-bell">
+                    <i data-feather="bell"></i>
+                </div>
+            </div>
+            
+            <div class="dashboard-wrapper">
+                <div class="page-header-center">
+                    <h2>Cancel Ticket</h2>
+                    <p>Cancel and get your refund</p>
+                </div>
+                
+                <div class="success-content">
+                    <div class="huge-icon">
+                        <i data-feather="check"></i>
+                    </div>
+                    <h3>Cancellation Successful</h3>
+                    <p>Refund of <strong>&#8377;500</strong> will be processed</p>
+                    <p class="sub-text">Expected within 3-5 business days</p>
+                    
+                    <div class="timeline-box-green">
+                        <div class="tl-item">
+                            <div class="tl-icon"><i data-feather="check-circle"></i></div>
+                            <div class="tl-content"><p class="tl-title">Ticket Cancelled</p></div>
+                        </div>
+                        <div class="tl-item">
+                            <div class="tl-icon"><i data-feather="check-circle"></i></div>
+                            <div class="tl-content"><p class="tl-title">Refund Initiated</p></div>
+                        </div>
+                        <div class="tl-item">
+                            <div class="tl-icon"><i data-feather="clock"></i></div>
+                            <div class="tl-content"><p class="tl-title">Processing (2-3 days)</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        feather.replace();
+    </script>
+</body>
+</html>

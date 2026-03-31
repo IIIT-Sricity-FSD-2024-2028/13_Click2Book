@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Confirmed | Click2Book</title>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="user-styles.css">
+    <style>
+        /* ── Confirmation Card ── */
+        .confirm-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+            max-width: 650px;
+            margin: -5rem auto 5rem;
+            padding: 3rem 2.5rem;
+            border: 1px solid var(--border);
+            text-align: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Green tick circle */
+        .tick-circle {
+            width: 72px;
+            height: 72px;
+            background: #16A34A;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            box-shadow: 0 0 0 12px rgba(22,163,74,0.12);
+        }
+        .tick-circle svg { color: white; width: 36px; height: 36px; stroke-width: 3; }
+
+        .confirm-card h2 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: #111827;
+            margin: 0 0 0.5rem 0;
+        }
+        .confirm-card > p {
+            font-size: 0.9rem;
+            color: #6B7280;
+            margin: 0 0 2rem 0;
+        }
+
+        /* Detail grid */
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .detail-item {
+            background: #F8FAFC;
+            border-radius: 10px;
+            padding: 1rem 0.75rem;
+            border: 1px solid #E5E7EB;
+        }
+        .detail-item p {
+            font-size: 0.7rem;
+            color: #9CA3AF;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0 0 0.4rem 0;
+        }
+        .detail-item h4 {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: #111827;
+            margin: 0;
+        }
+        .detail-item .status-ok {
+            color: #16A34A;
+        }
+
+        /* Action buttons */
+        .confirm-actions {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .btn-download {
+            flex: 1;
+            padding: 0.875rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .btn-download:hover { background: var(--primary-hover); }
+        .btn-share {
+            flex: 1;
+            padding: 0.875rem;
+            background: #F1F5F9;
+            color: #475569;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-share:hover { background: #E2E8F0; }
+
+        .return-home {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.8rem;
+            color: #6B7280;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .return-home:hover { color: var(--primary); }
+    </style>
+</head>
+<body class="booking-page-layout" style="background-color: #F8FAFC; margin: 0;">
+
+    <!-- Top Navy Header -->
+    <header class="booking-header-section" style="padding-bottom: 12rem;">
+        <div class="booking-top-nav" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <a href="../landing page/index.html" style="color: white; text-decoration: none; display: inline-flex; align-items: center; font-size: 0.875rem;">
+                <i data-feather="chevron-left" style="width: 16px; margin-right: 4px;"></i> Back to Home
+            </a>
+            <div style="width: 70px;"></div>
+        </div>
+
+        <div class="booking-chip">
+            <i data-feather="train" style="width: 14px; height: 14px;"></i> Train Booking
+        </div>
+        <h1>Book Train Tickets</h1>
+        <p>Instant booking, real-time seat availability, and confirmed tickets in minutes</p>
+    </header>
+
+    <!-- Confirmation Card -->
+    <main class="booking-main-content">
+        <div class="confirm-card">
+
+            <!-- Tick -->
+            <div class="tick-circle">
+                <i data-feather="check"></i>
+            </div>
+
+            <h2>Booking Confirmed!</h2>
+            <p style="font-size: 0.875rem; color: #6B7280; margin-bottom: 2rem;">Your train ticket has been booked successfully</p>
+
+            <!-- Detail list -->
+            <div style="background: #F8FAFC; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; text-align: left;">
+                <div>
+                    <div style="margin-bottom: 1.25rem;">
+                        <span style="display: block; font-size: 0.65rem; color: #9CA3AF; text-transform: capitalize; margin-bottom: 0.25rem;">Booking ID</span>
+                        <strong style="color: #111827; font-size: 0.875rem;">TRN790T2W9IF</strong>
+                    </div>
+                    <div style="margin-bottom: 1.25rem;">
+                        <span style="display: block; font-size: 0.65rem; color: #9CA3AF; text-transform: capitalize; margin-bottom: 0.25rem;">Train</span>
+                        <strong style="color: #111827; font-size: 0.875rem;" id="bc-train">Rajdhani Express</strong>
+                    </div>
+                    <div>
+                        <span style="display: block; font-size: 0.65rem; color: #9CA3AF; text-transform: capitalize; margin-bottom: 0.25rem;">Journey Date</span>
+                        <strong style="color: #111827; font-size: 0.875rem;" id="bc-date">9/3/2026</strong>
+                    </div>
+                </div>
+                <div>
+                    <div style="margin-bottom: 1.25rem;">
+                        <span style="display: block; font-size: 0.65rem; color: #9CA3AF; text-transform: capitalize; margin-bottom: 0.25rem;">PNR Number</span>
+                        <strong style="color: #111827; font-size: 0.875rem;">PNR7521215108</strong>
+                    </div>
+                    <div style="margin-bottom: 1.25rem;">
+                        <span style="display: block; font-size: 0.65rem; color: #9CA3AF; text-transform: capitalize; margin-bottom: 0.25rem;">Class</span>
+                        <strong style="color: #111827; font-size: 0.875rem;" id="bc-class">AC First Class (1A)</strong>
+                    </div>
+                    <div>
+                        <span style="display: block; font-size: 0.65rem; color: #9CA3AF; text-transform: capitalize; margin-bottom: 0.25rem;">Passenger</span>
+                        <strong style="color: #111827; font-size: 0.875rem;" id="bc-passenger">cdxsxw</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                <a href="ticket-downloaded.html" style="flex: 1; padding: 0.875rem; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; text-decoration: none;">
+                    <i data-feather="download" style="width: 16px; height: 16px;"></i> Download Ticket
+                </a>
+                <button onclick="navigator.share ? navigator.share({title:'My Train Ticket',text:'Booking Confirmed!'}) : alert('Ticket details copied!')" style="flex: 1; padding: 0.875rem; background: white; color: var(--primary); border: 1px solid var(--primary); border-radius: 8px; font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer;">
+                    <i data-feather="share-2" style="width: 16px; height: 16px;"></i> Share
+                </button>
+            </div>
+            
+            <a href="../landing page/index.html" style="display: flex; padding: 0.875rem; background: #FFF7ED; color: var(--primary); border: none; border-radius: 8px; font-weight: 600; font-size: 0.9rem; align-items: center; justify-content: center; gap: 0.5rem; text-decoration: none;">
+                <i data-feather="chevron-left" style="width: 16px; height: 16px;"></i> Back to Home
+            </a>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-grid">
+            <div class="footer-col">
+                <div class="footer-logo">
+                    <div class="logo-icon" style="background: var(--primary); display: flex; align-items: center; justify-content: center;">
+                        <i data-feather="truck" style="color: white;"></i>
+                    </div>
+                    <div class="footer-logo-text">
+                        <h2>CLICK2BOOK</h2>
+                        <p>TRAVEL SMARTER</p>
+                    </div>
+                </div>
+                <p class="footer-desc">
+                    India's most trusted online ticket reservation platform. Book train tickets, manage your journeys, and travel with confidence.
+                </p>
+            </div>
+
+            <div class="footer-col">
+                <h4>COMPANY</h4>
+                <ul class="footer-links">
+                    <li><a href="about-us.html">About Us</a></li>
+                    <li><a href="#">Careers</a></li>
+                    <li><a href="#">Press</a></li>
+                    <li><a href="#">Blog</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-col">
+                <h4>SUPPORT</h4>
+                <ul class="footer-links">
+                    <li><a href="#">Help Center</a></li>
+                    <li><a href="get-support.html">Contact Us</a></li>
+                    <li><a href="privacy-policy.html">Terms of Service</a></li>
+                    <li><a href="privacy-policy.html">Privacy Policy</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <div class="copyright">
+                &copy; 2026 Click2Book. All rights reserved. Built with <span style="color: red;">&hearts;</span> for travelers.
+            </div>
+            <div class="footer-bottom-links">
+                <a href="#">Terms</a>
+                <a href="#">Privacy</a>
+                <a href="#">Cookies</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        feather.replace();
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const tName    = sessionStorage.getItem('bkTrainName');
+            const tCode    = sessionStorage.getItem('bkClassCode');
+            const tClass   = sessionStorage.getItem('bkClassName');
+            const from     = sessionStorage.getItem('trainFrom')    || 'Mumbai';
+            const to       = sessionStorage.getItem('trainTo')      || 'Pune';
+            const date     = sessionStorage.getItem('trainDate')    || '9/3/2026';
+            const passenger = sessionStorage.getItem('trainPassenger') || '—';
+
+            if (tName) document.getElementById('bc-train').textContent = tName;
+            if (tCode && tClass) document.getElementById('bc-class').textContent = `${tClass} (${tCode})`;
+            if (document.getElementById('bc-route')) document.getElementById('bc-route').innerHTML = `${from} &rarr; ${to}`;
+            if (document.getElementById('bc-date')) document.getElementById('bc-date').textContent = date;
+            if (document.getElementById('bc-passenger')) document.getElementById('bc-passenger').textContent = passenger;
+        });
+    </script>
+</body>
+</html>

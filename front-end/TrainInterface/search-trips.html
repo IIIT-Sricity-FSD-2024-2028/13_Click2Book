@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Trips | Click2Book</title>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="user-styles.css">
+    <link rel="stylesheet" href="user-dashboard.css">
+    <style>
+        .page-header-dash { margin-bottom: 2rem; margin-top: 1rem; position: relative;}
+        .page-header-dash h2 { font-size: 2rem; font-weight: 800; color: var(--primary); margin: 0 0 0.25rem 0; letter-spacing: -0.5px;}
+        .page-header-dash p { font-size: 1rem; color: #6B7280; margin: 0; }
+        .back-btn-dash {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 1rem; border-radius: 20px;
+            border: 1px solid var(--primary-light);
+            background: #FFF7ED; color: var(--primary);
+            font-weight: 600; font-size: 0.875rem; text-decoration: none; margin-top: 1rem;
+        }
+
+        .search-hero-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: stretch;
+        }
+
+        /* Form Side */
+        .search-form-card {
+            background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.03);
+            padding: 2.5rem; border: 1px solid #E5E7EB; position: relative;
+        }
+        
+        .input-label { display: block; font-size: 0.75rem; font-weight: 700; color: var(--primary); text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px; }
+        .custom-input { width: 100%; display: flex; align-items: center; gap: 0.75rem; border: 1px solid #E2E8F0; border-radius: 8px; padding: 1rem; background: #FFF7ED; transition: border-color 0.2s; box-sizing: border-box; }
+        .custom-input:focus-within { border-color: var(--primary); outline: 2px solid rgba(249, 115, 22, 0.1); }
+        .custom-input svg { color: var(--primary); width: 18px; height: 18px; }
+        .custom-input input { border: none; outline: none; flex: 1; font-size: 1.125rem; color: #111827; font-weight: 700; font-family: 'Inter', sans-serif; background: transparent; }
+        .custom-input input::placeholder { color: #9CA3AF; font-weight: 500;}
+
+        .swap-btn {
+            position: absolute; left: 50%; top: 41%; transform: translate(-50%, -50%);
+            width: 40px; height: 40px; background: var(--primary); color: white;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 10px rgba(249, 115, 22, 0.3); border: 4px solid white; cursor: pointer; z-index: 10;
+        }
+
+        .btn-search {
+            background: var(--primary); color: white; border: none; width: 100%; border-radius: 8px; padding: 1.125rem 1rem; font-weight: 700; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer; transition: background 0.2s; margin-top: 2rem; box-shadow: 0 4px 15px rgba(249, 115, 22, 0.2);
+        }
+        .btn-search:hover { background: var(--primary-hover); box-shadow: 0 6px 20px rgba(249, 115, 22, 0.3); }
+
+        .recent-searches { margin-top: 1.5rem; }
+        .recent-label { font-size: 0.875rem; font-weight: 700; color: #111827; margin-bottom: 0.75rem; }
+        .chips-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+        .chip {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.4rem 0.75rem; border-radius: 20px;
+            background: #FFF7ED; border: 1px solid var(--primary-light);
+            color: var(--primary); font-size: 0.75rem; font-weight: 600; cursor: pointer;
+        }
+
+        /* Visual Side */
+        .promo-visual-wrapper {
+            display: flex; flex-direction: column; gap: 1rem;
+        }
+        .promo-card {
+            background: #FFF7ED; border-radius: 16px; padding: 1rem;
+            position: relative; flex: 1; border: 1px solid var(--primary-light);
+            display: flex;
+        }
+        .promo-img-container {
+            width: 100%; border-radius: 12px; overflow: hidden; position: relative;
+            background: #111827; min-height: 300px; display: flex;
+        }
+        
+        /* Simulating the scenic bus image using a gradient since we don't have the actual img file easily accessible */
+        .promo-img-placeholder {
+            width: 100%; height: 100%;
+            background: linear-gradient(135deg, #1e3a8a 0%, #111827 100%);
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 2rem; opacity: 0.8;
+        }
+
+        .floating-badge {
+            position: absolute; background: white; border-radius: 12px;
+            padding: 0.75rem 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            display: flex; align-items: center; gap: 0.75rem;
+        }
+        .badge-tr { top: -15px; right: -15px; }
+        .badge-bl { bottom: -15px; left: -15px; }
+
+        .badge-icon {
+            width: 36px; height: 36px; background: var(--primary); color: white;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        }
+        .badge-text-col p { margin: 0; font-size: 0.75rem; color: #6B7280; }
+        .badge-text-col h4 { margin: 0; font-size: 1.125rem; font-weight: 800; color: var(--primary); }
+
+        .rating-badge { gap: 0.25rem; padding: 0.5rem 1rem; }
+        .rating-badge i { color: #F59E0B; width: 14px; height: 14px; fill: #F59E0B; }
+        .rating-badge span { font-weight: 800; font-size: 0.875rem; color: #111827; margin-left: 0.25rem; }
+
+        .benefits-row {
+            display: flex; gap: 1rem; justify-content: center; margin-top: 0.5rem;
+        }
+        .benefit-chip {
+            background: #F8FAFC; border: 1px solid #E2E8F0; padding: 0.5rem 1rem;
+            border-radius: 20px; font-size: 0.75rem; font-weight: 600; color: #475569;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .benefit-chip i { color: #10B981; width: 14px; height: 14px; }
+        .benefit-chip:nth-child(2) i { color: #F59E0B; }
+        .benefit-chip:nth-child(3) i { color: #EF4444; }
+
+    </style>
+</head>
+<body>
+    <div class="user-dash-layout">
+        <!-- Sidebar -->
+        <aside class="user-sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <div class="icon"><i data-feather="truck" style="color: white; width: 18px; height: 18px;"></i></div>
+                    <div class="text">CLICK<span style="color:var(--primary);">2</span>BOOK</div>
+                </div>
+                <i data-feather="menu" style="color: white; cursor: pointer;"></i>
+            </div>
+            
+            <div class="sidebar-profile">
+                <div class="avatar">RS</div>
+                <div class="info">
+                    <h4>Customer Profile</h4>
+                    <p>Premium Member</p>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="search-trains.html" class="nav-link nav-item active">
+                    <i data-feather="search"></i> Search Trips
+                </a>
+                <a href="my-bookings.html" class="nav-link nav-item">
+                    <i data-feather="book"></i> My Bookings
+                </a>
+                <a href="cancel-ticket.html" class="nav-link nav-item">
+                    <i data-feather="x"></i> Cancel Ticket
+                </a>
+                <a href="get-support.html" class="nav-link nav-item">
+                    <i data-feather="headphones"></i> Get Support
+                </a>
+                <a href="my-profile.html" class="nav-link nav-item">
+                    <i data-feather="user"></i> My Profile
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <a href="login train.html" class="nav-link nav-item">
+                    <i data-feather="log-out"></i> Logout
+                </a>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <div class="user-main-content">
+            <div class="top-header">
+                <div class="page-titles">
+                    <h1>Search Trips</h1>
+                    <p>Welcome back, Rahul!</p>
+                </div>
+                <div class="notification-bell">
+                    <i data-feather="bell"></i>
+                    <span class="notification-dot"></span>
+                </div>
+            </div>
+            
+            <div class="dashboard-wrapper">
+                
+                <div class="page-header-dash">
+                    <h2>Search Your Perfect Trip</h2>
+                    <a href="../landing page/index.html" class="back-btn-dash">
+                        <i data-feather="arrow-left" style="width: 14px; height: 14px;"></i> Back
+                    </a>
+                    <p style="margin-top: 1rem;">Book your journey with ease and comfort</p>
+                </div>
+                
+                <div class="search-hero-grid">
+                    
+                    <!-- Search Form -->
+                    <div class="search-col-left">
+                        <form action="available-trains.html" method="GET" class="search-form-card">
+                            
+                            <div class="form-group" style="margin-bottom: 2rem;">
+                                <label class="input-label">FROM</label>
+                                <div class="custom-input">
+                                    <i data-feather="map-pin"></i>
+                                    <input type="text" value="PUNE" required>
+                                </div>
+                            </div>
+                            
+                            <div class="swap-btn">
+                                <i data-feather="refresh-cw" style="width: 16px; height: 16px;"></i>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 2rem;">
+                                <label class="input-label">TO</label>
+                                <div class="custom-input">
+                                    <i data-feather="map-pin"></i>
+                                    <input type="text" value="MUMBAI" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="input-label">TRAVEL DATE</label>
+                                <div class="custom-input">
+                                    <i data-feather="calendar"></i>
+                                    <input type="text" value="12-03-2026" required>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn-search">
+                                <i data-feather="search" style="width: 18px; height: 18px;"></i> Find Available Buses <i data-feather="arrow-right" style="width: 18px; height: 18px;"></i>
+                            </button>
+                        </form>
+                        
+                        <div class="recent-searches">
+                            <div class="recent-label">Recent Searches</div>
+                            <div class="chips-row">
+                                <div class="chip">
+                                    <i data-feather="truck" style="width: 12px; height: 12px; color: #16A34A;"></i> Mumbai &rarr; Pune
+                                </div>
+                                <div class="chip">
+                                    <i data-feather="truck" style="width: 12px; height: 12px; color: #3B82F6;"></i> Delhi &rarr; Agra
+                                </div>
+                                <div class="chip">
+                                    <i data-feather="truck" style="width: 12px; height: 12px; color: #F59E0B;"></i> Bangalore &rarr; Mysore
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Visual Promo -->
+                    <div class="promo-visual-wrapper">
+                        <div class="promo-card">
+                            <div class="promo-img-container">
+                                <!-- Actual image would go here, using beautiful CSS placeholder for robustness -->
+                                <div class="promo-img-placeholder">
+                                    <i data-feather="image" style="width: 48px; height: 48px; opacity: 0.5;"></i>
+                                </div>
+                                
+                                <div class="floating-badge badge-tr">
+                                    <div class="badge-icon"><i data-feather="truck" style="width: 18px;"></i></div>
+                                    <div class="badge-text-col">
+                                        <p>Available</p>
+                                        <h4>200+</h4>
+                                    </div>
+                                </div>
+                                
+                                <div class="floating-badge badge-bl rating-badge">
+                                    <i data-feather="star"></i>
+                                    <i data-feather="star"></i>
+                                    <i data-feather="star"></i>
+                                    <i data-feather="star"></i>
+                                    <i data-feather="star"></i>
+                                    <span>4.8</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="benefits-row">
+                            <div class="benefit-chip">
+                                <i data-feather="shield"></i> Safe Travel
+                            </div>
+                            <div class="benefit-chip">
+                                <i data-feather="clock"></i> On Time
+                            </div>
+                            <div class="benefit-chip">
+                                <i data-feather="credit-card"></i> Easy Payment
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        feather.replace();
+    </script>
+</body>
+</html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Checkout | Click2Book</title>
+    <!-- Feather Icons for lightweight SVGs -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="user-styles.css">
+    <link rel="stylesheet" href="user-dashboard.css">
+    <style>
+        .checkout-wrapper { max-width: 600px; margin: 0 auto; padding-bottom: 4rem; }
+        
+        .checkout-card {
+            background: white; border-radius: 12px; border: 1px solid #E2E8F0;
+            padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+        }
+        .checkout-card-title {
+            font-size: 1rem; font-weight: 800; color: #111827; margin-bottom: 1.25rem;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+
+        .summary-row {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.875rem; color: #64748B; margin-bottom: 0.875rem;
+        }
+        .summary-row.total {
+            border-top: 1px dashed #CBD5E1; padding-top: 1rem; margin-top: 1rem;
+            font-weight: 800; color: #111827; font-size: 1.125rem;
+        }
+        .summary-row.total span:last-child { color: var(--primary); font-size: 1.25rem;}
+        .summary-row.discount { color: #16A34A; font-weight: 600; }
+        
+        .coupon-success-box {
+            background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px;
+            padding: 1rem; display: flex; align-items: center; justify-content: space-between;
+        }
+        .coupon-success-content { display: flex; align-items: center; gap: 0.75rem; }
+        .coupon-success-content h4 { font-size: 0.875rem; font-weight: 700; color: #16A34A; margin: 0 0 0.15rem 0; }
+        .coupon-success-content p { font-size: 0.75rem; color: #15803D; margin: 0; }
+
+        .payment-option {
+            display: flex; align-items: center; gap: 1rem; padding: 1rem;
+            border: 1px solid #E2E8F0; border-radius: 8px; margin-bottom: 0.75rem;
+            cursor: pointer; transition: all 0.2s; background: white;
+        }
+        .payment-option.active {
+            border-color: var(--primary); background: #FFF7ED; box-shadow: inset 0 0 0 1px var(--primary);
+        }
+        .payment-option .icon-box {
+            width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+        }
+        .payment-option label {
+            flex: 1; font-size: 0.875rem; font-weight: 600; color: #1E293B; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+        }
+        .payment-option input[type="radio"] { display: none; }
+        
+        .radio-circle {
+            width: 18px; height: 18px; border-radius: 50%; border: 2px solid #CBD5E1;
+            display: inline-block; position: relative;
+        }
+        .payment-option.active .radio-circle {
+            border-color: var(--primary); background: white;
+        }
+        .payment-option.active .radio-circle::after {
+            content: ''; width: 8px; height: 8px; background: var(--primary); border-radius: 50%;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        }
+
+        .secure-banner {
+            display: flex; align-items: center; gap: 0.5rem; background: #F0FDF4; border: 1px solid #BBF7D0; color: #15803D; padding: 0.75rem; border-radius: 8px; font-size: 0.75rem; font-weight: 600; margin-bottom: 1.5rem;
+        }
+
+        .btn-pay-now {
+            background: var(--primary); color: white; border: none; width: 100%;
+            padding: 1.125rem; border-radius: 8px; font-size: 1rem; font-weight: 700;
+            display: flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer; text-decoration: none;
+        }
+        .btn-pay-now:hover { background: #EA580C; }
+    </style>
+</head>
+<body>
+    <div class="user-dash-layout">
+        <!-- Sidebar Menu -->
+        <aside class="user-sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <div class="icon"><i data-feather="truck" style="color: white; width: 18px; height: 18px;"></i></div>
+                    <div class="text">CLICK<span style="color:var(--primary);">2</span>BOOK</div>
+                </div>
+                <i data-feather="menu" style="color: white; cursor: pointer;"></i>
+            </div>
+            
+            <div class="sidebar-profile">
+                <div class="avatar">RS</div>
+                <div class="info">
+                    <h4>Customer Profile</h4>
+                    <p>Premium Member</p>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="search-trains.html" class="nav-link nav-item">
+                    <i data-feather="search"></i> Search Trips
+                </a>
+                <a href="my-bookings.html" class="nav-link nav-item">
+                    <i data-feather="book"></i> My Bookings
+                </a>
+                <a href="cancel-ticket.html" class="nav-link nav-item">
+                    <i data-feather="x"></i> Cancel Ticket
+                </a>
+                <a href="get-support.html" class="nav-link nav-item">
+                    <i data-feather="headphones"></i> Get Support
+                </a>
+                <a href="my-profile.html" class="nav-link nav-item">
+                    <i data-feather="user"></i> My Profile
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <a href="login train.html" class="nav-link nav-item">
+                    <i data-feather="log-out"></i> Logout
+                </a>
+            </div>
+        </aside>
+        
+        <!-- Main Application View -->
+        <div class="user-main-content">
+            <div class="top-header">
+                <div class="page-titles">
+                    <h1>Payment</h1>
+                    <p>Welcome back, Rahul!</p>
+                </div>
+                <div class="notification-bell">
+                    <i data-feather="bell"></i>
+                </div>
+            </div>
+            
+            <!-- Dashboard Scroll Area -->
+            <div class="dashboard-wrapper">
+                
+                <!-- Stepper component exactly replicating the design -->
+                <div class="progress-stepper" style="margin-bottom: 3rem;">
+                    <div class="step">
+                        <div class="step-icon"><i data-feather="check"></i></div>
+                        <span class="step-label">Select Bus</span>
+                    </div>
+                    <div class="step-line" style="background:#22C55E;"></div>
+                    
+                    <div class="step">
+                        <div class="step-icon"><i data-feather="check"></i></div>
+                        <span class="step-label">Choose Seat</span>
+                    </div>
+                    <div class="step-line" style="background:#22C55E;"></div>
+                    
+                    <div class="step">
+                        <div class="step-icon"><i data-feather="check"></i></div>
+                        <span class="step-label">Passenger Info</span>
+                    </div>
+                    <div class="step-line" style="background:#22C55E;"></div>
+                    
+                    <div class="step">
+                        <div class="step-icon" style="background:var(--primary); border-color:var(--primary);">5</div>
+                        <span class="step-label" style="color:var(--primary); font-weight:700;">Payment</span>
+                    </div>
+                </div>
+
+                <div class="checkout-wrapper">
+                    <div style="margin-bottom: 2rem;">
+                        <a href="search-trips.html" style="display:inline-flex; align-items:center; gap:0.5rem; text-decoration:none; padding:0.5rem 1rem; border-radius:20px; border:1px solid var(--primary-light); background:#FFF7ED; color:var(--primary); font-size:0.875rem; font-weight:600;">
+                            <i data-feather="arrow-left" style="width: 14px;"></i> Back
+                        </a>
+                    </div>
+                    
+                    <div class="checkout-card">
+                        <h3 class="checkout-card-title">Booking Summary</h3>
+                        
+                        <div class="summary-row">
+                            <span>Royal Express (Sleeper AC)</span>
+                            <span>&#8377;550 x 1</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Seats: A4</span>
+                            <span style="color: #16A34A; font-weight: 500;">Confirmed</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Subtotal</span>
+                            <span>&#8377;550</span>
+                        </div>
+                        <div class="summary-row discount">
+                            <span>Discount (FIRSTBUS100)</span>
+                            <span>- &#8377;50</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>GST (18%)</span>
+                            <span>&#8377;90</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Convenience Fee</span>
+                            <span>&#8377;25</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>Total</span>
+                            <span>&#8377;615</span>
+                        </div>
+                    </div>
+                    
+                    <div class="checkout-card">
+                        <h3 class="checkout-card-title">
+                            <i data-feather="tag" style="width: 16px; color: var(--primary);"></i> Have a Coupon Code?
+                        </h3>
+                        
+                        <div class="coupon-success-box">
+                            <div class="coupon-success-content">
+                                <i data-feather="check-circle" style="color: #16A34A; width: 20px;"></i>
+                                <div>
+                                    <h4>FIRSTBUS100 Applied!</h4>
+                                    <p>You saved &#8377;50</p>
+                                </div>
+                            </div>
+                            <i data-feather="x" style="color: #EF4444; width: 16px; cursor: pointer;"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="checkout-card">
+                        <h3 class="checkout-card-title">Payment Method</h3>
+                        
+                        <div class="payment-option active" onclick="this.querySelector('input').checked=true">
+                            <input type="radio" name="paymethod" value="upi" checked>
+                            <div class="icon-box"><i data-feather="smartphone" style="color: #1E293B;"></i></div>
+                            <label>UPI / Google Pay / PhonePe <span class="radio-circle"></span></label>
+                        </div>
+                        
+                        <div class="payment-option" onclick="this.querySelector('input').checked=true; document.querySelector('.payment-option.active').classList.remove('active'); this.classList.add('active');">
+                            <input type="radio" name="paymethod" value="card">
+                            <div class="icon-box"><i data-feather="credit-card" style="color: #1E293B;"></i></div>
+                            <label>Credit / Debit Card <span class="radio-circle"></span></label>
+                        </div>
+                        
+                        <div class="payment-option" onclick="this.querySelector('input').checked=true; document.querySelector('.payment-option.active').classList.remove('active'); this.classList.add('active');">
+                            <input type="radio" name="paymethod" value="net">
+                            <div class="icon-box"><i data-feather="monitor" style="color: #1E293B;"></i></div>
+                            <label>Net Banking <span class="radio-circle"></span></label>
+                        </div>
+                        
+                        <div class="payment-option" onclick="this.querySelector('input').checked=true; document.querySelector('.payment-option.active').classList.remove('active'); this.classList.add('active');">
+                            <input type="radio" name="paymethod" value="wallet">
+                            <div class="icon-box"><i data-feather="briefcase" style="color: #1E293B;"></i></div>
+                            <label>Wallet <span class="radio-circle"></span></label>
+                        </div>
+                        
+                        <div class="secure-banner">
+                            <i data-feather="shield" style="width: 14px;"></i> Your payment is 100% secure and encrypted
+                        </div>
+                        
+                        <a href="booking-confirmed.html" class="btn-pay-now">
+                            <i data-feather="credit-card" style="width: 18px;"></i> Pay &#8377;615 Securely
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        feather.replace();
+    </script>
+</body>
+</html>

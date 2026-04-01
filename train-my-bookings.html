@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Train Bookings | Click2Book</title>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="user-styles.css">
+    <link rel="stylesheet" href="user-dashboard.css">
+    <style>
+        /* ── Booking Cards ── */
+        .bookings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .bookings-header h2 { font-size: 1.5rem; font-weight: 800; color: #111827; margin: 0; }
+        .bookings-header p  { font-size: 0.875rem; color: #6B7280; margin: 0.25rem 0 0; }
+
+        .filter-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .filter-tab {
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            border: 1px solid #E5E7EB;
+            background: white;
+            color: #6B7280;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-tab.active, .filter-tab:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .booking-card {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #E5E7EB;
+            margin-bottom: 1.25rem;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            transition: box-shadow 0.2s;
+        }
+        .booking-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+
+        .bc-top {
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .bc-train-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex: 1;
+        }
+        .bc-icon {
+            width: 42px; height: 42px;
+            background: #0F172A;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            color: white; flex-shrink: 0;
+        }
+        .bc-icon svg { width: 20px; height: 20px; }
+
+        .bc-name { font-size: 1rem; font-weight: 700; color: #111827; margin: 0 0 0.2rem; }
+        .bc-number { font-size: 0.72rem; color: #9CA3AF; margin: 0; font-weight: 500; }
+
+        .bc-route {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex: 2;
+        }
+        .bc-station { text-align: center; }
+        .bc-time { font-size: 1.1rem; font-weight: 800; color: #111827; display: block; }
+        .bc-city { font-size: 0.72rem; color: #9CA3AF; font-weight: 500; display: block; }
+
+        .bc-divider {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.2rem;
+            flex: 1;
+        }
+        .bc-divider-line {
+            width: 100%; height: 1px; background: #E5E7EB; position: relative;
+        }
+        .bc-divider-line::before, .bc-divider-line::after {
+            content: ''; width: 6px; height: 6px; border-radius: 50%;
+            background: var(--primary); position: absolute; top: -2.5px;
+        }
+        .bc-divider-line::before { left: 0; }
+        .bc-divider-line::after  { right: 0; }
+        .bc-dur { font-size: 0.7rem; color: #9CA3AF; font-weight: 500; }
+
+        .bc-status-badge {
+            padding: 0.3rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .status-confirmed { background: #DCFCE7; color: #15803D; }
+        .status-completed { background: #F1F5F9; color: #475569; }
+        .status-cancelled { background: #FEE2E2; color: #DC2626; }
+
+        .bc-bottom {
+            border-top: 1px solid #F3F4F6;
+            padding: 0.875rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #FAFAFA;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .bc-meta {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .bc-meta span {
+            font-size: 0.75rem;
+            color: #6B7280;
+            font-weight: 500;
+        }
+        .bc-meta strong { color: #111827; font-weight: 700; }
+
+        .bc-actions { display: flex; gap: 0.5rem; }
+        .bc-btn {
+            padding: 0.4rem 0.875rem;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .bc-btn svg { width: 13px; height: 13px; }
+        .bc-btn-primary { background: var(--primary); color: white; }
+        .bc-btn-primary:hover { background: #EA580C; }
+        .bc-btn-ghost { background: #F1F5F9; color: #475569; }
+        .bc-btn-ghost:hover { background: #E2E8F0; }
+        .bc-btn-danger { background: #FEE2E2; color: #DC2626; }
+        .bc-btn-danger:hover { background: #FECACA; }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #9CA3AF;
+        }
+        .empty-state svg { width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.4; }
+        .empty-state h3 { font-size: 1.1rem; color: #6B7280; margin-bottom: 0.5rem; }
+        .empty-state p  { font-size: 0.875rem; }
+        .empty-state a  { color: var(--primary); font-weight: 600; text-decoration: none; }
+
+        /* Stats row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: white;
+            border: 1px solid #E5E7EB;
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.875rem;
+        }
+        .stat-icon {
+            width: 36px; height: 36px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .stat-icon svg { width: 18px; height: 18px; }
+        .stat-val { font-size: 1.25rem; font-weight: 800; color: #111827; line-height: 1; }
+        .stat-lbl { font-size: 0.72rem; color: #9CA3AF; font-weight: 500; margin-top: 0.2rem; }
+    </style>
+</head>
+<body>
+<div class="user-dash-layout">
+
+    <!-- ── Sidebar ── -->
+    <aside class="user-sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">
+                <div class="icon"><i data-feather="truck" style="color:white;width:18px;height:18px;"></i></div>
+                <div class="text">CLICK<span style="color:var(--primary);">2</span>BOOK</div>
+            </div>
+            <i data-feather="menu" style="color:white;cursor:pointer;"></i>
+        </div>
+
+        <div class="sidebar-profile">
+            <div class="avatar">RS</div>
+            <div class="info">
+                <h4>Rahul Sharma</h4>
+                <p>Premium Member</p>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="train-search.html" class="nav-link nav-item">
+                <i data-feather="search"></i> Search Trains
+            </a>
+            <a href="train-my-bookings.html" class="nav-link nav-item active">
+                <i data-feather="book"></i> My Bookings
+            </a>
+            <a href="cancel-ticket.html" class="nav-link nav-item">
+                <i data-feather="x-circle"></i> Cancel Ticket
+            </a>
+            <a href="get-support.html" class="nav-link nav-item">
+                <i data-feather="headphones"></i> Get Support
+            </a>
+            <a href="my-profile.html" class="nav-link nav-item">
+                <i data-feather="user"></i> My Profile
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="login train.html" class="nav-link nav-item" onclick="sessionStorage.removeItem('trainLoggedIn')">
+                <i data-feather="log-out"></i> Logout
+            </a>
+        </div>
+    </aside>
+
+    <!-- ── Main Content ── -->
+    <div class="user-main-content">
+        <div class="top-header">
+            <div class="page-titles">
+                <h1>My Train Bookings</h1>
+                <p>View and manage your train reservations</p>
+            </div>
+            <div class="notification-bell">
+                <i data-feather="bell"></i>
+                <span class="notification-dot"></span>
+            </div>
+        </div>
+
+        <div class="dashboard-wrapper">
+
+            <!-- Stats Row -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:#EFF6FF;">
+                        <i data-feather="book" style="color:#3B82F6;"></i>
+                    </div>
+                    <div>
+                        <div class="stat-val">5</div>
+                        <div class="stat-lbl">Total Bookings</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:#F0FDF4;">
+                        <i data-feather="check-circle" style="color:#16A34A;"></i>
+                    </div>
+                    <div>
+                        <div class="stat-val">3</div>
+                        <div class="stat-lbl">Confirmed</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background:#FFF7ED;">
+                        <i data-feather="train" style="color:var(--primary);"></i>
+                    </div>
+                    <div>
+                        <div class="stat-val">2</div>
+                        <div class="stat-lbl">Completed</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="filter-tabs">
+                <button class="filter-tab active" onclick="filterBookings('all',this)">All Bookings</button>
+                <button class="filter-tab" onclick="filterBookings('confirmed',this)">Confirmed</button>
+                <button class="filter-tab" onclick="filterBookings('completed',this)">Completed</button>
+                <button class="filter-tab" onclick="filterBookings('cancelled',this)">Cancelled</button>
+            </div>
+
+            <!-- Booking 1 – Confirmed (latest) -->
+            <div class="booking-card" data-status="confirmed">
+                <div class="bc-top">
+                    <div class="bc-train-info">
+                        <div class="bc-icon"><i data-feather="train"></i></div>
+                        <div>
+                            <p class="bc-name">Rajdhani Express</p>
+                            <p class="bc-number">#12951 · AC 2-Tier (2A)</p>
+                        </div>
+                    </div>
+                    <div class="bc-route">
+                        <div class="bc-station">
+                            <span class="bc-time">16:25</span>
+                            <span class="bc-city">Mumbai CSMT</span>
+                        </div>
+                        <div class="bc-divider">
+                            <div class="bc-divider-line"></div>
+                            <span class="bc-dur">16h 10m</span>
+                        </div>
+                        <div class="bc-station">
+                            <span class="bc-time">08:35</span>
+                            <span class="bc-city">New Delhi</span>
+                        </div>
+                    </div>
+                    <span class="bc-status-badge status-confirmed">Confirmed</span>
+                </div>
+                <div class="bc-bottom">
+                    <div class="bc-meta">
+                        <span>PNR: <strong>PNR2387876340</strong></span>
+                        <span>Date: <strong>12 Mar 2026</strong></span>
+                        <span>Passenger: <strong>Rahul Sharma</strong></span>
+                        <span>Fare: <strong>₹2160</strong></span>
+                    </div>
+                    <div class="bc-actions">
+                        <a href="ticket-downloaded.html" class="bc-btn bc-btn-primary">
+                            <i data-feather="download"></i> Download
+                        </a>
+                        <a href="cancel-ticket.html" class="bc-btn bc-btn-danger">
+                            <i data-feather="x"></i> Cancel
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Booking 2 – Confirmed -->
+            <div class="booking-card" data-status="confirmed">
+                <div class="bc-top">
+                    <div class="bc-train-info">
+                        <div class="bc-icon"><i data-feather="train"></i></div>
+                        <div>
+                            <p class="bc-name">Duronto Express</p>
+                            <p class="bc-number">#12263 · AC 3-Tier (3A)</p>
+                        </div>
+                    </div>
+                    <div class="bc-route">
+                        <div class="bc-station">
+                            <span class="bc-time">22:00</span>
+                            <span class="bc-city">Mumbai LTT</span>
+                        </div>
+                        <div class="bc-divider">
+                            <div class="bc-divider-line"></div>
+                            <span class="bc-dur">15h 15m</span>
+                        </div>
+                        <div class="bc-station">
+                            <span class="bc-time">13:15</span>
+                            <span class="bc-city">Pune Jn</span>
+                        </div>
+                    </div>
+                    <span class="bc-status-badge status-confirmed">Confirmed</span>
+                </div>
+                <div class="bc-bottom">
+                    <div class="bc-meta">
+                        <span>PNR: <strong>PNR9912043210</strong></span>
+                        <span>Date: <strong>18 Mar 2026</strong></span>
+                        <span>Passenger: <strong>Rahul Sharma</strong></span>
+                        <span>Fare: <strong>₹1680</strong></span>
+                    </div>
+                    <div class="bc-actions">
+                        <a href="ticket-downloaded.html" class="bc-btn bc-btn-primary">
+                            <i data-feather="download"></i> Download
+                        </a>
+                        <a href="cancel-ticket.html" class="bc-btn bc-btn-danger">
+                            <i data-feather="x"></i> Cancel
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Booking 3 – Confirmed -->
+            <div class="booking-card" data-status="confirmed">
+                <div class="bc-top">
+                    <div class="bc-train-info">
+                        <div class="bc-icon"><i data-feather="train"></i></div>
+                        <div>
+                            <p class="bc-name">Shatabdi Express</p>
+                            <p class="bc-number">#12009 · AC Chair Car (CC)</p>
+                        </div>
+                    </div>
+                    <div class="bc-route">
+                        <div class="bc-station">
+                            <span class="bc-time">06:50</span>
+                            <span class="bc-city">Mumbai Bandra</span>
+                        </div>
+                        <div class="bc-divider">
+                            <div class="bc-divider-line"></div>
+                            <span class="bc-dur">15h 55m</span>
+                        </div>
+                        <div class="bc-station">
+                            <span class="bc-time">22:45</span>
+                            <span class="bc-city">Ahmedabad Jn</span>
+                        </div>
+                    </div>
+                    <span class="bc-status-badge status-confirmed">Confirmed</span>
+                </div>
+                <div class="bc-bottom">
+                    <div class="bc-meta">
+                        <span>PNR: <strong>PNR5574231890</strong></span>
+                        <span>Date: <strong>25 Mar 2026</strong></span>
+                        <span>Passenger: <strong>Rahul Sharma</strong></span>
+                        <span>Fare: <strong>₹1200</strong></span>
+                    </div>
+                    <div class="bc-actions">
+                        <a href="ticket-downloaded.html" class="bc-btn bc-btn-primary">
+                            <i data-feather="download"></i> Download
+                        </a>
+                        <a href="cancel-ticket.html" class="bc-btn bc-btn-danger">
+                            <i data-feather="x"></i> Cancel
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Booking 4 – Completed -->
+            <div class="booking-card" data-status="completed">
+                <div class="bc-top">
+                    <div class="bc-train-info">
+                        <div class="bc-icon" style="background:#374151;"><i data-feather="train"></i></div>
+                        <div>
+                            <p class="bc-name">August Kranti</p>
+                            <p class="bc-number">#12953 · Sleeper (SL)</p>
+                        </div>
+                    </div>
+                    <div class="bc-route">
+                        <div class="bc-station">
+                            <span class="bc-time">19:30</span>
+                            <span class="bc-city">Mumbai CSMT</span>
+                        </div>
+                        <div class="bc-divider">
+                            <div class="bc-divider-line"></div>
+                            <span class="bc-dur">16h 20m</span>
+                        </div>
+                        <div class="bc-station">
+                            <span class="bc-time">11:50</span>
+                            <span class="bc-city">New Delhi</span>
+                        </div>
+                    </div>
+                    <span class="bc-status-badge status-completed">Completed</span>
+                </div>
+                <div class="bc-bottom">
+                    <div class="bc-meta">
+                        <span>PNR: <strong>PNR3312098765</strong></span>
+                        <span>Date: <strong>01 Mar 2026</strong></span>
+                        <span>Passenger: <strong>Rahul Sharma</strong></span>
+                        <span>Fare: <strong>₹450</strong></span>
+                    </div>
+                    <div class="bc-actions">
+                        <a href="ticket-downloaded.html" class="bc-btn bc-btn-ghost">
+                            <i data-feather="download"></i> Re-Download
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Booking 5 – Completed -->
+            <div class="booking-card" data-status="completed">
+                <div class="bc-top">
+                    <div class="bc-train-info">
+                        <div class="bc-icon" style="background:#374151;"><i data-feather="train"></i></div>
+                        <div>
+                            <p class="bc-name">Garib Rath</p>
+                            <p class="bc-number">#12909 · AC 3-Tier (3A)</p>
+                        </div>
+                    </div>
+                    <div class="bc-route">
+                        <div class="bc-station">
+                            <span class="bc-time">14:10</span>
+                            <span class="bc-city">Chennai Central</span>
+                        </div>
+                        <div class="bc-divider">
+                            <div class="bc-divider-line"></div>
+                            <span class="bc-dur">16h 15m</span>
+                        </div>
+                        <div class="bc-station">
+                            <span class="bc-time">06:25</span>
+                            <span class="bc-city">Bangalore City</span>
+                        </div>
+                    </div>
+                    <span class="bc-status-badge status-completed">Completed</span>
+                </div>
+                <div class="bc-bottom">
+                    <div class="bc-meta">
+                        <span>PNR: <strong>PNR1190872345</strong></span>
+                        <span>Date: <strong>15 Feb 2026</strong></span>
+                        <span>Passenger: <strong>Rahul Sharma</strong></span>
+                        <span>Fare: <strong>₹840</strong></span>
+                    </div>
+                    <div class="bc-actions">
+                        <a href="ticket-downloaded.html" class="bc-btn bc-btn-ghost">
+                            <i data-feather="download"></i> Re-Download
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /dashboard-wrapper -->
+    </div><!-- /user-main-content -->
+</div><!-- /user-dash-layout -->
+
+<script>
+    feather.replace();
+
+    function filterBookings(status, btn) {
+        // Update active tab
+        document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Show/hide cards
+        document.querySelectorAll('.booking-card').forEach(card => {
+            if (status === 'all' || card.dataset.status === status) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile | Click2Book</title>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="user-styles.css">
+    <link rel="stylesheet" href="user-dashboard.css">
+    <style>
+        .page-header-center { text-align: center; margin-bottom: 2rem; margin-top: 1rem; }
+        .page-header-center h2 { font-size: 1.5rem; font-weight: 800; color: #111827; margin: 0 0 0.25rem 0; }
+        .page-header-center p { font-size: 0.875rem; color: #6B7280; margin: 0; }
+        
+        .profile-wrapper { max-width: 600px; margin: 0 auto; }
+        
+        .user-card {
+            background: white; border: 1px solid #E5E7EB; border-radius: 16px;
+            padding: 2.5rem 2rem; text-align: center; margin-bottom: 1.5rem;
+        }
+        .user-avatar {
+            width: 80px; height: 80px; border-radius: 50%; background: var(--primary);
+            color: white; font-size: 1.75rem; font-weight: 800; display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 1rem auto;
+        }
+        .user-name { font-size: 1.25rem; font-weight: 800; color: #111827; margin: 0 0 0.25rem 0; }
+        .user-email { font-size: 0.875rem; color: #6B7280; margin: 0 0 0.75rem 0; font-weight: 500;}
+        .user-badge {
+            display: inline-flex; align-items: center; gap: 0.35rem; background: #FFF7ED; color: var(--primary);
+            font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 20px;
+        }
+        .user-badge svg { width: 12px; height: 12px; fill: var(--primary); }
+        
+        .stats-row {
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;
+        }
+        .stat-card {
+            background: white; border: 1px solid #E5E7EB; border-radius: 12px;
+            padding: 1.25rem 1rem; text-align: center;
+        }
+        .stat-value { font-size: 1.5rem; font-weight: 800; color: var(--primary); margin: 0 0 0.25rem 0; }
+        .stat-label { font-size: 0.75rem; color: #6B7280; margin: 0; font-weight: 500; }
+        
+        .menu-list-card {
+            background: white; border: 1px solid #E5E7EB; border-radius: 12px;
+            padding: 0; overflow: hidden;
+        }
+        .menu-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1.25rem 1.5rem; border-bottom: 1px solid #E5E7EB;
+            text-decoration: none; color: #111827; font-size: 0.875rem; font-weight: 600;
+            transition: background 0.2s;
+        }
+        .menu-item:hover { background: #F8FAFC; }
+        .menu-item:last-child { border-bottom: none; }
+        .menu-item svg { width: 16px; height: 16px; color: #9CA3AF; }
+        
+    </style>
+</head>
+<body>
+    <div class="user-dash-layout">
+        <aside class="user-sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <div class="icon"><i data-feather="truck" style="color: white; width: 18px; height: 18px;"></i></div>
+                    <div class="text">CLICK<span style="color:var(--primary);">2</span>BOOK</div>
+                </div>
+                <i data-feather="menu" style="color: white; cursor: pointer;"></i>
+            </div>
+            
+            <div class="sidebar-profile">
+                <div class="avatar">RS</div>
+                <div class="info">
+                    <h4>Customer Profile</h4>
+                    <p>Premium Member</p>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="search-trains.html" class="nav-link nav-item">
+                    <i data-feather="search"></i> Search Trips
+                </a>
+                <a href="my-bookings.html" class="nav-link nav-item">
+                    <i data-feather="book"></i> My Bookings
+                </a>
+                <a href="cancel-ticket.html" class="nav-link nav-item">
+                    <i data-feather="x"></i> Cancel Ticket
+                </a>
+                <a href="get-support.html" class="nav-link nav-item">
+                    <i data-feather="headphones"></i> Get Support
+                </a>
+                <a href="my-profile.html" class="nav-link nav-item active">
+                    <i data-feather="user"></i> My Profile
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <a href="login train.html" class="nav-link nav-item">
+                    <i data-feather="log-out"></i> Logout
+                </a>
+            </div>
+        </aside>
+        
+        <div class="user-main-content">
+            <div class="top-header">
+                <div class="page-titles">
+                    <h1>My Profile</h1>
+                    <p>Welcome back, Rahul!</p>
+                </div>
+                <div class="notification-bell">
+                    <i data-feather="bell"></i>
+                </div>
+            </div>
+            
+            <div class="dashboard-wrapper">
+                <div class="page-header-center">
+                    <h2>My Profile</h2>
+                </div>
+                
+                <div class="profile-wrapper">
+                    <!-- User Info Card -->
+                    <div class="user-card">
+                        <div class="user-avatar">RS</div>
+                        <h3 class="user-name">Rahul</h3>
+                        <p class="user-email">rahul1@email.com</p>
+                        <div class="user-badge"><i data-feather="star"></i> Premium Member</div>
+                    </div>
+                    
+                    <!-- Stats Grid -->
+                    <div class="stats-row">
+                        <div class="stat-card">
+                            <h3 class="stat-value">6</h3>
+                            <p class="stat-label">Trips</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 class="stat-value">550</h3>
+                            <p class="stat-label">Points</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 class="stat-value">&#8377;500</h3>
+                            <p class="stat-label">Saved</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Menu List -->
+                    <div class="menu-list-card">
+                        <a href="#" class="menu-item">
+                            Edit Profile <i data-feather="chevron-right"></i>
+                        </a>
+                        <a href="#" class="menu-item">
+                            Change Password <i data-feather="chevron-right"></i>
+                        </a>
+                        <a href="#" class="menu-item">
+                            Notification Settings <i data-feather="chevron-right"></i>
+                        </a>
+                        <a href="#" class="menu-item">
+                            Payment Methods <i data-feather="chevron-right"></i>
+                        </a>
+                        <a href="get-support.html" class="menu-item">
+                            Help & Support <i data-feather="chevron-right"></i>
+                        </a>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        feather.replace();
+    </script>
+</body>
+</html>

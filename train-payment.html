@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment | Book Train Tickets</title>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="user-styles.css">
+    <style>
+        .payment-option input[type="radio"] { 
+            display: none; 
+        }
+        .payment-option input[type="radio"]:checked + .payment-option-content {
+            border-color: var(--primary) !important;
+            background-color: #FFF7ED;
+        }
+    </style>
+</head>
+<body class="booking-page-layout">
+    
+    <!-- Top Navy Header -->
+    <header class="booking-header-section" style="padding-bottom: 8rem;">
+        <div class="booking-top-nav">
+            <a href="book-train-tickets.html" class="back-btn" style="background: white; color: var(--navy-dark); text-decoration: none; display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600;">
+                <i data-feather="arrow-left" style="color: var(--primary); margin-right: 0.5rem; width: 16px;"></i> Back
+            </a>
+            <div style="width: 70px;"></div> <!-- Spacer -->
+        </div>
+        
+        <div class="booking-chip">
+            <i data-feather="train" style="width: 14px; height: 14px;"></i> Train Booking
+        </div>
+        <h1>Book Train Tickets</h1>
+        <p>Instant booking, real-time seat availability, and confirmed tickets in minutes</p>
+    </header>
+
+    <!-- Main Content over Header -->
+    <main class="booking-main-content">
+        <div class="booking-form-card" style="max-width: 600px;">
+            <h3 style="margin-bottom: 2rem; font-size: 1.25rem;">Payment</h3>
+            
+            <div class="train-summary-card" style="display: block; background: #F8FAFC; border: none; padding: 0.5rem 1.5rem; margin-bottom: 2rem;">
+                <h4 style="font-size: 0.875rem; color: #1E293B; margin-bottom: 1rem;">Booking Summary</h4>
+                
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem; font-size: 0.875rem; color: #64748B;">
+                    <span>Train:</span> <span id="pay-train" style="color: #1E293B; font-weight: 500;">Rajdhani Express</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem; font-size: 0.875rem; color: #64748B;">
+                    <span>Route:</span> <span id="pay-route" style="color: #1E293B; font-weight: 500;">Mumbai &rarr; Pune</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem; font-size: 0.875rem; color: #64748B;">
+                    <span>Date:</span> <span id="pay-date" style="color: #1E293B; font-weight: 500;">9/3/2026</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem; font-size: 0.875rem; color: #64748B;">
+                    <span>Passenger:</span> <span id="paymentPassengerName" style="color: #1E293B; font-weight: 500;">cdxsxw</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem; font-size: 0.875rem; color: #64748B;">
+                    <span>Class:</span> <span id="pay-class" style="color: #1E293B; font-weight: 500;">AC First Class (1A)</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 1.5rem; font-size: 0.875rem; color: #64748B;">
+                    <span>Base Fare:</span> <span id="pay-base" style="color: #1E293B; font-weight: 500;">&#8377;3000</span>
+                </div>
+                
+                <div style="border-top: 1px dashed #CBD5E1; padding-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: 800; color: #1E293B; font-size: 0.875rem;">Total Amount:</span>
+                    <span id="pay-total" style="font-weight: 800; color: var(--primary); font-size: 1.25rem;">&#8377;3000</span>
+                </div>
+            </div>
+            
+            <h4 style="font-size: 0.75rem; color: #1E293B; margin-bottom: 1rem;">Select Payment Method</h4>
+            
+            <div class="payment-methods">
+                <label class="payment-option">
+                    <input type="radio" name="payment_method" value="card" checked>
+                    <div class="payment-option-content" style="border: 1px solid #E2E8F0; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
+                        <i data-feather="credit-card" style="color: var(--primary); width: 18px;"></i>
+                        <span style="font-weight: 600; font-size: 0.875rem; color: #1E293B;">Credit/Debit Card</span>
+                    </div>
+                </label>
+                
+                <label class="payment-option">
+                    <input type="radio" name="payment_method" value="upi">
+                    <div class="payment-option-content" style="border: 1px solid #E2E8F0; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
+                        <i data-feather="smartphone" style="color: var(--primary); width: 18px;"></i>
+                        <span style="font-weight: 600; font-size: 0.875rem; color: #1E293B;">UPI Payment</span>
+                    </div>
+                </label>
+
+                <label class="payment-option">
+                    <input type="radio" name="payment_method" value="netbanking">
+                    <div class="payment-option-content" style="border: 1px solid #E2E8F0; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
+                        <i data-feather="monitor" style="color: var(--primary); width: 18px;"></i>
+                        <span style="font-weight: 600; font-size: 0.875rem; color: #1E293B;">Net Banking</span>
+                    </div>
+                </label>
+
+                <label class="payment-option">
+                    <input type="radio" name="payment_method" value="wallet">
+                    <div class="payment-option-content" style="border: 1px solid #E2E8F0; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
+                        <i data-feather="briefcase" style="color: var(--primary); width: 18px;"></i>
+                        <span style="font-weight: 600; font-size: 0.875rem; color: #1E293B;">Wallet</span>
+                    </div>
+                </label>
+            </div>
+            
+            <a href="irctc-auth.html" class="btn-primary btn-large" style="display: block; text-align: center; background: #16A34A; text-decoration: none;">
+                <i data-feather="shield" style="width: 16px; margin-right: 0.5rem;"></i> Pay <span id="pay-btn-amt">&#8377;3000</span> Securely
+            </a>
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-grid">
+            <div class="footer-col">
+                <div class="footer-logo">
+                    <div class="logo-icon" style="background: var(--primary); display: flex; align-items: center; justify-content: center;">
+                        <i data-feather="truck" style="color: white;"></i>
+                    </div>
+                    <div class="footer-logo-text">
+                        <h2>CLICK2BOOK</h2>
+                        <p>TRAVEL SMARTER</p>
+                    </div>
+                </div>
+                <p class="footer-desc">
+                    India's most trusted online ticket reservation platform. Book bus tickets, manage your journeys, and travel with confidence.
+                </p>
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <i data-feather="phone-call"></i> 1800-123-CLICK (24/7 Support)
+                    </div>
+                    <div class="contact-item">
+                        <i data-feather="mail"></i> support@click2book.in
+                    </div>
+                    <div class="contact-item">
+                        <i data-feather="map-pin"></i> Mumbai, Maharashtra, India
+                    </div>
+                </div>
+                <div class="social-links">
+                    <a href="#"><i data-feather="facebook" style="width: 14px; height: 14px;"></i></a>
+                    <a href="#"><i data-feather="twitter" style="width: 14px; height: 14px;"></i></a>
+                    <a href="#"><i data-feather="instagram" style="width: 14px; height: 14px;"></i></a>
+                    <a href="#"><i data-feather="linkedin" style="width: 14px; height: 14px;"></i></a>
+                </div>
+            </div>
+            
+            <div class="footer-col">
+                <h4>COMPANY</h4>
+                <ul class="footer-links">
+                    <li><a href="about-us.html">About Us</a></li>
+                    <li><a href="#">Careers</a></li>
+                    <li><a href="#">Press</a></li>
+                    <li><a href="#">Blog</a></li>
+                </ul>
+            </div>
+            
+            <div class="footer-col">
+                <h4>SUPPORT</h4>
+                <ul class="footer-links">
+                    <li><a href="#">Help Center</a></li>
+                    <li><a href="#">Contact Us</a></li>
+                    <li><a href="privacy-policy.html">Terms of Service</a></li>
+                    <li><a href="privacy-policy.html">Privacy Policy</a></li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <div class="copyright">
+                &copy; 2026 Click2Book. All rights reserved. Built with <span style="color: red;">&hearts;</span> for travelers.
+            </div>
+            <div class="footer-bottom-links">
+                <a href="#">Terms</a>
+                <a href="#">Privacy</a>
+                <a href="#">Cookies</a>
+            </div>
+        </div>
+    </footer>
+    <script>
+        feather.replace();
+        window.addEventListener('DOMContentLoaded', () => {
+            const passengerName = sessionStorage.getItem('trainPassenger');
+            if (passengerName) {
+                document.getElementById('paymentPassengerName').textContent = passengerName;
+            }
+            
+            const tName = sessionStorage.getItem('bkTrainName');
+            const tCode = sessionStorage.getItem('bkClassCode');
+            const tClass = sessionStorage.getItem('bkClassName');
+            const tPrice = sessionStorage.getItem('bkPrice');
+            const from = sessionStorage.getItem('trainFrom') || 'Mumbai';
+            const to = sessionStorage.getItem('trainTo') || 'Pune';
+            const date = sessionStorage.getItem('trainDate') || '9/3/2026';
+            
+            if (tName) document.getElementById('pay-train').textContent = tName;
+            if (tCode && tClass) document.getElementById('pay-class').textContent = `${tClass} (${tCode})`;
+            if (tPrice) {
+                document.getElementById('pay-base').innerHTML = tPrice;
+                document.getElementById('pay-total').innerHTML = tPrice;
+                document.getElementById('pay-btn-amt').innerHTML = tPrice;
+            }
+            document.getElementById('pay-route').innerHTML = `${from} &rarr; ${to}`;
+            document.getElementById('pay-date').textContent = date;
+        });
+    </script>
+</body>
+</html>

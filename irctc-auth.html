@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IRCTC Authentication | Click2Book</title>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="user-styles.css">
+    <style>
+        .page-header {
+            background-color: var(--navy-dark);
+            color: white;
+            padding: 4rem 2rem 8rem 2rem;
+            text-align: center;
+        }
+        .header-content { max-width: 800px; margin: 0 auto; }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 0.5rem; color: #9CA3AF; 
+            text-decoration: none; font-size: 0.875rem; font-weight: 500;
+            position: absolute; left: 5%; top: 2rem;
+            background: rgba(255, 255, 255, 0.1); padding: 0.4rem 1rem; border-radius: 20px;
+        }
+        .header-chip {
+            display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #E2E8F0; padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin-bottom: 1rem;
+        }
+        .page-header h1 { font-size: 2.5rem; font-weight: 800; margin-bottom: 0.5rem; letter-spacing: -0.5px; }
+        .page-header p { font-size: 1rem; color: #9CA3AF; }
+
+        .auth-card {
+            background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+            max-width: 650px; margin: -5rem auto 5rem; padding: 3rem; border: 1px solid var(--border);
+        }
+        .auth-card h2 { font-size: 1.5rem; font-weight: 800; color: #111827; margin: 0 0 1.5rem 0; }
+        
+        .booking-summary {
+            background: #F8FAFC; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; border: 1px solid #E2E8F0;
+        }
+        .summary-title { font-size: 0.875rem; font-weight: 700; color: #374151; margin: 0 0 1rem 0; }
+        .summary-list { list-style: none; padding: 0; margin: 0; }
+        .summary-list li {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; font-size: 0.875rem; color: #6B7280;
+        }
+        .summary-list li strong { color: #111827; font-weight: 600; }
+        .summary-total {
+            display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed #CBD5E1; padding-top: 1rem; margin-top: 1rem; font-size: 1.125rem; font-weight: 800; color: #111827;
+        }
+        .summary-total .total-price { color: var(--primary); font-size: 1.5rem; }
+
+        .input-label { display: block; font-size: 0.75rem; font-weight: 700; color: #374151; text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px; }
+        .custom-input { width: 100%; display: flex; align-items: center; gap: 0.75rem; border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.875rem 1rem; margin-bottom: 1.5rem; background: #fff; transition: border-color 0.2s; }
+        .custom-input:focus-within { border-color: var(--primary); outline: 2px solid rgba(249, 115, 22, 0.1); }
+        .custom-input svg { color: #9CA3AF; width: 18px; height: 18px; }
+        .custom-input input { border: none; outline: none; flex: 1; font-size: 0.875rem; color: #111827; font-family: 'Inter', sans-serif;}
+        .custom-input input::placeholder { color: #9CA3AF; }
+        
+        .error-text { color: #EF4444; font-size: 0.75rem; display: flex; align-items: center; gap: 0.25rem; margin-top: 0; margin-bottom: 1.5rem; font-weight: 500;}
+        
+        .btn-auth {
+            background: var(--primary); color: white; border: none; width: 100%; border-radius: 8px; padding: 1rem; font-weight: 600; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer; transition: background 0.2s;
+        }
+        .btn-auth:hover { background: var(--primary-hover); }
+
+    </style>
+</head>
+<body style="background-color: var(--bg-page); margin: 0;">
+
+    <header class="page-header">
+        <a href="book-train-tickets.html" class="back-link"><i data-feather="arrow-left" style="width: 14px; height: 14px;"></i> Back</a>
+        <div class="header-content">
+            <div class="header-chip"><i data-feather="train" style="width: 14px; height: 14px;"></i> Train Booking</div>
+            <h1>Book Train Tickets</h1>
+            <p>Instant booking, real-time seat availability, and confirmed tickets in minutes</p>
+        </div>
+    </header>
+
+    <div class="auth-card">
+        <h2>IRCTC Authentication</h2>
+        
+        <div class="booking-summary">
+            <h4 class="summary-title">Booking Summary</h4>
+            <ul class="summary-list">
+                <li><span>Train:</span> <strong id="auth-train">Rajdhani Express</strong></li>
+                <li><span>Route:</span> <strong id="auth-route">Mumbai &rarr; Pune</strong></li>
+                <li><span>Date:</span> <strong id="auth-date">10/3/2026</strong></li>
+                <li><span>Passenger:</span> <strong id="auth-passenger">ZAXSD XCV</strong></li>
+                <li><span>Class:</span> <strong id="auth-class">AC 2-Tier (2A)</strong></li>
+                <li><span>Base Fare:</span> <strong id="auth-fare">&#8377;2160</strong></li>
+            </ul>
+            <div class="summary-total">
+                <span>Total Amount:</span>
+                <span class="total-price" id="auth-total">&#8377;2160</span>
+            </div>
+        </div>
+
+        <form action="booking-confirmed.html" method="GET">
+            <label class="input-label">IRCTC ID</label>
+            <div class="custom-input">
+                <i data-feather="user"></i>
+                <input type="text" placeholder="Enter your IRCTC ID" required>
+            </div>
+            
+            <label class="input-label">IRCTC PASSWORD</label>
+            <div class="custom-input" style="margin-bottom: 0.5rem;">
+                <i data-feather="lock"></i>
+                <input type="password" placeholder="Enter your IRCTC password" required>
+                <i data-feather="eye" style="cursor: pointer;"></i>
+            </div>
+            <div class="error-text"><i data-feather="alert-circle" style="width: 12px; height: 12px;"></i> Please enter your IRCTC ID and password</div>
+            
+            <button class="btn-auth" type="submit">
+                <i data-feather="check-circle" style="width: 18px; height: 18px;"></i> Authenticate with IRCTC
+            </button>
+        </form>
+    </div>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-grid">
+            <div class="footer-col">
+                <div class="footer-logo">
+                    <div class="logo-icon" style="background: var(--primary); display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 8px;">
+                        <i data-feather="truck" style="color: white; width: 20px; height: 20px;"></i>
+                    </div>
+                    <div class="footer-logo-text">
+                        <h2 style="font-size: 1.5rem; font-weight: 800; margin: 0; line-height: 1; color: white;">CLICK2BOOK</h2>
+                        <p style="font-size: 0.65rem; color: var(--primary); font-weight: 700; letter-spacing: 1px; margin-top: 2px;">TRAVEL SMARTER</p>
+                    </div>
+                </div>
+                <p class="footer-desc">
+                    India's most trusted online ticket reservation platform. Book bus tickets, manage your journeys, and travel with confidence.
+                </p>
+            </div>
+            
+            <div class="footer-col" style="padding-top: 1rem;">
+                <h4 style="font-size: 0.875rem; font-weight: 700; color: var(--primary); letter-spacing: 1px; margin-bottom: 1.5rem;">COMPANY</h4>
+                <ul class="footer-links" style="list-style: none; padding: 0;">
+                    <li style="margin-bottom: 0.75rem;"><a href="#" style="color: #9CA3AF; font-size: 0.875rem;">About Us</a></li>
+                    <li style="margin-bottom: 0.75rem;"><a href="#" style="color: #9CA3AF; font-size: 0.875rem;">Careers</a></li>
+                </ul>
+            </div>
+            
+            <div class="footer-col" style="padding-top: 1rem;">
+                <h4 style="font-size: 0.875rem; font-weight: 700; color: var(--primary); letter-spacing: 1px; margin-bottom: 1.5rem;">SUPPORT</h4>
+                <ul class="footer-links" style="list-style: none; padding: 0;">
+                    <li style="margin-bottom: 0.75rem;"><a href="#" style="color: #9CA3AF; font-size: 0.875rem;">Help Center</a></li>
+                    <li style="margin-bottom: 0.75rem;"><a href="#" style="color: #9CA3AF; font-size: 0.875rem;">Contact Us</a></li>
+                </ul>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        feather.replace();
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const tName = sessionStorage.getItem('bkTrainName');
+            const tCode = sessionStorage.getItem('bkClassCode');
+            const tClass = sessionStorage.getItem('bkClassName');
+            const tPrice = sessionStorage.getItem('bkPrice');
+            const passenger = sessionStorage.getItem('trainPassenger');
+            
+            const from = sessionStorage.getItem('trainFrom') || 'Mumbai';
+            const to = sessionStorage.getItem('trainTo') || 'Pune';
+            const date = sessionStorage.getItem('trainDate') || '10/3/2026';
+            
+            if (tName) document.getElementById('auth-train').textContent = tName;
+            if (from || to) document.getElementById('auth-route').innerHTML = `${from} &rarr; ${to}`;
+            if (date) document.getElementById('auth-date').textContent = date;
+            if (passenger) document.getElementById('auth-passenger').textContent = passenger;
+            if (tCode && tClass) document.getElementById('auth-class').textContent = `${tClass} (${tCode})`;
+            if (tPrice) {
+                document.getElementById('auth-fare').innerHTML = tPrice;
+                document.getElementById('auth-total').innerHTML = tPrice;
+            }
+        });
+    </script>
+</body>
+</html>

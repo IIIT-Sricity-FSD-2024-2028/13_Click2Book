@@ -1,0 +1,588 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Available Trains | Click2Book</title>
+    
+    
+    <link rel="stylesheet" href="user-styles.css">
+    <style>
+        body { background-color: #F8FAFC; margin: 0; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+        .page-header { background-color: #1e293b; color: white; padding: 4rem 2rem 10rem 2rem; text-align: center; position: relative; }
+        .header-content { max-width: 800px; margin: 0 auto; }
+        .back-link { display: inline-flex; align-items: center; gap: 0.5rem; color: #9CA3AF; text-decoration: none; font-size: 0.875rem; font-weight: 500; position: absolute; left: 5%; top: 2rem; transition: color 0.2s; }
+        .back-link:hover { color: white; }
+        .header-chip { display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #E2E8F0; padding: 0.4rem 1.25rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin-bottom: 1.5rem; letter-spacing: 0.5px; }
+        .page-header h1 { font-size: 2.75rem; font-weight: 800; margin-bottom: 0.75rem; letter-spacing: -0.5px; }
+        .page-header p { font-size: 1rem; color: #9CA3AF; font-weight: 400; }
+
+        .trains-container { max-width: 850px; margin: -6rem auto 5rem auto; padding: 0 1rem; position: relative; z-index: 10; }
+        
+        .section-title { font-size: 1.25rem; font-weight: 800; color: #111827; margin-bottom: 0.25rem; }
+        .section-subtitle { font-size: 0.875rem; color: #6B7280; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.5rem; }
+
+        .train-card { background: white; border-radius: 12px; border: 1px solid #E2E8F0; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        
+        .tc-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
+        .tc-name-group { display: flex; align-items: center; gap: 1rem; }
+        .tc-icon { width: 40px; height: 40px; background: #1e293b; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; }
+        .tc-name { font-size: 1.125rem; font-weight: 700; color: #111827; margin: 0 0 0.25rem 0; }
+        .tc-number { font-size: 0.75rem; color: #6B7280; margin: 0; }
+        .tc-rating { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.875rem; font-weight: 700; color: #374151; }
+        .tc-rating svg { width: 14px; height: 14px; color: #F59E0B; fill: #F59E0B; }
+
+        .tc-timeline { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+        .time-block { text-align: center; }
+        .time-block .time { font-size: 1.25rem; font-weight: 800; color: #111827; margin: 0 0 0.25rem 0; }
+        .time-block .station { font-size: 0.75rem; color: #6B7280; margin: 0; }
+        
+        .duration-line { flex: 1; margin: 0 2rem; position: relative; display: flex; flex-direction: column; align-items: center; }
+        .duration-line .duration-text { font-size: 0.75rem; color: #9CA3AF; background: white; padding: 0 0.5rem; position: relative; z-index: 2; font-weight: 500; }
+        .duration-line::before { content: ''; position: absolute; left: 0; right: 0; top: 12px; border-top: 1px dashed #CBD5E1; z-index: 1; }
+        .duration-line svg { width: 14px; height: 14px; color: #9CA3AF; margin-top: 0.25rem; z-index: 2; background: white; }
+
+        .tc-amenities { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+        .amenity { display: flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; color: #6B7280; font-weight: 500;}
+        .amenity svg { width: 14px; height: 14px; color: #9CA3AF; }
+
+        .tc-divider { height: 1px; background: #E2E8F0; margin: 0 -1.5rem 1.5rem -1.5rem; }
+
+        .tc-classes-title { font-size: 0.875rem; font-weight: 600; color: #111827; margin-bottom: 1rem; }
+        
+        .tc-classes-grid { display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 0.5rem; }
+        .class-card { flex: 0 0 180px; border: 1px solid #E2E8F0; border-radius: 8px; padding: 1rem; text-decoration: none; color: inherit; transition: all 0.2s; background: #fff; cursor: pointer; display: block; }
+        .class-card:hover { border-color: var(--primary); box-shadow: 0 4px 12px rgba(249, 115, 22, 0.1); transform: translateY(-2px); }
+        
+        .cc-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 0.25rem; }
+        .cc-code { font-size: 1.125rem; font-weight: 800; color: #111827; }
+        .cc-price { font-size: 1.125rem; font-weight: 800; color: var(--primary); }
+        .cc-name { font-size: 0.75rem; color: #6B7280; margin-bottom: 0.75rem; display: block; }
+        
+        .cc-tags { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+        .cc-tag { font-size: 0.65rem; font-weight: 700; color: var(--primary); background: #ffedd5; padding: 0.2rem 0.5rem; border-radius: 4px; }
+        
+        .cc-status { font-size: 0.7rem; font-weight: 700; color: #22c55e; margin: 0;}
+        
+        /* Responsive */
+        @media (max-width: 600px) {
+            .page-header h1 { font-size: 2rem; }
+            .tc-timeline { flex-direction: column; gap: 0.5rem; align-items: flex-start;}
+            .time-block { text-align: left; display: flex; gap: 1rem; align-items: baseline;}
+            .duration-line { margin: 0; width: 100%; display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="page-header">
+        <a href="../landing%20page/index.html" class="back-link"><svg style="width: 16px; height: 16px;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg> Back to Home</a>
+        <div class="header-content">
+            <div class="header-chip"><svg style="width: 14px; height: 14px;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="2"></rect><path d="M4 11h16"></path><path d="M12 3v8"></path><path d="M8 19l-2 3"></path><path d="M18 22l-2-3"></path><path d="M8 15h0"></path><path d="M16 15h0"></path></svg> Train Booking</div>
+            <h1>Book Train Tickets</h1>
+            <p>Instant booking, real-time seat availability, and confirmed tickets in minutes</p>
+        </div>
+    </header>
+
+    <div class="trains-container">
+        <!-- Title section -->
+        <h2 class="section-title">Available Trains</h2>
+        <div class="section-subtitle" id="searchCriteria">Mumbai &rarr; Pune &bull; 9 Mar 2026</div>
+
+        <!-- Train 1: Rajdhani Express -->
+        <div class="train-card">
+            <div class="tc-header">
+                <div class="tc-name-group">
+                    <div class="tc-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="2"></rect><path d="M4 11h16"></path><path d="M12 3v8"></path><path d="M8 19l-2 3"></path><path d="M18 22l-2-3"></path><path d="M8 15h0"></path><path d="M16 15h0"></path></svg></div>
+                    <div>
+                        <h3 class="tc-name">Rajdhani Express</h3>
+                        <p class="tc-number">#12951</p>
+                    </div>
+                </div>
+                <div class="tc-rating">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> 4.8
+                </div>
+            </div>
+            
+            <div class="tc-timeline">
+                <div class="time-block">
+                    <p class="time">16:25</p>
+                    <p class="station">Mumbai</p>
+                </div>
+                <div class="duration-line">
+                    <span class="duration-text">16h 10m</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </div>
+                <div class="time-block" style="text-align: right;">
+                    <p class="time">08:35</p>
+                    <p class="station">Pune</p>
+                </div>
+            </div>
+            
+            <div class="tc-amenities">
+                <div class="amenity"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg> Wi-Fi</div>
+                <div class="amenity"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg> Pantry</div>
+                <div class="amenity"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Insurance</div>
+            </div>
+            
+            <div class="tc-divider"></div>
+            
+            <div class="tc-classes-title">Select Class:</div>
+            <div class="tc-classes-grid">
+                <!-- Class 1A -->
+                <a href="book-train-tickets.html" class="class-card">
+                    <div class="cc-header">
+                        <span class="cc-code">1A</span>
+                        <span class="cc-price">&#8377;3000</span>
+                    </div>
+                    <span class="cc-name">AC First Class</span>
+                    <div class="cc-tags">
+                        <span class="cc-tag">AC</span>
+                        <span class="cc-tag">Bedding</span>
+                    </div>
+                    <p class="cc-status">8 seats available</p>
+                </a>
+                
+                <!-- Class 2A -->
+                <a href="book-train-tickets.html" class="class-card">
+                    <div class="cc-header">
+                        <span class="cc-code">2A</span>
+                        <span class="cc-price">&#8377;2160</span>
+                    </div>
+                    <span class="cc-name">AC 2-Tier</span>
+                    <div class="cc-tags">
+                        <span class="cc-tag">AC</span>
+                        <span class="cc-tag">Bedding</span>
+                    </div>
+                    <p class="cc-status">11 seats available</p>
+                </a>
+                
+                <!-- Class 3A -->
+                <a href="book-train-tickets.html" class="class-card">
+                    <div class="cc-header">
+                        <span class="cc-code">3A</span>
+                        <span class="cc-price">&#8377;1440</span>
+                    </div>
+                    <span class="cc-name">AC 3-Tier</span>
+                    <div class="cc-tags">
+                        <span class="cc-tag">AC</span>
+                        <span class="cc-tag">Bedding</span>
+                    </div>
+                    <p class="cc-status">12 seats available</p>
+                </a>
+            </div>
+        </div>
+
+        <!-- Train 2: Shatabdi Express -->
+        <div class="train-card">
+            <div class="tc-header">
+                <div class="tc-name-group">
+                    <div class="tc-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="2"></rect><path d="M4 11h16"></path><path d="M12 3v8"></path><path d="M8 19l-2 3"></path><path d="M18 22l-2-3"></path><path d="M8 15h0"></path><path d="M16 15h0"></path></svg></div>
+                    <div>
+                        <h3 class="tc-name">Shatabdi Express</h3>
+                        <p class="tc-number">#12009</p>
+                    </div>
+                </div>
+                <div class="tc-rating">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> 4.7
+                </div>
+            </div>
+            
+            <div class="tc-timeline">
+                <div class="time-block">
+                    <p class="time">06:50</p>
+                    <p class="station">Mumbai</p>
+                </div>
+                <div class="duration-line">
+                    <span class="duration-text">15h 55m</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </div>
+                <div class="time-block" style="text-align: right;">
+                    <p class="time">22:45</p>
+                    <p class="station">Pune</p>
+                </div>
+            </div>
+            
+            <div class="tc-amenities">
+                <div class="amenity"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg> Wi-Fi</div>
+                <div class="amenity"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg> Pantry</div>
+                <div class="amenity"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Insurance</div>
+            </div>
+            
+            <div class="tc-divider"></div>
+            
+            <div class="tc-classes-title">Select Class:</div>
+            <div class="tc-classes-grid">
+                <!-- Class 2A -->
+                <a href="book-train-tickets.html" class="class-card">
+                    <div class="cc-header">
+                        <span class="cc-code">2A</span>
+                        <span class="cc-price">&#8377;1800</span>
+                    </div>
+                    <span class="cc-name">AC 2-Tier</span>
+                    <div class="cc-tags">
+                        <span class="cc-tag">AC</span>
+                        <span class="cc-tag">Bedding</span>
+                    </div>
+                    <p class="cc-status">10 seats available</p>
+                </a>
+                
+                <!-- Class 3A -->
+                <a href="book-train-tickets.html" class="class-card">
+                    <div class="cc-header">
+                        <span class="cc-code">3A</span>
+                        <span class="cc-price">&#8377;1200</span>
+                    </div>
+                    <span class="cc-name">AC 3-Tier</span>
+                    <div class="cc-tags">
+                        <span class="cc-tag">AC</span>
+                        <span class="cc-tag">Bedding</span>
+                    </div>
+                    <p class="cc-status">32 seats available</p>
+                </a>
+            </div>
+        </div>
+
+        <!-- Train 3: Duronto Express -->
+        <div class="train-card">
+            <div class="tc-header">
+                <div class="tc-name-group">
+                    <div class="tc-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="2"></rect><path d="M4 11h16"></path><path d="M12 3v8"></path><path d="M8 19l-2 3"></path><path d="M18 22l-2-3"></path><path d="M8 15h0"></path><path d="M16 15h0"></path></svg></div>
+                    <div>
+                        <h3 class="tc-name">Duronto Express</h3>
+                        <p class="tc-number">#12263</p>
+                    </div>
+                </div>
+                <div class="tc-rating">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> 4.9
+                </div>
+            </div>
+            
+            <div class="tc-timeline">
+                <div class="time-block">
+                    <p class="time">22:00</p>
+                    <p class="station">Mumbai</p>
+                </div>
+                <div class="duration-line">
+                    <span class="duration-text">15h 15m</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </div>
+                <div class="time-block" style="text-align: right;">
+                    <p class="time">13:15</p>
+                    <p class="station">Pune</p>
+                </div>
+            </div>
+            
+            <div class="tc-amenities">
+                <div class="amenity"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg> Wi-Fi</div>
+                <div class="amenity"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg> Pantry</div>
+                <div class="amenity"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Insurance</div>
+            </div>
+            
+            <div class="tc-divider"></div>
+            
+            <div class="tc-classes-title">Select Class:</div>
+            <div class="tc-classes-grid">
+                <a href="book-train-tickets.html" class="class-card">
+                    <div class="cc-header">
+                        <span class="cc-code">1A</span>
+                        <span class="cc-price">&#8377;3500</span>
+                    </div>
+                    <span class="cc-name">AC First Class</span>
+                    <div class="cc-tags">
+                        <span class="cc-tag">AC</span>
+                        <span class="cc-tag">Bedding</span>
+                    </div>
+                    <p class="cc-status">5 seats available</p>
+                </a>
+                
+                <a href="book-train-tickets.html" class="class-card">
+                    <div class="cc-header">
+                        <span class="cc-code">2A</span>
+                        <span class="cc-price">&#8377;2520</span>
+                    </div>
+                    <span class="cc-name">AC 2-Tier</span>
+                    <div class="cc-tags">
+                        <span class="cc-tag">AC</span>
+                        <span class="cc-tag">Bedding</span>
+                    </div>
+                    <p class="cc-status">15 seats available</p>
+                </a>
+                
+                <a href="book-train-tickets.html" class="class-card">
+                    <div class="cc-header">
+                        <span class="cc-code">3A</span>
+                        <span class="cc-price">&#8377;1680</span>
+                    </div>
+                    <span class="cc-name">AC 3-Tier</span>
+                    <div class="cc-tags">
+                        <span class="cc-tag">AC</span>
+                        <span class="cc-tag">Bedding</span>
+                    </div>
+                    <p class="cc-status">22 seats available</p>
+                </a>
+            </div>
+        </div>
+
+        <!-- Train 4: August Kranti -->
+        <div class="train-card">
+            <div class="tc-header">
+                <div class="tc-name-group">
+                    <div class="tc-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="2"></rect><path d="M4 11h16"></path><path d="M12 3v8"></path><path d="M8 19l-2 3"></path><path d="M18 22l-2-3"></path><path d="M8 15h0"></path><path d="M16 15h0"></path></svg></div>
+                    <div>
+                        <h3 class="tc-name">August Kranti</h3>
+                        <p class="tc-number">#12953</p>
+                    </div>
+                </div>
+                <div class="tc-rating">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> 4.6
+                </div>
+            </div>
+            
+            <div class="tc-timeline">
+                <div class="time-block">
+                    <p class="time">19:30</p>
+                    <p class="station">Mumbai</p>
+                </div>
+                <div class="duration-line">
+                    <span class="duration-text">16h 20m</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </div>
+                <div class="time-block" style="text-align: right;">
+                    <p class="time">11:50</p>
+                    <p class="station">Pune</p>
+                </div>
+            </div>
+            
+            <div class="tc-amenities">
+                <div class="amenity"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg> Wi-Fi</div>
+                <div class="amenity"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg> Pantry</div>
+                <div class="amenity"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Insurance</div>
+            </div>
+            
+            <div class="tc-divider"></div>
+            
+            <div class="tc-classes-title">Select Class:</div>
+            <div class="tc-classes-grid">
+                <a href="book-train-tickets.html" class="class-card">
+                    <div class="cc-header">
+                        <span class="cc-code">2A</span>
+                        <span class="cc-price">&#8377;1620</span>
+                    </div>
+                    <span class="cc-name">AC 2-Tier</span>
+                    <div class="cc-tags">
+                        <span class="cc-tag">AC</span>
+                        <span class="cc-tag">Bedding</span>
+                    </div>
+                    <p class="cc-status">15 seats available</p>
+                </a>
+                
+                <a href="book-train-tickets.html" class="class-card">
+                    <div class="cc-header">
+                        <span class="cc-code">3A</span>
+                        <span class="cc-price">&#8377;1080</span>
+                    </div>
+                    <span class="cc-name">AC 3-Tier</span>
+                    <div class="cc-tags">
+                        <span class="cc-tag">AC</span>
+                        <span class="cc-tag">Bedding</span>
+                    </div>
+                    <p class="cc-status">37 seats available</p>
+                </a>
+                
+                <a href="book-train-tickets.html" class="class-card">
+                    <div class="cc-header">
+                        <span class="cc-code">SL</span>
+                        <span class="cc-price">&#8377;450</span>
+                    </div>
+                    <span class="cc-name">Sleeper Class</span>
+                    <div class="cc-tags">
+                        <span class="cc-tag">Fan</span>
+                        <span class="cc-tag">Open Windows</span>
+                    </div>
+                    <p class="cc-status">48 seats available</p>
+                </a>
+            </div>
+        </div>
+
+        <!-- Train 5: Garib Rath -->
+        <div class="train-card">
+            <div class="tc-header">
+                <div class="tc-name-group">
+                    <div class="tc-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="2"></rect><path d="M4 11h16"></path><path d="M12 3v8"></path><path d="M8 19l-2 3"></path><path d="M18 22l-2-3"></path><path d="M8 15h0"></path><path d="M16 15h0"></path></svg></div>
+                    <div>
+                        <h3 class="tc-name">Garib Rath</h3>
+                        <p class="tc-number">#12909</p>
+                    </div>
+                </div>
+                <div class="tc-rating">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> 4.5
+                </div>
+            </div>
+            
+            <div class="tc-timeline">
+                <div class="time-block">
+                    <p class="time">14:10</p>
+                    <p class="station">Mumbai</p>
+                </div>
+                <div class="duration-line">
+                    <span class="duration-text">16h 15m</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </div>
+                <div class="time-block" style="text-align: right;">
+                    <p class="time">06:25</p>
+                    <p class="station">Pune</p>
+                </div>
+            </div>
+            
+            <div class="tc-amenities">
+                <div class="amenity"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg> Wi-Fi</div>
+                <div class="amenity"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg> Pantry</div>
+                <div class="amenity"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Insurance</div>
+            </div>
+            
+            <div class="tc-divider"></div>
+            
+            <div class="tc-classes-title">Select Class:</div>
+            <div class="tc-classes-grid">
+                <a href="book-train-tickets.html" class="class-card">
+                    <div class="cc-header">
+                        <span class="cc-code">3A</span>
+                        <span class="cc-price">&#8377;840</span>
+                    </div>
+                    <span class="cc-name">AC 3-Tier</span>
+                    <div class="cc-tags">
+                        <span class="cc-tag">AC</span>
+                        <span class="cc-tag">Bedding</span>
+                    </div>
+                    <p class="cc-status">72 seats available</p>
+                </a>
+                
+                <a href="book-train-tickets.html" class="class-card">
+                    <div class="cc-header">
+                        <span class="cc-code">SL</span>
+                        <span class="cc-price">&#8377;350</span>
+                    </div>
+                    <span class="cc-name">Sleeper Class</span>
+                    <div class="cc-tags">
+                        <span class="cc-tag">Fan</span>
+                        <span class="cc-tag">Open Windows</span>
+                    </div>
+                    <p class="cc-status">48 seats available</p>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-grid">
+            <div class="footer-col">
+                <div class="footer-logo">
+                    <div class="logo-icon" style="background: var(--primary); display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 8px;">
+                        <svg style="color: white; width: 20px; height: 20px;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                    </div>
+                    <div class="footer-logo-text">
+                        <h2 style="font-size: 1.5rem; font-weight: 800; margin: 0; line-height: 1; color: white;">CLICK2BOOK</h2>
+                        <p style="font-size: 0.65rem; color: var(--primary); font-weight: 700; letter-spacing: 1px; margin-top: 2px;">TRAVEL SMARTER</p>
+                    </div>
+                </div>
+                <p class="footer-desc">
+                    India's most trusted online ticket reservation platform. Book bus tickets, manage your journeys, and travel with confidence.
+                </p>
+                <div class="contact-info" style="margin-top: 2rem;">
+                    <div class="contact-item" style="color: var(--text-muted); font-size: 0.875rem; display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+                        <svg style="color: var(--primary); width: 16px;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94m-1 7.98v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.56 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> 1800-123-CLICK (24/7 Support)
+                    </div>
+                    <div class="contact-item" style="color: var(--text-muted); font-size: 0.875rem; display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+                        <svg style="color: var(--primary); width: 16px;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> support@click2book.in
+                    </div>
+                    <div class="contact-item" style="color: var(--text-muted); font-size: 0.875rem; display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+                        <svg style="color: var(--primary); width: 16px;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> Mumbai, Maharashtra, India
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-col">
+                <h4 style="color: var(--primary); font-size: 0.875rem; font-weight: 700; text-transform: uppercase;">COMPANY</h4>
+                <ul class="footer-links" style="list-style: none; padding: 0;">
+                    <li style="margin-bottom: 0.75rem;"><a href="about-us.html" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem;">About Us</a></li>
+                    <li style="margin-bottom: 0.75rem;"><a href="#" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem;">Careers</a></li>
+                    <li style="margin-bottom: 0.75rem;"><a href="#" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem;">Press</a></li>
+                    <li style="margin-bottom: 0.75rem;"><a href="#" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem;">Blog</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-col">
+                <h4 style="color: var(--primary); font-size: 0.875rem; font-weight: 700; text-transform: uppercase;">SUPPORT</h4>
+                <ul class="footer-links" style="list-style: none; padding: 0;">
+                    <li style="margin-bottom: 0.75rem;"><a href="#" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem;">Help Center</a></li>
+                    <li style="margin-bottom: 0.75rem;"><a href="#" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem;">Contact Us</a></li>
+                    <li style="margin-bottom: 0.75rem;"><a href="privacy-policy.html" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem;">Terms of Service</a></li>
+                    <li style="margin-bottom: 0.75rem;"><a href="privacy-policy.html" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem;">Privacy Policy</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <div class="copyright" style="font-size: 0.75rem; color: #6B7280;">
+                &copy; 2026 Click2Book. All rights reserved. Built with <span style="color: red;">&hearts;</span> for travelers.
+            </div>
+            <div class="footer-bottom-links" style="display: flex; gap: 1rem; font-size: 0.75rem;">
+                <a href="#" style="color: #6B7280; text-decoration: none;">Terms</a>
+                <a href="#" style="color: #6B7280; text-decoration: none;">Privacy</a>
+                <a href="#" style="color: #6B7280; text-decoration: none;">Cookies</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        
+        // Populate dynamic details based on form parameters if passed
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            let from = urlParams.get('from') || sessionStorage.getItem('trainFrom') || 'Mumbai';
+            let to = urlParams.get('to') || sessionStorage.getItem('trainTo') || 'Pune';
+            let date = urlParams.get('date') || sessionStorage.getItem('trainDate') || '9 Mar 2026';
+            
+            document.getElementById('searchCriteria').innerHTML = `${from} &rarr; ${to} &bull; ${date}`;
+            
+            // Clean up to look nice
+            const stations = document.querySelectorAll('.station');
+            stations.forEach((s, idx) => {
+                if(idx % 2 === 0) s.textContent = from.charAt(0).toUpperCase() + from.slice(1).toLowerCase();
+                else s.textContent = to.charAt(0).toUpperCase() + to.slice(1).toLowerCase();
+            });
+
+            // Save selected train class and price; require login before proceeding
+            document.querySelectorAll('.class-card').forEach(card => {
+                card.addEventListener('click', function(e) {
+                    e.preventDefault(); // always prevent default href first
+
+                    const trainCard = this.closest('.train-card');
+                    const trainName = trainCard.querySelector('.tc-name').textContent;
+                    const classCode = this.querySelector('.cc-code').textContent;
+                    const className = this.querySelector('.cc-name').textContent;
+                    const priceText = this.querySelector('.cc-price').innerHTML;
+
+                    // Save booking context BEFORE login check
+                    sessionStorage.setItem('bkTrainName', trainName);
+                    sessionStorage.setItem('bkClassCode', classCode);
+                    sessionStorage.setItem('bkClassName', className);
+                    sessionStorage.setItem('bkPrice', priceText);
+
+                    // Check login status
+                    const isLoggedIn = sessionStorage.getItem('trainLoggedIn');
+                    if (!isLoggedIn) {
+                        // Save where to return after login
+                        sessionStorage.setItem('trainReturnPage', 'book-train-tickets.html');
+                        window.location.href = 'login train.html';
+                    } else {
+                        window.location.href = 'book-train-tickets.html';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

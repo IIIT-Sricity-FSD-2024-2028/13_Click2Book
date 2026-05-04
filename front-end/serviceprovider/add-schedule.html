@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Schedule | Click2Book</title>
+    
+    
+    <link rel="stylesheet" href="dashboard-specific.css">
+</head>
+<body>
+    <!-- Notification Popup -->
+    <div class="notif-overlay" id="notifOverlay" onclick="closeNotif()"></div>
+    <div class="notif-panel" id="notifPanel" style="display:none;">
+        <div class="notif-panel-header">
+            <h3>Notifications <span class="notif-count-badge">3</span></h3>
+            <button class="notif-close-btn" onclick="closeNotif()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="notif-list">
+            <div class="notif-item unread"><div class="notif-icon-wrap info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="notif-text"><h4>New Booking Received</h4><p>3 new seat bookings on SriCity → Chennai route (06:00 AM trip).</p><time>5 mins ago</time></div></div>
+            <div class="notif-item unread"><div class="notif-icon-wrap warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="notif-text"><h4>Seat Capacity Alert</h4><p>Tada → Hyderabad (09:00 AM) is now fully booked.</p><time>30 mins ago</time></div></div>
+            <div class="notif-item unread"><div class="notif-icon-wrap success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div class="notif-text"><h4>Trip Confirmed</h4><p>Pune → Mumbai (20:00) trip has been confirmed by the system.</p><time>1 hour ago</time></div></div>
+        </div>
+        <div class="notif-panel-footer"><a href="#">View all notifications &rarr;</a></div>
+    </div>
+    <div class="dash-layout">
+        <!-- Sidebar -->
+        <aside class="dash-sidebar">
+            <div class="dash-sidebar-header">
+                <div class="logo-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                </div>
+                <div class="logo-text">
+                    <div class="main-title">Provider Panel</div>
+                    <div class="sub-title">Click2Book</div>
+                </div>
+            </div>
+
+            <div class="dash-user-profile">
+                <div class="avatar">KT</div>
+                <div class="user-info">
+                    <h4>Kiran Travels</h4>
+                    <p>Service Provider</p>
+                </div>
+            </div>
+
+            <nav class="dash-nav-menu">
+                <a href="dashboard.html" class="nav-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg> Dashboard
+                </a>
+                <a href="manage-schedules.html" class="nav-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> Manage Schedules
+                </a>
+                <a href="add-schedule.html" class="nav-link active">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Add Schedule
+                </a>
+                <a href="confirm-trips.html" class="nav-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Confirm Trips
+                </a>
+                <a href="seat-management.html" class="nav-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> Seat Management
+                </a>
+            </nav>
+
+            <div class="dash-sidebar-bottom">
+                <a href="../staff-access.html" class="nav-link"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Staff Portal
+                </a>
+                <a href="settings.html" class="nav-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> Settings
+                </a>
+                <a href="../landing page/index.html" class="nav-link logout">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Logout
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="dash-main-content">
+            <!-- Topbar Equivalent (Title area) -->
+            <header class="dash-header" style="display:flex; align-items:center; justify-content:space-between;">
+                <div class="page-title">
+                    <h2>Add Schedule</h2>
+                    <p>Service Provider Portal</p>
+                </div>
+                <div class="notif-bell-btn" id="bellBtn" onclick="toggleNotif()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                    <span class="notif-count-dot">3</span>
+                </div>
+            </header>
+
+            <div class="dash-content-wrapper">
+                <div class="form-wrapper">
+                    <div class="form-header">
+                        <h3>Add New Schedule</h3>
+                        <p>Create a new trip schedule</p>
+                    </div>
+
+                    <div class="dash-card">
+                        <form id="addScheduleForm">
+                            <div id="scheduleErrMsg" style="display:none;background:#fff1f2;border:1px solid #fecaca;border-radius:10px;padding:12px 16px;font-size:.82rem;color:#ef4444;font-weight:600;margin-bottom:16px;"></div>
+                            <div id="scheduleSuccessMsg" style="display:none;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 16px;font-size:.82rem;color:#16a34a;font-weight:600;margin-bottom:16px;"></div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">From (City / Location)</label>
+                                    <div class="input-with-icon">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                        <input type="text" id="schedFrom" class="form-control" placeholder="e.g. Pune">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">To (City / Location)</label>
+                                    <div class="input-with-icon">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                        <input type="text" id="schedTo" class="form-control" placeholder="e.g. Mumbai">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Departure Time (HH:MM)</label>
+                                    <input type="time" id="schedDep" class="form-control" placeholder="e.g. 08:00">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Arrival Time (HH:MM)</label>
+                                    <input type="time" id="schedArr" class="form-control" placeholder="e.g. 14:00">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Bus Name / Vehicle Name</label>
+                                <input type="text" id="schedBusName" class="form-control" placeholder="e.g. Intercity Express, Volvo AC">
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Bus Type</label>
+                                <select id="schedBusType" class="form-control" style="appearance:auto;cursor:pointer;">
+                                    <option value="">-- Select Bus Type --</option>
+                                    <option value="Sleeper AC">Sleeper AC</option>
+                                    <option value="Semi-Sleeper">Semi-Sleeper</option>
+                                    <option value="AC Seater">AC Seater</option>
+                                    <option value="Volvo AC">Volvo AC</option>
+                                    <option value="Non-AC">Non-AC</option>
+                                    <option value="Luxury">Luxury</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Total Seats</label>
+                                <input type="number" id="schedSeats" class="form-control" placeholder="e.g. 40" min="1" max="100">
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Fare Per Seat (₹)</label>
+                                <input type="number" id="schedFare" class="form-control" placeholder="e.g. 550" min="1">
+                            </div>
+
+                            <button type="button" class="btn-primary btn-block" id="saveScheduleBtn" onclick="saveSchedule()">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Save Schedule
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function toggleNotif() {
+            var panel = document.getElementById('notifPanel');
+            var overlay = document.getElementById('notifOverlay');
+            var isOpen = panel.style.display === 'block';
+            panel.style.display = isOpen ? 'none' : 'block';
+            overlay.style.display = isOpen ? 'none' : 'block';
+        }
+        function closeNotif() {
+            document.getElementById('notifPanel').style.display = 'none';
+            document.getElementById('notifOverlay').style.display = 'none';
+        }
+
+        function showSchedErr(msg) {
+            var el = document.getElementById('scheduleErrMsg');
+            el.textContent = '⚠️ ' + msg;
+            el.style.display = 'block';
+            document.getElementById('scheduleSuccessMsg').style.display = 'none';
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        function clearSchedErr() {
+            document.getElementById('scheduleErrMsg').style.display = 'none';
+        }
+
+        function saveSchedule() {
+            clearSchedErr();
+
+            var from     = document.getElementById('schedFrom').value.trim();
+            var to       = document.getElementById('schedTo').value.trim();
+            var dep      = document.getElementById('schedDep').value.trim();
+            var arr      = document.getElementById('schedArr').value.trim();
+            var busName  = document.getElementById('schedBusName').value.trim();
+            var busType  = document.getElementById('schedBusType').value;
+            var seatsVal = document.getElementById('schedSeats').value.trim();
+            var fareVal  = document.getElementById('schedFare').value.trim();
+
+            // From location validation
+            if (!from) { showSchedErr('Please enter the departure location (From city).'); return; }
+            if (/^\d+$/.test(from)) { showSchedErr('Departure location cannot be only numbers. Please enter a valid city name.'); return; }
+            if (from.length < 2) { showSchedErr('Departure location must be at least 2 characters.'); return; }
+
+            // To location validation
+            if (!to) { showSchedErr('Please enter the destination location (To city).'); return; }
+            if (/^\d+$/.test(to)) { showSchedErr('Destination location cannot be only numbers. Please enter a valid city name.'); return; }
+            if (to.length < 2) { showSchedErr('Destination location must be at least 2 characters.'); return; }
+            if (from.toLowerCase() === to.toLowerCase()) { showSchedErr('Departure and destination locations cannot be the same.'); return; }
+
+            // Departure time
+            if (!dep) { showSchedErr('Please enter the departure time.'); return; }
+
+            // Arrival time
+            if (!arr) { showSchedErr('Please enter the arrival time.'); return; }
+
+            // Bus name validation
+            if (!busName) { showSchedErr('Please enter the bus name or vehicle name.'); return; }
+            if (/^\d+$/.test(busName)) { showSchedErr('Bus name cannot be only numbers. Please enter a valid bus name (e.g. Intercity Express).'); return; }
+            if (busName.length < 2) { showSchedErr('Bus name must be at least 2 characters.'); return; }
+
+            // Bus type
+            if (!busType) { showSchedErr('Please select a bus type.'); return; }
+
+            // Total seats validation
+            if (!seatsVal) { showSchedErr('Please enter the total number of seats.'); return; }
+            var seats = parseInt(seatsVal, 10);
+            if (isNaN(seats) || seats < 1) { showSchedErr('Total seats must be a positive number (minimum 1).'); return; }
+            if (seats > 100) { showSchedErr('Total seats cannot exceed 100.'); return; }
+
+            // Fare validation
+            if (!fareVal) { showSchedErr('Please enter the fare per seat.'); return; }
+            var fare = parseInt(fareVal, 10);
+            if (isNaN(fare) || fare < 1) { showSchedErr('Fare must be a positive number (minimum ₹1).'); return; }
+
+            // All valid — save to localStorage
+            var schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+            var newSchedule = {
+                id: 'SCHED_' + Date.now(),
+                from: from,
+                to: to,
+                departureTime: dep,
+                arrivalTime: arr,
+                busName: busName,
+                busType: busType,
+                totalSeats: seats,
+                fare: fare,
+                addedAt: new Date().toISOString()
+            };
+            schedules.push(newSchedule);
+            localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
+
+            // Show success message
+            var successEl = document.getElementById('scheduleSuccessMsg');
+            successEl.textContent = '✅ Schedule saved! "' + busName + '" from ' + from + ' to ' + to + ' has been added and is now visible to customers.';
+            successEl.style.display = 'block';
+
+            // Reset form
+            document.getElementById('addScheduleForm').reset();
+
+            // Show brief success on button then redirect after delay
+            var btn = document.getElementById('saveScheduleBtn');
+            btn.textContent = '✓ Schedule Added!';
+            btn.style.background = '#16a34a';
+            setTimeout(function() {
+                window.location.href = 'manage-schedules.html';
+            }, 2000);
+        }
+    </script>
+
+  <!-- ═══ CRUD Engine (localStorage + Data Manager panel) ═══ -->
+  <script src="../crud functions/js/mock_data.js"></script>
+  <script src="../crud functions/js/script.js"></script>
+  <script src="../crud functions/js/ui-shared.js"></script>
+  <script src="../crud functions/js/ui-provider.js"></script>
+  <script>
+    /* Remove the Super User toggle button on this page only */
+    document.addEventListener('DOMContentLoaded', function () {
+      var btn = document.getElementById('c2b-toggle-btn');
+      if (btn) btn.remove();
+    });
+  </script>
+</body>
+</html>
+

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -576,6 +576,13 @@
   <script src="../crud functions/js/mock_data.js"></script>
   <script src="../crud functions/js/script.js"></script>
   <script src="../crud functions/js/ui-shared.js"></script>
+  <script>
+    /* Remove Super User button - only visible on Admin pages */
+    document.addEventListener('DOMContentLoaded', function () {
+      var btn = document.getElementById('c2b-toggle-btn');
+      if (btn) btn.remove();
+    });
+  </script>
   <script src="../crud functions/js/ui-provider.js"></script>
 </body>
 </html>

@@ -221,7 +221,7 @@
   <header class="top-header">
     <div class="header-left">
       <h2 class="header-title">Get Support</h2>
-      <p class="header-subtitle">Welcome back, Rahul!</p>
+      <p class="header-subtitle" id="suppSubtitle">Welcome back!</p>
     </div>
     <div class="header-right">
       <button class="notif-btn" id="notifBtn" aria-label="Notifications">
@@ -334,27 +334,56 @@
       return;
     }
 
-    /* ── Persist to DB ── */
-    let ticketId = 'TKT-' + Math.floor(10000 + Math.random() * 90000);
+    /* ── Persist to CRUD DB ── */
+    var ticketId = 'TKT-' + Math.floor(10000 + Math.random() * 90000);
+    var customerId = sessionStorage.getItem('c2b_loggedInId')
+                  || localStorage.getItem('c2b_loggedInId') || 'C001';
+    var customerName = sessionStorage.getItem('c2b_userName')
+                    || localStorage.getItem('c2b_userName') || 'Customer';
     try {
       if (typeof DB !== 'undefined') {
-        const customerId  = sessionStorage.getItem('c2b_loggedInId')
-                         || localStorage.getItem('c2b_loggedInId')
-                         || 'C001';
-        const supporterId = DB.customerSupport.getAll()[0]?.supporter_id || 'S001';
+        var supporterId = 'S001';
+        try { supporterId = DB.customerSupport.getAll()[0]?.supporter_id || 'S001'; } catch(e2){}
         ticketId = 'REQ-' + Date.now().toString(36).toUpperCase();
         DB.supportRequests.create({
-          request_id:   ticketId,
+          request_id:    ticketId,
           customer_id:  customerId,
           supporter_id: supporterId,
           description:  (selectedIssue + ': ' + desc).slice(0, 500),
           status:       'OPEN',
-          created_date: new Date().toISOString().split('T')[0]
+          created_date: new Date().toISOString().split('T')[0],
+          _category:    selectedIssue,
+          _bookingId:   bookingId || null,
+          _customerName: customerName,
+          _message:     desc
         });
       }
     } catch(e) {
       console.warn('[Support] DB create failed:', e);
     }
+
+    /* ── Also POST to NestJS backend (non-blocking) ── */
+    (function() {
+      var host = (location.hostname==='localhost'||location.hostname==='127.0.0.1')?'localhost':location.hostname;
+      fetch('http://'+host+':3000/api/support-requests', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'x-role':'CUSTOMER' },
+        body: JSON.stringify({
+          customerId:   customerId,
+          supporterId:  'S001',
+          category:     selectedIssue,
+          bookingId:    bookingId || null,
+          description:  desc,
+          status:       'OPEN',
+          customerName: customerName,
+          requestId:    ticketId
+        })
+      }).then(function(){
+        console.log('[Support] Ticket synced to backend ✅');
+      }).catch(function(e){
+        console.warn('[Support] Backend offline:', e.message);
+      });
+    })();
 
     document.getElementById('generatedTicketId').textContent = ticketId;
     showView('success');
@@ -385,13 +414,26 @@
     setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateY(12px)'; setTimeout(() => toast.remove(), 400); }, 3000);
   }
 
-  document.getElementById('logoutBtn').addEventListener('click', e => {
+  document.getElementById('logoutBtn').addEventListener('click', function(e) {
     e.preventDefault();
     if (confirm('Are you sure you want to logout?')) {
       showToast('👋 Logged out successfully!', 'success');
-      setTimeout(() => { window.location.href = '../landing page/login.html'; }, 1500);
+      setTimeout(function() { window.location.href = '../landing page/login.html'; }, 1500);
     }
   });
+
+  /* ── Dynamic sidebar identity ── */
+  (function() {
+    var name  = sessionStorage.getItem('c2b_userName') || localStorage.getItem('c2b_userName') || 'Customer';
+    var first = name.split(' ')[0];
+    var ini   = name.trim().split(/\s+/).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'CU';
+    var sub   = document.getElementById('suppSubtitle');
+    var av    = document.getElementById('suppAvatar');
+    var sn    = document.getElementById('suppSidebarName');
+    if (sub) sub.textContent = 'Welcome back, ' + first + '!';
+    if (av)  av.textContent  = ini;
+    if (sn)  sn.textContent  = name.toUpperCase();
+  })();
 
   document.getElementById('notifBtn').addEventListener('click', toggleNotif);
   function toggleNotif() {

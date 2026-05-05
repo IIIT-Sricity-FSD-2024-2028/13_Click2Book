@@ -560,49 +560,64 @@
   <!-- ═══ DB-driven Profile loader (runs after DB is ready) ═══ -->
   <script>
   (function initProfile() {
-    function getCustomerId() {
-      return sessionStorage.getItem('c2b_loggedInId')
-          || localStorage.getItem('c2b_loggedInId')
-          || 'C001';
-    }
+    // ── 1. Read from sessionStorage (set at login) ──────────────
+    var ssName  = sessionStorage.getItem('c2b_userName')  || localStorage.getItem('c2b_userName');
+    var ssEmail = sessionStorage.getItem('c2b_userEmail') || localStorage.getItem('c2b_userEmail');
+    var ssId    = sessionStorage.getItem('c2b_loggedInId')|| localStorage.getItem('c2b_loggedInId') || 'C001';
 
-    const customerId = getCustomerId();
-    const result     = DB.customers.getById(customerId);
-    const customer   = result.success ? result.data : null;
+    // ── 2. Try DB lookup for richer data ────────────────────────
+    var customer = null;
+    try {
+      var result = DB.customers.getById(ssId);
+      if (result && result.success) customer = result.data;
+    } catch(e) { /* DB not ready yet, use sessionStorage */ }
 
-    if (!customer) return; // no record found
+    // ── 3. Resolve best values ───────────────────────────────────
+    var name  = (customer && customer.name)  || ssName  || 'Customer';
+    var email = (customer && customer.email) || ssEmail || '';
 
-    /* ── Compute initials ── */
-    const ini = (customer.name || '').trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'C';
-
-    /* ── Big avatar ── */
-    const bigAv = document.querySelector('.profile-big-avatar');
+    // ── 4. Update initials ───────────────────────────────────────
+    var ini = name.trim().split(/\s+/).map(function(w) { return w[0]; }).join('').toUpperCase().slice(0, 2) || 'CU';
+    var bigAv = document.querySelector('.profile-big-avatar');
     if (bigAv && bigAv.childNodes[0]) bigAv.childNodes[0].textContent = ini;
 
-    /* ── Display name & email below avatar ── */
-    const dispName  = document.getElementById('displayName');
-    const dispEmail = document.getElementById('displayEmail');
-    if (dispName)  dispName.textContent  = customer.name.split(' ')[0];
-    if (dispEmail) dispEmail.textContent = customer.email;
+    // Also update sidebar avatar
+    var sideAv = document.querySelector('.profile-avatar');
+    if (sideAv) sideAv.textContent = ini;
 
-    /* ── Stats row ── */
-    const bookings = DB.bookings.find(b => b.customer_id === customerId);
-    const completed = bookings.filter(b => b.booking_status === 'COMPLETED').length;
-    const cancelled = bookings.filter(b => b.booking_status === 'CANCELLED').length;
+    // ── 5. Display name & email ──────────────────────────────────
+    var firstName = name.split(' ')[0];
+    var dispName  = document.getElementById('displayName');
+    var dispEmail = document.getElementById('displayEmail');
+    if (dispName)  dispName.textContent  = firstName;
+    if (dispEmail) dispEmail.textContent = email;
 
-    const statEls = document.querySelectorAll('.stat-value');
-    if (statEls[0]) statEls[0].textContent = bookings.length;  // Total trips
-    if (statEls[1]) statEls[1].textContent = completed;         // Completed
-    if (statEls[2]) statEls[2].textContent = cancelled;         // Cancelled
+    // Update header subtitle
+    var subtitle = document.querySelector('.header-subtitle');
+    if (subtitle) subtitle.textContent = 'Welcome back, ' + firstName + '!';
 
-    /* ── Pre-fill edit modal ── */
-    const editName  = document.getElementById('editName');
-    const editEmail = document.getElementById('editEmail');
-    const editPhone = document.getElementById('editPhone');
-    if (editName)  editName.value  = customer.name;
-    if (editEmail) editEmail.value = customer.email;
-    if (editPhone) editPhone.value = customer.phone_number || '';
+    // Update sidebar name
+    var sidebarName = document.querySelector('.profile-name');
+    if (sidebarName) sidebarName.textContent = name.toUpperCase();
+
+    // ── 6. Stats row from DB ─────────────────────────────────────
+    try {
+      var bookings = DB.bookings.find(function(b) { return b.customer_id === ssId; });
+      var statEls = document.querySelectorAll('.stat-value');
+      if (statEls[0]) statEls[0].textContent = bookings.length;
+      if (statEls[1]) statEls[1].textContent = bookings.filter(function(b) { return b.booking_status === 'COMPLETED'; }).length;
+      if (statEls[2]) statEls[2].textContent = bookings.filter(function(b) { return b.booking_status === 'CANCELLED'; }).length;
+    } catch(e) {}
+
+    // ── 7. Pre-fill edit modal ───────────────────────────────────
+    var editName  = document.getElementById('editName');
+    var editEmail = document.getElementById('editEmail');
+    var editPhone = document.getElementById('editPhone');
+    if (editName)  editName.value  = name;
+    if (editEmail) editEmail.value = email;
+    if (editPhone && customer) editPhone.value = customer.phone_number || '';
   })();
+
   </script>
 </body>
 </html>

@@ -295,7 +295,34 @@
     const btn = document.getElementById('loginBtn');
     btn.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Authenticating…`;
     btn.disabled = true;
-    setTimeout(() => { window.location.href = 'admin_dashboard.html'; }, 1000);
+
+    /* ── Known admin accounts (offline fallback) ── */
+    const admins = [
+      { id:'ADMIN001', name:'Admin',          email:'admin@click2book.com',      password:'Admin@123',      role:'ADMIN' },
+      { id:'SUPER001', name:'Super Admin',    email:'superadmin@click2book.com', password:'SuperAdmin@123', role:'ADMIN' },
+      { id:'SUPER002', name:'System Manager', email:'system@click2book.com',     password:'System@123',     role:'ADMIN' },
+    ];
+    const matched = admins.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === pass);
+    if (!matched) {
+      showErr('Invalid credentials. Check your admin email and password.');
+      btn.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Access Admin Dashboard`;
+      btn.disabled = false; return;
+    }
+
+    /* ── Store session ── */
+    const store = document.getElementById('remember').checked ? localStorage : sessionStorage;
+    store.setItem('c2b_loggedIn', 'true');
+    store.setItem('c2b_userName', matched.name);
+    store.setItem('c2b_userEmail', matched.email);
+    store.setItem('c2b_loggedInId', matched.id);
+    store.setItem('c2b_role', 'ADMIN');
+    sessionStorage.setItem('c2b_loggedIn', 'true');
+    sessionStorage.setItem('c2b_userName', matched.name);
+    sessionStorage.setItem('c2b_userEmail', matched.email);
+    sessionStorage.setItem('c2b_loggedInId', matched.id);
+    sessionStorage.setItem('c2b_role', 'ADMIN');
+
+    setTimeout(() => { window.location.href = 'admin_dashboard.html'; }, 600);
   }
 
   document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });

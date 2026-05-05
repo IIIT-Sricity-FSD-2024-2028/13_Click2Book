@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
@@ -179,8 +179,10 @@
   </style>
 </head>
 <body>
+<script>document.addEventListener('DOMContentLoaded',function(){var p=location.pathname.split('/landing')[0];document.querySelectorAll('a[href^="/landing%20page/"]').forEach(function(a){a.href=p+a.getAttribute('href');});});</script>
 
 <!-- NAV -->
+
 <nav class="nav">
   <a href="index.html" class="logo">
     <div class="logo-icon">
@@ -193,11 +195,11 @@
     <span class="logo-txt">CLICK<span>2</span>BOOK</span>
   </a>
   <ul class="nav-links">
-    <li><a href="index.html" class="on">Home</a></li>
+    <li><a href="/landing%20page/index.html" class="on">Home</a></li>
     <li><a href="../customer/get-support.html">Support</a></li>
-    <li><a href="offers.html">Offers</a></li>
+    <li><a href="/landing%20page/offers.html">Offers</a></li>
   </ul>
-  <a href="login.html" class="btn-nav">Sign In →</a>
+  <a href="/landing%20page/login.html" class="btn-nav" id="signInBtn">Sign In →</a>
 </nav>
 
 <!-- HERO -->
@@ -254,37 +256,106 @@
   </div>
 </section>
 
+<!-- POPULAR ROUTES QUICK PILLS -->
+<div style="text-align:center;padding:18px 6% 0;background:var(--navyd);">
+  <p style="font-size:.72rem;color:rgba(255,255,255,.4);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">Popular Routes</p>
+  <div id="quickRoutes" style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;max-width:900px;margin:0 auto;">
+    <!-- dynamically populated from backend routes -->
+    <span style="color:rgba(255,255,255,.3);font-size:.8rem;">Loading routes…</span>
+  </div>
+</div>
+
 <!-- DESTINATIONS -->
 <section class="dest-sec fu" id="destinations">
   <div class="sh">
     <div class="stag">✈ Popular Routes</div>
     <h2 class="st">Top Travel Destinations</h2>
-    <p class="ss">Discover the most popular bus routes across India, handpicked just for you</p>
+    <p class="ss">Discover the most popular bus routes across India — powered by live backend data</p>
   </div>
-  <div class="dgrid">
+  <div class="dgrid" id="routeCards">
+    <!-- Loaded dynamically from backend; static fallbacks below -->
     <div class="dcard" onclick="qs('Mumbai','Pune')">
-      <img class="dimg" src="https://images.unsplash.com/photo-1529253355930-ddbe423a2ac7?w=500&q=75" alt="Mumbai" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#1a365d,#0f1f3d)'"/>
+      <img class="dimg" src="https://images.unsplash.com/photo-1529253355930-ddbe423a2ac7?w=500&q=75" alt="Mumbai to Pune" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#1a365d,#0f1f3d)'"/>
       <div class="dov"></div><span class="dbadge">HOT</span>
-      <div class="dinfo"><span class="dtag">Bus</span><span class="droute">Mumbai → Pune</span><span class="dprice">From ₹350 · 3½ hrs</span></div>
+      <div class="dinfo"><span class="dtag">Bus</span><span class="droute">Mumbai → Pune</span><span class="dprice" id="price-MumbaiPune">From ₹299 · 3½ hrs</span></div>
     </div>
-    <div class="dcard" onclick="qs('Delhi','Agra')">
-      <img class="dimg" src="https://images.unsplash.com/photo-1564507592333-c60657eea523?w=500&q=75" alt="Delhi Agra" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#2d1b69,#1e3a5f)'"/>
+    <div class="dcard" onclick="qs('Hyderabad','Chennai')">
+      <img class="dimg" src="https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=500&q=75" alt="Hyderabad to Chennai" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#7c2d12,#1e3a5f)'"/>
       <div class="dov"></div><span class="dbadge">POPULAR</span>
-      <div class="dinfo"><span class="dtag">Bus</span><span class="droute">Delhi → Agra</span><span class="dprice">From ₹280 · 4 hrs</span></div>
+      <div class="dinfo"><span class="dtag">Bus</span><span class="droute">Hyderabad → Chennai</span><span class="dprice" id="price-HyderabadChennai">From ₹600 · 9½ hrs</span></div>
     </div>
     <div class="dcard" onclick="qs('Bangalore','Mysore')">
-      <img class="dimg" src="https://images.unsplash.com/photo-1596176530529-78163a4f7af2?w=500&q=75" alt="Bangalore" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#064e3b,#0f1f3d)'"/>
+      <img class="dimg" src="https://images.unsplash.com/photo-1596176530529-78163a4f7af2?w=500&q=75" alt="Bangalore to Mysore" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#064e3b,#0f1f3d)'"/>
       <div class="dov"></div>
-      <div class="dinfo"><span class="dtag">Bus</span><span class="droute">Bangalore → Mysore</span><span class="dprice">From ₹200 · 3 hrs</span></div>
+      <div class="dinfo"><span class="dtag">Bus</span><span class="droute">Bangalore → Mysore</span><span class="dprice" id="price-BangaloreMysore">From ₹150 · 3 hrs</span></div>
     </div>
-    <div class="dcard" onclick="qs('Chennai','Pondicherry')">
-      <img class="dimg" src="https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=500&q=75" alt="Chennai" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#7c2d12,#1e3a5f)'"/>
+    <div class="dcard" onclick="qs('Delhi','Jaipur')">
+      <img class="dimg" src="https://images.unsplash.com/photo-1477587458883-47145ed6736c?w=500&q=75" alt="Delhi to Jaipur" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#1e3a5f,#2d1b69)'"/>
+      <div class="dov"></div><span class="dbadge">TRAIN</span>
+      <div class="dinfo"><span class="dtag">Mix</span><span class="droute">Delhi → Jaipur</span><span class="dprice" id="price-DelhiJaipur">From ₹350 · 4½ hrs</span></div>
+    </div>
+    <div class="dcard" onclick="qs('Hyderabad','Vijayawada')">
+      <img class="dimg" src="https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=500&q=75" alt="Hyderabad to Vijayawada" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#1a365d,#0f1f3d)'"/>
+      <div class="dov"></div><span class="dbadge">VANDE BHARAT</span>
+      <div class="dinfo"><span class="dtag">Train</span><span class="droute">Hyderabad → Vijayawada</span><span class="dprice" id="price-HyderabadVijayawada">From ₹320 · 5 hrs</span></div>
+    </div>
+    <div class="dcard" onclick="qs('Vijayawada','Tirupati')">
+      <img class="dimg" src="https://images.unsplash.com/photo-1560448075-cbc16bb4af8e?w=500&q=75" alt="Vijayawada to Tirupati" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#7c2d12,#0f1f3d)'"/>
       <div class="dov"></div>
-      <div class="dinfo"><span class="dtag">Bus</span><span class="droute">Chennai → Pondicherry</span><span class="dprice">From ₹150 · 3 hrs</span></div>
+      <div class="dinfo"><span class="dtag">Bus</span><span class="droute">Vijayawada → Tirupati</span><span class="dprice" id="price-VijayawadaTirupati">From ₹450 · 6 hrs</span></div>
+    </div>
+    <div class="dcard" onclick="qs('Hyderabad','Bangalore')">
+      <img class="dimg" src="https://images.unsplash.com/photo-1596176530529-78163a4f7af2?w=500&q=75" alt="Hyderabad to Bangalore" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#064e3b,#0a1628)'"/>
+      <div class="dov"></div>
+      <div class="dinfo"><span class="dtag">Bus</span><span class="droute">Hyderabad → Bangalore</span><span class="dprice" id="price-HyderabadBangalore">From ₹500 · 9 hrs</span></div>
+    </div>
+    <div class="dcard" onclick="qs('Bangalore','Mumbai')">
+      <img class="dimg" src="https://images.unsplash.com/photo-1529253355930-ddbe423a2ac7?w=500&q=75" alt="Bangalore to Mumbai" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#1e3a5f,#0f1f3d)'"/>
+      <div class="dov"></div>
+      <div class="dinfo"><span class="dtag">Bus</span><span class="droute">Bangalore → Mumbai</span><span class="dprice" id="price-BangaloreMumbai">From ₹1200 · 14 hrs</span></div>
     </div>
   </div>
-  <div class="explore"><a href="login.html" class="btn-ol">Explore All Routes →</a></div>
+  <div class="explore"><a href="../customer/search-trips.html" class="btn-ol">Search All Routes →</a></div>
 </section>
+
+<script>
+/* Load live routes from backend and populate quick-pills + update prices */
+(async function loadRoutes() {
+  const _h = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'localhost' : location.hostname;
+  const API = `http://${_h}:3000/api`;
+  try {
+    const res   = await fetch(`${API}/routes`);
+    const json  = await res.json();
+    const routes = json.data || [];
+
+    // Quick pills
+    const pills = document.getElementById('quickRoutes');
+    pills.innerHTML = routes.map(r =>
+      `<button onclick="qs('${r.source}','${r.destination}')" style="
+        background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3);
+        color:rgba(255,255,255,.8);padding:7px 16px;border-radius:50px;
+        font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;
+        font-family:inherit;"
+        onmouseover="this.style.background='rgba(249,115,22,.25)'"
+        onmouseout="this.style.background='rgba(249,115,22,.1)'">
+        🚌 ${r.source} → ${r.destination}
+      </button>`
+    ).join('');
+  } catch(e) {
+    console.warn('Could not load routes from backend:', e.message);
+    // Show static pills as fallback
+    const pills = document.getElementById('quickRoutes');
+    pills.innerHTML = [
+      ['Mumbai','Pune'],['Hyderabad','Chennai'],['Bangalore','Mysore'],
+      ['Delhi','Jaipur'],['Hyderabad','Vijayawada'],['Vijayawada','Tirupati'],
+      ['Hyderabad','Bangalore'],['Chennai','Coimbatore']
+    ].map(([f,t]) =>
+      `<button onclick="qs('${f}','${t}')" style="background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3);color:rgba(255,255,255,.8);padding:7px 16px;border-radius:50px;font-size:.8rem;font-weight:600;cursor:pointer;font-family:inherit;">🚌 ${f} → ${t}</button>`
+    ).join('');
+  }
+})();
+</script>
+
 
 <!-- STATS -->
 <div class="stats-s fu">

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -322,9 +322,9 @@
     </div>
 
     <div class="profile-card" onclick="window.location.href='my-profile.html'" style="cursor:pointer">
-      <div class="profile-avatar">RS</div>
+      <div class="profile-avatar" id="mbAvatar">CU</div>
       <div class="profile-info">
-        <p class="profile-name">CUSTOMER PROFILE</p>
+        <p class="profile-name" id="mbSidebarName">CUSTOMER</p>
         <p class="profile-badge">Premium Member</p>
       </div>
     </div>
@@ -414,7 +414,7 @@
     <header class="top-header">
       <div class="header-left">
         <h2 class="header-title">My Bookings</h2>
-        <p class="header-subtitle">Welcome back, Rahul!</p>
+        <p class="header-subtitle" id="mbSubtitle">Welcome back!</p>
       </div>
       <div class="header-right">
         <button class="notif-btn" id="notifBtn" aria-label="Notifications">
@@ -562,7 +562,10 @@
 
     function resolveFare(booking) {
       try {
-        const pays = DB.payments.find(p => p.booking_id === booking.booking_id);
+        // 1. Use _total stored directly on booking (most reliable)
+        if (booking._total) return Number(booking._total);
+        // 2. Lookup payment record
+        var pays = DB.payments.find(function(p) { return p.booking_id === booking.booking_id; });
         return pays.length ? pays[0].amount : 0;
       } catch(e) { return 0; }
     }
@@ -582,6 +585,12 @@
         ? `<button class="btn-cancel-sm" onclick="quickCancel('${b.booking_id}',this)">✕ Cancel</button>`
         : `<button class="btn-cancel-sm" disabled style="opacity:.4;cursor:not-allowed">✕ Cancel</button>`;
 
+      const meta = [];
+      if (b._busName) meta.push(b._busName + (b._busType ? ' (' + b._busType + ')' : ''));
+      if (b._seats)   meta.push('Seat(s): ' + b._seats);
+      if (b._passengerCount > 1) meta.push(b._passengerCount + ' passengers');
+      const metaStr = meta.length ? ' · ' + meta.join(' · ') : '';
+
       return `
         <div class="booking-card fade-up ${isCancelled ? 'is-cancelled' : ''}" data-status="${statusLo}" data-id="${b.booking_id}" style="animation-delay:${idx * 0.06}s">
           <div class="booking-left">
@@ -589,7 +598,7 @@
               <span class="booking-route">${route}</span>
               <span class="status-badge ${statusClass(status)}">${status.charAt(0) + status.slice(1).toLowerCase()}</span>
             </div>
-            <div class="booking-details">Booking Date: ${b.booking_date} · ${date}</div>
+            <div class="booking-details">📅 ${date}${metaStr}</div>
             <div class="booking-pnr">ID: ${b.booking_id}</div>
           </div>
           <div class="booking-right">
@@ -603,7 +612,7 @@
                 ${cancelBtn}
               </div>
             </div>
-            <span class="booking-price">₹${fare.toLocaleString('en-IN')}</span>
+            <span class="booking-price">₹${fare > 0 ? fare.toLocaleString('en-IN') : '—'}</span>
           </div>
         </div>`;
     }
@@ -643,6 +652,17 @@
     };
 
     /* ── Boot ── */
+    (function setSidebarIdentity() {
+      var name  = sessionStorage.getItem('c2b_userName')  || localStorage.getItem('c2b_userName')  || 'Customer';
+      var first = name.split(' ')[0];
+      var ini   = name.trim().split(/\s+/).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || 'CU';
+      var sub   = document.getElementById('mbSubtitle');
+      var av    = document.getElementById('mbAvatar');
+      var sn    = document.getElementById('mbSidebarName');
+      if (sub) sub.textContent = 'Welcome back, ' + first + '!';
+      if (av)  av.textContent  = ini;
+      if (sn)  sn.textContent  = name.toUpperCase();
+    })();
     renderBookings();
   })();
   </script>

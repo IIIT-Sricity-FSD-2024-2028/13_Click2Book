@@ -8,8 +8,19 @@ desktop.ini
 *.suo
 *.user
 
-# Logs
+# Logs (raw log files — created at runtime by winston)
 *.log
+back-end/logs/
+back-end/logs/**
 
-# Node (if ever used)
+# File uploads (created at runtime by multer — Phase 4)
+back-end/uploads/
+
+# Node dependencies
 node_modules/
+
+# Smoke test scripts (development only)
+back-end/smoke-test-*.ts
+
+# Winston log audit files
+back-end/logs/.*-audit.json

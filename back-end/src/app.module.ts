@@ -1,5 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { LoggerModule } from './common/logger/logger.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
 import { AdminLoggerMiddleware } from './common/middleware/admin-logger.middleware';
@@ -32,6 +34,9 @@ import { LostFoundModule } from './modules/lost-found/lost-found.module';
   imports: [
     // ── Logging (global — must come first so LoggerService is available everywhere)
     LoggerModule,
+
+    // ── Rate limiting (Phase 4C) — 100 requests per IP per 60-second window
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
 
     // Auth
     AuthModule,
@@ -66,6 +71,16 @@ import { LostFoundModule } from './modules/lost-found/lost-found.module';
     TrackingModule,
     EmergencyModule,
     LostFoundModule,
+  ],
+  providers: [
+    // Phase 4C: Global rate limiting — 100 requests per 60 seconds per IP.
+    // Applied to ALL routes. Limits are generous enough that normal frontend
+    // dashboard usage (5-10 req/load) never triggers throttling.
+    // Swagger is also covered; use @SkipThrottle() on any route if needed.
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule implements NestModule {

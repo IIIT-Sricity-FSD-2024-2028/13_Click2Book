@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import * as helmet from 'helmet';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/exceptions/global-exception.filter';
 import { LoggerService } from './common/logger/logger.service';
@@ -11,8 +12,35 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api');
 
-  // Enable CORS
-  app.enableCors();
+  // Security headers — Helmet (must be first middleware)
+  // contentSecurityPolicy: false preserves Swagger UI (uses inline scripts)
+  // crossOriginEmbedderPolicy: false preserves Swagger loading external assets
+  app.use(
+    (helmet as any).default
+      ? (helmet as any).default({
+          contentSecurityPolicy: false,
+          crossOriginEmbedderPolicy: false,
+        })
+      : (helmet as any)({
+          contentSecurityPolicy: false,
+          crossOriginEmbedderPolicy: false,
+        }),
+  );
+
+  // CORS — origin kept as '*' to support frontend pages served from file://
+  // (api-connector.js dynamically resolves to localhost:3000 from any origin).
+  // Explicit methods and headers prevent method/header injection attacks.
+  app.enableCors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Accept',
+      'x-role',        // Click2Book RBAC header (required by RolesGuard)
+      'x-request-id',  // request correlation header (Phase 3B)
+    ],
+    exposedHeaders: ['x-request-id'],  // allow client to read correlation ID
+  });
 
   // Global validation pipe
   app.useGlobalPipes(

@@ -24,3 +24,6 @@ back-end/smoke-test-*.ts
 
 # Winston log audit files
 back-end/logs/.*-audit.json
+
+# Compiled build output (project uses ts-node via npm run start:dev)
+back-end/dist/

@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/exceptions/global-exception.filter';
+import { LoggerService } from './common/logger/logger.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -22,8 +23,11 @@ async function bootstrap() {
     }),
   );
 
-  // Global exception filter
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  // Global exception filter — retrieve LoggerService from DI so the filter
+  // can write to error.log. Using app.get() gives us the same singleton
+  // instance that is already registered globally via LoggerModule.
+  const loggerService = app.get(LoggerService);
+  app.useGlobalFilters(new GlobalExceptionFilter(loggerService));
 
   // Swagger configuration
   const config = new DocumentBuilder()

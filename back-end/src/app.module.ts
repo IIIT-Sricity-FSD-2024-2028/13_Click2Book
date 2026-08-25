@@ -1,4 +1,10 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { LoggerModule } from './common/logger/logger.module';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { LoggingMiddleware } from './common/middleware/logging.middleware';
+import { AdminLoggerMiddleware } from './common/middleware/admin-logger.middleware';
+import { AdminController } from './modules/admin/admin.controller';
+import { ReportController } from './modules/report/report.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { CustomerModule } from './modules/customer/customer.module';
 import { AdminModule } from './modules/admin/admin.module';
@@ -24,6 +30,9 @@ import { LostFoundModule } from './modules/lost-found/lost-found.module';
 
 @Module({
   imports: [
+    // ── Logging (global — must come first so LoggerService is available everywhere)
+    LoggerModule,
+
     // Auth
     AuthModule,
 
@@ -59,4 +68,21 @@ import { LostFoundModule } from './modules/lost-found/lost-found.module';
     LostFoundModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  /**
+   * Middleware registration — filled in by Phase 3B/3C/3D.
+   * NestModule interface is implemented here so later phases
+   * only add apply() calls without further structural changes.
+   */
+  configure(consumer: MiddlewareConsumer): void {
+    // Phase 3B: Attach unique x-request-id to every request
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+
+    // Phase 3C: Log every HTTP request/response to application.log (+ error.log for 5xx)
+    consumer.apply(LoggingMiddleware).forRoutes('*');
+
+    // Phase 3D: Router-level middleware — ONLY fires for AdminController and ReportController routes.
+    // Using controller class references correctly accounts for the global /api prefix.
+    consumer.apply(AdminLoggerMiddleware).forRoutes(AdminController, ReportController);
+  }
+}

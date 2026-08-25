@@ -2,15 +2,25 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import * as helmet from 'helmet';
+import { join } from 'path';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/exceptions/global-exception.filter';
 import { LoggerService } from './common/logger/logger.service';
+import { ensureUploadDir, PROFILE_UPLOAD_DIR } from './common/middleware/upload.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Phase 5B: Ensure uploads/profile/ dir exists before any request is served
+  ensureUploadDir();
+
   // Global prefix
   app.setGlobalPrefix('api');
+
+  // Phase 5B: Serve uploaded profile pictures as static files
+  // Access: http://localhost:3000/uploads/profile/<filename>
+  const express = require('express');
+  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
 
   // Security headers — Helmet (must be first middleware)
   // contentSecurityPolicy: false preserves Swagger UI (uses inline scripts)

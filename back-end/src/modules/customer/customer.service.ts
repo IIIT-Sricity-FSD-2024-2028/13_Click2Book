@@ -41,4 +41,16 @@ export class CustomerService {
     this.customerRepo.remove(id);
     return successResponse('Customer deleted successfully');
   }
+
+  /** Phase 5B — store the uploaded profile picture URL path on the customer record */
+  uploadProfilePicture(id: string, filename: string) {
+    const customer = this.customerRepo.findById(id);
+    if (!customer) throw new NotFoundException(`Customer ${id} not found`);
+    const picturePath = `/uploads/profile/${filename}`;
+    this.customerRepo.update(id, { profilePicture: picturePath });
+    return successResponse('Profile picture uploaded successfully', {
+      customerId: id,
+      profilePicture: picturePath,
+    });
+  }
 }

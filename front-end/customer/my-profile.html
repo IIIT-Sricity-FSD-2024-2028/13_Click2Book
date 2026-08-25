@@ -63,6 +63,32 @@
 
     .profile-email {
       font-size: .78rem; color: var(--text-muted); margin-bottom: 10px;
+
+    /* ── Phase 5C: Profile picture upload widget ── */
+    .upload-widget {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      margin-top: 12px;
+    }
+    .upload-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 18px; border-radius: 20px;
+      background: var(--primary); color: white;
+      border: none; font-size: .78rem; font-weight: 700;
+      cursor: pointer; transition: background .2s, transform .1s;
+    }
+    .upload-btn:hover { background: var(--primary-dark); transform: translateY(-1px); }
+    .upload-btn:active { transform: translateY(0); }
+    .upload-file-input { display: none; }
+    .upload-status {
+      font-size: .72rem; font-weight: 600; min-height: 18px;
+      transition: color .2s;
+    }
+    .upload-status.success { color: #16a34a; }
+    .upload-status.error   { color: #dc2626; }
+    .profile-big-avatar img.profile-pic {
+      width: 80px; height: 80px; border-radius: 50%;
+      object-fit: cover; position: absolute; inset: 0;
+    }
     }
 
     .premium-badge {
@@ -295,11 +321,20 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
 
-        <div class="profile-big-avatar">
+        <div class="profile-big-avatar" id="bigAvatar">
           RS
           <div class="avatar-edit-dot" onclick="openModal()">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </div>
+        </div>
+
+        <!-- Phase 5C: Profile Picture Upload Widget -->
+        <div class="upload-widget">
+          <input type="file" id="profilePicInput" class="upload-file-input" accept="image/jpeg,image/jpg,image/png">
+          <button class="upload-btn" onclick="document.getElementById('profilePicInput').click()">
+            📷 Change Photo
+          </button>
+          <span class="upload-status" id="uploadStatus"></span>
         </div>
 
         <p class="profile-name-big" id="displayName">Rahul</p>
@@ -561,6 +596,87 @@
   <script src="../crud functions/js/script.js"></script>
   <script src="../crud functions/js/ui-shared.js"></script>
   <script src="../crud functions/js/ui-customer.js"></script>
+
+  <!-- Phase 5C: Profile Picture Upload -->
+  <script>
+  (function() {
+    var input  = document.getElementById('profilePicInput');
+    var status = document.getElementById('uploadStatus');
+    var avatar = document.getElementById('bigAvatar');
+
+    if (!input) return;
+
+    input.addEventListener('change', function() {
+      var file = input.files[0];
+      if (!file) return;
+
+      // Client-side validation before sending
+      var allowed = ['image/jpeg','image/jpg','image/png'];
+      if (!allowed.includes(file.type)) {
+        status.textContent = '✗ Only JPEG and PNG images are allowed.';
+        status.className = 'upload-status error';
+        input.value = '';
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        status.textContent = '✗ File exceeds 5 MB limit.';
+        status.className = 'upload-status error';
+        input.value = '';
+        return;
+      }
+
+      // Get customer ID from sessionStorage (set at login)
+      var customerId = sessionStorage.getItem('c2b_loggedInId')
+        || localStorage.getItem('c2b_loggedInId')
+        || 'C001';  // fallback for demo
+      var role = sessionStorage.getItem('c2b_role')
+        || localStorage.getItem('c2b_role')
+        || 'CUSTOMER';
+
+      status.textContent = 'Uploading...';
+      status.className = 'upload-status';
+
+      var form = new FormData();
+      form.append('file', file);
+
+      // Resolve API base (localhost vs network)
+      var apiBase = window.C2B_API || 'http://localhost:3000/api';
+
+      fetch(apiBase + '/customers/' + customerId + '/profile-picture', {
+        method: 'POST',
+        headers: { 'x-role': role },
+        body: form
+      })
+      .then(function(r) { return r.json().then(function(d){ return {ok: r.ok, data: d}; }); })
+      .then(function(res) {
+        if (res.ok) {
+          status.textContent = '✓ Profile picture updated!';
+          status.className = 'upload-status success';
+
+          // Replace initials with actual image
+          var picUrl = 'http://localhost:3000' + res.data.profilePicture;
+          var img = document.createElement('img');
+          img.src = picUrl;
+          img.className = 'profile-pic';
+          img.alt = 'Profile picture';
+          img.style.cssText = 'width:80px;height:80px;border-radius:50%;object-fit:cover;position:absolute;inset:0;';
+          // Remove text nodes (initials) and insert image
+          while (avatar.firstChild && avatar.firstChild.nodeType === 3) avatar.removeChild(avatar.firstChild);
+          avatar.insertBefore(img, avatar.firstChild);
+          setTimeout(function(){ status.textContent=''; }, 4000);
+        } else {
+          status.textContent = '✗ ' + (res.data.message || 'Upload failed.');
+          status.className = 'upload-status error';
+        }
+      })
+      .catch(function(e) {
+        status.textContent = '✗ Network error. Is the backend running?';
+        status.className = 'upload-status error';
+      })
+      .finally(function() { input.value = ''; });
+    });
+  })();
+  </script>
   <!-- ═══ DB-driven Profile loader (runs after DB is ready) ═══ -->
   <script>
   (function initProfile() {

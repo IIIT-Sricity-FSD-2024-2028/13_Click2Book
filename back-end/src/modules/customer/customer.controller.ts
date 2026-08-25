@@ -1,14 +1,18 @@
 import {
-  Controller, Get, Post, Put, Delete, Body, Param, UseGuards,
+  Controller, Get, Post, Put, Delete, Body, Param,
+  UseGuards, UseInterceptors, UploadedFile, BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags, ApiOperation, ApiParam, ApiHeader, ApiResponse,
+  ApiConsumes, ApiBody,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CustomerService } from './customer.service';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
+import { profileUploadOptions } from '../../common/middleware/upload.middleware';
 
 @ApiTags('Customers')
 @UseGuards(RolesGuard)
@@ -57,5 +61,33 @@ export class CustomerController {
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
   remove(@Param('id') id: string) {
     return this.customerService.remove(id);
+  }
+
+  // ── Phase 5B: Profile Picture Upload ────────────────────────────────────
+  @Post(':id/profile-picture')
+  @Roles(Role.CUSTOMER, Role.ADMIN)
+  @UseInterceptors(FileInterceptor('file', profileUploadOptions))
+  @ApiOperation({ summary: 'Upload customer profile picture (JPEG/PNG, max 5 MB)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary', description: 'Profile image (JPEG/PNG, max 5 MB)' },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiParam({ name: 'id', example: 'C001' })
+  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
+  @ApiResponse({ status: 201, description: 'Profile picture uploaded' })
+  @ApiResponse({ status: 400, description: 'No file / wrong type / too large' })
+  @ApiResponse({ status: 404, description: 'Customer not found' })
+  uploadProfilePicture(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('No file uploaded. Send a JPEG or PNG as multipart/form-data field "file".');
+    return this.customerService.uploadProfilePicture(id, file.filename);
   }
 }

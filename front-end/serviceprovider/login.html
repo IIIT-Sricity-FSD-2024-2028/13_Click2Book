@@ -104,7 +104,25 @@
                     if (!emailRegex.test(email)) { showSPErr('Please enter a valid email address (e.g. provider@company.com).'); return false; }
                     if (!pass) { showSPErr('Please enter your password.'); return false; }
                     if (pass.length < 6) { showSPErr('Password must be at least 6 characters.'); return false; }
-                    // Navigate to dashboard
+                    /* ── Known providers ── */
+                    var providers = [
+                      { id:'P001', name:'APSRTC',          email:'apsrtc@gmail.com',   password:'Apsrtc@123' },
+                      { id:'P002', name:'KSRTC',           email:'ksrtc@gmail.com',    password:'Ksrtc@123'  },
+                      { id:'P003', name:'Red Bus Travels', email:'redbus@gmail.com',   password:'Redbus@123' },
+                      { id:'P004', name:'Royal Express',   email:'royal@gmail.com',    password:'Royal@123'  },
+                    ];
+                    var matched = providers.find(function(u){
+                      return u.email.toLowerCase() === email.toLowerCase() && u.password === pass;
+                    });
+                    if (!matched) {
+                      showSPErr('Invalid credentials. Contact admin if you need access.');
+                      return false;
+                    }
+                    sessionStorage.setItem('c2b_loggedIn',  'true');
+                    sessionStorage.setItem('c2b_userName',  matched.name);
+                    sessionStorage.setItem('c2b_userEmail', matched.email);
+                    sessionStorage.setItem('c2b_loggedInId', matched.id);
+                    sessionStorage.setItem('c2b_role', 'PROVIDER');
                     window.location.href = 'dashboard.html';
                     return false;
                 }

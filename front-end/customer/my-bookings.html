@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -322,9 +322,9 @@
     </div>
 
     <div class="profile-card" onclick="window.location.href='my-profile.html'" style="cursor:pointer">
-      <div class="profile-avatar">RS</div>
+      <div class="profile-avatar" id="mbAvatar">CU</div>
       <div class="profile-info">
-        <p class="profile-name">CUSTOMER PROFILE</p>
+        <p class="profile-name" id="mbSidebarName">CUSTOMER</p>
         <p class="profile-badge">Premium Member</p>
       </div>
     </div>
@@ -384,6 +384,15 @@
         </span>
         <span>Get Support</span>
       </a>
+      <a href="lost-found.html" class="nav-item">
+        <span class="nav-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+          </svg>
+        </span>
+        <span>Lost &amp; Found</span>
+      </a>
       <a href="my-profile.html" class="nav-item">
         <span class="nav-icon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -414,7 +423,7 @@
     <header class="top-header">
       <div class="header-left">
         <h2 class="header-title">My Bookings</h2>
-        <p class="header-subtitle">Welcome back, Rahul!</p>
+        <p class="header-subtitle" id="mbSubtitle">Welcome back!</p>
       </div>
       <div class="header-right">
         <button class="notif-btn" id="notifBtn" aria-label="Notifications">
@@ -500,6 +509,7 @@
       }
     });
   </script>
+  <script src="api.js"></script>
   <script src="auth.js"></script>
 
   <!-- ═══ CRUD Engine (localStorage + Data Manager panel) ═══ -->
@@ -562,7 +572,10 @@
 
     function resolveFare(booking) {
       try {
-        const pays = DB.payments.find(p => p.booking_id === booking.booking_id);
+        // 1. Use _total stored directly on booking (most reliable)
+        if (booking._total) return Number(booking._total);
+        // 2. Lookup payment record
+        var pays = DB.payments.find(function(p) { return p.booking_id === booking.booking_id; });
         return pays.length ? pays[0].amount : 0;
       } catch(e) { return 0; }
     }
@@ -582,6 +595,12 @@
         ? `<button class="btn-cancel-sm" onclick="quickCancel('${b.booking_id}',this)">✕ Cancel</button>`
         : `<button class="btn-cancel-sm" disabled style="opacity:.4;cursor:not-allowed">✕ Cancel</button>`;
 
+      const meta = [];
+      if (b._busName) meta.push(b._busName + (b._busType ? ' (' + b._busType + ')' : ''));
+      if (b._seats)   meta.push('Seat(s): ' + b._seats);
+      if (b._passengerCount > 1) meta.push(b._passengerCount + ' passengers');
+      const metaStr = meta.length ? ' · ' + meta.join(' · ') : '';
+
       return `
         <div class="booking-card fade-up ${isCancelled ? 'is-cancelled' : ''}" data-status="${statusLo}" data-id="${b.booking_id}" style="animation-delay:${idx * 0.06}s">
           <div class="booking-left">
@@ -589,7 +608,7 @@
               <span class="booking-route">${route}</span>
               <span class="status-badge ${statusClass(status)}">${status.charAt(0) + status.slice(1).toLowerCase()}</span>
             </div>
-            <div class="booking-details">Booking Date: ${b.booking_date} · ${date}</div>
+            <div class="booking-details">📅 ${date}${metaStr}</div>
             <div class="booking-pnr">ID: ${b.booking_id}</div>
           </div>
           <div class="booking-right">
@@ -602,8 +621,9 @@
                 <button class="btn-ticket" onclick="showToast('🎫 Ticket for ${b.booking_id} downloaded!','success')">⬇ Ticket</button>
                 ${cancelBtn}
               </div>
+              ${isCancelled ? '' : `<button class="btn-more track-bus-btn" style="display:none;color:#059669;border-color:#a7f3d0;" data-trip-id="${b.trip_id}" onclick="goTrackBus('${b.trip_id}','${b._backendBookingId || b.booking_id}')">📍 Track Bus (Live)</button>`}
             </div>
-            <span class="booking-price">₹${fare.toLocaleString('en-IN')}</span>
+            <span class="booking-price">₹${fare > 0 ? fare.toLocaleString('en-IN') : '—'}</span>
           </div>
         </div>`;
     }
@@ -628,7 +648,30 @@
       }
       empty.style.display = 'none';
       list.innerHTML = bookings.map((b, i) => buildCard(b, i)).join('');
+      revealTrackButtons();
     };
+
+    /* ── Reveal "Track Bus" only for trips the real backend reports IN_PROGRESS ── */
+    window.goTrackBus = function(tripId, bookingId) {
+      window.location.href = `track-bus.html?tripId=${encodeURIComponent(tripId)}&bookingId=${encodeURIComponent(bookingId)}`;
+    };
+
+    async function revealTrackButtons() {
+      const buttons = Array.from(document.querySelectorAll('.track-bus-btn'));
+      const checked = {};
+      for (const btn of buttons) {
+        const tripId = btn.getAttribute('data-trip-id');
+        if (!tripId || checked[tripId] !== undefined) {
+          if (checked[tripId]) btn.style.display = 'inline-flex';
+          continue;
+        }
+        try {
+          const isLive = await API.trips.getById(tripId).then(d => d.trip.tripStatus === 'IN_PROGRESS').catch(() => false);
+          checked[tripId] = isLive;
+          if (isLive) btn.style.display = 'inline-flex';
+        } catch (e) { checked[tripId] = false; }
+      }
+    }
 
     /* ── Quick cancel from booking card ── */
     window.quickCancel = function(bookingId, btn) {
@@ -643,6 +686,17 @@
     };
 
     /* ── Boot ── */
+    (function setSidebarIdentity() {
+      var name  = sessionStorage.getItem('c2b_userName')  || localStorage.getItem('c2b_userName')  || 'Customer';
+      var first = name.split(' ')[0];
+      var ini   = name.trim().split(/\s+/).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || 'CU';
+      var sub   = document.getElementById('mbSubtitle');
+      var av    = document.getElementById('mbAvatar');
+      var sn    = document.getElementById('mbSidebarName');
+      if (sub) sub.textContent = 'Welcome back, ' + first + '!';
+      if (av)  av.textContent  = ini;
+      if (sn)  sn.textContent  = name.toUpperCase();
+    })();
     renderBookings();
   })();
   </script>

@@ -1,0 +1,98 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> /F2 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 2252 >>
+stream
+BT /F2 18 Tf 50 770 Td (Backend Explanation) Tj ET
+BT /F1 10.5 Tf 50 738 Td (The back-end folder is built using NestJS with TypeScript. It works as the REST API for) Tj ET
+BT /F1 10.5 Tf 50 723 Td (the Click2Book online ticket booking system.) Tj ET
+BT /F2 14 Tf 50 692 Td (Folder Preparation) Tj ET
+BT /F1 10.5 Tf 50 664 Td (I prepared the backend in a modular way. Each major feature has its own module inside) Tj ET
+BT /F1 10.5 Tf 50 649 Td (src/modules, such as:) Tj ET
+BT /F1 10.5 Tf 50 626 Td (- auth) Tj ET
+BT /F1 10.5 Tf 50 611 Td (- customer) Tj ET
+BT /F1 10.5 Tf 50 596 Td (- admin) Tj ET
+BT /F1 10.5 Tf 50 581 Td (- provider) Tj ET
+BT /F1 10.5 Tf 50 566 Td (- vehicle) Tj ET
+BT /F1 10.5 Tf 50 551 Td (- seat) Tj ET
+BT /F1 10.5 Tf 50 536 Td (- route) Tj ET
+BT /F1 10.5 Tf 50 521 Td (- schedule) Tj ET
+BT /F1 10.5 Tf 50 506 Td (- trip) Tj ET
+BT /F1 10.5 Tf 50 491 Td (- booking) Tj ET
+BT /F1 10.5 Tf 50 476 Td (- payment) Tj ET
+BT /F1 10.5 Tf 50 461 Td (- cancellation) Tj ET
+BT /F1 10.5 Tf 50 446 Td (- refund) Tj ET
+BT /F1 10.5 Tf 50 431 Td (- review) Tj ET
+BT /F1 10.5 Tf 50 416 Td (- support-request) Tj ET
+BT /F1 10.5 Tf 50 401 Td (- report) Tj ET
+BT /F1 10.5 Tf 50 378 Td (Each module follows the same structure:) Tj ET
+BT /F1 10.5 Tf 50 355 Td (- controller.ts handles API routes.) Tj ET
+BT /F1 10.5 Tf 50 340 Td (- service.ts contains business logic.) Tj ET
+BT /F1 10.5 Tf 50 325 Td (- repository.ts manages data operations.) Tj ET
+BT /F1 10.5 Tf 50 310 Td (- dto.ts validates input data.) Tj ET
+BT /F1 10.5 Tf 50 295 Td (- interface.ts defines data structure.) Tj ET
+BT /F1 10.5 Tf 50 280 Td (- enum.ts stores fixed status/type values.) Tj ET
+BT /F2 14 Tf 50 249 Td (Main Configuration) Tj ET
+BT /F1 10.5 Tf 50 221 Td (The backend starts from src/main.ts. In this file, I configured:) Tj ET
+BT /F1 10.5 Tf 50 198 Td (- Global API prefix: /api) Tj ET
+BT /F1 10.5 Tf 50 183 Td (- CORS) Tj ET
+BT /F1 10.5 Tf 50 168 Td (- Input validation using ValidationPipe) Tj ET
+BT /F1 10.5 Tf 50 153 Td (- Global exception handling) Tj ET
+BT /F1 10.5 Tf 50 138 Td (- Swagger API documentation) Tj ET
+BT /F1 10.5 Tf 50 115 Td (The root file src/app.module.ts connects all feature modules together.) Tj ET
+BT /F2 14 Tf 50 84 Td (Common Features) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> /F2 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 1572 >>
+stream
+BT /F1 10.5 Tf 50 770 Td (The src/common folder contains reusable code:) Tj ET
+BT /F1 10.5 Tf 50 747 Td (- Standard API response format) Tj ET
+BT /F1 10.5 Tf 50 732 Td (- ID generation utility) Tj ET
+BT /F1 10.5 Tf 50 717 Td (- Role-based access control) Tj ET
+BT /F1 10.5 Tf 50 702 Td (- Global error handling) Tj ET
+BT /F1 10.5 Tf 50 687 Td (- Common role enums) Tj ET
+BT /F2 14 Tf 50 656 Td (Role-Based Access) Tj ET
+BT /F1 10.5 Tf 50 628 Td (The backend uses an x-role request header for access control. Roles include:) Tj ET
+BT /F1 10.5 Tf 50 605 Td (- CUSTOMER) Tj ET
+BT /F1 10.5 Tf 50 590 Td (- ADMIN) Tj ET
+BT /F1 10.5 Tf 50 575 Td (- PROVIDER) Tj ET
+BT /F1 10.5 Tf 50 560 Td (- SUPPORT) Tj ET
+BT /F1 10.5 Tf 50 537 Td (APIs are protected using guards and role decorators.) Tj ET
+BT /F2 14 Tf 50 506 Td (Example Flow) Tj ET
+BT /F1 10.5 Tf 50 478 Td (In the booking module:) Tj ET
+BT /F1 10.5 Tf 50 455 Td (1. The controller receives the booking request.) Tj ET
+BT /F1 10.5 Tf 50 440 Td (2. The service checks trip, seat, and vehicle availability.) Tj ET
+BT /F1 10.5 Tf 50 425 Td (3. The repository stores booking data.) Tj ET
+BT /F1 10.5 Tf 50 410 Td (4. The response is returned in a standard format.) Tj ET
+BT /F2 14 Tf 50 379 Td (Conclusion) Tj ET
+BT /F1 10.5 Tf 50 351 Td (Overall, the backend is prepared as a clean, modular, and maintainable NestJS API. It) Tj ET
+BT /F1 10.5 Tf 50 336 Td (supports ticket booking features, role-based access, validation, error handling, and) Tj ET
+BT /F1 10.5 Tf 50 321 Td (Swagger documentation for easy API testing.) Tj ET
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000121 00000 n 
+0000000360 00000 n 
+0000002664 00000 n 
+0000002903 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+4527
+%%EOF

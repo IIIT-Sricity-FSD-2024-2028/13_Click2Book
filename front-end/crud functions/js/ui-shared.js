@@ -775,7 +775,7 @@ function initUI(defaultTable, actorLabel = 'Actor Portal') {
     if (sessionStorage.getItem('superUserAuth') === 'true') {
       root.classList.add('c2b-open');
     } else {
-      window.location.href = 'super-user-login.html';
+      window.location.href = '/admin/super-user-login.html';
     }
   });
   document.getElementById('c2b-closeBtn').addEventListener('click', () =>

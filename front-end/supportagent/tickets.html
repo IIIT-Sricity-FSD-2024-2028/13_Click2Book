@@ -6,9 +6,10 @@
   <title>Support Tickets – Click2Book</title>
   
   
-  <link rel="stylesheet" href="style.css"/>
+  <script>(function(){var l=document.createElement('link');l.rel='stylesheet';l.href=location.pathname.split('/supportagent')[0]+'/supportagent/style.css';document.head.appendChild(l);})();</script>
 </head>
 <body>
+<script>document.addEventListener('DOMContentLoaded',function(){var p=location.pathname.split('/supportagent')[0];document.querySelectorAll('a[href^="/supportagent/"]').forEach(function(a){a.href=p+a.getAttribute('href');});});</script>
 <!-- Notification Popup -->
 <div class="notif-overlay" id="notifOverlay" onclick="closeNotif()"></div>
 <div class="notif-panel" id="notifPanel" style="display:none;">
@@ -17,7 +18,7 @@
     <button class="notif-close-btn" onclick="closeNotif()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
   </div>
   <div class="notif-list">
-    <div class="notif-item unread"><div class="notif-icon-wrap urgent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="notif-text"><h4>New Escalated Ticket</h4><p>TKT006 – Seat double booked on Rajdhani Express.</p><time>Just now</time></div></div>
+    <div class="notif-item unread"><div class="notif-icon-wrap urgent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="notif-text"><h4>New High-Priority Ticket</h4><p>TKT006 – Seat double booked on Rajdhani Express.</p><time>Just now</time></div></div>
     <div class="notif-item unread"><div class="notif-icon-wrap warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="notif-text"><h4>SLA Breach Warning</h4><p>TKT001 has been open for 48 hours without resolution.</p><time>15 mins ago</time></div></div>
     <div class="notif-item unread"><div class="notif-icon-wrap info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="notif-text"><h4>Customer Reply</h4><p>Rahul Sharma replied to ticket TKT001 with new information.</p><time>30 mins ago</time></div></div>
     <div class="notif-item unread"><div class="notif-icon-wrap success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div class="notif-text"><h4>Ticket Resolved</h4><p>TKT003 marked as Resolved by Agent.</p><time>1 hour ago</time></div></div>
@@ -37,22 +38,18 @@
       <div><div class="agent-name">Support Agent</div><div class="agent-status">&#9679; Online</div></div>
     </div>
     <nav class="sidebar-nav">
-      <a class="nav-item" href="index.html">
+      <a class="nav-item" href="/supportagent/index.html">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         Dashboard
       </a>
-      <a class="nav-item active" href="tickets.html">
+      <a class="nav-item active" href="/supportagent/tickets.html">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         Support Tickets
         <span class="nav-badge">2</span>
       </a>
-      <a class="nav-item" href="escalated.html">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        Escalated Issues
-      </a>
     </nav>
     <div class="sidebar-bottom">
-      <a class="nav-item" href="../landing page/staff-access.html">
+      <a class="nav-item" href="login.html">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         Staff Portal
       </a>
@@ -98,7 +95,6 @@
           <option value="Open">Open</option>
           <option value="In Progress">In Progress</option>
           <option value="Resolved">Resolved</option>
-          <option value="Escalated">Escalated</option>
         </select>
       </div>
       <div class="table-card">
@@ -118,11 +114,11 @@ const TICKETS = [
   { id:'TKT001', customer:'Rahul Sharma',  subject:'Booking not confirmed after payment',       priority:'High',   status:'Open'        },
   { id:'TKT002', customer:'Priya Patel',   subject:'Refund not received after 7 days',          priority:'High',   status:'In Progress' },
   { id:'TKT003', customer:'Kiran Kumar',   subject:'Bus arrived 2 hours late',                  priority:'Medium', status:'Resolved'    },
-  { id:'TKT004', customer:'Meera Singh',   subject:'Seat was different from what I selected',   priority:'High',   status:'Escalated'   },
+  { id:'TKT004', customer:'Meera Singh',   subject:'Seat was different from what I selected',   priority:'High',   status:'In Progress' },
   { id:'TKT005', customer:'Vijay Menon',   subject:'App crashes during payment',                priority:'Low',    status:'Open'        },
   { id:'TKT006', customer:'Anitha Reddy',  subject:'Double charge on booking',                  priority:'High',   status:'Open'        },
   { id:'TKT007', customer:'Suresh Babu',   subject:'Cannot cancel booking online',              priority:'Medium', status:'In Progress' },
-  { id:'TKT008', customer:'Deepa Nair',    subject:'Wrong bus picked me up',                    priority:'High',   status:'Escalated'   },
+  { id:'TKT008', customer:'Deepa Nair',    subject:'Wrong bus picked me up',                    priority:'High',   status:'In Progress' },
   { id:'TKT009', customer:'Arjun Das',     subject:'OTP not received during login',             priority:'Low',    status:'Resolved'    },
   { id:'TKT010', customer:'Sunita Verma',  subject:'Refund status not updating',                priority:'Medium', status:'Open'        },
 ];
@@ -132,7 +128,7 @@ function pBadge(p) {
   return `<span class="badge ${m[p]||''}">${p}</span>`;
 }
 function sBadge(s) {
-  const m = { 'Open':'badge-open','In Progress':'badge-inprogress','Resolved':'badge-resolved','Escalated':'badge-escalated' };
+  const m = { 'Open':'badge-open','In Progress':'badge-inprogress','Resolved':'badge-resolved' };
   return `<span class="badge ${m[s]||''}">${s}</span>`;
 }
 
@@ -193,7 +189,31 @@ function showToast(msg, type='info') {
   setTimeout(() => { t.style.animation = 'toastOut .25s ease forwards'; setTimeout(() => t.remove(), 280); }, 3000);
 }
 
-document.addEventListener('DOMContentLoaded', () => renderTickets(TICKETS));
+/* Merge CRUD DB tickets with hardcoded array on load */
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    var dbRaw = DB.supportRequests.getAll();
+    var dbMapped = dbRaw.map(function(r) {
+      return {
+        id:       r.request_id || ('REQ'+Math.random().toString(36).substr(2,5).toUpperCase()),
+        customer: r.customer_id || 'Customer',
+        subject:  r.description || r.issue || r.subject || 'Support request',
+        priority: r.priority || 'Medium',
+        status:   r.status === 'OPEN' ? 'Open'
+                : r.status === 'RESOLVED' ? 'Resolved'
+                : r.status === 'IN_PROGRESS' ? 'In Progress'
+                : r.status || 'Open'
+      };
+    });
+    /* Merge: prefer DB, add hardcoded ones not in DB */
+    var dbIds = dbMapped.map(function(t){ return t.id; });
+    var extra = TICKETS.filter(function(t){ return !dbIds.includes(t.id); });
+    var all = dbMapped.concat(extra);
+    TICKETS.length = 0;
+    all.forEach(function(t){ TICKETS.push(t); });
+  } catch(e) { console.warn('[Tickets] DB read failed:', e); }
+  renderTickets(TICKETS);
+});
 
 function toggleNotif() {
   var panel = document.getElementById('notifPanel');

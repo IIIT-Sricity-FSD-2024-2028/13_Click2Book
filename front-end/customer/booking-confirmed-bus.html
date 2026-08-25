@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -343,12 +343,22 @@
           <span class="ab-label">Total Amount Paid</span>
           <span class="ab-value" id="bcTotal">—</span>
         </div>
+        <!-- Discount savings chip (hidden by default, shown if offer applied) -->
+        <div id="bcSavingsRow" style="display:none;text-align:center;margin:-10px 0 18px;">
+          <span style="display:inline-flex;align-items:center;gap:6px;background:#f0fdf4;border:1.5px solid #86efac;color:#16a34a;font-size:.78rem;font-weight:700;padding:5px 16px;border-radius:50px;">
+            🏷️ You saved <span id="bcSavings"></span> with an offer!
+          </span>
+        </div>
 
         <!-- Actions -->
         <div class="action-row">
+          <a href="search-trips.html" class="btn-secondary-c">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Back to Search
+          </a>
           <a href="my-bookings.html" class="btn-primary-c">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-            View My Bookings
+            My Bookings
           </a>
           <button class="btn-secondary-c" onclick="window.print()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
@@ -376,15 +386,16 @@
   <script>
     /* ── Populate confirmation details from sessionStorage ── */
     window.addEventListener('DOMContentLoaded', function() {
-      const id      = sessionStorage.getItem('lastBookingId')  || '—';
-      const bus     = sessionStorage.getItem('lastBusName')    || '—';
-      const type    = sessionStorage.getItem('lastBusType')    || '—';
-      const seats   = sessionStorage.getItem('lastSeats')      || '—';
-      const total   = sessionStorage.getItem('lastTotal')      || '0';
-      const from    = sessionStorage.getItem('lastFrom')        || '—';
-      const to      = sessionStorage.getItem('lastTo')          || '—';
-      const date    = sessionStorage.getItem('lastDate')        || '—';
-      const method  = sessionStorage.getItem('lastPayMethod')  || 'UPI';
+      const id       = sessionStorage.getItem('lastBookingId')  || '—';
+      const bus      = sessionStorage.getItem('lastBusName')    || '—';
+      const type     = sessionStorage.getItem('lastBusType')    || '—';
+      const seats    = sessionStorage.getItem('lastSeats')      || '—';
+      const total    = sessionStorage.getItem('lastTotal')      || '0';
+      const discount = parseInt(sessionStorage.getItem('lastDiscount') || '0', 10);
+      const from     = sessionStorage.getItem('lastFrom')       || '—';
+      const to       = sessionStorage.getItem('lastTo')         || '—';
+      const date     = sessionStorage.getItem('lastDate')       || '—';
+      const method   = sessionStorage.getItem('lastPayMethod')  || 'UPI';
 
       document.getElementById('bcBookingId').textContent = id;
       document.getElementById('bcRoute').textContent     = from + ' → ' + to;
@@ -394,6 +405,14 @@
       document.getElementById('bcDate').textContent      = date;
       document.getElementById('bcPayment').textContent   = method;
       document.getElementById('bcTotal').textContent     = '₹' + Number(total).toLocaleString('en-IN');
+
+      // Show savings chip if an offer was applied
+      if (discount > 0) {
+        const row = document.getElementById('bcSavingsRow');
+        const sav = document.getElementById('bcSavings');
+        if (row) row.style.display = 'block';
+        if (sav) sav.textContent  = '₹' + discount.toLocaleString('en-IN');
+      }
     });
   </script>
 

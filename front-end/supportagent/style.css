@@ -122,7 +122,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 .content { flex: 1; overflow-y: auto; padding: 24px 28px; }
 
 /* ── STAT CARDS ─────────────────────────────────────────── */
-.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
 .stat-card {
   background: var(--white); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 20px 22px 18px;
@@ -133,7 +133,6 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 .stat-icon.orange { background: #fff4ec; }
 .stat-icon.blue   { background: #eff6ff; }
 .stat-icon.green  { background: #f0fdf4; }
-.stat-icon.red    { background: #fff1f2; }
 .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--text); line-height: 1; }
 .stat-label { font-size: .75rem; color: var(--muted); margin-top: 6px; font-weight: 500; }
 
@@ -171,7 +170,6 @@ tbody td { padding: 13px 16px; font-size: .82rem; vertical-align: middle; }
 .badge-open       { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
 .badge-inprogress { background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }
 .badge-resolved   { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
-.badge-escalated  { background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; }
 
 /* ── ACTION BUTTONS ─────────────────────────────────────── */
 .btn-resolve {
@@ -179,13 +177,7 @@ tbody td { padding: 13px 16px; font-size: .82rem; vertical-align: middle; }
   padding: 4px 10px; border-radius: 6px;
   background: rgba(124,58,237,.08); cursor: pointer; border: none; font-family: inherit;
 }
-.btn-deescalate {
-  font-size: .73rem; font-weight: 600; color: #e11d48;
-  padding: 4px 10px; border-radius: 6px;
-  background: rgba(225,29,72,.08); cursor: pointer; border: none; font-family: inherit;
-}
 .btn-resolve:hover    { background: rgba(124,58,237,.18); }
-.btn-deescalate:hover { background: rgba(225,29,72,.15); }
 
 /* ── FILTER BAR ─────────────────────────────────────────── */
 .page-heading { font-size: 1.05rem; font-weight: 700; margin-bottom: 18px; }

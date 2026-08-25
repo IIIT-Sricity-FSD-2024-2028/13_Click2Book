@@ -60,10 +60,13 @@
                 <a href="seat-management.html" class="nav-link">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> Seat Management
                 </a>
+                <a href="lost-found.html" class="nav-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg> Lost &amp; Found
+                </a>
             </nav>
 
             <div class="dash-sidebar-bottom">
-                <a href="../staff-access.html" class="nav-link"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Staff Portal
+                <a href="../supportagent/login.html" class="nav-link"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> Staff Portal
                 </a>
                 <a href="settings.html" class="nav-link">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> Settings
@@ -190,10 +193,140 @@
             document.getElementById('scheduleErrMsg').style.display = 'none';
         }
 
-        function saveSchedule() {
+        async function saveSchedule() {
             clearSchedErr();
 
             var from     = document.getElementById('schedFrom').value.trim();
+            var to       = document.getElementById('schedTo').value.trim();
+            var dep      = document.getElementById('schedDep').value.trim();
+            var arr      = document.getElementById('schedArr').value.trim();
+            var busName  = document.getElementById('schedBusName').value.trim();
+            var busType  = document.getElementById('schedBusType').value;
+            var seatsVal = document.getElementById('schedSeats').value.trim();
+            var fareVal  = document.getElementById('schedFare').value.trim();
+
+            if (!from)    { showSchedErr('Please enter the departure location.'); return; }
+            if (/^\d+$/.test(from)) { showSchedErr('Departure cannot be only numbers.'); return; }
+            if (!to)      { showSchedErr('Please enter the destination location.'); return; }
+            if (/^\d+$/.test(to))   { showSchedErr('Destination cannot be only numbers.'); return; }
+            if (from.toLowerCase() === to.toLowerCase()) { showSchedErr('Departure and destination cannot be the same.'); return; }
+            if (!dep)     { showSchedErr('Please enter departure time.'); return; }
+            if (!arr)     { showSchedErr('Please enter arrival time.'); return; }
+            if (!busName) { showSchedErr('Please enter the bus name.'); return; }
+            if (!busType) { showSchedErr('Please select a bus type.'); return; }
+            var seats = parseInt(seatsVal, 10);
+            if (!seatsVal || isNaN(seats) || seats < 1) { showSchedErr('Enter valid seat count (min 1).'); return; }
+            if (seats > 100) { showSchedErr('Seats cannot exceed 100.'); return; }
+            var fare = parseInt(fareVal, 10);
+            if (!fareVal || isNaN(fare) || fare < 1) { showSchedErr('Enter valid fare (min ₹1).'); return; }
+
+            var btn = document.getElementById('saveScheduleBtn');
+            btn.textContent = '⏳ Saving to backend…';
+            btn.disabled = true;
+
+            // ── Step 1: Create/find the route ──────────────────
+            var _h = (location.hostname==='localhost'||location.hostname==='127.0.0.1')?'localhost':location.hostname;
+            var API = 'http://' + _h + ':3000/api';
+
+            try {
+                // Step 1: Create route (source→destination)
+                var routeRes = await fetch(API + '/routes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-role': 'PROVIDER' },
+                    body: JSON.stringify({ source: from, destination: to, distance: 300 })
+                });
+                var routeData = await routeRes.json();
+                var routeId = routeData.data ? routeData.data.routeId : null;
+
+                // Step 2: Find or use existing vehicle, else create one
+                var vehListRes = await fetch(API + '/vehicles', { headers: { 'x-role': 'PROVIDER' } });
+                var vehList = await vehListRes.json();
+                var existingVeh = (vehList.data || []).find(function(v) {
+                    return v.busName === busName || v.vehicleNumber === busName;
+                });
+                var vehicleId;
+                if (existingVeh) {
+                    vehicleId = existingVeh.vehicleId;
+                } else {
+                    var vehRes = await fetch(API + '/vehicles', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-role': 'PROVIDER' },
+                        body: JSON.stringify({
+                            vehicleNumber: busName.replace(/\s+/g,'').toUpperCase().slice(0,10),
+                            vehicleType: busType,
+                            totalSeats: seats,
+                            remainingSeats: seats,
+                            busName: busName,
+                            amenities: [],
+                            rating: 4.0,
+                            boardingPoint: from,
+                            droppingPoint: to
+                        })
+                    });
+                    var vehData = await vehRes.json();
+                    vehicleId = vehData.data ? vehData.data.vehicleId : null;
+                }
+
+                // Step 3: Create schedule
+                var today = new Date();
+                var journeyDate = today.toISOString().split('T')[0];
+                var schBody = {
+                    routeId: routeId,
+                    providerId: 'P001',
+                    departureTime: dep,
+                    arrivalTime: arr,
+                    journeyDate: journeyDate,
+                    fare: fare
+                };
+                var schRes = await fetch(API + '/schedules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-role': 'PROVIDER' },
+                    body: JSON.stringify(schBody)
+                });
+                var schData = await schRes.json();
+                var scheduleId = schData.data ? schData.data.scheduleId : null;
+
+                // Step 4: Create trip (links vehicle + schedule)
+                var tripRes = await fetch(API + '/trips', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-role': 'PROVIDER' },
+                    body: JSON.stringify({ vehicleId: vehicleId, scheduleId: scheduleId })
+                });
+                var tripData = await tripRes.json();
+                var tripId = tripData.data ? tripData.data.tripId : '?';
+
+                // Success! Also save to localStorage so customer search works immediately
+                var schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+                schedules.push({ id: 'SCHED_'+Date.now(), from:from, to:to, departureTime:dep, arrivalTime:arr, busName:busName, busType:busType, totalSeats:seats, fare:fare, addedAt:new Date().toISOString() });
+                localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
+                saveToSuperUserDB(from, to, dep, arr, busName, busType, seats, fare);
+
+                var successEl = document.getElementById('scheduleSuccessMsg');
+                successEl.innerHTML = '✅ <strong>' + busName + '</strong> from <strong>' + from + ' → ' + to + '</strong> added to backend!<br>' +
+                    '<small style="color:#166534">Trip ID: ' + tripId + ' · Customers can now search this route · Fare: ₹' + fare + '</small>';
+                successEl.style.display = 'block';
+                document.getElementById('addScheduleForm').reset();
+                btn.textContent = '✓ Schedule Added to Backend!';
+                btn.style.background = '#16a34a';
+                setTimeout(function() { window.location.href = 'manage-schedules.html'; }, 2500);
+
+            } catch(err) {
+                // Fallback: save to localStorage
+                console.warn('Backend unavailable, saving to localStorage:', err.message);
+                var schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+                schedules.push({ id: 'SCHED_'+Date.now(), from:from, to:to, departureTime:dep, arrivalTime:arr, busName:busName, busType:busType, totalSeats:seats, fare:fare, addedAt:new Date().toISOString() });
+                localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
+                saveToSuperUserDB(from, to, dep, arr, busName, busType, seats, fare);
+                var successEl = document.getElementById('scheduleSuccessMsg');
+                successEl.textContent = '⚠️ Backend offline — schedule saved locally. It will sync when backend restarts.';
+                successEl.style.display = 'block';
+                btn.textContent = '✓ Saved Locally';
+                btn.style.background = '#d97706';
+                setTimeout(function() { window.location.href = 'manage-schedules.html'; }, 2000);
+            }
+        }
+    </script>
+
             var to       = document.getElementById('schedTo').value.trim();
             var dep      = document.getElementById('schedDep').value.trim();
             var arr      = document.getElementById('schedArr').value.trim();
@@ -254,6 +387,7 @@
             };
             schedules.push(newSchedule);
             localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
+            saveToSuperUserDB(from, to, dep, arr, busName, busType, seats, fare);
 
             // Show success message
             var successEl = document.getElementById('scheduleSuccessMsg');
@@ -284,6 +418,58 @@
       var btn = document.getElementById('c2b-toggle-btn');
       if (btn) btn.remove();
     });
+
+    /**
+     * saveToSuperUserDB — writes provider schedule into the shared CRUD DB
+     * so it appears in the Super User panel (Schedules, Routes, Vehicles, Trips).
+     */
+    function saveToSuperUserDB(from, to, dep, arr, busName, busType, seats, fare) {
+      try {
+        if (typeof DB === 'undefined') return; // CRUD engine not loaded
+        var today = new Date().toISOString().split('T')[0];
+        var providerId = sessionStorage.getItem('c2b_userId') || localStorage.getItem('c2b_userId') || 'P001';
+
+        // 1. Create route
+        var routeResult = DB.routes.create({
+          source: from, destination: to, distance: 0
+        });
+        var routeId = routeResult.data ? routeResult.data.route_id : null;
+
+        // 2. Create vehicle
+        var vehResult = DB.vehicles.create({
+          provider_id: providerId,
+          vehicle_number: 'PRV-' + Date.now(),
+          vehicle_type: busType,
+          total_seats: seats,
+          remaining_seats: seats
+        });
+        var vehicleId = vehResult.data ? vehResult.data.vehicle_id : null;
+
+        // 3. Create schedule
+        var schedResult = DB.schedules.create({
+          route_id: routeId,
+          provider_id: providerId,
+          departure_time: dep,
+          arrival_time: arr,
+          journey_date: today,
+          arrival_time_to_destination: arr,
+          bus_name: busName,
+          fare: fare
+        });
+        var scheduleId = schedResult.data ? schedResult.data.schedule_id : null;
+
+        // 4. Create trip
+        DB.trips.create({
+          schedule_id: scheduleId,
+          vehicle_id: vehicleId,
+          trip_status: 'SCHEDULED'
+        });
+
+        console.log('[CRUD] Saved schedule to Super User DB:', from, '→', to);
+      } catch (e) {
+        console.warn('[CRUD] Could not save to Super User DB:', e.message);
+      }
+    }
   </script>
 </body>
 </html>

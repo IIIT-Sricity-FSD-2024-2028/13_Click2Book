@@ -9,6 +9,8 @@
   
   
   <link rel="stylesheet" href="search-trips.css" />
+  <!-- Backend API connector -->
+  <script src="api.js"></script>
   <style>
     /* ── View toggling ──────────────────────────── */
     .view { display: none; }
@@ -216,6 +218,10 @@
       <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg></span>
       <span>Get Support</span>
     </a>
+    <a href="lost-found.html" class="nav-item" id="nav-lostfound">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
+      <span>Lost &amp; Found</span>
+    </a>
     <a href="my-profile.html" class="nav-item" id="nav-profile">
       <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
       <span>My Profile</span>
@@ -366,124 +372,17 @@
 
       <div class="route-header">
         <h1 class="route-title" id="busRouteTitle">Mumbai → Pune</h1>
-        <p class="route-meta" id="busRouteMeta">2026-03-12 · 5 buses found</p>
+        <p class="route-meta" id="busRouteMeta">Loading buses…</p>
       </div>
 
-      <!-- Bus Cards -->
-      <div class="bus-list">
-
-        <div class="bus-card" id="bus1">
-          <div class="bus-info">
-            <div class="bus-name-row">
-              <span class="bus-name">Royal Express</span>
-              <span class="bus-type-badge orange">Sleeper AC</span>
-            </div>
-            <div class="bus-timing">
-              <span class="time">06:00</span>
-              <span class="route-line">
-                <span class="dot-line"></span>
-                <svg width="28" height="18" viewBox="0 0 24 14" fill="none"><rect x="1" y="3" width="22" height="8" rx="2.5" fill="#f97316" opacity=".2" stroke="#f97316" stroke-width="1.5"/><rect x="3" y="1.5" width="15" height="5" rx="1.5" fill="#f97316" opacity=".15" stroke="#f97316" stroke-width="1"/><circle cx="5" cy="11" r="1.5" fill="#f97316"/><circle cx="19" cy="11" r="1.5" fill="#f97316"/></svg>
-                <span class="dot-line"></span>
-              </span>
-              <span class="time">09:30</span>
-            </div>
-            <div class="bus-meta-row">
-              <span class="star-inline">★ 4.8</span>
-              <span class="seats-left orange-txt">12 seats left</span>
-              <span class="amenity-icon">🌬️</span>
-              <span class="amenity-icon">⚡</span>
-            </div>
-          </div>
-          <div class="bus-price-col">
-            <span class="bus-price">₹550</span>
-            <button class="select-seat-btn" onclick="selectBus('Royal Express','Sleeper AC','₹550',550)">Select Seats <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
-          </div>
+      <!-- Bus Cards — populated by JS from backend API -->
+      <div class="bus-list" id="busList">
+        <div style="text-align:center;padding:48px 20px;color:#94a3b8;">
+          <div style="font-size:2rem;margin-bottom:12px;">🔍</div>
+          <div style="font-weight:600;margin-bottom:6px;">Enter your route and click Search</div>
+          <div style="font-size:.82rem;">Buses will appear here from the live backend</div>
         </div>
-
-        <div class="bus-card" id="bus2">
-          <div class="bus-info">
-            <div class="bus-name-row">
-              <span class="bus-name">Shivneri Travels</span>
-              <span class="bus-type-badge green">Semi-Sleeper</span>
-            </div>
-            <div class="bus-timing">
-              <span class="time">07:30</span>
-              <span class="route-line">
-                <span class="dot-line"></span>
-                <svg width="28" height="18" viewBox="0 0 24 14" fill="none"><rect x="1" y="3" width="22" height="8" rx="2.5" fill="#f97316" opacity=".2" stroke="#f97316" stroke-width="1.5"/><rect x="3" y="1.5" width="15" height="5" rx="1.5" fill="#f97316" opacity=".15" stroke="#f97316" stroke-width="1"/><circle cx="5" cy="11" r="1.5" fill="#f97316"/><circle cx="19" cy="11" r="1.5" fill="#f97316"/></svg>
-                <span class="dot-line"></span>
-              </span>
-              <span class="time">11:00</span>
-            </div>
-            <div class="bus-meta-row">
-              <span class="star-inline">★ 4.5</span>
-              <span class="seats-left green-txt">20 seats left</span>
-              <span class="amenity-icon">⚡</span>
-            </div>
-          </div>
-          <div class="bus-price-col">
-            <span class="bus-price">₹350</span>
-            <button class="select-seat-btn" onclick="selectBus('Shivneri Travels','Semi-Sleeper','₹350',350)">Select Seats <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
-          </div>
-        </div>
-
-        <div class="bus-card" id="bus3">
-          <div class="bus-info">
-            <div class="bus-name-row">
-              <span class="bus-name">Neeta Tours</span>
-              <span class="bus-type-badge blue">AC Seater</span>
-            </div>
-            <div class="bus-timing">
-              <span class="time">09:00</span>
-              <span class="route-line">
-                <span class="dot-line"></span>
-                <svg width="28" height="18" viewBox="0 0 24 14" fill="none"><rect x="1" y="3" width="22" height="8" rx="2.5" fill="#f97316" opacity=".2" stroke="#f97316" stroke-width="1.5"/><rect x="3" y="1.5" width="15" height="5" rx="1.5" fill="#f97316" opacity=".15" stroke="#f97316" stroke-width="1"/><circle cx="5" cy="11" r="1.5" fill="#f97316"/><circle cx="19" cy="11" r="1.5" fill="#f97316"/></svg>
-                <span class="dot-line"></span>
-              </span>
-              <span class="time">12:30</span>
-            </div>
-            <div class="bus-meta-row">
-              <span class="star-inline">★ 4.7</span>
-              <span class="seats-left red-txt">5 seats left</span>
-              <span class="amenity-icon">🌬️</span>
-              <span class="amenity-icon">⚡</span>
-            </div>
-          </div>
-          <div class="bus-price-col">
-            <span class="bus-price">₹450</span>
-            <button class="select-seat-btn" onclick="selectBus('Neeta Tours','AC Seater','₹450',450)">Select Seats <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
-          </div>
-        </div>
-
-        <div class="bus-card" id="bus4">
-          <div class="bus-info">
-            <div class="bus-name-row">
-              <span class="bus-name">Paulo Travels</span>
-              <span class="bus-type-badge purple">Volvo AC</span>
-            </div>
-            <div class="bus-timing">
-              <span class="time">23:00</span>
-              <span class="route-line">
-                <span class="dot-line"></span>
-                <svg width="28" height="18" viewBox="0 0 24 14" fill="none"><rect x="1" y="3" width="22" height="8" rx="2.5" fill="#f97316" opacity=".2" stroke="#f97316" stroke-width="1.5"/><rect x="3" y="1.5" width="15" height="5" rx="1.5" fill="#f97316" opacity=".15" stroke="#f97316" stroke-width="1"/><circle cx="5" cy="11" r="1.5" fill="#f97316"/><circle cx="19" cy="11" r="1.5" fill="#f97316"/></svg>
-                <span class="dot-line"></span>
-              </span>
-              <span class="time">02:30</span>
-            </div>
-            <div class="bus-meta-row">
-              <span class="star-inline">★ 4.6</span>
-              <span class="seats-left orange-txt">15 seats left</span>
-              <span class="amenity-icon">🌬️</span>
-              <span class="amenity-icon">⚡</span>
-            </div>
-          </div>
-          <div class="bus-price-col">
-            <span class="bus-price">₹600</span>
-            <button class="select-seat-btn" onclick="selectBus('Paulo Travels','Volvo AC','₹600',600)">Select Seats <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
-          </div>
-        </div>
-
-      </div><!-- /bus-list -->
+      </div>
     </div>
   </div>
 
@@ -561,9 +460,13 @@
 
       <div class="form-card centered-card">
         <h1 class="form-card-title">Passenger Details</h1>
-        <p class="form-card-sub">Enter traveler information</p>
+        <p class="form-card-sub" id="paxFormSub">Enter traveler information</p>
 
-        <div class="pax-form">
+        <!-- Dynamically generated: one card per seat -->
+        <div id="paxFormsContainer"></div>
+
+        <!-- Hidden old single form kept for fallback layout only -->
+        <div class="pax-form" style="display:none">
           <div class="pax-field">
             <label class="pax-label" for="paxName">FULL NAME</label>
             <div class="pax-input-wrap">
@@ -655,6 +558,10 @@
               <span class="summary-key">Convenience Fee</span>
               <span class="summary-val">₹25</span>
             </div>
+            <div class="summary-row" id="discountRow" style="display:none;">
+              <span class="summary-key" style="color:#16a34a;">🏷️ Discount Applied</span>
+              <span class="summary-val" style="color:#16a34a;font-weight:700;" id="discountDisplay">−₹0</span>
+            </div>
             <div class="summary-row total-row">
               <span class="summary-key total-key">Total</span>
               <span class="summary-val total-val" id="payTotal">₹674</span>
@@ -662,18 +569,32 @@
           </div>
         </div>
 
-        <!-- Coupon Code -->
-        <div class="pay-card">
-          <div class="coupon-row">
-            <div class="coupon-label-row">
+        <!-- Offers & Coupon Card -->
+        <div class="pay-card" id="offersCard">
+
+          <!-- Header toggle -->
+          <div class="coupon-label-row" style="cursor:pointer;user-select:none;justify-content:space-between;" onclick="toggleOffersPanel()">
+            <div style="display:flex;align-items:center;gap:8px;">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-              <span class="coupon-heading">Have a Coupon Code?</span>
+              <span class="coupon-heading">Offers &amp; Discounts</span>
+              <span id="appliedOfferChip" style="display:none;background:#dcfce7;color:#16a34a;font-size:.7rem;font-weight:700;padding:2px 10px;border-radius:50px;border:1px solid #86efac;"></span>
             </div>
-            <div class="coupon-input-row">
-              <input type="text" id="couponInput" class="coupon-input" placeholder="Enter coupon code" value="FIRSTBUS100" />
-              <button class="coupon-apply-btn" onclick="applyCoupon()">Apply</button>
-            </div>
+            <svg id="offersPanelChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .25s;"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
+
+          <!-- Coupon input row (always visible) -->
+          <div class="coupon-input-row" style="margin-top:12px;">
+            <input type="text" id="couponInput" class="coupon-input" placeholder="Enter coupon code" style="text-transform:uppercase;" />
+            <button class="coupon-apply-btn" onclick="applyCoupon()">Apply</button>
+          </div>
+          <div id="couponMsg" style="display:none;margin-top:8px;font-size:.78rem;font-weight:600;border-radius:8px;padding:7px 12px;"></div>
+
+          <!-- Offers picker panel (collapsed by default) -->
+          <div id="offersPanel" style="display:none;margin-top:14px;">
+            <p style="font-size:.72rem;font-weight:700;color:#94a3b8;letter-spacing:.4px;text-transform:uppercase;margin-bottom:10px;">Available Offers</p>
+            <div id="offersList"></div>
+          </div>
+
         </div>
 
         <!-- Payment Method -->
@@ -754,7 +675,7 @@ document.getElementById('swapBtn').addEventListener('click', function() {
 });
 
 /* ── Search buses ─────────────────────────────────── */
-document.getElementById('searchBtn').addEventListener('click', function() {
+document.getElementById('searchBtn').addEventListener('click', async function() {
   const from = document.getElementById('fromCity').value.trim();
   const to   = document.getElementById('toCity').value.trim();
   const date = document.getElementById('travelDate').value;
@@ -777,22 +698,89 @@ document.getElementById('searchBtn').addEventListener('click', function() {
   if (/^\d+$/.test(to))   { showSearchErr('Destination city name cannot be just numbers. Please enter a valid city name.'); return; }
   if (from.toLowerCase() === to.toLowerCase()) { showSearchErr('Departure and destination cannot be the same city.'); return; }
 
-  // Count dynamic buses from localStorage matching this route + static buses
+  // ── Try real backend API first ─────────────────────
+  try {
+    if (window.API) {
+      const results = await API.trips.search(from, to, date);
+      if (results && results.length > 0) {
+        const busList = document.getElementById('busList');
+
+        // Helper: amenity icons
+        function amenityIcon(a) {
+          const icons = { 'WiFi':'📶','AC':'❄️','Charging Point':'🔌','Blanket':'🛌','Pillow':'🛏️','Meals':'🍱','Bedding':'🛌','Water Bottle':'💧','Reading Light':'💡','Panoramic Windows':'🪟','AC Chair Car':'🪑' };
+          return `<span title="${a}" style="font-size:.9rem;">${icons[a] || '✔'}</span>`;
+        }
+
+        busList.innerHTML = results.map(r => {
+          const typeColor = { 'AC Sleeper':'#9333ea','Volvo AC':'#2563eb','Train':'#0891b2','AC':'#f97316','Non-AC':'#16a34a' }[r.vehicleType] || '#f97316';
+          const stars = '★'.repeat(Math.round(r.rating || 4)) + '☆'.repeat(5 - Math.round(r.rating || 4));
+          const ams = (r.amenities || []).slice(0, 5).map(amenityIcon).join(' ');
+          return `
+          <div class="bus-card" style="border-left:3px solid ${typeColor}">
+            <div class="bus-info">
+              <div class="bus-name-row">
+                <span class="bus-name" style="font-size:1rem;font-weight:800;">${r.busName}</span>
+                <span class="bus-type-badge" style="background:${typeColor}20;color:${typeColor};border:1px solid ${typeColor}40;padding:2px 10px;border-radius:50px;font-size:.7rem;font-weight:700;">${r.vehicleType}</span>
+              </div>
+              <div style="font-size:.72rem;color:#94a3b8;margin-bottom:6px;">${r.providerName} &nbsp;·&nbsp; ${r.boardingPoint} → ${r.droppingPoint}</div>
+              <div class="bus-timing">
+                <span class="time">${r.departureTime}</span>
+                <span class="route-line">
+                  <span class="dot-line"></span>
+                  <span style="font-size:.68rem;color:#94a3b8;white-space:nowrap;">${r.duration}</span>
+                  <span class="dot-line"></span>
+                </span>
+                <span class="time">${r.arrivalTime}</span>
+              </div>
+              <div class="bus-meta-row" style="gap:12px;margin-top:6px;">
+                <span style="color:#f59e0b;font-size:.78rem;">${stars} ${r.rating}</span>
+                <span class="seats-left orange-txt">${r.availableSeats} seats left</span>
+                <span style="font-size:.85rem;">${ams}</span>
+              </div>
+            </div>
+            <div class="bus-price-col">
+              <span class="bus-price">&#8377;${r.price}</span>
+              <button class="select-seat-btn"
+                onclick="selectBus('${r.busName}','${r.vehicleType}','&#8377;${r.price}',${r.price},'${r.tripId}')"
+              >Select Seats &#8250;</button>
+            </div>
+          </div>
+        `}).join('');
+
+        document.getElementById('busRouteTitle').textContent = from + ' → ' + to;
+        /* ── Also show locally-added service provider schedules ── */
+        const localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+        const localMatch = localSchedules.filter(b =>
+          b.from && b.to &&
+          b.from.toLowerCase() === from.toLowerCase() &&
+          b.to.toLowerCase() === to.toLowerCase()
+        );
+        const totalCount = results.length + localMatch.length;
+        document.getElementById('busRouteMeta').textContent = (date || 'All dates') + ' · ' + totalCount + ' bus' + (totalCount !== 1 ? 'es' : '') + ' found (Live)';
+        if (localMatch.length) renderDynamicBuses(localSchedules, from, to);
+        goTo('buses');
+        return;
+      }
+    }
+  } catch(e) {
+    console.warn('API search failed, using static data:', e.message);
+  }
+
+  // ── Fallback: static bus cards ─────────────────────
   const dynamicBuses = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
   const routeMatch = dynamicBuses.filter(b =>
     b.from.toLowerCase() === from.toLowerCase() &&
     b.to.toLowerCase() === to.toLowerCase()
   );
-  // 4 static buses + any dynamic additions
-  const totalBuses = 4 + routeMatch.length;
-
-  // Update route header
-  document.getElementById('busRouteTitle').textContent = from + ' → ' + to;
-  document.getElementById('busRouteMeta').textContent  = (date || 'Today') + ' · ' + totalBuses + ' bus' + (totalBuses !== 1 ? 'es' : '') + ' found';
-
-  // Render dynamic buses into the bus list
-  renderDynamicBuses(dynamicBuses, from, to);
-
+  document.getElementById('busRouteTitle').textContent = from + ' \u2192 ' + to;
+  document.getElementById('busRouteMeta').textContent = (date || 'Today') + ' \u00b7 ' + routeMatch.length + ' bus' + (routeMatch.length !== 1 ? 'es' : '') + ' found';
+  var busListEl = document.getElementById('busList');
+  if (busListEl) busListEl.innerHTML = '';
+  if (routeMatch.length > 0) {
+    renderDynamicBuses(dynamicBuses, from, to);
+  } else if (busListEl) {
+    busListEl.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#94a3b8;"><div style="font-size:2.5rem;margin-bottom:14px;">\uD83D\uDE8C</div><div style="font-weight:700;font-size:1rem;margin-bottom:8px;color:#64748b;">No buses available for this route</div><div style="font-size:.82rem;">No provider has added a schedule for <strong style="color:#f97316">' + from + ' \u2192 ' + to + '</strong> yet.<br>Try a different route or check back later.</div></div>';
+  }
   goTo('buses');
 });
 
@@ -988,11 +976,21 @@ function guestCheckAndProceed() {
 
 /* ── Passenger info view ──────────────────────────── */
 function loadPassengerView() {
-  // Update payment summary
   const count    = selectedSeats.length || 1;
   const subtotal = selectedFare * count;
   const gst      = Math.round(subtotal * 0.18);
   const total    = subtotal + gst + 25;
+
+  // Store raw total for offers engine & reset any prior discount
+  _rawTotal        = total;
+  _appliedDiscount = 0;
+  const discRow    = document.getElementById('discountRow');
+  const chip       = document.getElementById('appliedOfferChip');
+  const couponInp  = document.getElementById('couponInput');
+  if (discRow)  discRow.style.display  = 'none';
+  if (chip)     chip.style.display     = 'none';
+  if (couponInp) couponInp.value       = '';
+
   const el = id => document.getElementById(id);
   if (el('payBusName'))   el('payBusName').textContent   = selectedBus + ' (' + selectedType + ')';
   if (el('payBasePrice')) el('payBasePrice').textContent = selectedPrice + ' × ' + count;
@@ -1001,75 +999,134 @@ function loadPassengerView() {
   if (el('payGST'))       el('payGST').textContent       = '₹' + gst;
   if (el('payTotal'))     el('payTotal').textContent     = '₹' + total;
   if (el('payBtnAmount')) el('payBtnAmount').textContent = '₹' + total;
+
+  // ── Build one form per selected seat ──
+  const container = document.getElementById('paxFormsContainer');
+  if (!container) return;
+  const loggedName  = sessionStorage.getItem('c2b_userName')  || localStorage.getItem('c2b_userName')  || '';
+  const loggedEmail = sessionStorage.getItem('c2b_userEmail') || localStorage.getItem('c2b_userEmail') || '';
+  const seats = selectedSeats.length ? selectedSeats : ['Seat 1'];
+  if (el('paxFormSub')) el('paxFormSub').textContent =
+    seats.length > 1 ? 'Fill details for all ' + seats.length + ' passengers' : 'Enter traveler information';
+
+  container.innerHTML = seats.map(function(seat, i) {
+    return '<div class="pax-passenger-card" style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:16px;padding:20px 20px 16px;margin-bottom:18px;">' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:#f97316;color:white;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;">' + (i+1) + '</div>' +
+        '<div style="font-weight:700;color:#1e293b;font-size:.9rem;">Passenger ' + (i+1) + ' &nbsp;<span style="font-size:.75rem;color:#64748b;background:#e2e8f0;padding:2px 10px;border-radius:50px;">Seat ' + seat + '</span></div>' +
+      '</div>' +
+      '<div class="pax-field"><label class="pax-label">FULL NAME</label>' +
+        '<div class="pax-input-wrap"><svg class="pax-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
+        '<input type="text" id="paxName_' + i + '" class="pax-input" placeholder="Full name" value="' + (i===0?loggedName:'') + '" /></div></div>' +
+      '<div class="pax-field"><label class="pax-label">AGE</label>' +
+        '<div class="pax-input-wrap"><svg class="pax-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
+        '<input type="number" id="paxAge_' + i + '" class="pax-input" placeholder="Age" min="1" max="120" /></div></div>' +
+      '<div class="pax-field"><label class="pax-label">EMAIL</label>' +
+        '<div class="pax-input-wrap"><svg class="pax-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>' +
+        '<input type="text" id="paxEmail_' + i + '" class="pax-input" placeholder="email@example.com" value="' + (i===0?loggedEmail:'') + '" /></div></div>' +
+      '<div class="pax-field"><label class="pax-label">PHONE</label>' +
+        '<div class="pax-input-wrap"><svg class="pax-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 12 19.79 19.79 0 0 1 1.08 3.5 2 2 0 0 1 3.06 1.3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.09 8.91A16 16 0 0 0 15 16.91l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22.73 17z"/></svg>' +
+        '<input type="tel" id="paxPhone_' + i + '" class="pax-input" placeholder="+91XXXXXXXXXX" /></div></div>' +
+      '<div class="pax-field"><label class="pax-label">GENDER</label>' +
+        '<div class="gender-group">' +
+          '<button class="gender-btn active" data-gender="Male" onclick="selectGenderCard(this)">Male</button>' +
+          '<button class="gender-btn" data-gender="Female" onclick="selectGenderCard(this)">Female</button>' +
+          '<button class="gender-btn" data-gender="Other" onclick="selectGenderCard(this)">Other</button>' +
+        '</div></div>' +
+    '</div>';
+  }).join('');
 }
 
-/* ── Gender selection ─────────────────────────────── */
-window.selectGender = function(btn) {
-  document.querySelectorAll('.gender-btn').forEach(b => b.classList.remove('active'));
+/* ── Gender selection (scoped to card) ───────────── */
+window.selectGenderCard = function(btn) {
+  var card = btn.closest('.pax-passenger-card') || btn.parentElement.parentElement;
+  card.querySelectorAll('.gender-btn').forEach(function(b) { b.classList.remove('active'); });
   btn.classList.add('active');
 };
 
-/* ── Passenger form validation — called by onclick ─── */
+/* ── Gender selection (legacy single form) ─────── */
+window.selectGender = function(btn) {
+  document.querySelectorAll('.gender-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+};
+
+/* ── showPaxErr helper ────────────────────────────── */
+function showPaxErr(msg) {
+  var old = document.getElementById('paxErrMsg');
+  if (old) old.remove();
+  var errDiv = document.createElement('div');
+  errDiv.id = 'paxErrMsg';
+  errDiv.style.cssText = 'background:#fff1f2;border:1.5px solid #fecaca;border-radius:10px;padding:12px 16px;font-size:.84rem;color:#ef4444;font-weight:700;margin-bottom:14px;';
+  errDiv.textContent = '⚠️ ' + msg;
+  var container = document.getElementById('paxFormsContainer');
+  var btn = document.getElementById('proceedPassengerBtn');
+  if (container && container.parentNode) container.parentNode.insertBefore(errDiv, container);
+  else if (btn && btn.parentNode) btn.parentNode.insertBefore(errDiv, btn);
+  errDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/* ── Passenger form validation — ALL seats ─────── */
 window.validateAndProceed = function() {
-  // Remove any previous error
-  const prev = document.getElementById('paxErrMsg');
-  if (prev) prev.remove();
+  var old = document.getElementById('paxErrMsg');
+  if (old) old.remove();
 
-  const nameVal  = document.getElementById('paxName')  ? document.getElementById('paxName').value.trim()  : '';
-  const emailVal = document.getElementById('paxEmail') ? document.getElementById('paxEmail').value.trim() : '';
-  const phoneVal = document.getElementById('paxPhone') ? document.getElementById('paxPhone').value.trim() : '';
-  const ageVal   = document.getElementById('paxAge')   ? document.getElementById('paxAge').value.trim()   : '';
+  var count = selectedSeats.length || 1;
+  var emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9\-]+(\.[a-zA-Z0-9\-]+)*\.[a-zA-Z]{2,}$/;
 
-  function showPaxErr(msg) {
-    const errDiv = document.createElement('div');
-    errDiv.id = 'paxErrMsg';
-    errDiv.style.cssText = 'background:#fff1f2;border:1.5px solid #fecaca;border-radius:10px;padding:12px 16px;font-size:.84rem;color:#ef4444;font-weight:700;margin-bottom:14px;';
-    errDiv.textContent = '⚠️ ' + msg;
-    const btn = document.getElementById('proceedPassengerBtn');
-    if (btn && btn.parentNode) btn.parentNode.insertBefore(errDiv, btn);
-    if (errDiv) errDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
+  for (var i = 0; i < count; i++) {
+    var nameEl  = document.getElementById('paxName_'  + i);
+    var ageEl   = document.getElementById('paxAge_'   + i);
+    var emailEl = document.getElementById('paxEmail_' + i);
+    var phoneEl = document.getElementById('paxPhone_' + i);
+    var seat    = selectedSeats[i] || ('Seat ' + (i+1));
+    var nv = nameEl  ? nameEl.value.trim()  : '';
+    var av = ageEl   ? ageEl.value.trim()   : '';
+    var ev = emailEl ? emailEl.value.trim() : '';
+    var pv = phoneEl ? phoneEl.value.trim() : '';
 
-  // ── Name: required, letters/spaces only, NO numbers ──
-  if (!nameVal) { showPaxErr('Please enter passenger full name.'); return; }
-  if (/[0-9]/.test(nameVal)) { showPaxErr('Passenger name must not contain numbers. Please enter a valid name (letters only).'); return; }
-  if (!/^[a-zA-Z\s'.\-,]+$/.test(nameVal)) { showPaxErr('Passenger name must contain only letters and spaces.'); return; }
-  if (nameVal.length < 2) { showPaxErr('Please enter a valid passenger name (at least 2 characters).'); return; }
+    if (!nv)  { showPaxErr('Passenger ' + (i+1) + ' (' + seat + '): Please enter full name.'); return; }
+    if (/[0-9]/.test(nv)) { showPaxErr('Passenger ' + (i+1) + ': Name must not contain numbers.'); return; }
+    if (nv.length < 2) { showPaxErr('Passenger ' + (i+1) + ': Name must be at least 2 characters.'); return; }
 
-  // ── Age: optional, must be 1–120 if provided ──
-  if (ageVal !== '') {
-    const ageNum = parseInt(ageVal, 10);
-    if (isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
-      showPaxErr('Please enter a valid age between 1 and 120.');
-      return;
+    // ── Age: REQUIRED, must be 1–120, integers only ──────────────
+    if (!ageEl || av === '') {
+      showPaxErr('Passenger ' + (i+1) + ' (' + seat + '): Age is required.'); return;
     }
+    // Detect non-numeric input typed in <input type="number"> fields
+    if (ageEl.validity && ageEl.validity.badInput) {
+      showPaxErr('Passenger ' + (i+1) + ': Age must be a number (e.g. 25).'); return;
+    }
+    var aN = Number(av);
+    if (!Number.isFinite(aN) || aN !== Math.floor(aN)) {
+      showPaxErr('Passenger ' + (i+1) + ': Age must be a whole number (no decimals).'); return;
+    }
+    if (aN < 1 || aN > 120) {
+      showPaxErr('Passenger ' + (i+1) + ' (' + seat + '): Age must be between 1 and 120.'); return;
+    }
+
+    if (!ev) { showPaxErr('Passenger ' + (i+1) + ' (' + seat + '): Please enter email.'); return; }
+    if (!emailRegex.test(ev)) { showPaxErr('Passenger ' + (i+1) + ': Invalid email — ' + ev); return; }
+    if (!pv) { showPaxErr('Passenger ' + (i+1) + ' (' + seat + '): Please enter phone number.'); return; }
+    var digs = pv.replace(/[\s\-\+\(\)]/g, '');
+    if (!/^\d{10,13}$/.test(digs)) { showPaxErr('Passenger ' + (i+1) + ': Phone must be 10-13 digits.'); return; }
+    if (/^(.)\1+$/.test(digs)) { showPaxErr('Passenger ' + (i+1) + ': Phone cannot be all same digits.'); return; }
   }
 
-  // ── Email: required, must match full valid format ──
-  if (!emailVal) { showPaxErr('Please enter passenger email address.'); return; }
-  // Strict regex: must have chars @ domain . tld (2+ chars) — rejects "abc@", "abc@domain", "abc@.com"
-  const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9\-]+(\.[a-zA-Z0-9\-]+)*\.[a-zA-Z]{2,}$/;
-  if (!emailRegex.test(emailVal)) {
-    showPaxErr('Please enter a valid email address (e.g. name@gmail.com). "' + emailVal + '" is not valid.');
-    return;
+  // All valid — collect and proceed
+  var passengerData = [];
+  for (var j = 0; j < count; j++) {
+    passengerData.push({
+      seat:  selectedSeats[j],
+      name:  document.getElementById('paxName_'  + j) ? document.getElementById('paxName_'  + j).value.trim() : '',
+      age:   document.getElementById('paxAge_'   + j) ? document.getElementById('paxAge_'   + j).value.trim() : '',
+      email: document.getElementById('paxEmail_' + j) ? document.getElementById('paxEmail_' + j).value.trim() : '',
+      phone: document.getElementById('paxPhone_' + j) ? document.getElementById('paxPhone_' + j).value.trim() : ''
+    });
   }
-
-  // ── Phone: required, 10–13 digits, NOT all same digit ──
-  if (!phoneVal) { showPaxErr('Please enter passenger phone number.'); return; }
-  const digitsOnly = phoneVal.replace(/[\s\-\+\(\)]/g, '');
-  if (!/^\d{10,13}$/.test(digitsOnly)) {
-    showPaxErr('Phone number must be 10–13 digits (e.g. 9876543210).');
-    return;
-  }
-  // Check all same digit: "0000000000", "1111111111" etc.
-  if (/^(.)\1+$/.test(digitsOnly)) {
-    showPaxErr('Phone number cannot have all identical digits (e.g. 0000000000 or 9999999999). Please enter a real number.');
-    return;
-  }
-
-  // ── All valid — proceed ──
+  sessionStorage.setItem('c2b_passengers', JSON.stringify(passengerData));
   goTo('payment');
 };
+
 
 /* ── Payment method toggle ────────────────────────── */
 document.querySelectorAll('.pay-method').forEach(method => {
@@ -1079,15 +1136,139 @@ document.querySelectorAll('.pay-method').forEach(method => {
   });
 });
 
-/* ── Coupon apply ─────────────────────────────────── */
-window.applyCoupon = function() {
-  const val = document.getElementById('couponInput') ? document.getElementById('couponInput').value.trim().toUpperCase() : '';
-  if (val === 'FIRSTBUS100') {
-    alert('✅ Coupon applied! ₹100 discount added.');
-  } else {
-    alert('❌ Invalid coupon code. Try FIRSTBUS100.');
-  }
+/* ── Offers & Coupon system ───────────────────────── */
+// Master list of all available offers
+const OFFERS_CATALOG = [
+  { code:'FIRSTBUS100', title:'First Ride Bonus',      desc:'₹100 off on your first booking',              discount:100, type:'flat',    badge:'NEW',       badgeColor:'#f97316', minFare:0   },
+  { code:'WEEKEND150',  title:'Weekend Flash Sale',    desc:'₹150 off on weekend travel bookings',          discount:150, type:'flat',    badge:'HOT',       badgeColor:'#ef4444', minFare:300 },
+  { code:'PREMIUM200',  title:'Premium Member Offer',  desc:'₹200 cashback for Premium members above ₹800', discount:200, type:'flat',    badge:'EXCLUSIVE', badgeColor:'#8b5cf6', minFare:800 },
+  { code:'REFER75',     title:'Refer a Friend',        desc:'₹75 off for you and your friend',              discount:75,  type:'flat',    badge:'HOT',       badgeColor:'#ef4444', minFare:0   },
+  { code:'NIGHTBUS25',  title:'Night Rider Offer',     desc:'25% off on overnight sleeper bookings',        discount:25,  type:'percent', badge:'LIMITED',   badgeColor:'#3b82f6', minFare:0   },
+  { code:'STUDENT150',  title:'Student Special',       desc:'₹150 off for verified students',               discount:150, type:'flat',    badge:'EXCLUSIVE', badgeColor:'#8b5cf6', minFare:0   },
+  { code:'MONSOON50',   title:'Monsoon Saver',         desc:'₹50 off on all routes during monsoon season',  discount:50,  type:'flat',    badge:'SEASONAL',  badgeColor:'#0891b2', minFare:0   },
+  { code:'SUPERFAST10', title:'Superfast 10% Off',     desc:'10% discount on express / premium buses',      discount:10,  type:'percent', badge:'',          badgeColor:'#f97316', minFare:0   },
+];
+
+let _appliedDiscount = 0; // tracks applied discount amount
+let _rawTotal        = 0; // total before discount
+
+/* Build offer cards inside the panel */
+function buildOffersPanel() {
+  const list = document.getElementById('offersList');
+  if (!list) return;
+  const fare = _rawTotal || 0;
+  list.innerHTML = OFFERS_CATALOG.map(function(o) {
+    const discAmt  = o.type === 'percent' ? Math.round(fare * o.discount / 100) : o.discount;
+    const eligible = fare >= o.minFare;
+    const badgeHtml = o.badge ? `<span style="background:${o.badgeColor}18;color:${o.badgeColor};font-size:.62rem;font-weight:800;padding:1px 8px;border-radius:50px;border:1px solid ${o.badgeColor}40;">${o.badge}</span>` : '';
+    return `
+      <div class="offer-row-item" onclick="${eligible ? "applyOfferCode('" + o.code + "')" : 'showCouponMsg("Minimum fare ₹' + o.minFare + ' required for this offer.", false)'}" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;margin-bottom:8px;border-radius:12px;border:1.5px solid ${eligible ? '#e2e8f0' : '#f3f4f6'};background:${eligible ? '#fff' : '#f9fafb'};cursor:${eligible ? 'pointer' : 'default'};transition:border .15s,box-shadow .15s;" onmouseenter="${eligible ? "this.style.borderColor='#f97316';this.style.boxShadow='0 2px 12px rgba(249,115,22,.12)'" : ''}" onmouseleave="this.style.borderColor='${eligible ? '#e2e8f0' : '#f3f4f6'}';this.style.boxShadow='none'">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+            <span style="font-size:.82rem;font-weight:700;color:${eligible ? '#0f172a' : '#94a3b8'};">${o.title}</span>
+            ${badgeHtml}
+          </div>
+          <div style="font-size:.72rem;color:#6b7280;">${o.desc}</div>
+          <div style="font-size:.7rem;font-weight:700;color:#f97316;margin-top:3px;font-family:monospace;letter-spacing:.5px;">${o.code}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:12px;">
+          <div style="font-size:.85rem;font-weight:800;color:${eligible ? '#16a34a' : '#94a3b8'};">−₹${discAmt}</div>
+          <button style="margin-top:4px;padding:4px 14px;border-radius:20px;border:none;background:${eligible ? '#f97316' : '#e5e7eb'};color:${eligible ? 'white' : '#94a3b8'};font-size:.7rem;font-weight:700;cursor:${eligible ? 'pointer' : 'not-allowed'};">${eligible ? 'Apply' : 'Min ₹' + o.minFare}</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* Toggle the offers panel open/closed */
+window.toggleOffersPanel = function() {
+  const panel = document.getElementById('offersPanel');
+  const chevron = document.getElementById('offersPanelChevron');
+  if (!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display  = isOpen ? 'none' : 'block';
+  if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+  if (!isOpen) buildOffersPanel();
 };
+
+/* Apply a specific code (called from offer row click or coupon input) */
+window.applyOfferCode = function(code) {
+  const offer = OFFERS_CATALOG.find(function(o){ return o.code === code; });
+  if (!offer) { showCouponMsg('❌ Invalid coupon code.', false); return; }
+  const fare = _rawTotal || 0;
+  if (fare < offer.minFare) {
+    showCouponMsg('⚠️ Minimum booking fare ₹' + offer.minFare + ' required for this offer.', false);
+    return;
+  }
+  const disc = offer.type === 'percent' ? Math.round(fare * offer.discount / 100) : offer.discount;
+  _appliedDiscount = Math.min(disc, fare); // can't discount more than total
+
+  // Update coupon input field
+  const inp = document.getElementById('couponInput');
+  if (inp) inp.value = code;
+
+  // Update summary rows
+  const newTotal = Math.max(0, fare - _appliedDiscount);
+  const discRow  = document.getElementById('discountRow');
+  const discDisp = document.getElementById('discountDisplay');
+  if (discRow)  discRow.style.display   = '';
+  if (discDisp) discDisp.textContent    = '−₹' + _appliedDiscount;
+  const totalEl  = document.getElementById('payTotal');
+  const payBtn   = document.getElementById('payBtnAmount');
+  if (totalEl)  totalEl.textContent     = '₹' + newTotal;
+  if (payBtn)   payBtn.textContent      = '₹' + newTotal;
+
+  // Chip on header
+  const chip = document.getElementById('appliedOfferChip');
+  if (chip) { chip.textContent = code + ' applied'; chip.style.display = ''; }
+
+  showCouponMsg('✅ "' + code + '" applied! You save ₹' + _appliedDiscount + '.', true);
+
+  // Close the panel
+  const panel = document.getElementById('offersPanel');
+  const chevron = document.getElementById('offersPanelChevron');
+  if (panel)   panel.style.display  = 'none';
+  if (chevron) chevron.style.transform = '';
+};
+
+function showCouponMsg(msg, success) {
+  const el = document.getElementById('couponMsg');
+  if (!el) return;
+  el.textContent   = msg;
+  el.style.display = 'block';
+  el.style.background  = success ? '#f0fdf4' : '#fff1f2';
+  el.style.color       = success ? '#16a34a' : '#ef4444';
+  el.style.border      = '1px solid ' + (success ? '#86efac' : '#fecaca');
+  clearTimeout(el._t);
+  el._t = setTimeout(function(){ el.style.display = 'none'; }, 4000);
+}
+
+/* Public applyCoupon called by the Apply button */
+window.applyCoupon = function() {
+  const val = (document.getElementById('couponInput')?.value || '').trim().toUpperCase();
+  if (!val) { showCouponMsg('⚠️ Please enter a coupon code first.', false); return; }
+  applyOfferCode(val);
+};
+
+/* Remove applied offer (called if user clears the input) */
+document.addEventListener('DOMContentLoaded', function() {
+  const inp = document.getElementById('couponInput');
+  if (inp) {
+    inp.addEventListener('input', function() {
+      if (!this.value.trim()) {
+        _appliedDiscount = 0;
+        const discRow = document.getElementById('discountRow');
+        const chip    = document.getElementById('appliedOfferChip');
+        if (discRow) discRow.style.display = 'none';
+        if (chip)    chip.style.display    = 'none';
+        // restore original total
+        const totalEl = document.getElementById('payTotal');
+        const payBtn  = document.getElementById('payBtnAmount');
+        if (totalEl) totalEl.textContent = '₹' + _rawTotal;
+        if (payBtn)  payBtn.textContent  = '₹' + _rawTotal;
+      }
+    });
+  }
+});
 
 /* ── Confirm payment + write to CRUD DB ───────────── */
 window.confirmPayment = function() {
@@ -1098,7 +1279,10 @@ window.confirmPayment = function() {
   const count    = selectedSeats.length || 1;
   const subtotal = selectedFare * count;
   const gst      = Math.round(subtotal * 0.18);
-  const total    = subtotal + gst + 25;
+  const rawTotal = subtotal + gst + 25;
+  // Use discounted total if an offer was applied
+  const discount = _appliedDiscount || 0;
+  const total    = Math.max(0, rawTotal - discount);
 
   const now        = Date.now();
   const bookingId  = 'BUS' + now;
@@ -1120,23 +1304,34 @@ window.confirmPayment = function() {
     if (allTrips.length) tripId = allTrips[0].trip_id;
   } catch(e) {}
 
-  // ── Write to DB ───────────────────────────────────
+  // ── Read passenger list from session ─────────────
+  var passengers = [];
+  try { passengers = JSON.parse(sessionStorage.getItem('c2b_passengers') || '[]'); } catch(e) {}
+  var primaryName = passengers.length ? passengers[0].name : (sessionStorage.getItem('c2b_userName') || 'Customer');
+
+  // ── Write to in-memory CRUD DB ───────────────────
   if (window.DB) {
     try {
       DB.bookings.create({
-        booking_id:     bookingId,
-        customer_id:    customerId,
-        trip_id:        tripId,
-        offer_id:       null,
-        booking_date:   today,
-        booking_status: 'CONFIRMED',
-        irctc_id:       null,
-        _busName:       selectedBus,
-        _busType:       selectedType,
-        _seats:         selectedSeats.join(', '),
-        _from:          from,
-        _to:            to,
-        _journeyDate:   date,
+        booking_id:        bookingId,
+        customer_id:       customerId,
+        trip_id:           tripId,
+        offer_id:          null,
+        booking_date:      today,
+        booking_status:    'CONFIRMED',
+        irctc_id:          null,
+        _busName:          selectedBus,
+        _busType:          selectedType,
+        _seats:            selectedSeats.join(', '),
+        _from:             from,
+        _to:               to,
+        _journeyDate:      date,
+        _total:            total,
+        _fare:             selectedFare,
+        _passengerCount:   count,
+        _customerName:     primaryName,
+        _paymentMethod:    payMethod,
+        _passengers:       JSON.stringify(passengers),
       });
     } catch(e) { console.warn('[C2B] Booking write failed:', e); }
 
@@ -1145,7 +1340,7 @@ window.confirmPayment = function() {
         payment_id:      paymentId,
         booking_id:      bookingId,
         amount:          total,
-        discount_amount: 0,
+        discount_amount: discount,
         payment_method:  payMethod,
         payment_status:  'SUCCESS',
         payment_date:    today,
@@ -1153,17 +1348,50 @@ window.confirmPayment = function() {
     } catch(e) { console.warn('[C2B] Payment write failed:', e); }
   }
 
+  // ── Also POST to NestJS backend (non-blocking) ────
+  // Captures the *real* backend booking/trip IDs onto the mock record so
+  // features that must call the real API (tracking, SOS, lost & found) have
+  // a valid ID to work with — the mock store's own bookingId never matches
+  // the backend's generated one otherwise.
+  (async function() {
+    try {
+      var host = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+               ? 'localhost' : window.location.hostname;
+      var res = await fetch('http://' + host + ':3000/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-role': 'CUSTOMER' },
+        body: JSON.stringify({
+          customerId:   customerId,
+          tripId:       tripId,
+          seatNumber:   selectedSeats[0],
+        })
+      });
+      var json = await res.json();
+      if (json.success && json.data && window.DB) {
+        DB.bookings.update(bookingId, {
+          _backendBookingId: json.data.bookingId,
+          _backendTripId:    json.data.tripId,
+        });
+        console.log('[C2B] Booking synced to backend ✅', json.data.bookingId);
+      }
+    } catch(e) {
+      console.warn('[C2B] Backend sync skipped (offline):', e.message);
+    }
+  })();
+
   // ── Store for confirmation page ───────────────────
-  sessionStorage.setItem('lastBookingId',  bookingId);
-  sessionStorage.setItem('lastBusName',    selectedBus);
-  sessionStorage.setItem('lastBusType',    selectedType);
-  sessionStorage.setItem('lastSeats',      selectedSeats.join(', '));
-  sessionStorage.setItem('lastTotal',      total);
-  sessionStorage.setItem('lastFrom',       from);
-  sessionStorage.setItem('lastTo',         to);
-  sessionStorage.setItem('lastDate',       date);
-  sessionStorage.setItem('lastPayMethod',  payMethod);
-  // Also persist route for future my-bookings resolveRoute
+  sessionStorage.setItem('lastBookingId',      bookingId);
+  sessionStorage.setItem('lastBusName',        selectedBus);
+  sessionStorage.setItem('lastBusType',        selectedType);
+  sessionStorage.setItem('lastSeats',          selectedSeats.join(', '));
+  sessionStorage.setItem('lastTotal',          total);
+  sessionStorage.setItem('lastDiscount',       discount);
+  sessionStorage.setItem('lastFrom',           from);
+  sessionStorage.setItem('lastTo',             to);
+  sessionStorage.setItem('lastDate',           date);
+  sessionStorage.setItem('lastPayMethod',      payMethod);
+  sessionStorage.setItem('lastPassengerCount', count);
+  sessionStorage.setItem('lastPassengers',     JSON.stringify(passengers));
   sessionStorage.setItem('searchFrom', from);
   sessionStorage.setItem('searchTo',   to);
 
@@ -1272,4 +1500,3 @@ restoreStateAfterLogin();
   <script src="../crud functions/js/ui-customer.js"></script>
 </body>
 </html>
-

@@ -223,16 +223,32 @@
     if (pass.length < 6) { showErr('Access key must be at least 6 characters.'); return; }
     
     // Credentials for Super User
-    if (email === 'superuser@click2book.com' && pass === 'super123') {
+    const superUsers = [
+      { email:'superuser@click2book.com',    password:'super123'      },
+      { email:'superadmin@click2book.com',   password:'SuperAdmin@123'},
+      { email:'admin@click2book.com',        password:'Admin@123'     },
+    ];
+    const matched = superUsers.find(function(u){
+      return u.email.toLowerCase() === email.toLowerCase() && u.password === pass;
+    });
+    if (matched) {
       btn.innerHTML = 'Authenticating...';
       btn.style.opacity = '0.7';
       btn.disabled = true;
       
       sessionStorage.setItem('superUserAuth', 'true');
       
-      setTimeout(() => {
-        window.location.href = 'admin_dashboard.html?superUser=open';
-      }, 1000);
+      /* Return to the page that triggered this login, or admin dashboard */
+      var returnTo = document.referrer && document.referrer.includes(location.hostname)
+        ? document.referrer
+        : '/admin/admin_dashboard.html?superUser=open';
+      /* If no referrer, open admin dashboard with super user panel */
+      if (!document.referrer || !document.referrer.includes(location.hostname)) {
+        returnTo = '/admin/admin_dashboard.html?superUser=open';
+      }
+      setTimeout(function() {
+        window.location.href = returnTo;
+      }, 800);
     } else {
       showErr('Invalid super user credentials. Please check your email and access key.');
     }

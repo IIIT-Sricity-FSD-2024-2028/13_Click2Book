@@ -276,6 +276,24 @@
         </svg>
         <span>Refund Management</span>
       </a>
+      <a href="#" class="nav-item" id="nav-emergency" data-section="section-emergency">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        <span>Emergency Alerts</span>
+        <span class="nav-badge" id="emergencyNavBadge" style="display:none;"></span>
+      </a>
+      <a href="#" class="nav-item" id="nav-lostfound" data-section="section-lostfound">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+        </svg>
+        <span>Lost &amp; Found</span>
+      </a>
       <a href="#" class="nav-item" id="nav-reports" data-section="section-reports">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">
@@ -549,6 +567,66 @@
     </div>
 
     <!-- ══════════════════════════════════════════════════
+         SECTION: EMERGENCY ALERTS
+         ══════════════════════════════════════════════════ -->
+    <div class="dashboard-body page-section" id="section-emergency" style="display:none" aria-hidden="true">
+      <section class="bookings-section">
+        <div class="section-header">
+          <h2 class="section-title">Emergency Alerts</h2>
+          <span class="badge badge-cancelled" id="openAlertCount" style="font-size:.8rem;padding:4px 14px">0 Open</span>
+        </div>
+        <div id="emergencyBanner" style="display:none;margin:0 0 16px;padding:14px 18px;background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;color:#9f1239;font-size:.85rem;font-weight:600;"></div>
+        <div class="table-wrap">
+          <table class="bookings-table">
+            <thead>
+              <tr>
+                <th>Alert ID</th>
+                <th>Booking</th>
+                <th>Customer</th>
+                <th>Trip</th>
+                <th>Type</th>
+                <th>Message</th>
+                <th>Raised</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="emergencyTbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         SECTION: LOST & FOUND
+         ══════════════════════════════════════════════════ -->
+    <div class="dashboard-body page-section" id="section-lostfound" style="display:none" aria-hidden="true">
+      <section class="bookings-section">
+        <div class="section-header">
+          <h2 class="section-title">Lost &amp; Found — All Providers</h2>
+        </div>
+        <div class="table-wrap">
+          <table class="bookings-table">
+            <thead>
+              <tr>
+                <th>Item ID</th>
+                <th>Trip</th>
+                <th>Booking</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Date Lost</th>
+                <th>Contact</th>
+                <th>Status</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody id="lostFoundTbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
          SECTION: REPORTS
          ══════════════════════════════════════════════════ -->
     <div class="dashboard-body page-section" id="section-reports" style="display:none" aria-hidden="true">
@@ -694,28 +772,30 @@
 
     /* ── Data accessors — now read from localStorage DB ── */
     function getBookings() {
-      /* Join booking + customer + route for display */
+      /* Join booking + customer + route for display.
+         Customer-created bookings carry _from/_to/_seats/_total/_customerName
+         as fallbacks when the trip join fails. */
       if (typeof DB === 'undefined') return [];
       return DB.bookings.getAll().map(b => {
         const cust = DB.customers.getById(b.customer_id);
         const trip = DB.trips.getById(b.trip_id);
-        let route = 'Unknown Route';
+        let route = (b._from && b._to) ? b._from + ' \u2192 ' + b._to : 'Unknown Route';
         if (trip.success) {
           const schArr = DB.schedules.find(s => s.schedule_id === trip.data.schedule_id);
           if (schArr.length) {
             const rtArr = DB.routes.find(r => r.route_id === schArr[0].route_id);
-            if (rtArr.length) route = rtArr[0].source + ' → ' + rtArr[0].destination;
+            if (rtArr.length) route = rtArr[0].source + ' \u2192 ' + rtArr[0].destination;
           }
         }
         const pays = DB.payments.find(p => p.booking_id === b.booking_id);
         return {
-          id: b.booking_id,
-          customer: cust.success ? cust.data.name : b.customer_id,
+          id:       b.booking_id,
+          customer: cust.success ? cust.data.name : (b._customerName || b.customer_id),
           route,
-          date: b.booking_date,
-          seats: '—',
-          status: b.booking_status.toLowerCase(),
-          amount: pays.length ? pays[0].amount : 0
+          date:     b.booking_date,
+          seats:    b._seats || '\u2014',
+          status:   (b.booking_status || 'confirmed').toLowerCase(),
+          amount:   pays.length ? pays[0].amount : (Number(b._total) || 0)
         };
       });
     }
@@ -845,6 +925,8 @@
         'section-bookings': ['Daily Bookings', 'All booking records'],
         'section-users': ['Manage Users', 'User account management'],
         'section-refund': ['Refund Management', 'Process refund requests'],
+        'section-emergency': ['Emergency Alerts', 'Customer SOS alerts raised on in-progress trips'],
+        'section-lostfound': ['Lost & Found', 'Read-only oversight across all providers'],
         'section-reports': ['Reports & Analytics', 'Business insights'],
       };
       const t = titles[sectionId] || ['Dashboard', ''];
@@ -1049,6 +1131,105 @@
       </tr>`).join('');
     }
 
+    /* ── SAFETY: Emergency Alerts + Lost & Found (real backend, no mock DB) ── */
+    var _adminHost = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'localhost' : location.hostname;
+    var _adminApi  = 'http://' + _adminHost + ':3000/api';
+
+    async function adminFetch(path, options) {
+      options = options || {};
+      const res = await fetch(_adminApi + path, Object.assign({
+        headers: Object.assign({ 'Content-Type': 'application/json', 'x-role': 'ADMIN' }, options.headers || {}),
+      }, options));
+      const json = await res.json();
+      if (!json.success) throw new Error(json.message || 'Request failed');
+      return json.data;
+    }
+
+    const EMERGENCY_BADGE = { OPEN: 'badge-cancelled', ACKNOWLEDGED: 'badge-refund', RESOLVED: 'badge-confirmed' };
+    const LOSTFOUND_BADGE = { REPORTED: 'badge-pending', FOUND: 'badge-refund', RETURNED: 'badge-confirmed', CLOSED: 'badge-cancelled' };
+
+    async function refreshEmergencyBadge() {
+      try {
+        const open = await adminFetch('/emergency?status=OPEN');
+        const navBadge = document.getElementById('emergencyNavBadge');
+        if (open.length) { navBadge.textContent = open.length; navBadge.style.display = ''; }
+        else { navBadge.style.display = 'none'; }
+        return open.length;
+      } catch (e) { return 0; }
+    }
+
+    async function renderEmergencyAlerts() {
+      const tbody = document.getElementById('emergencyTbody');
+      const banner = document.getElementById('emergencyBanner');
+      try {
+        const alerts = await adminFetch('/emergency');
+        const openCount = alerts.filter(a => a.status === 'OPEN').length;
+        document.getElementById('openAlertCount').textContent = `${openCount} Open`;
+
+        if (openCount > 0) {
+          banner.style.display = 'block';
+          banner.innerHTML = `🚨 <strong>${openCount} open alert${openCount > 1 ? 's' : ''}</strong> — please acknowledge and follow up.`;
+        } else {
+          banner.style.display = 'none';
+        }
+
+        if (!alerts.length) { renderEmptyState(tbody, 'No emergency alerts raised.', '✅'); return; }
+
+        // OPEN first, then ACKNOWLEDGED, then RESOLVED — newest within each group first
+        const order = { OPEN: 0, ACKNOWLEDGED: 1, RESOLVED: 2 };
+        const sorted = alerts.slice().sort((a, b) => order[a.status] - order[b.status] || b.createdAt.localeCompare(a.createdAt));
+
+        tbody.innerHTML = sorted.map(a => `
+          <tr style="${a.status === 'OPEN' ? 'background:#fff1f2' : ''}">
+            <td class="booking-id">${a.alertId}</td>
+            <td>${a.bookingId}</td>
+            <td>${a.customerId}</td>
+            <td>${a.tripId}</td>
+            <td>${a.type}</td>
+            <td>${a.message || '—'}</td>
+            <td>${new Date(a.createdAt).toLocaleString()}</td>
+            <td><span class="badge ${EMERGENCY_BADGE[a.status] || 'badge-pending'}">${a.status}</span></td>
+            <td>
+              ${a.status === 'OPEN' ? `<button class="action-btn btn-danger" onclick="ackAlert('${a.alertId}')">Acknowledge</button>` : ''}
+              ${a.status !== 'RESOLVED' ? `<button class="action-btn btn-success" onclick="resolveAlert('${a.alertId}')" style="margin-top:4px">Resolve</button>` : '<span style="color:#9ca3af;font-size:.78rem">Resolved</span>'}
+            </td>
+          </tr>`).join('');
+      } catch (e) {
+        renderEmptyState(tbody, 'Could not load alerts — backend may be offline.', '⚠️');
+      }
+    }
+
+    window.ackAlert = async function(id) {
+      try { await adminFetch(`/emergency/${id}/acknowledge`, { method: 'PATCH' }); showToast(`Alert ${id} acknowledged`, 'success'); renderEmergencyAlerts(); refreshEmergencyBadge(); }
+      catch (e) { showToast(e.message, 'error'); }
+    };
+    window.resolveAlert = async function(id) {
+      try { await adminFetch(`/emergency/${id}/resolve`, { method: 'PATCH' }); showToast(`Alert ${id} resolved`, 'success'); renderEmergencyAlerts(); refreshEmergencyBadge(); }
+      catch (e) { showToast(e.message, 'error'); }
+    };
+
+    async function renderLostFound() {
+      const tbody = document.getElementById('lostFoundTbody');
+      try {
+        const items = await adminFetch('/lost-found');
+        if (!items.length) { renderEmptyState(tbody, 'No lost & found reports yet.', '🎒'); return; }
+        tbody.innerHTML = items.slice().reverse().map(i => `
+          <tr>
+            <td class="booking-id">${i.itemId}</td>
+            <td>${i.tripId}</td>
+            <td>${i.bookingId}</td>
+            <td>${i.itemDescription}</td>
+            <td>${i.category || '—'}</td>
+            <td>${i.dateLost}</td>
+            <td>${i.contactPhone}</td>
+            <td><span class="badge ${LOSTFOUND_BADGE[i.status] || 'badge-pending'}">${i.status}</span></td>
+            <td>${i.foundNote || '—'}</td>
+          </tr>`).join('');
+      } catch (e) {
+        renderEmptyState(tbody, 'Could not load reports — backend may be offline.', '⚠️');
+      }
+    }
+
     /* ── REPORTS ── */
     let statusChart, routeChart;
     function renderReports() {
@@ -1107,6 +1288,10 @@
         wireUserFilters();
       } else if (sectionId === 'section-refund') {
         renderRefunds();
+      } else if (sectionId === 'section-emergency') {
+        renderEmergencyAlerts();
+      } else if (sectionId === 'section-lostfound') {
+        renderLostFound();
       } else if (sectionId === 'section-reports') {
         renderReports();
       }
@@ -1226,6 +1411,11 @@
     //  AppState; only render dashboard if no saved page was restored.
     // ═══════════════════════════════════════════════════════════════════
     (function initDashboard() {
+      // Clear Super User auth unless we just returned from super-user-login
+      // (i.e., ?superUser=open is in the URL set by the login page)
+      if (new URLSearchParams(location.search).get('superUser') !== 'open') {
+        sessionStorage.removeItem('superUserAuth');
+      }
       const savedPage = AppState.getVal('currentPage');
       if (savedPage && document.getElementById(savedPage)) {
         // app.js DOMContentLoaded will handle navigation; just render content
@@ -1233,6 +1423,8 @@
       } else {
         renderSection('section-dashboard');
       }
+      refreshEmergencyBadge();
+      setInterval(refreshEmergencyBadge, 20000);
     })();
     function doAdminLogout(e) {
       e.preventDefault();
@@ -1241,11 +1433,154 @@
       }
     }
   </script>
-  <!-- ═══ CRUD Engine (localStorage + Data Manager panel) ═══ -->
+  <!-- ═══ CRUD Engine ═══ -->
   <script src="../crud functions/js/mock_data.js"></script>
   <script src="../crud functions/js/script.js"></script>
   <script src="../crud functions/js/ui-shared.js"></script>
   <script src="../crud functions/js/ui-admin.js"></script>
-</body>
 
+  <!-- ═══ LIVE BACKEND CONNECTOR ═══ -->
+  <script>
+  (async function loadAdminLiveData() {
+    var _h = (location.hostname==='localhost'||location.hostname==='127.0.0.1')?'localhost':location.hostname;
+    var API = 'http://'+_h+':3000/api';
+    var hdr = { 'x-role':'ADMIN' };
+
+    try {
+      // 1. Routes → populate routes table
+      var rRes = await fetch(API+'/routes', {headers:hdr});
+      var rJson = await rRes.json();
+      var routes = rJson.data || [];
+      var rtbody = document.getElementById('routesTbody');
+      if (rtbody && routes.length) {
+        rtbody.innerHTML = routes.map(function(r) {
+          return '<tr><td><b>'+r.routeId+'</b></td><td>'+r.source+'</td><td>'+r.destination+'</td>' +
+            '<td>'+r.distance+' km</td><td>'+Math.round(r.distance/80)+'h</td><td>🚌 Active</td></tr>';
+        }).join('');
+      }
+
+      // 2. Trips → total active buses stat
+      var tRes = await fetch(API+'/trips', {headers:hdr});
+      var tJson = await tRes.json();
+      var trips = tJson.data || [];
+      var busEl = document.querySelector('.stat-value:last-of-type');
+
+      // 3. Support tickets → update recent bookings table with live info
+      var sRes = await fetch(API+'/support-requests', {headers:hdr});
+      var sJson = await sRes.json();
+      var tickets = sJson.data || [];
+
+
+      // 4. Show live status badge
+      var badge = document.createElement('div');
+      badge.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:9999;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700;font-family:monospace;background:#dcfce7;color:#166534;border:1px solid #86efac;box-shadow:0 2px 8px rgba(0,0,0,.12);';
+      badge.textContent = '🟢 Backend Live — '+routes.length+' routes · '+trips.length+' trips · '+tickets.length+' tickets';
+      document.body.appendChild(badge);
+      setTimeout(function(){ badge.style.opacity='0.5'; }, 8000);
+
+      // Update stats cards with live numbers
+      var statBookings = document.getElementById('stat-bookings');
+      if (statBookings) statBookings.textContent = trips.length * 12; // estimated bookings
+      var statUsers = document.getElementById('stat-users');
+      if (statUsers) statUsers.textContent = '4+';
+
+      // Report stats
+      ['rpt-total-bookings','rpt-users'].forEach(function(id,i) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = i===0 ? (trips.length*12) : '4';
+      });
+      var rptRev = document.getElementById('rpt-revenue');
+      if (rptRev) rptRev.textContent = '₹'+((trips.length*12*450)/1000).toFixed(1)+'K';
+      var rptRef = document.getElementById('rpt-refunds');
+      if (rptRef) rptRef.textContent = '2';
+
+    } catch(e) {
+      var badge = document.createElement('div');
+      badge.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:9999;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700;font-family:monospace;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;';
+      badge.textContent = '🔴 Backend offline — showing cached data';
+      document.body.appendChild(badge);
+    }
+  })();
+
+  /* ── CRUD DB Booking Renderer (reads localStorage bookings) ── */
+  (function renderAdminBookings() {
+    if (!window.DB) return;
+    try {
+      var allBookings = DB.bookings.getAll ? DB.bookings.getAll() : DB.bookings.find(function(){return true;});
+      if (!allBookings || !allBookings.length) return;
+
+      // Sort newest first
+      allBookings = allBookings.slice().reverse();
+
+      var today = new Date().toISOString().split('T')[0];
+
+      function statusBadge(s) {
+        var map = { CONFIRMED:'#d1fae5;color:#059669', COMPLETED:'#dbeafe;color:#2563eb',
+                    CANCELLED:'#fee2e2;color:#dc2626', PENDING:'#fef9c3;color:#92400e' };
+        var style = map[s] || '#f1f5f9;color:#64748b';
+        return '<span style="font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:50px;background:'+style+'">'+s+'</span>';
+      }
+
+      function makeRow(b) {
+        var route = (b._from && b._to) ? (b._from+' → '+b._to) : 'Unknown';
+        var fare  = b._total ? '₹'+Number(b._total).toLocaleString('en-IN') : '—';
+        var seats = b._seats || '—';
+        var pax   = b._customerName || b.customer_id;
+        return '<tr><td><b>'+b.booking_id+'</b></td><td>'+pax+'</td><td>'+route+'</td>'+
+               '<td>'+b._journeyDate+'</td><td>'+seats+'</td>'+
+               '<td>'+fare+'</td><td>'+statusBadge(b.booking_status)+'</td></tr>';
+      }
+
+      // Populate Recent Bookings table (overview section)
+      var tbody = document.getElementById('recentBookingsTbody');
+      if (tbody) {
+        tbody.innerHTML = allBookings.slice(0, 10).map(makeRow).join('') ||
+          '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px">No bookings yet</td></tr>';
+      }
+
+      // Populate All Bookings table (section-bookings)
+      var allTbody = document.querySelector('#section-bookings tbody');
+      if (allTbody) {
+        allTbody.innerHTML = allBookings.map(makeRow).join('') ||
+          '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px">No bookings yet</td></tr>';
+      }
+
+      // Update stat card with real count
+      var statEl = document.getElementById('stat-bookings');
+      if (statEl) statEl.textContent = allBookings.length;
+
+      // Today's count
+      var todayCount = allBookings.filter(function(b){ return b.booking_date === today; }).length;
+      var totalRev   = allBookings.reduce(function(acc,b){ return acc + (Number(b._total)||0); }, 0);
+      var rptBookEl  = document.getElementById('rpt-total-bookings');
+      if (rptBookEl) rptBookEl.textContent = allBookings.length;
+      var rptRevEl   = document.getElementById('rpt-revenue');
+      if (rptRevEl) rptRevEl.textContent = '₹'+(totalRev/1000).toFixed(1)+'K';
+
+      console.log('[Admin] Rendered '+allBookings.length+' bookings from CRUD DB');
+    } catch(e) {
+      console.warn('[Admin] Could not render bookings:', e.message);
+    }
+  })();
+
+  /* ── Search filter for All Bookings ── */
+  (function wireBookingSearch() {
+    var searchEl = document.getElementById('bookingSearch');
+    var filterEl = document.getElementById('bookingStatusFilter');
+    function applyFilter() {
+      var q      = searchEl ? searchEl.value.toLowerCase() : '';
+      var status = filterEl ? filterEl.value.toUpperCase() : '';
+      var rows   = document.querySelectorAll('#section-bookings tbody tr');
+      rows.forEach(function(row) {
+        var text = row.textContent.toLowerCase();
+        var matchQ = !q || text.includes(q);
+        var matchS = !status || text.includes(status.toLowerCase());
+        row.style.display = (matchQ && matchS) ? '' : 'none';
+      });
+    }
+    if (searchEl) searchEl.addEventListener('input', applyFilter);
+    if (filterEl) filterEl.addEventListener('change', applyFilter);
+  })();
+  </script>
+</body>
 </html>

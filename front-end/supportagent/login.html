@@ -235,7 +235,27 @@
     }
     const btn = document.getElementById('loginBtn');
     btn.textContent = 'Authenticating…'; btn.disabled = true;
-    setTimeout(() => window.location.href = 'index.html', 1000);
+
+    /* ── Known support accounts ── */
+    const agents = [
+      { id:'SUPPORT001', name:'Support Agent', email:'support@click2book.com', password:'Support@123' },
+      { id:'SUPPORT002', name:'Agent Riya',    email:'riya@click2book.com',    password:'Riya@123'    },
+      { id:'SUPPORT003', name:'Agent Karan',   email:'karan@click2book.com',   password:'Karan@123'   },
+    ];
+    const matched = agents.find(function(u){
+      return u.email.toLowerCase() === email.toLowerCase() && u.password === pass;
+    });
+    if (!matched) {
+      err.textContent = '⚠️ Invalid credentials. Use your assigned agent email and password.';
+      err.classList.add('show');
+      btn.textContent = 'Login to Support Panel'; btn.disabled = false; return;
+    }
+    sessionStorage.setItem('c2b_loggedIn',  'true');
+    sessionStorage.setItem('c2b_userName',  matched.name);
+    sessionStorage.setItem('c2b_userEmail', matched.email);
+    sessionStorage.setItem('c2b_loggedInId', matched.id);
+    sessionStorage.setItem('c2b_role', 'SUPPORT');
+    setTimeout(function(){ window.location.href = 'index.html'; }, 600);
   }
 
   document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });

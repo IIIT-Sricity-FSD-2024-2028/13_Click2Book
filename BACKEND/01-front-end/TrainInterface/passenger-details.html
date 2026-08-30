@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passenger Details | Click2Book</title>
+    
+    
+    <link rel="stylesheet" href="user-styles.css">
+    <link rel="stylesheet" href="user-dashboard.css">
+    <style>
+        .stepper-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            max-width: 600px;
+            margin: 0 auto 2rem;
+            position: relative;
+        }
+        .step-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            z-index: 2;
+        }
+        .step-circle {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.8rem; font-weight: 700;
+            background: #F3F4F6; color: #9CA3AF;
+            margin-bottom: 0.5rem; border: 2px solid #E5E7EB;
+        }
+        .step-circle.completed { background: #DCFCE7; color: #16A34A; border-color: #16A34A; }
+        .step-circle.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .step-label { font-size: 0.75rem; font-weight: 600; color: #9CA3AF; }
+        .step-label.completed { color: #16A34A; }
+        .step-label.active { color: var(--primary); }
+        
+        .step-line {
+            flex: 1; height: 2px;
+            background: #E5E7EB;
+            margin: 0 1rem; position: relative; top: -10px;
+        }
+        .step-line.completed { background: #16A34A; }
+        
+        .back-btn-top {
+            position: absolute; left: 0; top: 0;
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            border: 1px solid var(--primary-light);
+            background: #FFF7ED; color: var(--primary);
+            font-weight: 600; font-size: 0.875rem;
+            text-decoration: none;
+        }
+
+        .booking-form-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 2.5rem;
+        }
+        .b-card-header h2 { font-size: 1.5rem; font-weight: 800; color: #111827; margin: 0 0 0.25rem 0; }
+        .b-card-header p { font-size: 0.875rem; color: #6B7280; margin: 0 0 2rem 0; }
+        
+        .gender-group {
+            display: flex; gap: 1rem;
+        }
+        .gender-btn {
+            flex: 1; padding: 0.75rem;
+            text-align: center; border-radius: 8px;
+            border: 1px solid #E5E7EB; color: #6B7280;
+            font-weight: 600; cursor: pointer; transition: all 0.2s;
+            background: white; font-size: 0.875rem;
+        }
+        .gender-btn.active {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: #FFF7ED;
+        }
+
+        .user-main-content .form-group label {
+            font-size: 0.75rem; font-weight: 700; color: #374151;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            margin-bottom: 0.5rem; display: block;
+        }
+        .user-main-content .input-with-icon .form-control {
+            background: #F8FAFC; border: 1px solid #E2E8F0; color: #111827;
+        }
+        .user-main-content .input-with-icon svg { color: #9CA3AF; }
+    </style>
+</head>
+<body>
+    <div class="user-dash-layout">
+        <!-- Sidebar -->
+        <aside class="user-sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <div class="icon"><svg style="color: white; width: 18px; height: 18px;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></div>
+                    <div class="text">CLICK<span style="color:var(--primary);">2</span>BOOK</div>
+                </div>
+                <svg style="color: white; cursor: pointer;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </div>
+            
+            <div class="sidebar-profile">
+                <div class="avatar">RS</div>
+                <div class="info">
+                    <h4>Customer Profile</h4>
+                    <p>Premium Member</p>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="search-trains.html" class="nav-link nav-item active">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg> Search Trips
+                </a>
+                <a href="my-bookings.html" class="nav-link nav-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> My Bookings
+                </a>
+                <a href="cancel-ticket.html" class="nav-link nav-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Cancel Ticket
+                </a>
+                <a href="get-support.html" class="nav-link nav-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg> Get Support
+                </a>
+                <a href="my-profile.html" class="nav-link nav-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> My Profile
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <a href="login train.html" class="nav-link nav-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Logout
+                </a>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <div class="user-main-content">
+            <div class="top-header">
+                <div class="page-titles">
+                    <h1>Passenger Details</h1>
+                    <p>Welcome back, Rahul!</p>
+                </div>
+                <div class="notification-bell">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                </div>
+            </div>
+            
+            <div class="dashboard-wrapper">
+                
+                <div style="position: relative; max-width: 800px; margin: 0 auto;">
+                    <a href="book-train-tickets.html" class="back-btn-top">
+                        <svg style="width: 14px; height: 14px;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Back
+                    </a>
+                    
+                    <div class="stepper-container">
+                        <div class="step-item">
+                            <div class="step-circle completed"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            <div class="step-label completed">Select Bus</div>
+                        </div>
+                        <div class="step-line completed"></div>
+                        <div class="step-item">
+                            <div class="step-circle completed"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            <div class="step-label completed">Choose Seat</div>
+                        </div>
+                        <div class="step-line border"></div>
+                        <div class="step-item">
+                            <div class="step-circle active">3</div>
+                            <div class="step-label active">Passenger Info</div>
+                        </div>
+                        <div class="step-line border"></div>
+                        <div class="step-item">
+                            <div class="step-circle">4</div>
+                            <div class="step-label">Payment</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="booking-form-card">
+                    <div class="b-card-header">
+                        <h2>Passenger Details</h2>
+                        <p>Enter traveler information</p>
+                    </div>
+                    
+                    <form id="passengerForm" novalidate>
+
+                        <!-- Inline error banner -->
+                        <div id="paxError" style="display:none; background:#fff1f2; border:1px solid #fecaca; border-radius:10px; padding:10px 16px; margin-bottom:18px; font-size:.82rem; color:#ef4444; font-weight:600; align-items:center; gap:8px;">
+                            <svg style="width:14px;height:14px;flex-shrink:0;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            <span id="paxErrorText"></span>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label>FULL NAME</label>
+                            <div class="input-with-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                <input type="text" id="paxName" class="form-control" placeholder="Enter full name" autocomplete="name">
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label>AGE</label>
+                            <div class="input-with-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                <input type="number" id="paxAge" class="form-control" placeholder="Enter age (1–120)" min="1" max="120">
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label>EMAIL ADDRESS</label>
+                            <div class="input-with-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                                <input type="email" id="paxEmail" class="form-control" placeholder="email@example.com" autocomplete="email">
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label>PHONE NUMBER</label>
+                            <div class="input-with-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.56 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                                <input type="tel" id="paxPhone" class="form-control" placeholder="+91 XXXXXXXXXX" autocomplete="tel">
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 2.5rem;">
+                            <label>GENDER</label>
+                            <div class="gender-group" id="genderGroup">
+                                <div class="gender-btn active" data-gender="Male">Male</div>
+                                <div class="gender-btn" data-gender="Female">Female</div>
+                                <div class="gender-btn" data-gender="Other">Other</div>
+                            </div>
+                            <!-- Hidden field tracks selected gender -->
+                            <input type="hidden" id="paxGender" value="Male">
+                        </div>
+
+                        <button type="submit" id="paxSubmitBtn" class="btn-primary" style="width: 100%; justify-content: center; padding: 1rem; border-radius: 8px;">
+                            Proceed to Payment
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                        </button>
+                    </form>
+
+                    <script>
+                        /* ── Gender toggle ── */
+                        document.querySelectorAll('#genderGroup .gender-btn').forEach(function(btn) {
+                            btn.addEventListener('click', function() {
+                                document.querySelectorAll('#genderGroup .gender-btn').forEach(function(b){ b.classList.remove('active'); });
+                                btn.classList.add('active');
+                                document.getElementById('paxGender').value = btn.dataset.gender;
+                            });
+                        });
+
+                        /* ── Validation helpers ── */
+                        function showPaxError(msg) {
+                            var el  = document.getElementById('paxError');
+                            var txt = document.getElementById('paxErrorText');
+                            txt.textContent = msg;
+                            el.style.display = 'flex';
+                            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
+                        function hidePaxError() {
+                            document.getElementById('paxError').style.display = 'none';
+                        }
+
+                        /* ── Pre-fill from session if returning ── */
+                        (function prefill() {
+                            var n = sessionStorage.getItem('trainPassengerName');
+                            var a = sessionStorage.getItem('trainPassengerAge');
+                            var e = sessionStorage.getItem('trainPassengerEmail');
+                            var p = sessionStorage.getItem('trainPassengerPhone');
+                            var g = sessionStorage.getItem('trainPassengerGender');
+                            if (n) document.getElementById('paxName').value  = n;
+                            if (a) document.getElementById('paxAge').value   = a;
+                            if (e) document.getElementById('paxEmail').value = e;
+                            if (p) document.getElementById('paxPhone').value = p;
+                            if (g) {
+                                document.getElementById('paxGender').value = g;
+                                document.querySelectorAll('#genderGroup .gender-btn').forEach(function(b){
+                                    b.classList.toggle('active', b.dataset.gender === g);
+                                });
+                            }
+                        })();
+
+                        /* ── Form submit validation ── */
+                        document.getElementById('passengerForm').addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            hidePaxError();
+
+                            var name   = document.getElementById('paxName').value.trim();
+                            var age    = document.getElementById('paxAge').value.trim();
+                            var email  = document.getElementById('paxEmail').value.trim();
+                            var phone  = document.getElementById('paxPhone').value.trim();
+                            var gender = document.getElementById('paxGender').value;
+
+                            /* Name */
+                            if (!name) {
+                                showPaxError('Please enter the passenger\'s full name.');
+                                document.getElementById('paxName').focus();
+                                return;
+                            }
+                            if (name.length < 2) {
+                                showPaxError('Name must be at least 2 characters.');
+                                return;
+                            }
+
+                            /* Age */
+                            if (!age) {
+                                showPaxError('Please enter the passenger\'s age.');
+                                document.getElementById('paxAge').focus();
+                                return;
+                            }
+                            var ageNum = parseInt(age, 10);
+                            if (isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
+                                showPaxError('Age must be a valid number between 1 and 120.');
+                                document.getElementById('paxAge').focus();
+                                return;
+                            }
+
+                            /* Email */
+                            if (!email) {
+                                showPaxError('Please enter an email address.');
+                                document.getElementById('paxEmail').focus();
+                                return;
+                            }
+                            var emailRe = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+                            if (!emailRe.test(email)) {
+                                showPaxError('Please enter a valid email address (e.g. user@example.com).');
+                                document.getElementById('paxEmail').focus();
+                                return;
+                            }
+
+                            /* Phone */
+                            if (!phone) {
+                                showPaxError('Please enter a phone number.');
+                                document.getElementById('paxPhone').focus();
+                                return;
+                            }
+                            var digits = phone.replace(/[\s\-\+\(\)]/g, '');
+                            if (!/^\d{10}$/.test(digits)) {
+                                showPaxError('Phone number must be exactly 10 digits (e.g. 9876543210).');
+                                document.getElementById('paxPhone').focus();
+                                return;
+                            }
+
+                            /* Gender */
+                            if (!gender) {
+                                showPaxError('Please select a gender.');
+                                return;
+                            }
+
+                            /* ── All valid: save to sessionStorage and navigate ── */
+                            sessionStorage.setItem('trainPassengerName',   name);
+                            sessionStorage.setItem('trainPassengerAge',    ageNum);
+                            sessionStorage.setItem('trainPassengerEmail',  email);
+                            sessionStorage.setItem('trainPassengerPhone',  phone);
+                            sessionStorage.setItem('trainPassengerGender', gender);
+                            /* Also set the key used by irctc-auth page */
+                            sessionStorage.setItem('trainPassenger', name + ' (Age ' + ageNum + ', ' + gender + ')');
+
+                            /* Visual feedback then navigate */
+                            var btn = document.getElementById('paxSubmitBtn');
+                            btn.textContent = 'Saving…';
+                            btn.disabled = true;
+                            setTimeout(function() {
+                                window.location.href = 'train-payment.html';
+                            }, 300);
+                        });
+                    </script>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+    
+    
+</body>
+</html>

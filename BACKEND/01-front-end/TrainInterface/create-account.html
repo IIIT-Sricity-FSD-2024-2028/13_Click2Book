@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account | Click2Book</title>
+    
+    <link rel="stylesheet" href="user-styles.css">
+</head>
+<body>
+    <div class="split-layout">
+        <!-- LEFT PANEL -->
+        <div class="split-left">
+            <a href="../landing-page/index.html" class="home-btn">
+                <svg style="width: 16px; height: 16px;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg> Home
+            </a>
+            
+            <div class="auth-hero">
+                <div class="auth-logo">
+                    <div class="logo-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>CLICK2BOOK</h1>
+                        <p>Join Our Community</p>
+                    </div>
+                </div>
+                
+                <h2>Start Your Journey Today</h2>
+                <p>Join thousands of travelers who trust CLICK2BOOK for seamless bus and train bookings.</p>
+                
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                        <span>Instant Booking Confirmation</span>
+                    </div>
+                    <div class="feature-item">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        <span>Secure Payment Gateway</span>
+                    </div>
+                    <div class="feature-item">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+                        <span>24/7 Customer Support</span>
+                    </div>
+                    <div class="feature-item">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
+                        <span>Exclusive Offers & Discounts</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- RIGHT PANEL (FORM) -->
+        <div class="split-right">
+            <div class="form-container">
+                <div class="form-header">
+                    <h2>Create Account 🚀</h2>
+                    <p>Join CLICK2BOOK and start traveling smarter</p>
+                </div>
+                
+                <form id="createAccountForm" onsubmit="handleCreate(event)">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <div class="input-with-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            <input type="text" class="form-control" placeholder="John Doe" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <div class="input-with-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                            <input type="email" class="form-control" placeholder="you@example.com" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Phone Number</label>
+                        <div class="input-with-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.56 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                            <input type="tel" class="form-control" placeholder="9876543210" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Password</label>
+                        <div class="input-with-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                            <input type="password" class="form-control" placeholder="••••••••" required>
+                            <svg class="toggle-password" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Confirm Password</label>
+                        <div class="input-with-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                            <input type="password" class="form-control" placeholder="••••••••" required>
+                            <svg class="toggle-password" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </div>
+                    </div>
+                    
+                    <p class="terms-text">
+                        I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+                    </p>
+                    
+                    <button type="submit" class="btn-primary">
+                        Create My Account <svg style="width: 18px; height: 18px;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </button>
+                    
+                    <p class="auth-footer">
+                        Already have an account? <a href="login train.html">Sign In</a>
+                    </p>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Inject error container above submit button
+        document.querySelector('#createAccountForm .btn-primary').insertAdjacentHTML('beforebegin',
+            '<div id="trainCreateErr" style="display:none;background:#fff1f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;font-size:.82rem;color:#ef4444;font-weight:600;margin-bottom:12px;"></div>'
+        );
+
+        function handleCreate(e) {
+            e.preventDefault();
+            const inputs  = document.querySelectorAll('#createAccountForm .form-control');
+            const name    = inputs[0] ? inputs[0].value.trim() : '';
+            const email   = inputs[1] ? inputs[1].value.trim() : '';
+            const phone   = inputs[2] ? inputs[2].value.trim() : '';
+            const pass    = inputs[3] ? inputs[3].value        : '';
+            const confirm = inputs[4] ? inputs[4].value        : '';
+            const errEl   = document.getElementById('trainCreateErr');
+
+            function showErr(msg) {
+                errEl.textContent = '⚠️ ' + msg;
+                errEl.style.display = 'block';
+                errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            errEl.style.display = 'none';
+
+            // Name: required, no numbers
+            if (!name) { showErr('Please enter your full name.'); return; }
+            if (/\d/.test(name)) { showErr('Name must not contain numbers. Please enter a valid name.'); return; }
+            if (!/^[a-zA-Z\s\'.\,-]+$/.test(name)) { showErr('Name must contain only letters and spaces.'); return; }
+            if (name.length < 2) { showErr('Name must be at least 2 characters.'); return; }
+
+            // Email: proper format
+            if (!email) { showErr('Please enter your email address.'); return; }
+            const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+            if (!emailRegex.test(email)) { showErr('Please enter a valid email address (e.g. you@example.com).'); return; }
+
+            // Phone: 10 digits, not all same
+            if (!phone) { showErr('Please enter your phone number.'); return; }
+            const phoneDigits = phone.replace(/[\s\-\+\(\)]/g, '');
+            if (!/^\d{10,13}$/.test(phoneDigits)) { showErr('Please enter a valid phone number (10-13 digits).'); return; }
+            if (/^(\d)\1+$/.test(phoneDigits)) { showErr('Phone number cannot be all the same digit (e.g. 9999999999). Please enter a valid number.'); return; }
+
+            // Password
+            if (!pass) { showErr('Please enter a password.'); return; }
+            if (pass.length < 6) { showErr('Password must be at least 6 characters.'); return; }
+
+            // Confirm password
+            if (!confirm) { showErr('Please confirm your password.'); return; }
+            if (pass !== confirm) { showErr('Passwords do not match. Please re-enter your password.'); return; }
+
+            // All valid — mark as logged in
+            sessionStorage.setItem('trainLoggedIn', 'true');
+            const returnPage = sessionStorage.getItem('trainReturnPage') || 'train-search.html';
+            sessionStorage.removeItem('trainReturnPage');
+            window.location.href = returnPage;
+        }
+    </script>
+</body>
+</html>

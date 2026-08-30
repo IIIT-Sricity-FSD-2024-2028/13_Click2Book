@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lost &amp; Found – Click2Book</title>
+  <meta name="description" content="Report a lost item or track a lost &amp; found report on Click2Book." />
+
+  <link rel="stylesheet" href="common.css" />
+  <style>
+    .lf-grid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 980px) {
+      .lf-grid { grid-template-columns: 1fr; }
+    }
+
+    .lf-card {
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .lf-card h3 {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 14px;
+    }
+
+    .lf-field { margin-bottom: 14px; }
+
+    .lf-field label {
+      display: block;
+      font-size: .78rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .lf-field select,
+    .lf-field input,
+    .lf-field textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: .85rem;
+      color: var(--text-main);
+      outline: none;
+      transition: border-color .2s;
+      background: var(--white);
+    }
+
+    .lf-field select:focus,
+    .lf-field input:focus,
+    .lf-field textarea:focus {
+      border-color: var(--primary);
+    }
+
+    .lf-field textarea { resize: vertical; min-height: 70px; }
+
+    .lf-submit {
+      width: 100%;
+      margin-top: 4px;
+    }
+
+    .lf-report {
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .lf-report-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .lf-report-desc { font-size: .9rem; font-weight: 600; color: var(--text-main); }
+    .lf-report-meta { font-size: .76rem; color: var(--text-muted); margin-top: 4px; }
+    .lf-report-note { font-size: .78rem; color: var(--text-muted); margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+
+    .lf-status {
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: .5px;
+      padding: 3px 10px;
+      border-radius: 50px;
+      flex-shrink: 0;
+    }
+
+    .lf-status-REPORTED { background: #eff6ff; color: #2563eb; }
+    .lf-status-FOUND     { background: #fff7ed; color: #c2410c; }
+    .lf-status-RETURNED  { background: #d1fae5; color: #059669; }
+    .lf-status-CLOSED    { background: #f1f5f9; color: #64748b; }
+
+    .lf-empty {
+      text-align: center;
+      padding: 50px 20px;
+      color: var(--text-muted);
+      font-size: .88rem;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ═══════ SIDEBAR ═══════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <rect x="2" y="8" width="20" height="12" rx="3" fill="white" opacity=".9" />
+          <rect x="5" y="5" width="14" height="5" rx="2" fill="white" opacity=".6" />
+          <circle cx="6.5" cy="20" r="1.5" fill="#f97316" />
+          <circle cx="17.5" cy="20" r="1.5" fill="#f97316" />
+          <rect x="7" y="11" width="3" height="3" rx=".5" fill="#1e3a5f" opacity=".6" />
+          <rect x="11" y="11" width="3" height="3" rx=".5" fill="#1e3a5f" opacity=".6" />
+          <rect x="15" y="11" width="3" height="3" rx=".5" fill="#1e3a5f" opacity=".6" />
+        </svg>
+      </div>
+      <span class="logo-text">CLICK<span class="logo-accent">2</span>BOOK</span>
+    </div>
+
+    <div class="profile-card" onclick="window.location.href='my-profile.html'" style="cursor:pointer">
+      <div class="profile-avatar" id="lfAvatar">CU</div>
+      <div class="profile-info">
+        <p class="profile-name" id="lfSidebarName">CUSTOMER</p>
+        <p class="profile-badge">Premium Member</p>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="search-trips.html" class="nav-item">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg></span>
+        <span>Search Trips</span>
+      </a>
+      <a href="my-bookings.html" class="nav-item">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg></span>
+        <span>My Bookings</span>
+      </a>
+      <a href="cancel-ticket.html" class="nav-item">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" /></svg></span>
+        <span>Cancel Ticket</span>
+      </a>
+      <a href="offers.html" class="nav-item">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
+        <span>Offers</span>
+      </a>
+      <a href="get-support.html" class="nav-item">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6" /><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z" /><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" /></svg></span>
+        <span>Get Support</span>
+      </a>
+      <a href="lost-found.html" class="nav-item active">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
+        <span>Lost &amp; Found</span>
+      </a>
+      <a href="my-profile.html" class="nav-item">
+        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg></span>
+        <span>My Profile</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a href="#" class="logout-btn" id="logoutBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+        <span>Logout</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- ═══════ MAIN ═══════ -->
+  <main class="main-content">
+    <header class="top-header">
+      <div class="header-left">
+        <h2 class="header-title">Lost &amp; Found</h2>
+        <p class="header-subtitle">Report an item left on a trip, or check an existing report</p>
+      </div>
+    </header>
+
+    <div class="page-body fade-up">
+      <h1 class="page-heading">Lost &amp; Found</h1>
+      <p class="page-subhead">Left something on the bus? Let the operator know.</p>
+
+      <div class="lf-grid">
+        <div class="lf-card">
+          <h3>Report a lost item</h3>
+          <form id="lfForm">
+            <div class="lf-field">
+              <label for="lfTrip">Which trip?</label>
+              <select id="lfTrip" required>
+                <option value="">Loading your bookings…</option>
+              </select>
+            </div>
+            <div class="lf-field">
+              <label for="lfDesc">Item description</label>
+              <textarea id="lfDesc" placeholder="e.g. Black backpack with a laptop, left near seat 12" required minlength="3" maxlength="500"></textarea>
+            </div>
+            <div class="lf-field">
+              <label for="lfCategory">Category</label>
+              <select id="lfCategory">
+                <option value="Bag">Bag / Backpack</option>
+                <option value="Electronics">Electronics</option>
+                <option value="Documents">Documents / Wallet</option>
+                <option value="Clothing">Clothing</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="lf-field">
+              <label for="lfDate">Date lost</label>
+              <input type="date" id="lfDate" required />
+            </div>
+            <div class="lf-field">
+              <label for="lfPhone">Contact phone</label>
+              <input type="tel" id="lfPhone" placeholder="9876543210" required pattern="[0-9]{10}" />
+            </div>
+            <button type="submit" class="btn-orange lf-submit">Submit Report</button>
+          </form>
+        </div>
+
+        <div>
+          <h3 style="font-size:1rem;font-weight:800;color:var(--text-main);margin-bottom:14px;">Your reports</h3>
+          <div id="lfReportsList"></div>
+          <div class="lf-empty" id="lfEmpty" style="display:none;">You haven't reported any lost items yet.</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="api.js"></script>
+  <script src="auth.js"></script>
+  <script>
+    let _myBookings = [];
+
+    function showToast(message, type) {
+      document.querySelectorAll('.c2b-toast').forEach(t => t.remove());
+      const toast = document.createElement('div');
+      toast.className = 'c2b-toast c2b-toast-' + type;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; });
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(12px)';
+        setTimeout(() => toast.remove(), 400);
+      }, 3000);
+    }
+
+    function statusClass(s) { return 'lf-status lf-status-' + s; }
+
+    function renderReport(r) {
+      return `
+        <div class="lf-report">
+          <div class="lf-report-top">
+            <span class="lf-report-desc">${r.itemDescription}</span>
+            <span class="${statusClass(r.status)}">${r.status}</span>
+          </div>
+          <div class="lf-report-meta">Trip ${r.tripId} · Lost on ${r.dateLost} · ${r.category || 'Item'}</div>
+          ${r.foundNote ? `<div class="lf-report-note">📝 ${r.foundNote}</div>` : ''}
+        </div>`;
+    }
+
+    async function loadReports() {
+      const list = document.getElementById('lfReportsList');
+      const empty = document.getElementById('lfEmpty');
+      try {
+        const reports = await API.lostFound.getMine();
+        if (!reports.length) {
+          list.innerHTML = '';
+          empty.style.display = 'block';
+          return;
+        }
+        empty.style.display = 'none';
+        list.innerHTML = reports.slice().reverse().map(renderReport).join('');
+      } catch (e) {
+        list.innerHTML = '';
+        empty.textContent = 'Could not load your reports — backend may be offline.';
+        empty.style.display = 'block';
+      }
+    }
+
+    async function loadBookingOptions() {
+      const select = document.getElementById('lfTrip');
+      try {
+        _myBookings = await API.bookings.getMine();
+        if (!_myBookings.length) {
+          select.innerHTML = '<option value="">No bookings found on your account</option>';
+          return;
+        }
+        select.innerHTML = _myBookings.map(b =>
+          `<option value="${b.bookingId}">${b.bookingId} — Trip ${b.tripId} (Seat ${b.seatNumber}, ${b.bookingStatus})</option>`
+        ).join('');
+      } catch (e) {
+        select.innerHTML = '<option value="">Could not load bookings — backend may be offline</option>';
+      }
+    }
+
+    document.getElementById('lfForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const bookingId = document.getElementById('lfTrip').value;
+      const booking = _myBookings.find(b => b.bookingId === bookingId);
+      if (!booking) { showToast('❌ Select a valid trip first.', 'error'); return; }
+
+      const itemDescription = document.getElementById('lfDesc').value.trim();
+      const category = document.getElementById('lfCategory').value;
+      const dateLost = document.getElementById('lfDate').value;
+      const contactPhone = document.getElementById('lfPhone').value.trim();
+
+      try {
+        await API.lostFound.report(booking.tripId, booking.bookingId, itemDescription, category, dateLost, contactPhone);
+        showToast('✅ Report submitted — the operator will follow up.', 'success');
+        document.getElementById('lfForm').reset();
+        loadReports();
+      } catch (err) {
+        showToast('❌ ' + err.message, 'error');
+      }
+    });
+
+    (function setSidebarIdentity() {
+      const name = sessionStorage.getItem('c2b_userName') || localStorage.getItem('c2b_userName') || 'Customer';
+      const ini = name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'CU';
+      const av = document.getElementById('lfAvatar');
+      const sn = document.getElementById('lfSidebarName');
+      if (av) av.textContent = ini;
+      if (sn) sn.textContent = name.toUpperCase();
+    })();
+
+    document.getElementById('logoutBtn').addEventListener('click', e => {
+      e.preventDefault();
+      if (confirm('Are you sure you want to logout?')) {
+        showToast('👋 Logged out successfully!', 'success');
+        setTimeout(() => { window.location.href = '../landing-page/login.html'; }, 1500);
+      }
+    });
+
+    loadBookingOptions();
+    loadReports();
+  </script>
+</body>
+
+</html>

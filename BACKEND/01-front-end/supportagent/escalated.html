@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Escalated Issues â€“ Click2Book</title>
+  
+  
+  <style>
+/* ============================================================
+   Click2Book – Support Agent Shared Stylesheet
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy:    #0D1B2A;
+  --purple:  #7C3AED;
+  --orange:  #F97316;
+  --white:   #FFFFFF;
+  --bg:      #F4F6FA;
+  --border:  #E8ECF2;
+  --text:    #1a1a2e;
+  --muted:   #6b7280;
+  --radius:  12px;
+  --shadow:  0 2px 16px rgba(0,0,0,.07);
+  --sidebar: 220px;
+}
+html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif, system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+a { text-decoration: none; color: inherit; }
+button { cursor: pointer; border: none; background: none; font-family: inherit; }
+
+/* ── LAYOUT ─────────────────────────────────────────────── */
+.layout { display: flex; height: 100vh; overflow: hidden; }
+
+/* ── SIDEBAR ─────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar);
+  background: var(--navy);
+  display: flex; flex-direction: column; flex-shrink: 0;
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 12px;
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.brand-icon {
+  width: 40px; height: 40px;
+  background: linear-gradient(135deg, var(--purple), #9d5cf0);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; font-weight: 800; color: #fff; flex-shrink: 0;
+}
+.brand-title { font-size: .82rem; font-weight: 700; color: #fff; }
+.brand-sub   { font-size: .68rem; color: rgba(255,255,255,.45); }
+
+.agent-profile {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.agent-avatar {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, #7C3AED, #9d5cf0);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .78rem; font-weight: 700; color: #fff;
+  flex-shrink: 0; position: relative;
+}
+.agent-avatar::after {
+  content: '';
+  position: absolute; bottom: 1px; right: 1px;
+  width: 9px; height: 9px;
+  background: #22c55e; border-radius: 50%; border: 2px solid var(--navy);
+}
+.agent-name   { font-size: .82rem; font-weight: 600; color: #fff; }
+.agent-status { font-size: .68rem; color: #22c55e; font-weight: 500; }
+
+.sidebar-nav { flex: 1; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 9px;
+  font-size: .82rem; font-weight: 500; color: rgba(255,255,255,.55);
+  transition: all .18s; cursor: pointer;
+}
+.nav-item:hover  { background: rgba(255,255,255,.06); color: rgba(255,255,255,.9); }
+.nav-item.active {
+  background: linear-gradient(90deg, rgba(124,58,237,.35), rgba(124,58,237,.1));
+  color: #fff; border-left: 3px solid var(--purple);
+}
+.nav-item svg { flex-shrink: 0; opacity: .75; }
+.nav-item.active svg { opacity: 1; }
+.nav-badge {
+  margin-left: auto; background: var(--orange); color: #fff;
+  font-size: .62rem; font-weight: 700; min-width: 18px; height: 18px;
+  border-radius: 9px; display: flex; align-items: center; justify-content: center;
+  padding: 0 5px;
+}
+.sidebar-bottom {
+  padding: 10px 10px 16px;
+  border-top: 1px solid rgba(255,255,255,.06);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.nav-item.danger { color: #f87171; }
+.nav-item.danger:hover { background: rgba(248,113,113,.08); color: #f87171; }
+
+/* ── MAIN ───────────────────────────────────────────────── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar {
+  background: var(--white); border-bottom: 1px solid var(--border);
+  padding: 14px 28px; display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.topbar-left h1 { font-size: 1.2rem; font-weight: 700; color: var(--text); }
+.topbar-left p  { font-size: .75rem; color: var(--muted); margin-top: 2px; }
+.topbar-right   { display: flex; align-items: center; gap: 14px; }
+.notif-btn {
+  width: 36px; height: 36px; border-radius: 50%; background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; cursor: pointer; border: 1px solid var(--border);
+}
+.notif-dot {
+  position: absolute; top: 6px; right: 6px;
+  width: 8px; height: 8px; background: var(--orange);
+  border-radius: 50%; border: 1.5px solid white;
+}
+.topbar-avatar {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, #7C3AED, #9d5cf0);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: .73rem; font-weight: 700; color: #fff; cursor: pointer;
+}
+.content { flex: 1; overflow-y: auto; padding: 24px 28px; }
+
+/* ── STAT CARDS ─────────────────────────────────────────── */
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px 22px 18px;
+  position: relative; box-shadow: var(--shadow);
+}
+.stat-trend { position: absolute; top: 16px; right: 16px; font-size: .7rem; font-weight: 600; color: #22c55e; }
+.stat-icon  { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+.stat-icon.orange { background: #fff4ec; }
+.stat-icon.blue   { background: #eff6ff; }
+.stat-icon.green  { background: #f0fdf4; }
+.stat-icon.red    { background: #fff1f2; }
+.stat-value { font-size: 1.8rem; font-weight: 700; color: var(--text); line-height: 1; }
+.stat-label { font-size: .75rem; color: var(--muted); margin-top: 6px; font-weight: 500; }
+
+/* ── TABLE CARD ─────────────────────────────────────────── */
+.table-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.table-header { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.table-header h2 { font-size: .95rem; font-weight: 700; }
+.btn-view-all {
+  font-size: .75rem; font-weight: 600; color: var(--purple);
+  padding: 6px 12px; border-radius: 7px;
+  background: rgba(124,58,237,.07); cursor: pointer; transition: background .18s;
+}
+.btn-view-all:hover { background: rgba(124,58,237,.15); }
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  padding: 11px 16px; text-align: left;
+  font-size: .68rem; font-weight: 700; color: var(--muted);
+  letter-spacing: .06em; text-transform: uppercase;
+  border-bottom: 1px solid var(--border); background: #fafbfc;
+}
+tbody tr { transition: background .12s; }
+tbody tr:hover { background: #fafafe; }
+tbody tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+tbody td { padding: 13px 16px; font-size: .82rem; vertical-align: middle; }
+.ticket-id    { color: var(--purple); font-weight: 600; cursor: pointer; }
+.ticket-id:hover { text-decoration: underline; }
+.customer-name { color: #2563eb; font-weight: 500; }
+.empty-row td  { text-align: center; padding: 32px; color: var(--muted); }
+
+/* ── BADGES ─────────────────────────────────────────────── */
+.badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: .7rem; font-weight: 700; }
+.badge-high       { background: #fee2e2; color: #dc2626; }
+.badge-medium     { background: #fff7ed; color: #c2410c; }
+.badge-low        { background: #f0fdf4; color: #16a34a; }
+.badge-open       { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+.badge-inprogress { background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }
+.badge-resolved   { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+.badge-escalated  { background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; }
+
+/* ── ACTION BUTTONS ─────────────────────────────────────── */
+.btn-resolve {
+  font-size: .73rem; font-weight: 600; color: #7c3aed;
+  padding: 4px 10px; border-radius: 6px;
+  background: rgba(124,58,237,.08); cursor: pointer; border: none; font-family: inherit;
+}
+.btn-deescalate {
+  font-size: .73rem; font-weight: 600; color: #e11d48;
+  padding: 4px 10px; border-radius: 6px;
+  background: rgba(225,29,72,.08); cursor: pointer; border: none; font-family: inherit;
+}
+.btn-resolve:hover    { background: rgba(124,58,237,.18); }
+.btn-deescalate:hover { background: rgba(225,29,72,.15); }
+
+/* ── FILTER BAR ─────────────────────────────────────────── */
+.page-heading { font-size: 1.05rem; font-weight: 700; margin-bottom: 18px; }
+.filter-bar   { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+.filter-select {
+  padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-family: inherit; font-size: .78rem; color: var(--text);
+  background: var(--white); cursor: pointer; outline: none;
+}
+.search-input {
+  flex: 1; min-width: 200px;
+  padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px;
+  font-family: inherit; font-size: .78rem; outline: none;
+}
+.search-input:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(124,58,237,.1); }
+
+/* ── TOAST ──────────────────────────────────────────────── */
+#toast-container {
+  position: fixed; bottom: 24px; right: 24px;
+  display: flex; flex-direction: column; gap: 10px;
+  z-index: 9999; pointer-events: none;
+}
+@keyframes toastIn  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+@keyframes toastOut { from { opacity:1; } to { opacity:0; } }
+
+/* ── RESPONSIVE ─────────────────────────────────────────── */
+@media (max-width: 1000px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px)  { .sidebar { display: none; } .stats-row { grid-template-columns: 1fr 1fr; } }
+
+/* ── NOTIFICATION POPUP ──────────────────────────────────── */
+.notif-overlay { display: none; position: fixed; inset: 0; z-index: 900; }
+.notif-panel {
+  position: fixed; top: 64px; right: 24px; width: 360px;
+  background: white; border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  border: 1px solid #E2E8F0; z-index: 1000; overflow: hidden;
+  animation: notifSlideDown 0.25s ease;
+}
+@keyframes notifSlideDown { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
+.notif-panel-header { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; border-bottom:1px solid #F1F5F9; background:#FAFAFA; }
+.notif-panel-header h3 { font-size:0.95rem; font-weight:700; color:#111827; margin:0; }
+.notif-count-badge { background:#7C3AED; color:white; font-size:0.7rem; font-weight:700; padding:2px 7px; border-radius:12px; }
+.notif-close-btn { background:none; border:none; cursor:pointer; color:#9CA3AF; padding:4px; border-radius:6px; display:flex; align-items:center; }
+.notif-close-btn:hover { background:#F3F4F6; color:#374151; }
+.notif-list { max-height:340px; overflow-y:auto; }
+.notif-item { display:flex; align-items:flex-start; gap:0.875rem; padding:1rem 1.25rem; border-bottom:1px solid #F8FAFC; transition:background 0.15s; cursor:pointer; }
+.notif-item:hover { background:#F8FAFC; }
+.notif-item.unread { background:#FAF5FF; }
+.notif-item.unread:hover { background:#F3E8FF; }
+.notif-icon-wrap { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.notif-icon-wrap.success { background:#DCFCE7; color:#16A34A; }
+.notif-icon-wrap.info    { background:#DBEAFE; color:#3B82F6; }
+.notif-icon-wrap.warn    { background:#FEF3C7; color:#D97706; }
+.notif-icon-wrap.urgent  { background:#FFE4E6; color:#E11D48; }
+.notif-icon-wrap svg { width:16px; height:16px; }
+.notif-text h4 { font-size:0.8rem; font-weight:700; color:#111827; margin:0 0 0.2rem 0; }
+.notif-text p  { font-size:0.75rem; color:#6B7280; margin:0 0 0.2rem 0; line-height:1.4; }
+.notif-text time { font-size:0.7rem; color:#9CA3AF; }
+.notif-panel-footer { padding:0.75rem 1.25rem; text-align:center; border-top:1px solid #F1F5F9; background:#FAFAFA; }
+.notif-panel-footer a { font-size:0.8rem; font-weight:600; color:#7C3AED; text-decoration:none; }
+.notif-btn { position:relative; cursor:pointer; }
+.notif-count-dot {
+  position:absolute; top:-4px; right:-4px; width:16px; height:16px;
+  background:#E11D48; color:white; font-size:0.6rem; font-weight:700;
+  border-radius:50%; display:flex; align-items:center; justify-content:center;
+  border:2px solid white;
+}
+
+</style>
+</head>
+<body>
+<script>document.addEventListener('DOMContentLoaded',function(){var p=location.pathname.split('/supportagent')[0];document.querySelectorAll('a[href^="/supportagent/"]').forEach(function(a){a.href=p+a.getAttribute('href');});});</script>
+<!-- Notification Popup -->
+<div class="notif-overlay" id="notifOverlay" onclick="closeNotif()"></div>
+<div class="notif-panel" id="notifPanel" style="display:none;">
+  <div class="notif-panel-header">
+    <h3>Notifications <span class="notif-count-badge">4</span></h3>
+    <button class="notif-close-btn" onclick="closeNotif()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="notif-list">
+    <div class="notif-item unread"><div class="notif-icon-wrap urgent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="notif-text"><h4>New Escalated Ticket</h4><p>TKT006 â€“ Seat double booked on Rajdhani Express.</p><time>Just now</time></div></div>
+    <div class="notif-item unread"><div class="notif-icon-wrap warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="notif-text"><h4>SLA Breach Warning</h4><p>TKT001 has been open for 48 hours without resolution.</p><time>15 mins ago</time></div></div>
+    <div class="notif-item unread"><div class="notif-icon-wrap info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="notif-text"><h4>Customer Reply</h4><p>Rahul Sharma replied to ticket TKT001.</p><time>30 mins ago</time></div></div>
+    <div class="notif-item unread"><div class="notif-icon-wrap success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div class="notif-text"><h4>Ticket Resolved</h4><p>TKT003 marked as Resolved by Agent.</p><time>1 hour ago</time></div></div>
+  </div>
+  <div class="notif-panel-footer"><a href="#">View all notifications &rarr;</a></div>
+</div>
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">SP</div>
+      <div><div class="brand-title">Support Panel</div><div class="brand-sub">Click2Book</div></div>
+    </div>
+    <div class="agent-profile">
+      <div class="agent-avatar">SA</div>
+      <div><div class="agent-name">Support Agent</div><div class="agent-status">&#9679; Online</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="/supportagent/index.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+      <a class="nav-item" href="/supportagent/tickets.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Support Tickets
+        <span class="nav-badge">2</span>
+      </a>
+      <a class="nav-item active" href="/supportagent/escalated.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Escalated Issues
+      </a>
+    </nav>
+    <div class="sidebar-bottom">
+      <a class="nav-item" href="login.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Staff Portal
+      </a>
+      <a class="nav-item" href="#">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M4.93 4.93a10 10 0 0 0 14.14 14.14"/></svg>
+        Settings
+      </a>
+      <a class="nav-item danger" href="#" onclick="doLogout()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Logout
+      </a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Escalated Issues</h1>
+        <p>High-Priority Escalations Requiring Attention</p>
+      </div>
+      <div class="topbar-right">
+        <div class="notif-btn" id="bellBtn" onclick="toggleNotif()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <div class="notif-count-dot">4</div>
+        </div>
+        <div class="topbar-avatar">SA</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- Alert Banner -->
+      <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px;color:#9f1239;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div>
+          <strong style="font-size:.85rem">2 Active Escalations</strong>
+          <div style="font-size:.75rem;opacity:.8;margin-top:2px">These tickets require immediate attention and supervisor review.</div>
+        </div>
+      </div>
+
+      <div class="page-heading">Escalated Tickets</div>
+      <div class="table-card">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Customer</th><th>Subject</th><th>Priority</th><th>Status</th><th>Action</th></tr>
+          </thead>
+          <tbody id="escalated-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Resolved Escalations -->
+      <div style="margin-top:28px;">
+        <div class="page-heading">Recently Resolved Escalations</div>
+        <div class="table-card">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>Customer</th><th>Subject</th><th>Priority</th><th>Status</th><th>Resolved By</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="ticket-id">TKT011</span></td>
+                <td><span class="customer-name">Rohit Das</span></td>
+                <td>Payment deducted but ticket not issued</td>
+                <td><span class="badge badge-high">High</span></td>
+                <td><span class="badge badge-resolved">Resolved</span></td>
+                <td style="color:#6b7280;font-size:.8rem">Support Agent</td>
+              </tr>
+              <tr>
+                <td><span class="ticket-id">TKT012</span></td>
+                <td><span class="customer-name">Kavya Reddy</span></td>
+                <td>Bus cancelled without notification</td>
+                <td><span class="badge badge-high">High</span></td>
+                <td><span class="badge badge-resolved">Resolved</span></td>
+                <td style="color:#6b7280;font-size:.8rem">Support Agent</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast-container"></div>
+<script>
+const ESCALATED = [
+  { id:'TKT004', customer:'Meera Singh', subject:'Seat was different from what I selected', priority:'High', status:'Escalated' },
+  { id:'TKT008', customer:'Deepa Nair',  subject:'Wrong bus picked me up',                  priority:'High', status:'Escalated' },
+];
+
+function pBadge(p) {
+  const m = { High:'badge-high', Medium:'badge-medium', Low:'badge-low' };
+  return `<span class="badge ${m[p]||''}">${p}</span>`;
+}
+function sBadge(s) {
+  const m = { 'Open':'badge-open','In Progress':'badge-inprogress','Resolved':'badge-resolved','Escalated':'badge-escalated' };
+  return `<span class="badge ${m[s]||''}">${s}</span>`;
+}
+
+function renderEscalated() {
+  const tbody = document.getElementById('escalated-body');
+  const active = ESCALATED.filter(t => t.status === 'Escalated');
+  if (!active.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">&#10003; No active escalations. All clear!</td></tr>';
+    return;
+  }
+  tbody.innerHTML = active.map(t => `
+    <tr>
+      <td><span class="ticket-id">${t.id}</span></td>
+      <td><span class="customer-name">${t.customer}</span></td>
+      <td>${t.subject}</td>
+      <td>${pBadge(t.priority)}</td>
+      <td>${sBadge(t.status)}</td>
+      <td><button class="btn-deescalate" onclick="deescalate('${t.id}')">De-escalate</button></td>
+    </tr>`).join('');
+}
+
+function deescalate(id) {
+  const t = ESCALATED.find(x => x.id === id);
+  if (!t) return;
+  t.status = 'Resolved';
+  renderEscalated();
+  showToast(`Ticket ${id} has been de-escalated and resolved.`, 'success');
+}
+
+function doLogout() {
+  localStorage.removeItem('c2b_session');
+  localStorage.removeItem('c2b_state');
+  window.location.href = '../landing page/index.html';
+}
+
+function showToast(msg, type='info') {
+  const colors = { success:{bg:'#dcfce7',border:'#22c55e',text:'#15803d',icon:'&#10003;'}, info:{bg:'#eff6ff',border:'#3b82f6',text:'#1d4ed8',icon:'&#9432;'} };
+  const c = colors[type] || colors.info;
+  const t = document.createElement('div');
+  t.style.cssText = `background:${c.bg};border-left:3px solid ${c.border};color:${c.text};padding:11px 16px;border-radius:10px;font-size:.82rem;font-weight:500;box-shadow:0 4px 18px rgba(0,0,0,.12);display:flex;align-items:center;gap:10px;pointer-events:auto;max-width:300px;animation:toastIn .25s ease both;font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;`;
+  t.innerHTML = `<span>${c.icon}</span><span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(t);
+  setTimeout(() => { t.style.animation = 'toastOut .25s ease forwards'; setTimeout(() => t.remove(), 280); }, 3000);
+}
+
+/* Merge CRUD DB ESCALATED tickets with hardcoded array on load */
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    var dbRaw = DB.supportRequests.getAll();
+    var dbEsc = dbRaw
+      .filter(function(r){ return (r.status||'').toUpperCase() === 'ESCALATED'; })
+      .map(function(r) {
+        return {
+          id:       r.request_id || ('REQ'+Math.random().toString(36).substr(2,5).toUpperCase()),
+          customer: r.customer_id || 'Customer',
+          subject:  r.description || r.issue || r.subject || 'Escalated issue',
+          priority: r.priority || 'High',
+          status:   'Escalated'
+        };
+      });
+    /* Merge: DB first, then hardcoded ones not already in DB */
+    var dbIds = dbEsc.map(function(t){ return t.id; });
+    var extra = ESCALATED.filter(function(t){ return !dbIds.includes(t.id); });
+    var all = dbEsc.concat(extra);
+    ESCALATED.length = 0;
+    all.forEach(function(t){ ESCALATED.push(t); });
+  } catch(e) { console.warn('[Escalated] DB read failed:', e); }
+  renderEscalated();
+});
+
+function toggleNotif() {
+  var panel = document.getElementById('notifPanel');
+  var overlay = document.getElementById('notifOverlay');
+  var isOpen = panel.style.display === 'block';
+  panel.style.display = isOpen ? 'none' : 'block';
+  overlay.style.display = isOpen ? 'none' : 'block';
+}
+function closeNotif() {
+  document.getElementById('notifPanel').style.display = 'none';
+  document.getElementById('notifOverlay').style.display = 'none';
+}
+</script>
+
+  <!-- â•â•â• CRUD Engine (localStorage + Data Manager panel) â•â•â• -->
+  <script src="../crud functions/js/mock_data.js"></script>
+  <script src="../crud functions/js/script.js"></script>
+  <script src="../crud functions/js/ui-shared.js"></script>
+  <script src="../crud functions/js/ui-support.js"></script>
+  <script>
+    /* Remove the Super User toggle button on the Support Agent page only */
+    document.addEventListener('DOMContentLoaded', function () {
+      var btn = document.getElementById('c2b-toggle-btn');
+      if (btn) btn.remove();
+    });
+  </script>
+</body>
+</html>
+
+

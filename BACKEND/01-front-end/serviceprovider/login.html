@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Provider Login | Click2Book</title>
+    <link rel="stylesheet" href="styles.css">
+    
+    
+</head>
+
+<body>
+    <div class="provider-auth-layout">
+
+        <!-- Left Side: Login Form -->
+        <div class="provider-auth-left">
+            <a href="../landing-page/index.html" class="provider-home-btn">
+                <svg style="width: 16px; height: 16px;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg> Home
+            </a>
+
+            <div class="provider-form-wrapper">
+                <div class="provider-logo-container">
+                    <div class="provider-logo-icon">
+                        <svg style="color: white; fill: white; width: 24px; height: 24px;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                    </div>
+                    <div class="provider-logo-text">
+                        <div class="main-text">CLICK<span>2</span>BOOK</div>
+                        <div class="sub-text">PROVIDER ACCESS</div>
+                    </div>
+                </div>
+
+                <div class="provider-titles">
+                    <h1>Provider Login</h1>
+                    <p>Access your fleet management dashboard</p>
+                </div>
+
+                <div class="system-status-card">
+                    <div class="status-left">
+                        <span class="status-label">SYSTEM STATUS</span>
+                        <div class="status-message">
+                            <span class="status-dot"></span> All Systems Operational
+                        </div>
+                    </div>
+                    <div class="status-right">
+                        <div class="uptime-value">98%</div>
+                        <div class="uptime-label">Uptime</div>
+                    </div>
+                </div>
+
+                <div id="spErrMsg" style="display:none;background:#fff1f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:.79rem;color:#ef4444;font-weight:600;margin-bottom:14px;"></div>
+
+                <form class="provider-login-form" onsubmit="return doProviderLogin(event)">
+                    <div class="provider-form-group">
+                        <label for="email">Provider Email</label>
+                        <div class="provider-input-wrapper">
+                            <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                            <input type="email" id="email" placeholder="provider@company.com" required>
+                        </div>
+                    </div>
+
+                    <div class="provider-form-group">
+                        <label for="password">Password</label>
+                        <div class="provider-input-wrapper">
+                            <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                            <input type="password" id="password" placeholder="Enter your password" required>
+                            <svg class="toggle-password" onclick="toggleSPPass()" style="cursor:pointer;" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </div>
+                    </div>
+
+                    <div class="provider-form-options">
+                        <label class="provider-checkbox">
+                            <input type="checkbox" id="remember">
+                            <span>Remember me</span>
+                        </label>
+                        <a href="#" class="provider-forgot">Forgot Password?</a>
+                    </div>
+
+                    <button type="submit" class="provider-submit-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg> Access Provider Dashboard
+                    </button>
+                </form>
+
+                <script>
+                function showSPErr(msg) {
+                    var el = document.getElementById('spErrMsg');
+                    el.textContent = '⚠️ ' + msg;
+                    el.style.display = 'block';
+                }
+                function clearSPErr() {
+                    document.getElementById('spErrMsg').style.display = 'none';
+                }
+                function toggleSPPass() {
+                    var inp = document.getElementById('password');
+                    inp.type = inp.type === 'password' ? 'text' : 'password';
+                }
+                var _spHost = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'localhost' : location.hostname;
+                var SP_API = 'http://' + _spHost + ':3000/api';
+
+                async function doProviderLogin(e) {
+                    e.preventDefault();
+                    clearSPErr();
+                    var email = document.getElementById('email').value.trim();
+                    var pass  = document.getElementById('password').value;
+                    if (!email) { showSPErr('Please enter your provider email.'); return false; }
+                    var emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+                    if (!emailRegex.test(email)) { showSPErr('Please enter a valid email address (e.g. provider@company.com).'); return false; }
+                    if (!pass) { showSPErr('Please enter your password.'); return false; }
+                    if (pass.length < 6) { showSPErr('Password must be at least 6 characters.'); return false; }
+<<<<<<< HEAD:front-end/serviceprovider/login.html
+
+                    var btn = document.querySelector('.provider-submit-btn');
+                    if (btn) btn.disabled = true;
+
+                    try {
+                        var res = await fetch(SP_API + '/auth/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: email, password: pass }),
+                        });
+                        var json = await res.json();
+                        if (!res.ok || !json.success || json.data.role !== 'PROVIDER') {
+                            showSPErr(json.message || 'Invalid credentials. Contact admin if you need access.');
+                            if (btn) btn.disabled = false;
+                            return false;
+                        }
+                        var user = json.data;
+                        sessionStorage.setItem('c2b_loggedIn',  'true');
+                        sessionStorage.setItem('c2b_userName',  user.name);
+                        sessionStorage.setItem('c2b_userEmail', user.email);
+                        sessionStorage.setItem('c2b_loggedInId', user.id);
+                        sessionStorage.setItem('c2b_role', 'PROVIDER');
+                        window.location.href = 'dashboard.html';
+                        return false;
+                    } catch (err) {
+                        console.warn('Backend offline, falling back to known providers:', err.message);
+                    }
+
+                    /* ── Offline fallback — only used when the backend is unreachable ── */
+                    var providers = [
+                      { id:'P001', name:'APSRTC Travels',  email:'apsrtc@gmail.com',   password:'Apsrtc@123'  },
+                      { id:'P002', name:'KPN Tours',        email:'kpn@gmail.com',      password:'Kpn@123'     },
+                      { id:'P004', name:'SRS Travels',      email:'srs@gmail.com',      password:'Srs@123'     },
+                      { id:'P005', name:'VRL Travels',      email:'vrl@gmail.com',      password:'Vrl@123'     },
+                      { id:'P006', name:'Parveen Travels',  email:'parveen@gmail.com',  password:'Parveen@123' },
+                      { id:'P008', name:'Jabbar Travels',   email:'jabbar@gmail.com',   password:'Jabbar@123'  },
+                      { id:'P009', name:'Suresh Travels',   email:'suresh@gmail.com',   password:'Suresh@123'  },
+                      { id:'P010', name:'Ganesh Travels',   email:'ganesh@gmail.com',   password:'Ganesh@123'  },
+=======
+                    /* ── Known providers ── */
+                    var providers = [
+                      { id:'P001', name:'APSRTC',          email:'apsrtc@gmail.com',   password:'Apsrtc@123' },
+                      { id:'P002', name:'KSRTC',           email:'ksrtc@gmail.com',    password:'Ksrtc@123'  },
+                      { id:'P003', name:'Red Bus Travels', email:'redbus@gmail.com',   password:'Redbus@123' },
+                      { id:'P004', name:'Royal Express',   email:'royal@gmail.com',    password:'Royal@123'  },
+>>>>>>> origin/main:BACKEND/01-front-end/serviceprovider/login.html
+                    ];
+                    var matched = providers.find(function(u){
+                      return u.email.toLowerCase() === email.toLowerCase() && u.password === pass;
+                    });
+<<<<<<< HEAD:front-end/serviceprovider/login.html
+                    if (btn) btn.disabled = false;
+=======
+>>>>>>> origin/main:BACKEND/01-front-end/serviceprovider/login.html
+                    if (!matched) {
+                      showSPErr('Invalid credentials. Contact admin if you need access.');
+                      return false;
+                    }
+                    sessionStorage.setItem('c2b_loggedIn',  'true');
+                    sessionStorage.setItem('c2b_userName',  matched.name);
+                    sessionStorage.setItem('c2b_userEmail', matched.email);
+                    sessionStorage.setItem('c2b_loggedInId', matched.id);
+                    sessionStorage.setItem('c2b_role', 'PROVIDER');
+                    window.location.href = 'dashboard.html';
+                    return false;
+                }
+                document.addEventListener('keydown', function(e) { if (e.key === 'Enter') { doProviderLogin(e); } });
+                </script>
+
+                <div class="provider-footer-note">
+                    🚌 Powering seamless travel experiences across the network
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Info Panel -->
+        <div class="provider-auth-right">
+            <!-- Vertical decorative line -->
+            <div class="vertical-line"></div>
+
+            <div class="right-content-wrapper">
+                <div class="portal-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg> Service Provider Portal
+                </div>
+
+                <h1 class="right-heading">Manage Your<br>Fleet & Routes</h1>
+                <p class="right-description">Complete control over schedules, bookings, and<br>seat management for your
+                    transportation services.</p>
+
+                <div class="stats-grid-container">
+                    <div class="stat-box">
+                        <div class="stat-box-header">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> Active Routes
+                        </div>
+                        <div class="stat-box-value">6</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-box-header">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> Today's Trips
+                        </div>
+                        <div class="stat-box-value">12</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-box-header">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> Seat Bookings
+                        </div>
+                        <div class="stat-box-value">277</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-box-header">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg> Revenue
+                        </div>
+                        <div class="stat-box-value">10,982/-</div>
+                    </div>
+                </div>
+
+                <ul class="features-bullet-list">
+                    <li>Real-time seat availability updates</li>
+                    <li>Comprehensive booking management</li>
+                    <li>Schedule & route optimization</li>
+                    <li>Performance analytics & reports</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    
+</body>
+
+</html>

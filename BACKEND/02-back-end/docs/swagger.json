@@ -1,0 +1,526 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Click2Book API",
+    "description": "Online Ticket Reservation System — REST API documentation for Click2Book (IIIT Sri City FSD 2024–2028, Team 13)",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Team 13 — Click2Book",
+      "url": "https://github.com/IIIT-Sricity-FSD-2024-2028/13_Click2Book"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local Development Server"
+    }
+  ],
+  "tags": [
+    { "name": "Auth", "description": "Authentication endpoints" },
+    { "name": "Customer", "description": "Customer profile and operations" },
+    { "name": "Admin", "description": "Admin management operations" },
+    { "name": "Provider", "description": "Service provider operations" },
+    { "name": "Schedule", "description": "Trip schedule management" },
+    { "name": "Trip", "description": "Trip management" },
+    { "name": "Booking", "description": "Ticket booking operations" },
+    { "name": "Seat", "description": "Seat management" },
+    { "name": "Payment", "description": "Payment processing" },
+    { "name": "Cancellation", "description": "Booking cancellation" },
+    { "name": "Refund", "description": "Refund processing" },
+    { "name": "Support", "description": "Customer support" },
+    { "name": "Review", "description": "Trip reviews and ratings" },
+    { "name": "Offer", "description": "Offers and discounts" },
+    { "name": "Report", "description": "Reports and analytics" },
+    { "name": "Vehicle", "description": "Vehicle management" },
+    { "name": "Route", "description": "Route management" },
+    { "name": "IRCTC", "description": "IRCTC train interface" }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RegisterDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User registered successfully" },
+          "400": { "description": "Bad request" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Login and receive JWT token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/customer/profile": {
+      "get": {
+        "tags": ["Customer"],
+        "summary": "Get customer profile",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Customer profile data" },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "put": {
+        "tags": ["Customer"],
+        "summary": "Update customer profile",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateCustomerDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Profile updated successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/schedule": {
+      "get": {
+        "tags": ["Schedule"],
+        "summary": "Get all trip schedules",
+        "parameters": [
+          { "name": "from", "in": "query", "schema": { "type": "string" }, "description": "Source location" },
+          { "name": "to", "in": "query", "schema": { "type": "string" }, "description": "Destination location" },
+          { "name": "date", "in": "query", "schema": { "type": "string", "format": "date" }, "description": "Travel date" }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of schedules",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Schedule" } }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Schedule"],
+        "summary": "Create a new trip schedule",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateScheduleDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Schedule created successfully" },
+          "403": { "description": "Forbidden — Provider role required" }
+        }
+      }
+    },
+    "/schedule/{id}": {
+      "get": {
+        "tags": ["Schedule"],
+        "summary": "Get schedule by ID",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Schedule details" },
+          "404": { "description": "Schedule not found" }
+        }
+      },
+      "put": {
+        "tags": ["Schedule"],
+        "summary": "Update schedule",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateScheduleDto" } } }
+        },
+        "responses": {
+          "200": { "description": "Schedule updated" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Schedule"],
+        "summary": "Delete schedule",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Schedule deleted" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/booking": {
+      "post": {
+        "tags": ["Booking"],
+        "summary": "Create a new booking",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateBookingDto" } } }
+        },
+        "responses": {
+          "201": { "description": "Booking created" },
+          "400": { "description": "No seats available" }
+        }
+      },
+      "get": {
+        "tags": ["Booking"],
+        "summary": "Get all bookings for current user",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of bookings",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Booking" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/booking/{id}": {
+      "get": {
+        "tags": ["Booking"],
+        "summary": "Get booking by ID",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Booking details" },
+          "404": { "description": "Booking not found" }
+        }
+      }
+    },
+    "/payment": {
+      "post": {
+        "tags": ["Payment"],
+        "summary": "Process payment for a booking",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentDto" } } }
+        },
+        "responses": {
+          "200": { "description": "Payment processed" },
+          "400": { "description": "Payment failed" }
+        }
+      }
+    },
+    "/cancellation/{bookingId}": {
+      "post": {
+        "tags": ["Cancellation"],
+        "summary": "Cancel a booking",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "bookingId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Booking cancelled" },
+          "400": { "description": "Cannot cancel" }
+        }
+      }
+    },
+    "/refund/{bookingId}": {
+      "post": {
+        "tags": ["Refund"],
+        "summary": "Request refund for a cancelled booking",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "bookingId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Refund initiated" },
+          "400": { "description": "Refund not eligible" }
+        }
+      }
+    },
+    "/support": {
+      "post": {
+        "tags": ["Support"],
+        "summary": "Raise a support ticket",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SupportTicketDto" } } }
+        },
+        "responses": {
+          "201": { "description": "Support ticket created" }
+        }
+      },
+      "get": {
+        "tags": ["Support"],
+        "summary": "Get support tickets",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of support tickets" }
+        }
+      }
+    },
+    "/review": {
+      "post": {
+        "tags": ["Review"],
+        "summary": "Submit a review for a trip",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReviewDto" } } }
+        },
+        "responses": {
+          "201": { "description": "Review submitted" }
+        }
+      }
+    },
+    "/offer": {
+      "get": {
+        "tags": ["Offer"],
+        "summary": "Get all active offers",
+        "responses": {
+          "200": { "description": "List of offers" }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get all users (Admin only)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of users" },
+          "403": { "description": "Admin role required" }
+        }
+      }
+    },
+    "/vehicle": {
+      "get": {
+        "tags": ["Vehicle"],
+        "summary": "Get all vehicles",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "List of vehicles" } }
+      },
+      "post": {
+        "tags": ["Vehicle"],
+        "summary": "Add a new vehicle",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/VehicleDto" } } }
+        },
+        "responses": { "201": { "description": "Vehicle added" } }
+      }
+    },
+    "/route": {
+      "get": {
+        "tags": ["Route"],
+        "summary": "Get all routes",
+        "responses": { "200": { "description": "List of routes" } }
+      },
+      "post": {
+        "tags": ["Route"],
+        "summary": "Add a new route",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RouteDto" } } }
+        },
+        "responses": { "201": { "description": "Route created" } }
+      }
+    },
+    "/seat/{scheduleId}": {
+      "get": {
+        "tags": ["Seat"],
+        "summary": "Get seat availability for a schedule",
+        "parameters": [{ "name": "scheduleId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Seat layout and availability" } }
+      }
+    },
+    "/report": {
+      "get": {
+        "tags": ["Report"],
+        "summary": "Get reports and analytics (Admin/Provider)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Report data" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "RegisterDto": {
+        "type": "object",
+        "required": ["name", "email", "password", "role"],
+        "properties": {
+          "name": { "type": "string", "example": "John Doe" },
+          "email": { "type": "string", "format": "email", "example": "john@example.com" },
+          "password": { "type": "string", "format": "password", "example": "SecurePass123" },
+          "role": { "type": "string", "enum": ["customer", "provider", "admin", "support"], "example": "customer" }
+        }
+      },
+      "LoginDto": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string" }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "access_token": { "type": "string" },
+          "user": { "$ref": "#/components/schemas/UserSummary" }
+        }
+      },
+      "UserSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "email": { "type": "string" },
+          "role": { "type": "string" }
+        }
+      },
+      "UpdateCustomerDto": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "phone": { "type": "string" },
+          "address": { "type": "string" }
+        }
+      },
+      "Schedule": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "routeId": { "type": "string" },
+          "vehicleId": { "type": "string" },
+          "departureTime": { "type": "string", "format": "date-time" },
+          "arrivalTime": { "type": "string", "format": "date-time" },
+          "fare": { "type": "number" },
+          "availableSeats": { "type": "integer" },
+          "status": { "type": "string", "enum": ["active", "cancelled", "completed"] }
+        }
+      },
+      "CreateScheduleDto": {
+        "type": "object",
+        "required": ["routeId", "vehicleId", "departureTime", "arrivalTime", "fare"],
+        "properties": {
+          "routeId": { "type": "string" },
+          "vehicleId": { "type": "string" },
+          "departureTime": { "type": "string", "format": "date-time" },
+          "arrivalTime": { "type": "string", "format": "date-time" },
+          "fare": { "type": "number" }
+        }
+      },
+      "CreateBookingDto": {
+        "type": "object",
+        "required": ["scheduleId", "seats"],
+        "properties": {
+          "scheduleId": { "type": "string" },
+          "seats": { "type": "integer", "minimum": 1 },
+          "passengerDetails": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PassengerDetail" }
+          }
+        }
+      },
+      "PassengerDetail": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "age": { "type": "integer" },
+          "gender": { "type": "string", "enum": ["male", "female", "other"] }
+        }
+      },
+      "Booking": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "customerId": { "type": "string" },
+          "scheduleId": { "type": "string" },
+          "seats": { "type": "integer" },
+          "status": { "type": "string", "enum": ["confirmed", "cancelled", "pending"] },
+          "totalFare": { "type": "number" },
+          "bookedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "PaymentDto": {
+        "type": "object",
+        "required": ["bookingId", "amount", "method"],
+        "properties": {
+          "bookingId": { "type": "string" },
+          "amount": { "type": "number" },
+          "method": { "type": "string", "enum": ["card", "upi", "netbanking", "wallet"] }
+        }
+      },
+      "SupportTicketDto": {
+        "type": "object",
+        "required": ["subject", "message"],
+        "properties": {
+          "subject": { "type": "string" },
+          "message": { "type": "string" },
+          "bookingId": { "type": "string" }
+        }
+      },
+      "ReviewDto": {
+        "type": "object",
+        "required": ["scheduleId", "rating"],
+        "properties": {
+          "scheduleId": { "type": "string" },
+          "rating": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "comment": { "type": "string" }
+        }
+      },
+      "VehicleDto": {
+        "type": "object",
+        "required": ["type", "number", "capacity"],
+        "properties": {
+          "type": { "type": "string", "enum": ["bus", "train", "taxi"] },
+          "number": { "type": "string" },
+          "capacity": { "type": "integer" }
+        }
+      },
+      "RouteDto": {
+        "type": "object",
+        "required": ["from", "to", "distance"],
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "distance": { "type": "number" }
+        }
+      }
+    }
+  }
+}

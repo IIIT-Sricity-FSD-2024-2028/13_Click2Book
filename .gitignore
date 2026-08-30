@@ -13,6 +13,7 @@ desktop.ini
 back-end/logs/
 back-end/logs/**
 
+<<<<<<< HEAD
 # File uploads (created at runtime by multer — Phase 4)
 back-end/uploads/
 
@@ -27,3 +28,14 @@ back-end/logs/.*-audit.json
 
 # Compiled build output (project uses ts-node via npm run start:dev)
 back-end/dist/
+=======
+# Node / NestJS back-end
+node_modules/
+back-end/dist/
+back-end/.env
+
+# Large video files (upload via GitHub Releases instead)
+Videos/*.mp4
+Videos/*.mov
+Videos/*.avi
+>>>>>>> origin/main

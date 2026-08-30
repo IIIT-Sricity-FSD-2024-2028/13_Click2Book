@@ -29,10 +29,10 @@
     return name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
   }
 
-  /* ── Detect relative path to landing page ─────────────── */
+  /* ── Detect relative path to landing-page ─────────────── */
   function loginPath() {
     // All customer pages are one level deep: customer/
-    return '../landing page/login.html';
+    return '../landing-page/login.html';
   }
 
   /* ── Auth gate: redirect guests ───────────────────────── */

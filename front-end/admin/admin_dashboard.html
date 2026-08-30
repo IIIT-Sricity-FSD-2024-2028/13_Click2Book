@@ -304,6 +304,13 @@
         </svg>
         <span>Reports</span>
       </a>
+      <a href="revenue-dashboard.html" class="nav-item" id="nav-revenue">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+        </svg>
+        <span>Revenue &amp; Cost Split</span>
+      </a>
     </nav>
 
     <div class="sidebar-spacer"></div>
@@ -1429,7 +1436,7 @@
     function doAdminLogout(e) {
       e.preventDefault();
       if (confirm('Are you sure you want to logout?')) {
-        setTimeout(() => { window.location.href = '../landing page/index.html'; }, 300);
+        setTimeout(() => { window.location.href = '../landing-page/index.html'; }, 300);
       }
     }
   </script>

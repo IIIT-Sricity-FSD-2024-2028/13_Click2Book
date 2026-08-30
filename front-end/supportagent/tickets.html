@@ -47,6 +47,10 @@
         Support Tickets
         <span class="nav-badge">2</span>
       </a>
+      <a class="nav-item" href="/supportagent/revenue-impact.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Ticket Cost Impact
+      </a>
     </nav>
     <div class="sidebar-bottom">
       <a class="nav-item" href="login.html">
@@ -176,7 +180,7 @@ function resolve(id) {
 function doLogout() {
   localStorage.removeItem('c2b_session');
   localStorage.removeItem('c2b_state');
-  window.location.href = '../landing page/index.html';
+  window.location.href = '../landing-page/index.html';
 }
 
 function showToast(msg, type='info') {

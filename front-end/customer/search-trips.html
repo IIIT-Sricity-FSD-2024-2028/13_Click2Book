@@ -741,7 +741,7 @@ document.getElementById('searchBtn').addEventListener('click', async function() 
             <div class="bus-price-col">
               <span class="bus-price">&#8377;${r.price}</span>
               <button class="select-seat-btn"
-                onclick="selectBus('${r.busName}','${r.vehicleType}','&#8377;${r.price}',${r.price},'${r.tripId}')"
+                onclick="selectBus('${r.busName}','${r.vehicleType}','&#8377;${r.price}',${r.price},'${r.tripId}',${r.totalSeats || 40})"
               >Select Seats &#8250;</button>
             </div>
           </div>
@@ -854,12 +854,18 @@ let selectedBus   = '';
 let selectedType  = '';
 let selectedPrice = '';
 let selectedFare  = 0;
+// The real backend tripId/capacity for the bus just picked — without this, booking
+// creation had no way to know which trip was actually selected (see confirmPayment).
+let selectedTripId     = '';
+let selectedTotalSeats = 40;
 
-window.selectBus = function(name, type, price, fare) {
+window.selectBus = function(name, type, price, fare, tripId, totalSeats) {
   selectedBus   = name;
   selectedType  = type;
   selectedPrice = price;
   selectedFare  = fare;
+  selectedTripId     = tripId || '';
+  selectedTotalSeats = totalSeats || 40;
   // Update seat page heading
   document.getElementById('seatSubheading').textContent =
     name + ' · ' + type + ' · Select one or more seats';
@@ -970,7 +976,7 @@ function guestCheckAndProceed() {
     sessionStorage.setItem('c2b_pendingPrice', selectedPrice);
     sessionStorage.setItem('c2b_pendingFare',  selectedFare);
     sessionStorage.setItem('c2b_pendingSeats', JSON.stringify(selectedSeats));
-    window.location.href = '../landing page/login.html';
+    window.location.href = '../landing-page/login.html';
   }
 }
 
@@ -1270,8 +1276,52 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-/* ── Confirm payment + write to CRUD DB ───────────── */
-window.confirmPayment = function() {
+/* ── Map a mock seat label ("A1", "C3", ...) to a real integer seat number,
+   clamped to the real vehicle's capacity so it's always a valid @IsNumber(). ── */
+function mockSeatLabelToNumber(label, totalSeats) {
+  var row = (label || 'A1').charCodeAt(0) - 65;   // 'A' -> 0, 'B' -> 1, ...
+  var col = parseInt((label || 'A1').slice(1), 10) || 1;
+  var n   = row * 4 + col;
+  var cap = totalSeats || 40;
+  return ((n - 1) % cap) + 1;
+}
+
+var C2B_API_HOST = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'localhost' : window.location.hostname;
+var C2B_API = 'http://' + C2B_API_HOST + ':3000/api';
+
+/* Creates the real backend booking for the trip the customer actually selected,
+   retrying with a different seat if the mock-mapped seat number is already taken. */
+async function createRealBooking(customerId, tripId, totalSeats, firstSeatLabel) {
+  var baseSeat = mockSeatLabelToNumber(firstSeatLabel, totalSeats);
+  var lastError = null;
+  for (var attempt = 0; attempt < 5; attempt++) {
+    var seatNumber = ((baseSeat - 1 + attempt) % (totalSeats || 40)) + 1;
+    try {
+      var res = await fetch(C2B_API + '/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-role': 'CUSTOMER' },
+        body: JSON.stringify({ customerId: customerId, tripId: tripId, seatNumber: seatNumber }),
+      });
+      var json = await res.json();
+      if (res.ok && json.success) return json.data;
+      lastError = json.message || ('Booking failed (' + res.status + ')');
+      if (res.status !== 409) break; // only retry on seat conflicts
+    } catch (e) {
+      lastError = e.message;
+      break; // network/offline failure — no point retrying
+    }
+  }
+  throw new Error(lastError || 'Could not create booking');
+}
+
+/* ── Confirm payment: creates the real backend booking first (this is what
+   actually drives provider revenue), then mirrors it into the local CRUD DB
+   for the legacy admin/provider mock dashboards. ───────────────────────── */
+window.confirmPayment = async function() {
+  const payBtn = document.getElementById('payNowBtn');
+  if (payBtn) { payBtn.disabled = true; payBtn.textContent = 'Processing payment…'; }
+
   const customerId = sessionStorage.getItem('c2b_loggedInId')
                   || localStorage.getItem('c2b_loggedInId')
                   || 'C001';
@@ -1284,9 +1334,7 @@ window.confirmPayment = function() {
   const discount = _appliedDiscount || 0;
   const total    = Math.max(0, rawTotal - discount);
 
-  const now        = Date.now();
-  const bookingId  = 'BUS' + now;
-  const paymentId  = 'PAY' + now;
+  const paymentId  = 'PAY' + Date.now();
   const today      = new Date().toISOString().split('T')[0];
 
   // Read selected payment method label
@@ -1297,25 +1345,45 @@ window.confirmPayment = function() {
   const to   = (document.getElementById('toCity')?.value   || 'Unknown').trim();
   const date = document.getElementById('travelDate')?.value || today;
 
-  // Find a real trip_id from DB, else fallback
-  let tripId = 'T001';
-  try {
-    const allTrips = DB.trips.getAll();
-    if (allTrips.length) tripId = allTrips[0].trip_id;
-  } catch(e) {}
-
   // ── Read passenger list from session ─────────────
   var passengers = [];
   try { passengers = JSON.parse(sessionStorage.getItem('c2b_passengers') || '[]'); } catch(e) {}
   var primaryName = passengers.length ? passengers[0].name : (sessionStorage.getItem('c2b_userName') || 'Customer');
 
-  // ── Write to in-memory CRUD DB ───────────────────
+  // ── Create the real backend booking — this is what triggers ledger
+  // creation and provider revenue attribution, so it must use the trip the
+  // customer actually selected (selectedTripId), not a placeholder.
+  var bookingId = 'BUS' + Date.now(); // fallback id if the backend is unreachable
+  var backendOk = false;
+  if (selectedTripId) {
+    try {
+      var booking = await createRealBooking(customerId, selectedTripId, selectedTotalSeats, selectedSeats[0]);
+      bookingId = booking.bookingId;
+      backendOk = true;
+      try {
+        await fetch(C2B_API + '/bookings/' + bookingId + '/confirm', {
+          method: 'PATCH',
+          headers: { 'x-role': 'CUSTOMER' },
+        });
+      } catch (e) { console.warn('[C2B] Confirm step failed (booking still created):', e.message); }
+      console.log('[C2B] Booking created on backend ✅', bookingId, 'trip', selectedTripId);
+    } catch (e) {
+      console.warn('[C2B] Backend booking failed:', e.message);
+      if (payBtn) { payBtn.disabled = false; payBtn.textContent = 'Pay Now'; }
+      alert('We could not confirm your booking (' + e.message + '). Please try again.');
+      return;
+    }
+  } else {
+    console.warn('[C2B] No real tripId captured for this bus — booking only recorded locally.');
+  }
+
+  // ── Mirror into the local CRUD DB (used by the legacy admin/provider mock dashboards) ──
   if (window.DB) {
     try {
       DB.bookings.create({
         booking_id:        bookingId,
         customer_id:       customerId,
-        trip_id:           tripId,
+        trip_id:           selectedTripId || 'T001',
         offer_id:          null,
         booking_date:      today,
         booking_status:    'CONFIRMED',
@@ -1347,37 +1415,6 @@ window.confirmPayment = function() {
       });
     } catch(e) { console.warn('[C2B] Payment write failed:', e); }
   }
-
-  // ── Also POST to NestJS backend (non-blocking) ────
-  // Captures the *real* backend booking/trip IDs onto the mock record so
-  // features that must call the real API (tracking, SOS, lost & found) have
-  // a valid ID to work with — the mock store's own bookingId never matches
-  // the backend's generated one otherwise.
-  (async function() {
-    try {
-      var host = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-               ? 'localhost' : window.location.hostname;
-      var res = await fetch('http://' + host + ':3000/api/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-role': 'CUSTOMER' },
-        body: JSON.stringify({
-          customerId:   customerId,
-          tripId:       tripId,
-          seatNumber:   selectedSeats[0],
-        })
-      });
-      var json = await res.json();
-      if (json.success && json.data && window.DB) {
-        DB.bookings.update(bookingId, {
-          _backendBookingId: json.data.bookingId,
-          _backendTripId:    json.data.tripId,
-        });
-        console.log('[C2B] Booking synced to backend ✅', json.data.bookingId);
-      }
-    } catch(e) {
-      console.warn('[C2B] Backend sync skipped (offline):', e.message);
-    }
-  })();
 
   // ── Store for confirmation page ───────────────────
   sessionStorage.setItem('lastBookingId',      bookingId);
@@ -1431,7 +1468,7 @@ function updateSidebar() {
         if (confirm('Are you sure you want to logout?')) {
           sessionStorage.removeItem('c2b_loggedIn');
           localStorage.removeItem('c2b_loggedIn');
-          window.location.href = '../landing page/index.html';
+          window.location.href = '../landing-page/index.html';
         }
       };
     }
@@ -1447,7 +1484,7 @@ function updateSidebar() {
       if (el) el.style.display = 'none';
     });
     if (logoutBtn) {
-      logoutBtn.href = '../landing page/login.html';
+      logoutBtn.href = '../landing-page/login.html';
       logoutBtn.onclick = null;
     }
   }
@@ -1475,7 +1512,7 @@ function restoreStateAfterLogin() {
   }
 }
 
-/* ── Pre-fill search from landing page ────────────── */
+/* ── Pre-fill search from landing-page ────────────── */
 function restoreSearchParams() {
   const from = sessionStorage.getItem('searchFrom');
   const to   = sessionStorage.getItem('searchTo');

@@ -7,12 +7,17 @@ import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/exceptions/global-exception.filter';
 import { LoggerService } from './common/logger/logger.service';
 import { ensureUploadDir, PROFILE_UPLOAD_DIR } from './common/middleware/upload.middleware';
+import { initSeededVehicleSeats } from './seed/init-vehicle-seats.seed';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Phase 5B: Ensure uploads/profile/ dir exists before any request is served
   ensureUploadDir();
+
+  // Seeded trips never went through TripService.create() (which is what normally
+  // initializes seats), so without this every seeded trip is unbookable.
+  initSeededVehicleSeats(app);
 
   // Global prefix
   app.setGlobalPrefix('api');

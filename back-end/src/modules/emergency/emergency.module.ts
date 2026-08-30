@@ -4,9 +4,10 @@ import { EmergencyService } from './emergency.service';
 import { EmergencyRepository } from './emergency.repository';
 import { BookingModule } from '../booking/booking.module';
 import { TripModule } from '../trip/trip.module';
+import { SupportTicketModule } from '../support-ticket/support-ticket.module';
 
 @Module({
-  imports: [BookingModule, TripModule],
+  imports: [BookingModule, TripModule, SupportTicketModule],
   controllers: [EmergencyController],
   providers: [EmergencyService, EmergencyRepository],
   exports: [EmergencyService, EmergencyRepository],

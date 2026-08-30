@@ -6,4 +6,5 @@ export interface SupportRequest {
   description: string;
   status: SupportStatus;
   createdDate: string;
+  bookingId?: string;
 }

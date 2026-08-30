@@ -3,6 +3,8 @@ import { LostFoundRepository } from './lost-found.repository';
 import { BookingRepository } from '../booking/booking.repository';
 import { TripRepository } from '../trip/trip.repository';
 import { VehicleRepository } from '../vehicle/vehicle.repository';
+import { SupportTicketService } from '../support-ticket/support-ticket.service';
+import { TicketCategory } from '../support-ticket/enums/ticket-category.enum';
 import { CreateLostFoundItemDto, UpdateLostFoundStatusDto } from './dto/lost-found.dto';
 import { LostFoundStatus } from './enums/lost-found-status.enum';
 import { Role } from '../../common/enums/role.enum';
@@ -15,6 +17,7 @@ export class LostFoundService {
     private readonly bookingRepo: BookingRepository,
     private readonly tripRepo: TripRepository,
     private readonly vehicleRepo: VehicleRepository,
+    private readonly supportTicketService: SupportTicketService,
   ) {}
 
   create(dto: CreateLostFoundItemDto) {
@@ -24,6 +27,13 @@ export class LostFoundService {
     if (booking.tripId !== dto.tripId) throw new BadRequestException('Trip does not match this booking');
 
     const item = this.lostFoundRepo.create(dto);
+
+    this.supportTicketService.create({
+      bookingId: dto.bookingId,
+      category: TicketCategory.LOST_AND_FOUND,
+      sourceModule: 'lost-found',
+    });
+
     return successResponse('Lost & found report submitted', item);
   }
 

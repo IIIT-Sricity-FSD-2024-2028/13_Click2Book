@@ -1,15 +1,31 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { SupportRequestRepository } from './support-request.repository';
+import { SupportTicketService } from '../support-ticket/support-ticket.service';
+import { TicketCategory } from '../support-ticket/enums/ticket-category.enum';
 import { CreateSupportRequestDto, UpdateSupportRequestDto } from './dto/support-request.dto';
 import { SupportStatus } from './enums/support-status.enum';
 import { successResponse } from '../../common/utils/response.util';
 
 @Injectable()
 export class SupportRequestService {
-  constructor(private readonly repo: SupportRequestRepository) {}
+  constructor(
+    private readonly repo: SupportRequestRepository,
+    private readonly supportTicketService: SupportTicketService,
+  ) {}
 
   create(dto: CreateSupportRequestDto) {
-    return successResponse('Support request raised', this.repo.create(dto));
+    const { category, ...rest } = dto;
+    const request = this.repo.create(rest);
+
+    if (dto.bookingId) {
+      this.supportTicketService.create({
+        bookingId: dto.bookingId,
+        category: category === 'dispute' ? TicketCategory.DISPUTE : TicketCategory.COMPLAINT,
+        sourceModule: 'support-request',
+      });
+    }
+
+    return successResponse('Support request raised', request);
   }
 
   findAll(status?: SupportStatus) {

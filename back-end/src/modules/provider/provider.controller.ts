@@ -29,6 +29,13 @@ export class ProviderController {
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
   getDashboard(@Param('id') id: string) { return this.providerService.getDashboard(id); }
 
+  @Get(':id/revenue')
+  @Roles(Role.PROVIDER, Role.ADMIN)
+  @ApiOperation({ summary: 'Get this provider\'s ledger-derived earnings (Provider/Admin)' })
+  @ApiParam({ name: 'id', example: 'P001' })
+  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  getRevenue(@Param('id') id: string) { return this.providerService.getRevenue(id); }
+
   @Get(':id')
   @Roles(Role.PROVIDER, Role.ADMIN)
   @ApiOperation({ summary: 'Get provider by ID' })

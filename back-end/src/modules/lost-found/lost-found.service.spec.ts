@@ -4,6 +4,16 @@ import { LostFoundRepository } from './lost-found.repository';
 import { BookingRepository } from '../booking/booking.repository';
 import { TripRepository } from '../trip/trip.repository';
 import { VehicleRepository } from '../vehicle/vehicle.repository';
+import { ScheduleRepository } from '../schedule/schedule.repository';
+import { LedgerRepository } from '../ledger/ledger.repository';
+import { LedgerService } from '../ledger/ledger.service';
+import { ProviderRepository } from '../provider/provider.repository';
+import { AdminRepository } from '../admin/admin.repository';
+import { RevenueSplitRepository } from '../revenue-split/revenue-split.repository';
+import { RevenueSplitService } from '../revenue-split/revenue-split.service';
+import { SupportTicketRepository } from '../support-ticket/support-ticket.repository';
+import { SupportTicketService } from '../support-ticket/support-ticket.service';
+import { SupportRepository } from '../support/support.repository';
 import { LostFoundStatus } from './enums/lost-found-status.enum';
 import { Role } from '../../common/enums/role.enum';
 
@@ -20,11 +30,19 @@ describe('LostFoundService', () => {
   };
 
   beforeEach(() => {
+    const revenueSplitService = new RevenueSplitService(new RevenueSplitRepository());
+    const ledgerService = new LedgerService(
+      new LedgerRepository(), new TripRepository(), new ScheduleRepository(), new ProviderRepository(), new AdminRepository(), revenueSplitService,
+    );
+    const supportTicketService = new SupportTicketService(
+      new SupportTicketRepository(), ledgerService, revenueSplitService, new SupportRepository(),
+    );
     service = new LostFoundService(
       new LostFoundRepository(),
       new BookingRepository(),
       new TripRepository(),
       new VehicleRepository(),
+      supportTicketService,
     );
   });
 

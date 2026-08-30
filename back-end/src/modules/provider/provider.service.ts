@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { ProviderRepository } from './provider.repository';
 import { VehicleRepository } from '../vehicle/vehicle.repository';
 import { ScheduleRepository } from '../schedule/schedule.repository';
+import { LedgerRepository } from '../ledger/ledger.repository';
 import { CreateProviderDto, UpdateProviderDto } from './dto/provider.dto';
 import { successResponse } from '../../common/utils/response.util';
 
@@ -11,6 +12,8 @@ export class ProviderService {
     private readonly providerRepo: ProviderRepository,
     private readonly vehicleRepo: VehicleRepository,
     private readonly scheduleRepo: ScheduleRepository,
+    @Inject(forwardRef(() => LedgerRepository))
+    private readonly ledgerRepo: LedgerRepository,
   ) {}
 
   create(dto: CreateProviderDto) {
@@ -57,6 +60,30 @@ export class ProviderService {
       totalSeats,
       bookedSeats,
       availableSeats: totalSeats - bookedSeats,
+    });
+  }
+
+  // TransactionLedger.providerId is the authoritative link (resolved once, at ledger
+  // creation, from Trip -> Schedule -> providerId) — filter directly on it rather than
+  // re-deriving via vehicles/trips/bookings.
+  getRevenue(providerId: string) {
+    const provider = this.providerRepo.findById(providerId);
+    if (!provider) throw new NotFoundException(`Provider ${providerId} not found`);
+
+    const ledger = this.ledgerRepo.findAll()
+      .filter((l) => l.providerId === providerId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+    const cleanRows = ledger.filter((l) => l.status !== 'cancelled');
+    const cancelledCount = ledger.length - cleanRows.length;
+
+    return successResponse('Provider revenue', {
+      providerId,
+      bookingCount: ledger.length,
+      cancelledCount,
+      totalBaseFare: cleanRows.reduce((s, l) => s + l.baseFare, 0),
+      totalOperatorPayout: cleanRows.reduce((s, l) => s + l.operatorPayout, 0),
+      ledger,
     });
   }
 }

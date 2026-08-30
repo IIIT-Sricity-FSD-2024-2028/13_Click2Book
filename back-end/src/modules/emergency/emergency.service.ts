@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { EmergencyRepository } from './emergency.repository';
 import { BookingRepository } from '../booking/booking.repository';
 import { TripRepository } from '../trip/trip.repository';
+import { SupportTicketService } from '../support-ticket/support-ticket.service';
+import { TicketCategory } from '../support-ticket/enums/ticket-category.enum';
 import { CreateEmergencyAlertDto } from './dto/emergency.dto';
 import { EmergencyStatus } from './enums/emergency-status.enum';
 import { BookingStatus } from '../booking/enums/booking-status.enum';
@@ -14,6 +16,7 @@ export class EmergencyService {
     private readonly emergencyRepo: EmergencyRepository,
     private readonly bookingRepo: BookingRepository,
     private readonly tripRepo: TripRepository,
+    private readonly supportTicketService: SupportTicketService,
   ) {}
 
   create(dto: CreateEmergencyAlertDto) {
@@ -37,6 +40,13 @@ export class EmergencyService {
       lat: dto.lat,
       lng: dto.lng,
     });
+
+    this.supportTicketService.create({
+      bookingId: dto.bookingId,
+      category: TicketCategory.SOS,
+      sourceModule: 'emergency',
+    });
+
     return successResponse('Emergency alert raised — support has been notified', alert);
   }
 

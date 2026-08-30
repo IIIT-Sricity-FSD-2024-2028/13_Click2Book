@@ -3,6 +3,16 @@ import { EmergencyService } from './emergency.service';
 import { EmergencyRepository } from './emergency.repository';
 import { BookingRepository } from '../booking/booking.repository';
 import { TripRepository } from '../trip/trip.repository';
+import { ScheduleRepository } from '../schedule/schedule.repository';
+import { LedgerRepository } from '../ledger/ledger.repository';
+import { LedgerService } from '../ledger/ledger.service';
+import { ProviderRepository } from '../provider/provider.repository';
+import { AdminRepository } from '../admin/admin.repository';
+import { RevenueSplitRepository } from '../revenue-split/revenue-split.repository';
+import { RevenueSplitService } from '../revenue-split/revenue-split.service';
+import { SupportTicketRepository } from '../support-ticket/support-ticket.repository';
+import { SupportTicketService } from '../support-ticket/support-ticket.service';
+import { SupportRepository } from '../support/support.repository';
 import { TripStatus } from '../trip/enums/trip-status.enum';
 import { EmergencyType } from './enums/emergency-type.enum';
 import { EmergencyStatus } from './enums/emergency-status.enum';
@@ -13,7 +23,16 @@ describe('EmergencyService', () => {
 
   beforeEach(() => {
     tripRepo = new TripRepository();
-    service = new EmergencyService(new EmergencyRepository(), new BookingRepository(), tripRepo);
+    const revenueSplitService = new RevenueSplitService(new RevenueSplitRepository());
+    const ledgerService = new LedgerService(
+      new LedgerRepository(), tripRepo, new ScheduleRepository(), new ProviderRepository(), new AdminRepository(), revenueSplitService,
+    );
+    const supportTicketService = new SupportTicketService(
+      new SupportTicketRepository(), ledgerService, revenueSplitService, new SupportRepository(),
+    );
+    service = new EmergencyService(
+      new EmergencyRepository(), new BookingRepository(), tripRepo, supportTicketService,
+    );
   });
 
   it('rejects an SOS raised by someone who does not own the booking', () => {

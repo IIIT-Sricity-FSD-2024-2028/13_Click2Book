@@ -5,9 +5,16 @@ import { generateId } from '../../common/utils/id.util';
 @Injectable()
 export class ProviderRepository {
   private providers: Provider[] = [
-    { providerId: 'P001', name: 'APSRTC Travels', email: 'apsrtc@example.com', password: 'hashed_p1', approved: true },
-    { providerId: 'P002', name: 'KPN Tours', email: 'kpn@example.com', password: 'hashed_p2', approved: true },
-    { providerId: 'P003', name: 'Orange Travels', email: 'orange@example.com', password: 'hashed_p3', approved: false },
+    { providerId: 'P001', name: 'APSRTC Travels', email: 'apsrtc@gmail.com', password: 'Apsrtc@123', approved: true },
+    { providerId: 'P002', name: 'KPN Tours', email: 'kpn@gmail.com', password: 'Kpn@123', approved: true },
+    { providerId: 'P003', name: 'Orange Travels', email: 'orange@gmail.com', password: 'Orange@123', approved: false },
+    { providerId: 'P004', name: 'SRS Travels', email: 'srs@gmail.com', password: 'Srs@123', approved: true },
+    { providerId: 'P005', name: 'VRL Travels', email: 'vrl@gmail.com', password: 'Vrl@123', approved: true },
+    { providerId: 'P006', name: 'Parveen Travels', email: 'parveen@gmail.com', password: 'Parveen@123', approved: true },
+    { providerId: 'P007', name: 'Kaveri Travels', email: 'kaveri@gmail.com', password: 'Kaveri@123', approved: false },
+    { providerId: 'P008', name: 'Jabbar Travels', email: 'jabbar@gmail.com', password: 'Jabbar@123', approved: true },
+    { providerId: 'P009', name: 'Suresh Travels', email: 'suresh@gmail.com', password: 'Suresh@123', approved: true },
+    { providerId: 'P010', name: 'Ganesh Travels', email: 'ganesh@gmail.com', password: 'Ganesh@123', approved: true },
   ];
 
   create(data: Omit<Provider, 'providerId' | 'approved'>): Provider {

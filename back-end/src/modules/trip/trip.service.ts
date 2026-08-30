@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { TripRepository } from './trip.repository';
 import { ScheduleRepository } from '../schedule/schedule.repository';
 import { VehicleRepository } from '../vehicle/vehicle.repository';
 import { SeatRepository } from '../seat/seat.repository';
 import { RouteRepository } from '../route/route.repository';
+import { ProviderRepository } from '../provider/provider.repository';
 import { Trip } from './interfaces/trip.interface';
 import { CreateTripDto, UpdateTripStatusDto } from './dto/trip.dto';
 import { TripStatus } from './enums/trip-status.enum';
@@ -17,6 +18,8 @@ export class TripService {
     private readonly vehicleRepo: VehicleRepository,
     private readonly seatRepo: SeatRepository,
     private readonly routeRepo: RouteRepository,
+    @Inject(forwardRef(() => ProviderRepository))
+    private readonly providerRepo: ProviderRepository,
   ) {}
 
   create(dto: CreateTripDto) {
@@ -62,6 +65,9 @@ export class TripService {
         if (dst && !route.destination.toLowerCase().includes(dst)) return null;
         const vehicle = this.vehicleRepo.findById(trip.vehicleId);
         if (!vehicle || vehicle.remainingSeats <= 0) return null;
+        // Only approved providers may appear in — or be booked from — search results.
+        const provider = this.providerRepo.findById(schedule.providerId);
+        if (!provider || !provider.approved) return null;
 
         const v = vehicle as any;
         return {
@@ -69,7 +75,8 @@ export class TripService {
           scheduleId:     schedule.scheduleId,
           vehicleId:      vehicle.vehicleId,
           busName:        v.busName || vehicle.vehicleNumber,
-          providerName:   schedule.providerId === 'P001' ? 'APSRTC' : 'Private Operators',
+          providerId:     schedule.providerId,
+          providerName:   provider.name,
           source:         route.source,
           destination:    route.destination,
           departureTime:  schedule.departureTime,

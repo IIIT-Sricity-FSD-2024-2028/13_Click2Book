@@ -1,11 +1,12 @@
 import {
-  Injectable, NotFoundException, BadRequestException, ConflictException,
+  forwardRef, Inject, Injectable, NotFoundException, BadRequestException, ConflictException,
 } from '@nestjs/common';
 import { BookingRepository } from './booking.repository';
 import { TripRepository } from '../trip/trip.repository';
 import { VehicleRepository } from '../vehicle/vehicle.repository';
 import { SeatRepository } from '../seat/seat.repository';
 import { OfferService } from '../offer/offer.service';
+import { LedgerService } from '../ledger/ledger.service';
 import { CreateBookingDto } from './dto/booking.dto';
 import { BookingStatus } from './enums/booking-status.enum';
 import { SeatStatus } from '../seat/enums/seat-status.enum';
@@ -20,6 +21,8 @@ export class BookingService {
     private readonly vehicleRepo: VehicleRepository,
     private readonly seatRepo: SeatRepository,
     private readonly offerService: OfferService,
+    @Inject(forwardRef(() => LedgerService))
+    private readonly ledgerService: LedgerService,
   ) {}
 
   create(dto: CreateBookingDto) {
@@ -65,6 +68,9 @@ export class BookingService {
     // 7. Mark seat as BOOKED & decrement vehicle remaining seats
     this.seatRepo.updateStatus(trip.vehicleId, dto.seatNumber, SeatStatus.BOOKED);
     this.vehicleRepo.decrementSeat(trip.vehicleId);
+
+    // 8. Snapshot the fare split onto a new transaction ledger row
+    this.ledgerService.createForBooking(booking.bookingId, dto.tripId);
 
     return successResponse('Booking created. Proceed to payment to confirm.', booking);
   }

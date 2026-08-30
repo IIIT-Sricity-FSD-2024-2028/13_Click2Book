@@ -29,6 +29,10 @@ import { ReportModule } from './modules/report/report.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
 import { EmergencyModule } from './modules/emergency/emergency.module';
 import { LostFoundModule } from './modules/lost-found/lost-found.module';
+import { RevenueSplitModule } from './modules/revenue-split/revenue-split.module';
+import { LedgerModule } from './modules/ledger/ledger.module';
+import { SupportTicketModule } from './modules/support-ticket/support-ticket.module';
+import { PayoutsModule } from './modules/payouts/payouts.module';
 
 @Module({
   imports: [
@@ -40,6 +44,17 @@ import { LostFoundModule } from './modules/lost-found/lost-found.module';
 
     // Auth
     AuthModule,
+
+    // ── Revenue & cost split
+    // Registered before AdminModule: RevenueSplitController's literal
+    // 'admin/revenue-config' path must be matched before AdminController's
+    // 'admin/:id' wildcard route, and Nest/Express resolve routes in
+    // registration order, not by specificity — AdminModule registering
+    // first would let 'admin/:id' swallow 'admin/revenue-config' as id='revenue-config'.
+    RevenueSplitModule,
+    LedgerModule,
+    SupportTicketModule,
+    PayoutsModule,
 
     // User/Actor modules
     CustomerModule,

@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Get Support – Click2Book</title>
+  <meta name="description" content="Get 24/7 support for your bus bookings on Click2Book." />
+  
+  
+  
+  <link rel="stylesheet" href="common.css" />
+  <style>
+    .view { display: none; }
+    .view.active { display: block; animation: fadeUp .42s ease both; }
+
+    /* ── Support card wrapper ── */
+    .support-wrapper {
+      max-width: 580px;
+      margin: 0 auto;
+    }
+
+    /* ── Issue Category Grid ── */
+    .issue-section { margin-bottom: 18px; }
+    .issue-label {
+      font-size: .8rem; font-weight: 600; color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .issue-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .issue-btn {
+      display: flex; align-items: center; gap: 9px;
+      padding: 12px 16px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--white);
+      font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: .83rem; font-weight: 600;
+      color: var(--text-muted); cursor: pointer;
+      transition: all .2s;
+      text-align: left;
+    }
+    .issue-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+    .issue-btn.active {
+      border-color: var(--primary); color: var(--primary);
+      background: var(--primary-light);
+    }
+    .issue-btn .issue-icon { font-size: 1.05rem; flex-shrink: 0; }
+
+    /* ── Form fields ── */
+    .support-form { display: flex; flex-direction: column; gap: 12px; }
+
+    .support-input,
+    .support-textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--white);
+      font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: .85rem;
+      color: var(--text-main); outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .support-input:focus,
+    .support-textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(249,115,22,.1);
+    }
+    .support-input::placeholder,
+    .support-textarea::placeholder { color: var(--text-light); }
+
+    .support-textarea { min-height: 110px; resize: vertical; }
+
+    .submit-btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 15px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: white; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      font-size: .92rem; font-weight: 700; border: none; cursor: pointer;
+      box-shadow: var(--shadow-orange);
+      transition: transform .2s, box-shadow .2s;
+      margin-top: 4px;
+    }
+    .submit-btn:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgba(249,115,22,.45); }
+    .submit-btn:active { transform: translateY(0); }
+
+    /* ── Success view ── */
+    .success-card {
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 48px 36px;
+      box-shadow: var(--shadow-md);
+      max-width: 480px; margin: 0 auto;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 14px; text-align: center;
+    }
+
+    .success-icon-wrap {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: var(--primary-light);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 6px;
+    }
+
+    .success-title {
+      font-size: 1.25rem; font-weight: 800; color: var(--text-main);
+    }
+
+    .success-ticket-id {
+      font-size: .88rem; color: var(--text-muted); font-weight: 500;
+    }
+    .success-ticket-id span { color: var(--primary); font-weight: 700; }
+
+    .success-desc {
+      font-size: .82rem; color: var(--text-muted);
+    }
+
+    .submit-another {
+      font-size: .85rem; font-weight: 700; color: var(--primary);
+      background: none; border: none; cursor: pointer;
+      text-decoration: underline; text-underline-offset: 3px;
+      margin-top: 6px; transition: color .2s;
+      font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+    .submit-another:hover { color: var(--primary-dark); }
+  </style>
+</head>
+<body>
+
+<!-- Notification Popup -->
+<div class="notif-overlay" id="notifOverlay" onclick="closeNotif()"></div>
+<div class="notif-panel" id="notifPanel" style="display:none;">
+  <div class="notif-panel-header">
+    <h3>Notifications <span class="notif-count-badge">3</span></h3>
+    <button class="notif-close-btn" onclick="closeNotif()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="notif-list">
+    <div class="notif-item unread"><div class="notif-icon-wrap success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div class="notif-text"><h4>Booking Confirmed!</h4><p>Your Mumbai → Pune ticket (PNR: RP1234567) is confirmed.</p><time>5 mins ago</time></div></div>
+    <div class="notif-item unread"><div class="notif-icon-wrap info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="notif-text"><h4>Payment Successful</h4><p>₹550 paid via UPI for Royal Express Seat A4.</p><time>10 mins ago</time></div></div>
+    <div class="notif-item unread"><div class="notif-icon-wrap warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="notif-text"><h4>Journey Reminder</h4><p>Your Mumbai → Pune journey departs tomorrow at 06:00 AM.</p><time>1 hour ago</time></div></div>
+  </div>
+  <div class="notif-panel-footer"><a href="#">View all notifications →</a></div>
+</div>
+
+<!-- ═══════ SIDEBAR ═══════ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <rect x="2" y="8" width="20" height="12" rx="3" fill="white" opacity=".9"/>
+        <rect x="5" y="5" width="14" height="5" rx="2" fill="white" opacity=".6"/>
+        <circle cx="6.5" cy="20" r="1.5" fill="#f97316"/>
+        <circle cx="17.5" cy="20" r="1.5" fill="#f97316"/>
+        <rect x="7" y="11" width="3" height="3" rx=".5" fill="#1e3a5f" opacity=".6"/>
+        <rect x="11" y="11" width="3" height="3" rx=".5" fill="#1e3a5f" opacity=".6"/>
+        <rect x="15" y="11" width="3" height="3" rx=".5" fill="#1e3a5f" opacity=".6"/>
+      </svg>
+    </div>
+    <span class="logo-text">CLICK<span class="logo-accent">2</span>BOOK</span>
+  </div>
+
+  <div class="profile-card">
+    <div class="profile-avatar">RS</div>
+    <div class="profile-info">
+      <p class="profile-name">CUSTOMER PROFILE</p>
+      <p class="profile-badge">Premium Member</p>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="search-trips.html" class="nav-item">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></span>
+      <span>Search Trips</span>
+    </a>
+    <a href="my-bookings.html" class="nav-item">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+      <span>My Bookings</span>
+    </a>
+    <a href="cancel-ticket.html" class="nav-item">
+      <span class="nav-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
+        </svg>
+      </span>
+      <span>Cancel Ticket</span>
+    </a>
+    <a href="offers.html" class="nav-item">
+      <span class="nav-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+          <line x1="7" y1="7" x2="7.01" y2="7"/>
+        </svg>
+      </span>
+      <span>Offers</span>
+    </a>
+    <a href="get-support.html" class="nav-item active">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg></span>
+      <span>Get Support</span>
+    </a>
+    <a href="lost-found.html" class="nav-item">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
+      <span>Lost &amp; Found</span>
+    </a>
+    <a href="my-profile.html" class="nav-item">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+      <span>My Profile</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <a href="#" class="logout-btn" id="logoutBtn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      <span>Logout</span>
+    </a>
+  </div>
+</aside>
+
+<!-- ═══════ MAIN ═══════ -->
+<main class="main-content">
+  <header class="top-header">
+    <div class="header-left">
+      <h2 class="header-title">Get Support</h2>
+      <p class="header-subtitle" id="suppSubtitle">Welcome back!</p>
+    </div>
+    <div class="header-right">
+      <button class="notif-btn" id="notifBtn" aria-label="Notifications">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="notif-count-dot">3</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── VIEW 1: Support Form ── -->
+  <div id="view-form" class="view active">
+    <div class="page-body">
+      <h1 class="page-heading">Request Assistance</h1>
+      <p class="page-subhead">Our team is here to help you 24/7</p>
+
+      <div class="support-wrapper">
+        <div class="issue-section">
+          <p class="issue-label">Issue Category</p>
+          <div class="issue-grid">
+            <button class="issue-btn active" onclick="selectIssue(this)">
+              <span class="issue-icon">📋</span> Booking Issue
+            </button>
+            <button class="issue-btn" onclick="selectIssue(this)">
+              <span class="issue-icon">↩️</span> Refund
+            </button>
+            <button class="issue-btn" onclick="selectIssue(this)">
+              <span class="issue-icon">⚠️</span> Complaint
+            </button>
+            <button class="issue-btn" onclick="selectIssue(this)">
+              <span class="issue-icon">📄</span> Other
+            </button>
+          </div>
+        </div>
+
+        <div class="support-form">
+          <input type="text" id="bookingId" class="support-input" placeholder="Booking ID (optional)" />
+          <textarea id="issueDesc" class="support-textarea" placeholder="Describe your issue in detail…"></textarea>
+          <button class="submit-btn" onclick="submitRequest()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+            Submit Request
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── VIEW 2: Success ── -->
+  <div id="view-success" class="view">
+    <div class="page-body">
+      <h1 class="page-heading">Request Assistance</h1>
+      <p class="page-subhead">Our team is here to help you 24/7</p>
+
+      <div class="success-card">
+        <div class="success-icon-wrap">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/>
+            <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
+          </svg>
+        </div>
+        <h2 class="success-title">Request Submitted!</h2>
+        <p class="success-ticket-id">Ticket ID: <span id="generatedTicketId">TKT-39609</span></p>
+        <p class="success-desc">Our team will respond within 2–4 hours</p>
+        <button class="submit-another" onclick="resetForm()">Submit Another Request</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  let selectedIssue = 'Booking Issue';
+
+  function selectIssue(btn) {
+    document.querySelectorAll('.issue-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedIssue = btn.textContent.trim();
+  }
+
+  function submitRequest() {
+    const desc      = document.getElementById('issueDesc').value.trim();
+    const bookingId = document.getElementById('bookingId').value.trim();
+
+    // Remove any previous inline error
+    const prevErr = document.getElementById('supportErrMsg');
+    if (prevErr) prevErr.remove();
+
+    function showInlineErr(msg) {
+      const errDiv = document.createElement('div');
+      errDiv.id = 'supportErrMsg';
+      errDiv.style.cssText = 'background:#fff1f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;font-size:.82rem;color:#ef4444;font-weight:600;margin-bottom:10px;';
+      errDiv.textContent = '⚠️ ' + msg;
+      const submitBtn = document.querySelector('.submit-btn');
+      submitBtn.parentNode.insertBefore(errDiv, submitBtn);
+    }
+
+    // Validate description: required, at least 20 characters
+    if (!desc) {
+      showInlineErr('Please describe your issue before submitting.');
+      return;
+    }
+    if (desc.length < 20) {
+      showInlineErr('Please provide more detail (at least 20 characters) so our team can help you effectively.');
+      return;
+    }
+
+    // Validate Booking ID format if provided (alphanumeric only)
+    if (bookingId && !/^[a-zA-Z0-9\-_]+$/.test(bookingId)) {
+      showInlineErr('Booking ID should contain only letters, numbers, or hyphens (e.g. BK001 or BUS1234567).');
+      return;
+    }
+
+    /* ── Persist to CRUD DB ── */
+    var ticketId = 'TKT-' + Math.floor(10000 + Math.random() * 90000);
+    var customerId = sessionStorage.getItem('c2b_loggedInId')
+                  || localStorage.getItem('c2b_loggedInId') || 'C001';
+    var customerName = sessionStorage.getItem('c2b_userName')
+                    || localStorage.getItem('c2b_userName') || 'Customer';
+    try {
+      if (typeof DB !== 'undefined') {
+        var supporterId = 'S001';
+        try { supporterId = DB.customerSupport.getAll()[0]?.supporter_id || 'S001'; } catch(e2){}
+        ticketId = 'REQ-' + Date.now().toString(36).toUpperCase();
+        DB.supportRequests.create({
+          request_id:    ticketId,
+          customer_id:  customerId,
+          supporter_id: supporterId,
+          description:  (selectedIssue + ': ' + desc).slice(0, 500),
+          status:       'OPEN',
+          created_date: new Date().toISOString().split('T')[0],
+          _category:    selectedIssue,
+          _bookingId:   bookingId || null,
+          _customerName: customerName,
+          _message:     desc
+        });
+      }
+    } catch(e) {
+      console.warn('[Support] DB create failed:', e);
+    }
+
+    /* ── Also POST to NestJS backend (non-blocking) ── */
+    (function() {
+      var host = (location.hostname==='localhost'||location.hostname==='127.0.0.1')?'localhost':location.hostname;
+      fetch('http://'+host+':3000/api/support-requests', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'x-role':'CUSTOMER' },
+        body: JSON.stringify({
+          customerId:   customerId,
+          supporterId:  'S001',
+          category:     selectedIssue,
+          bookingId:    bookingId || null,
+          description:  desc,
+          status:       'OPEN',
+          customerName: customerName,
+          requestId:    ticketId
+        })
+      }).then(function(){
+        console.log('[Support] Ticket synced to backend ✅');
+      }).catch(function(e){
+        console.warn('[Support] Backend offline:', e.message);
+      });
+    })();
+
+    document.getElementById('generatedTicketId').textContent = ticketId;
+    showView('success');
+  }
+
+  function resetForm() {
+    document.getElementById('bookingId').value = '';
+    document.getElementById('issueDesc').value = '';
+    document.querySelectorAll('.issue-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('.issue-btn').classList.add('active');
+    selectedIssue = 'Booking Issue';
+    showView('form');
+  }
+
+  function showView(id) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + id).classList.add('active');
+    document.querySelector('.main-content').scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function showToast(message, type) {
+    document.querySelectorAll('.c2b-toast').forEach(t => t.remove());
+    const toast = document.createElement('div');
+    toast.className = 'c2b-toast c2b-toast-' + type;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; });
+    setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateY(12px)'; setTimeout(() => toast.remove(), 400); }, 3000);
+  }
+
+  document.getElementById('logoutBtn').addEventListener('click', function(e) {
+    e.preventDefault();
+    if (confirm('Are you sure you want to logout?')) {
+      showToast('👋 Logged out successfully!', 'success');
+      setTimeout(function() { window.location.href = '../landing-page/login.html'; }, 1500);
+    }
+  });
+
+  /* ── Dynamic sidebar identity ── */
+  (function() {
+    var name  = sessionStorage.getItem('c2b_userName') || localStorage.getItem('c2b_userName') || 'Customer';
+    var first = name.split(' ')[0];
+    var ini   = name.trim().split(/\s+/).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'CU';
+    var sub   = document.getElementById('suppSubtitle');
+    var av    = document.getElementById('suppAvatar');
+    var sn    = document.getElementById('suppSidebarName');
+    if (sub) sub.textContent = 'Welcome back, ' + first + '!';
+    if (av)  av.textContent  = ini;
+    if (sn)  sn.textContent  = name.toUpperCase();
+  })();
+
+  document.getElementById('notifBtn').addEventListener('click', toggleNotif);
+  function toggleNotif() {
+    var panel = document.getElementById('notifPanel');
+    var overlay = document.getElementById('notifOverlay');
+    var isOpen = panel.style.display === 'block';
+    panel.style.display = isOpen ? 'none' : 'block';
+    overlay.style.display = isOpen ? 'none' : 'block';
+  }
+  function closeNotif() {
+    document.getElementById('notifPanel').style.display = 'none';
+    document.getElementById('notifOverlay').style.display = 'none';
+  }
+</script>
+<script src="auth.js"></script>
+
+  <!-- ═══ CRUD Engine (localStorage + Data Manager panel) ═══ -->
+  <script src="../crud functions/js/mock_data.js"></script>
+  <script src="../crud functions/js/script.js"></script>
+  <script src="../crud functions/js/ui-shared.js"></script>
+  <script src="../crud functions/js/ui-customer.js"></script>
+</body>
+</html>
+

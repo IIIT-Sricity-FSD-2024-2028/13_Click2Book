@@ -1,6 +1,0 @@
-export declare enum IrctcStatus {
-    IN_PROGRESS = "IN_PROGRESS",
-    VERIFIED = "VERIFIED",
-    REJECTED = "REJECTED",
-    FAILED = "FAILED"
-}

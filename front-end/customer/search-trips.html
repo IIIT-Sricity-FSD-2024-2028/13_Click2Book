@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Click2Book – Search Trips</title>
+  <meta name="description" content="Search and book bus trips with Click2Book. Select bus, choose seats, enter details and pay securely." />
+  
+  
+  
+  <link rel="stylesheet" href="search-trips.css" />
+  <!-- Backend API connector -->
+  <script src="api.js"></script>
+  <style>
+    /* ── View toggling ──────────────────────────── */
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* ══════════════════════════════════════════════
+       SEAT SELECTION — Bus Layout
+    ══════════════════════════════════════════════ */
+
+    /* Outer white card that wraps heading + legend + bus body */
+    .seat-map-outer {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 4px 32px rgba(0,0,0,.10);
+      padding: 28px 32px 32px;
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    .seat-heading {
+      font-size: 1.12rem;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0 0 2px;
+    }
+    .seat-subheading {
+      font-size: .78rem;
+      color: #64748b;
+      font-weight: 500;
+      margin: 0 0 18px;
+    }
+
+    /* ── Legend (inline small badges like screenshot) ── */
+    .seat-legend {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .75rem;
+      color: #64748b;
+      font-weight: 500;
+    }
+    .legend-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .legend-dot.available { background: #e2e8f0; border: 1.5px solid #cbd5e1; }
+    .legend-dot.selected  { background: #f97316; border: 1.5px solid #ea580c; }
+    .legend-dot.booked    { background: #94a3b8; border: 1.5px solid #94a3b8; }
+
+    /* Bus body card */
+    .bus-body {
+      background: #fff;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 18px 22px 22px;
+    }
+
+    /* Driver row at the very top */
+    .driver-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 14px;
+    }
+    .driver-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-size: .72rem;
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    /* Each row: label + 2 seats + aisle + 2 seats */
+    .seat-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .row-label {
+      width: 24px;
+      font-size: .7rem;
+      font-weight: 600;
+      color: #94a3b8;
+      text-align: left;
+      flex-shrink: 0;
+    }
+    .seat-pair {
+      display: flex;
+      gap: 6px;
+    }
+    .seat-aisle {
+      flex: 1;
+      min-width: 40px;
+    }
+
+    /* Individual seat – flat, no nub, matches screenshot */
+    .seat {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      font-size: .7rem;
+      font-weight: 700;
+      border: 1.5px solid;
+      cursor: pointer;
+      transition: all .15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .seat.available {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+      color: #475569;
+    }
+    .seat.available:hover {
+      background: #f97316;
+      border-color: #ea580c;
+      color: #fff;
+      transform: scale(1.06);
+    }
+    .seat.selected {
+      background: #f97316;
+      border-color: #ea580c;
+      color: #fff;
+      transform: scale(1.04);
+    }
+    .seat.booked {
+      background: #94a3b8;
+      border-color: #94a3b8;
+      color: #fff;
+      cursor: not-allowed;
+      opacity: .85;
+    }
+
+    /* Proceed button container */
+    .seat-proceed-wrap {
+      max-width: 580px;
+      margin: 22px auto 0;
+    }
+
+    /* ── Guest sidebar: nav items start hidden via JS, not CSS ── */
+  </style>
+</head>
+
+<body>
+
+<!-- ═══════════════════ SIDEBAR ═══════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <rect x="2" y="8" width="20" height="12" rx="3" fill="white" opacity=".9"/>
+        <rect x="5" y="5" width="14" height="5" rx="2" fill="white" opacity=".6"/>
+        <circle cx="6.5" cy="20" r="1.5" fill="#f97316"/>
+        <circle cx="17.5" cy="20" r="1.5" fill="#f97316"/>
+        <rect x="7" y="11" width="3" height="3" rx=".5" fill="#1e3a5f" opacity=".6"/>
+        <rect x="11" y="11" width="3" height="3" rx=".5" fill="#1e3a5f" opacity=".6"/>
+        <rect x="15" y="11" width="3" height="3" rx=".5" fill="#1e3a5f" opacity=".6"/>
+      </svg>
+    </div>
+    <span class="logo-text">CLICK<span class="logo-accent">2</span>BOOK</span>
+  </div>
+
+  <div class="profile-card" id="guestProfileCard">
+    <div class="profile-avatar" id="profileAvatar">RS</div>
+    <div class="profile-info">
+      <p class="profile-name" id="profileName">CUSTOMER PROFILE</p>
+      <p class="profile-badge" id="profileBadge">Premium Member</p>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="search-trips.html" class="nav-item active" id="nav-search" data-view="search">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></span>
+      <span>Search Trips</span>
+    </a>
+    <a href="my-bookings.html" class="nav-item" id="nav-bookings">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+      <span>My Bookings</span>
+    </a>
+    <a href="cancel-ticket.html" class="nav-item" id="nav-cancel">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg></span>
+      <span>Cancel Ticket</span>
+    </a>
+    <a href="offers.html" class="nav-item" id="nav-offers">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
+      <span>Offers</span>
+    </a>
+    <a href="get-support.html" class="nav-item" id="nav-support">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg></span>
+      <span>Get Support</span>
+    </a>
+    <a href="lost-found.html" class="nav-item" id="nav-lostfound">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
+      <span>Lost &amp; Found</span>
+    </a>
+    <a href="my-profile.html" class="nav-item" id="nav-profile">
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+      <span>My Profile</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <a href="#" class="logout-btn" id="logoutBtn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      <span id="authBtnLabel">Sign In</span>
+    </a>
+  </div>
+</aside>
+
+<!-- ═══════════════════ MAIN ═══════════════════ -->
+<main class="main-content">
+
+  <!-- Top Header (dynamic) -->
+  <header class="top-header">
+    <div class="header-left">
+      <h2 class="header-title" id="headerTitle">Search Trips</h2>
+      <p class="header-subtitle" id="headerSub">Welcome back, Rahul!</p>
+    </div>
+    <div class="header-right">
+      <button class="notif-btn" id="notifBtn" aria-label="Notifications">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="notif-dot"></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ─────────── VIEW 1: SEARCH TRIPS ─────────── -->
+  <div id="view-search" class="view active">
+    <div class="page-content two-col">
+
+      <!-- Left: Search form -->
+      <section class="search-section">
+        <div class="section-heading">
+          <h1 class="section-title">Search Your Perfect Trip</h1>
+          <p class="section-desc">Book your journey with ease and comfort</p>
+        </div>
+
+        <div class="search-card">
+          <div class="form-group">
+            <label class="form-label" for="fromCity">FROM</label>
+            <div class="input-wrapper">
+              <span class="input-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
+              <input type="text" id="fromCity" class="form-input" placeholder="Departure city" value="MUMBAI" />
+            </div>
+          </div>
+
+          <div class="swap-wrapper">
+            <button class="swap-btn" id="swapBtn" aria-label="Swap cities">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10m0 0-3-3m3 3 3-3"/><path d="M12 22V12m0 0-3 3m3-3 3 3"/></svg>
+            </button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="toCity">TO</label>
+            <div class="input-wrapper">
+              <span class="input-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
+              <input type="text" id="toCity" class="form-input" placeholder="Destination city" value="PUNE" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="travelDate">TRAVEL DATE</label>
+            <div class="input-wrapper">
+              <span class="input-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+              <input type="date" id="travelDate" class="form-input date-input" value="2026-03-12" />
+            </div>
+          </div>
+
+          <button class="search-btn" id="searchBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            Find Available Buses
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-7 7 7-7 7"/></svg>
+          </button>
+        </div>
+
+        <div class="recent-searches">
+          <p class="recent-label">Recent Searches</p>
+          <div class="recent-tags">
+            <button class="recent-tag" data-from="MUMBAI" data-to="PUNE">🚌 Mumbai → Pune</button>
+            <button class="recent-tag" data-from="DELHI"  data-to="AGRA">🏛 Delhi → Agra</button>
+            <button class="recent-tag" data-from="BANGALORE" data-to="MYSORE">🚌 Bangalore → Mysore</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right: Hero -->
+      <section class="hero-section">
+        <div class="hero-card">
+          <div class="available-badge">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="8" width="20" height="12" rx="3"/><rect x="5" y="5" width="14" height="5" rx="2"/><circle cx="6.5" cy="20" r="1.5" fill="#f97316" stroke="none"/><circle cx="17.5" cy="20" r="1.5" fill="#f97316" stroke="none"/></svg>
+            <div class="available-text">
+              <span class="avail-label">Available</span>
+              <span class="avail-count">200+</span>
+            </div>
+          </div>
+          <div class="hero-img-wrapper">
+            <img src="bus_hero.png" alt="Luxury bus traveling through mountains" class="hero-img" />
+            <div class="hero-overlay"></div>
+          </div>
+          <div class="rating-bar">
+            <div class="stars">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#f97316"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#f97316"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#f97316"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#f97316"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#f97316"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </div>
+            <span class="rating-value">4.8</span>
+          </div>
+        </div>
+        <div class="feature-pills">
+          <div class="pill"><span class="pill-dot green"></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Safe Travel</div>
+          <div class="pill"><span class="pill-dot blue"></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>On Time</div>
+          <div class="pill"><span class="pill-dot pink"></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Easy Payment</div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ─────────── VIEW 2: AVAILABLE BUSES ─────────── -->
+  <div id="view-buses" class="view">
+    <div class="page-content single-col">
+
+      <!-- Stepper -->
+      <div class="stepper-row">
+        <button class="back-btn" onclick="goTo('search')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg> Back
+        </button>
+        <div class="stepper">
+          <div class="step-item done"><div class="step-circle done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><span class="step-label">Search</span></div>
+          <div class="step-line done"></div>
+          <div class="step-item active"><div class="step-circle active">2</div><span class="step-label active-lbl">Select Bus</span></div>
+          <div class="step-line"></div>
+          <div class="step-item"><div class="step-circle">3</div><span class="step-label">Choose Seat</span></div>
+          <div class="step-line"></div>
+          <div class="step-item"><div class="step-circle">4</div><span class="step-label">Passenger Info</span></div>
+          <div class="step-line"></div>
+          <div class="step-item"><div class="step-circle">5</div><span class="step-label">Payment</span></div>
+          <div class="step-line"></div>
+          <div class="step-item"><div class="step-circle">6</div><span class="step-label">Confirm</span></div>
+        </div>
+      </div>
+
+      <div class="route-header">
+        <h1 class="route-title" id="busRouteTitle">Mumbai → Pune</h1>
+        <p class="route-meta" id="busRouteMeta">Loading buses…</p>
+      </div>
+
+      <!-- Bus Cards — populated by JS from backend API -->
+      <div class="bus-list" id="busList">
+        <div style="text-align:center;padding:48px 20px;color:#94a3b8;">
+          <div style="font-size:2rem;margin-bottom:12px;">🔍</div>
+          <div style="font-weight:600;margin-bottom:6px;">Enter your route and click Search</div>
+          <div style="font-size:.82rem;">Buses will appear here from the live backend</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── VIEW 3: SEAT SELECTION ─────────── -->
+  <div id="view-seats" class="view">
+    <div class="page-content single-col">
+
+      <div class="stepper-row">
+        <button class="back-btn" onclick="goTo('buses')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg> Back
+        </button>
+        <div class="stepper">
+          <div class="step-item done"><div class="step-circle done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><span class="step-label">Select Bus</span></div>
+          <div class="step-line done"></div>
+          <div class="step-item active"><div class="step-circle active">3</div><span class="step-label active-lbl">Choose Seat</span></div>
+          <div class="step-line"></div>
+          <div class="step-item"><div class="step-circle">4</div><span class="step-label">Passenger Info</span></div>
+          <div class="step-line"></div>
+          <div class="step-item"><div class="step-circle">5</div><span class="step-label">Payment</span></div>
+        </div>
+      </div>
+
+      <!-- Seat map outer card -->
+      <div class="seat-map-outer">
+        <h1 class="seat-heading">Choose Your Seats</h1>
+        <p class="seat-subheading" id="seatSubheading">Royal Express · Sleeper AC · Select one or more seats</p>
+
+        <!-- Legend (small inline dots) -->
+        <div class="seat-legend">
+          <div class="legend-item"><div class="legend-dot available"></div><span>Available</span></div>
+          <div class="legend-item"><div class="legend-dot selected"></div><span>Selected</span></div>
+          <div class="legend-item"><div class="legend-dot booked"></div><span>Booked</span></div>
+        </div>
+
+        <!-- Bus body -->
+        <div class="bus-body">
+          <!-- Driver indicator top-right -->
+          <div class="driver-row">
+            <div class="driver-chip">🚌 Driver</div>
+          </div>
+          <!-- Seat rows injected by JS -->
+          <div id="seatGrid"></div>
+        </div>
+      </div>
+
+      <!-- Proceed button below the card -->
+      <div class="seat-proceed-wrap">
+        <button class="proceed-btn" id="proceedSeatBtn" onclick="guestCheckAndProceed()">
+          Proceed to Book
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-7 7 7-7 7"/></svg>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─────────── VIEW 4: PASSENGER DETAILS ─────────── -->
+  <div id="view-passenger" class="view">
+    <div class="page-content single-col">
+
+      <div class="stepper-row">
+        <button class="back-btn" onclick="goTo('seats')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg> Back
+        </button>
+        <div class="stepper">
+          <div class="step-item done"><div class="step-circle done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><span class="step-label">Select Bus</span></div>
+          <div class="step-line done"></div>
+          <div class="step-item done"><div class="step-circle done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><span class="step-label">Choose Seat</span></div>
+          <div class="step-line done"></div>
+          <div class="step-item active"><div class="step-circle active">4</div><span class="step-label active-lbl">Passenger Info</span></div>
+          <div class="step-line"></div>
+          <div class="step-item"><div class="step-circle">5</div><span class="step-label">Payment</span></div>
+        </div>
+      </div>
+
+      <div class="form-card centered-card">
+        <h1 class="form-card-title">Passenger Details</h1>
+        <p class="form-card-sub" id="paxFormSub">Enter traveler information</p>
+
+        <!-- Dynamically generated: one card per seat -->
+        <div id="paxFormsContainer"></div>
+
+        <!-- Hidden old single form kept for fallback layout only -->
+        <div class="pax-form" style="display:none">
+          <div class="pax-field">
+            <label class="pax-label" for="paxName">FULL NAME</label>
+            <div class="pax-input-wrap">
+              <svg class="pax-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <input type="text" id="paxName" class="pax-input" placeholder="Enter full name" />
+            </div>
+          </div>
+          <div class="pax-field">
+            <label class="pax-label" for="paxAge">AGE</label>
+            <div class="pax-input-wrap">
+              <svg class="pax-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <input type="number" id="paxAge" class="pax-input" placeholder="Enter age" min="1" max="120" />
+            </div>
+          </div>
+          <div class="pax-field">
+            <label class="pax-label" for="paxEmail">EMAIL ADDRESS</label>
+            <div class="pax-input-wrap">
+              <svg class="pax-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              <input type="text" id="paxEmail" class="pax-input" placeholder="email@example.com" autocomplete="email" />
+            </div>
+          </div>
+          <div class="pax-field">
+            <label class="pax-label" for="paxPhone">PHONE NUMBER</label>
+            <div class="pax-input-wrap">
+              <svg class="pax-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 12 19.79 19.79 0 0 1 1.08 3.5 2 2 0 0 1 3.06 1.3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.09 8.91A16 16 0 0 0 15 16.91l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22.73 17z"/></svg>
+              <input type="tel" id="paxPhone" class="pax-input" placeholder="+91XXXXXXXXXX" />
+            </div>
+          </div>
+          <div class="pax-field">
+            <label class="pax-label">GENDER</label>
+            <div class="gender-group">
+              <button class="gender-btn active" data-gender="Male" onclick="selectGender(this)">Male</button>
+              <button class="gender-btn" data-gender="Female" onclick="selectGender(this)">Female</button>
+              <button class="gender-btn" data-gender="Other" onclick="selectGender(this)">Other</button>
+            </div>
+          </div>
+        </div>
+
+        <button class="proceed-btn" id="proceedPassengerBtn" onclick="validateAndProceed()">
+          Proceed to Payment
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-7 7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── VIEW 5: PAYMENT ─────────── -->
+  <div id="view-payment" class="view">
+    <div class="page-content single-col">
+
+      <div class="stepper-row">
+        <button class="back-btn" onclick="goTo('passenger')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg> Back
+        </button>
+        <div class="stepper">
+          <div class="step-item done"><div class="step-circle done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><span class="step-label">Select Bus</span></div>
+          <div class="step-line done"></div>
+          <div class="step-item done"><div class="step-circle done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><span class="step-label">Choose Seat</span></div>
+          <div class="step-line done"></div>
+          <div class="step-item done"><div class="step-circle done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><span class="step-label">Passenger Info</span></div>
+          <div class="step-line done"></div>
+          <div class="step-item active"><div class="step-circle active">5</div><span class="step-label active-lbl">Payment</span></div>
+        </div>
+      </div>
+
+      <div class="payment-wrapper">
+
+        <!-- Booking Summary -->
+        <div class="pay-card">
+          <h2 class="pay-card-title">Booking Summary</h2>
+          <div class="summary-rows">
+            <div class="summary-row">
+              <span class="summary-key" id="payBusName">Royal Express (Sleeper AC)</span>
+              <span class="summary-val" id="payBasePrice">₹550 × 1</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-key">Seats:</span>
+              <span class="summary-val confirmed" id="paySeat">D3</span>
+            </div>
+            <div class="summary-row border-top">
+              <span class="summary-key">Subtotal</span>
+              <span class="summary-val" id="paySubtotal">₹550</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-key">GST (18%)</span>
+              <span class="summary-val" id="payGST">₹99</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-key">Convenience Fee</span>
+              <span class="summary-val">₹25</span>
+            </div>
+            <div class="summary-row" id="discountRow" style="display:none;">
+              <span class="summary-key" style="color:#16a34a;">🏷️ Discount Applied</span>
+              <span class="summary-val" style="color:#16a34a;font-weight:700;" id="discountDisplay">−₹0</span>
+            </div>
+            <div class="summary-row total-row">
+              <span class="summary-key total-key">Total</span>
+              <span class="summary-val total-val" id="payTotal">₹674</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Offers & Coupon Card -->
+        <div class="pay-card" id="offersCard">
+
+          <!-- Header toggle -->
+          <div class="coupon-label-row" style="cursor:pointer;user-select:none;justify-content:space-between;" onclick="toggleOffersPanel()">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+              <span class="coupon-heading">Offers &amp; Discounts</span>
+              <span id="appliedOfferChip" style="display:none;background:#dcfce7;color:#16a34a;font-size:.7rem;font-weight:700;padding:2px 10px;border-radius:50px;border:1px solid #86efac;"></span>
+            </div>
+            <svg id="offersPanelChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .25s;"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+
+          <!-- Coupon input row (always visible) -->
+          <div class="coupon-input-row" style="margin-top:12px;">
+            <input type="text" id="couponInput" class="coupon-input" placeholder="Enter coupon code" style="text-transform:uppercase;" />
+            <button class="coupon-apply-btn" onclick="applyCoupon()">Apply</button>
+          </div>
+          <div id="couponMsg" style="display:none;margin-top:8px;font-size:.78rem;font-weight:600;border-radius:8px;padding:7px 12px;"></div>
+
+          <!-- Offers picker panel (collapsed by default) -->
+          <div id="offersPanel" style="display:none;margin-top:14px;">
+            <p style="font-size:.72rem;font-weight:700;color:#94a3b8;letter-spacing:.4px;text-transform:uppercase;margin-bottom:10px;">Available Offers</p>
+            <div id="offersList"></div>
+          </div>
+
+        </div>
+
+        <!-- Payment Method -->
+        <div class="pay-card">
+          <h2 class="pay-card-title">Payment Method</h2>
+          <div class="pay-methods">
+            <label class="pay-method active" id="pm-upi">
+              <input type="radio" name="payMethod" value="upi" checked hidden />
+              <span class="pm-icon">📱</span>
+              <span class="pm-label">UPI / Google Pay / PhonePe</span>
+              <span class="pm-radio-dot"></span>
+            </label>
+            <label class="pay-method" id="pm-card">
+              <input type="radio" name="payMethod" value="card" hidden />
+              <span class="pm-icon">💳</span>
+              <span class="pm-label">Credit / Debit Card</span>
+            </label>
+            <label class="pay-method" id="pm-netbank">
+              <input type="radio" name="payMethod" value="netbank" hidden />
+              <span class="pm-icon">🏦</span>
+              <span class="pm-label">Net Banking</span>
+            </label>
+            <label class="pay-method" id="pm-wallet">
+              <input type="radio" name="payMethod" value="wallet" hidden />
+              <span class="pm-icon">👛</span>
+              <span class="pm-label">Wallet</span>
+            </label>
+          </div>
+
+          <div class="secure-msg">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Your payment is 100% secure and encrypted
+          </div>
+
+          <button class="proceed-btn pay-btn" id="payNowBtn" onclick="confirmPayment()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            Pay <span id="payBtnAmount">₹674</span> Securely
+          </button>
+        </div>
+
+      </div><!-- /payment-wrapper -->
+    </div>
+  </div>
+
+</main>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   CLICK2BOOK — Search Trips — All-in-one Inline Script
+   Fixes: search btn, swap btn, guest sidebar, auth gate
+═══════════════════════════════════════════════════════ */
+
+/* ── Auth helpers ─────────────────────────────────── */
+function isLoggedIn() {
+  return sessionStorage.getItem('c2b_loggedIn') === 'true' ||
+         localStorage.getItem('c2b_loggedIn') === 'true';
+}
+
+/* ── View navigation ──────────────────────────────── */
+const VIEWS = ['search','buses','seats','passenger','payment'];
+function goTo(view) {
+  VIEWS.forEach(v => {
+    const el = document.getElementById('view-' + v);
+    if (el) el.classList.toggle('active', v === view);
+  });
+}
+
+/* ── Swap cities ──────────────────────────────────── */
+document.getElementById('swapBtn').addEventListener('click', function() {
+  const from = document.getElementById('fromCity');
+  const to   = document.getElementById('toCity');
+  const tmp  = from.value;
+  from.value = to.value;
+  to.value   = tmp;
+  from.style.transform = 'scale(1.04)';
+  to.style.transform   = 'scale(1.04)';
+  setTimeout(() => { from.style.transform = ''; to.style.transform = ''; }, 300);
+});
+
+/* ── Search buses ─────────────────────────────────── */
+document.getElementById('searchBtn').addEventListener('click', async function() {
+  const from = document.getElementById('fromCity').value.trim();
+  const to   = document.getElementById('toCity').value.trim();
+  const date = document.getElementById('travelDate').value;
+
+  // Remove any previous search error
+  const prev = document.getElementById('searchErrMsg');
+  if (prev) prev.remove();
+
+  function showSearchErr(msg) {
+    const errDiv = document.createElement('div');
+    errDiv.id = 'searchErrMsg';
+    errDiv.style.cssText = 'background:#fff1f2;border:1px solid #fecaca;border-radius:10px;padding:10px 16px;font-size:.82rem;color:#ef4444;font-weight:600;margin-top:10px;';
+    errDiv.textContent = '⚠️ ' + msg;
+    const btn = document.getElementById('searchBtn');
+    btn.parentNode.insertBefore(errDiv, btn.nextSibling);
+  }
+
+  if (!from || !to) { showSearchErr('Please enter both departure and destination cities.'); return; }
+  if (/^\d+$/.test(from)) { showSearchErr('Departure city name cannot be just numbers. Please enter a valid city name.'); return; }
+  if (/^\d+$/.test(to))   { showSearchErr('Destination city name cannot be just numbers. Please enter a valid city name.'); return; }
+  if (from.toLowerCase() === to.toLowerCase()) { showSearchErr('Departure and destination cannot be the same city.'); return; }
+
+  // ── Try real backend API first ─────────────────────
+  try {
+    if (window.API) {
+      const results = await API.trips.search(from, to, date);
+      if (results && results.length > 0) {
+        const busList = document.getElementById('busList');
+
+        // Helper: amenity icons
+        function amenityIcon(a) {
+          const icons = { 'WiFi':'📶','AC':'❄️','Charging Point':'🔌','Blanket':'🛌','Pillow':'🛏️','Meals':'🍱','Bedding':'🛌','Water Bottle':'💧','Reading Light':'💡','Panoramic Windows':'🪟','AC Chair Car':'🪑' };
+          return `<span title="${a}" style="font-size:.9rem;">${icons[a] || '✔'}</span>`;
+        }
+
+        busList.innerHTML = results.map(r => {
+          const typeColor = { 'AC Sleeper':'#9333ea','Volvo AC':'#2563eb','Train':'#0891b2','AC':'#f97316','Non-AC':'#16a34a' }[r.vehicleType] || '#f97316';
+          const stars = '★'.repeat(Math.round(r.rating || 4)) + '☆'.repeat(5 - Math.round(r.rating || 4));
+          const ams = (r.amenities || []).slice(0, 5).map(amenityIcon).join(' ');
+          return `
+          <div class="bus-card" style="border-left:3px solid ${typeColor}">
+            <div class="bus-info">
+              <div class="bus-name-row">
+                <span class="bus-name" style="font-size:1rem;font-weight:800;">${r.busName}</span>
+                <span class="bus-type-badge" style="background:${typeColor}20;color:${typeColor};border:1px solid ${typeColor}40;padding:2px 10px;border-radius:50px;font-size:.7rem;font-weight:700;">${r.vehicleType}</span>
+              </div>
+              <div style="font-size:.72rem;color:#94a3b8;margin-bottom:6px;">${r.providerName} &nbsp;·&nbsp; ${r.boardingPoint} → ${r.droppingPoint}</div>
+              <div class="bus-timing">
+                <span class="time">${r.departureTime}</span>
+                <span class="route-line">
+                  <span class="dot-line"></span>
+                  <span style="font-size:.68rem;color:#94a3b8;white-space:nowrap;">${r.duration}</span>
+                  <span class="dot-line"></span>
+                </span>
+                <span class="time">${r.arrivalTime}</span>
+              </div>
+              <div class="bus-meta-row" style="gap:12px;margin-top:6px;">
+                <span style="color:#f59e0b;font-size:.78rem;">${stars} ${r.rating}</span>
+                <span class="seats-left orange-txt">${r.availableSeats} seats left</span>
+                <span style="font-size:.85rem;">${ams}</span>
+              </div>
+            </div>
+            <div class="bus-price-col">
+              <span class="bus-price">&#8377;${r.price}</span>
+              <button class="select-seat-btn"
+                onclick="selectBus('${r.busName}','${r.vehicleType}','&#8377;${r.price}',${r.price},'${r.tripId}',${r.totalSeats || 40})"
+              >Select Seats &#8250;</button>
+            </div>
+          </div>
+        `}).join('');
+
+        document.getElementById('busRouteTitle').textContent = from + ' → ' + to;
+        /* ── Also show locally-added service provider schedules ── */
+        const localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+        const localMatch = localSchedules.filter(b =>
+          b.from && b.to &&
+          b.from.toLowerCase() === from.toLowerCase() &&
+          b.to.toLowerCase() === to.toLowerCase()
+        );
+        const totalCount = results.length + localMatch.length;
+        document.getElementById('busRouteMeta').textContent = (date || 'All dates') + ' · ' + totalCount + ' bus' + (totalCount !== 1 ? 'es' : '') + ' found (Live)';
+        if (localMatch.length) renderDynamicBuses(localSchedules, from, to);
+        goTo('buses');
+        return;
+      }
+    }
+  } catch(e) {
+    console.warn('API search failed, using static data:', e.message);
+  }
+
+  // ── Fallback: static bus cards ─────────────────────
+  const dynamicBuses = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+  const routeMatch = dynamicBuses.filter(b =>
+    b.from.toLowerCase() === from.toLowerCase() &&
+    b.to.toLowerCase() === to.toLowerCase()
+  );
+  document.getElementById('busRouteTitle').textContent = from + ' \u2192 ' + to;
+  document.getElementById('busRouteMeta').textContent = (date || 'Today') + ' \u00b7 ' + routeMatch.length + ' bus' + (routeMatch.length !== 1 ? 'es' : '') + ' found';
+  var busListEl = document.getElementById('busList');
+  if (busListEl) busListEl.innerHTML = '';
+  if (routeMatch.length > 0) {
+    renderDynamicBuses(dynamicBuses, from, to);
+  } else if (busListEl) {
+    busListEl.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#94a3b8;"><div style="font-size:2.5rem;margin-bottom:14px;">\uD83D\uDE8C</div><div style="font-weight:700;font-size:1rem;margin-bottom:8px;color:#64748b;">No buses available for this route</div><div style="font-size:.82rem;">No provider has added a schedule for <strong style="color:#f97316">' + from + ' \u2192 ' + to + '</strong> yet.<br>Try a different route or check back later.</div></div>';
+  }
+  goTo('buses');
+});
+
+/* ── Recent search tags ───────────────────────────── */
+document.querySelectorAll('.recent-tag').forEach(tag => {
+  tag.addEventListener('click', function() {
+    document.getElementById('fromCity').value = this.dataset.from;
+    document.getElementById('toCity').value   = this.dataset.to;
+  });
+});
+
+/* ── Render dynamic buses from localStorage ────────── */
+function renderDynamicBuses(allBuses, from, to) {
+  // Remove any previously rendered dynamic bus cards
+  document.querySelectorAll('.bus-card.dynamic-bus').forEach(el => el.remove());
+
+  const routeMatch = allBuses.filter(b =>
+    b.from.toLowerCase() === from.toLowerCase() &&
+    b.to.toLowerCase() === to.toLowerCase()
+  );
+
+  if (!routeMatch.length) return;
+
+  const busList = document.querySelector('.bus-list');
+  if (!busList) return;
+
+  const typeBadgeColors = ['orange', 'green', 'blue', 'purple'];
+
+  routeMatch.forEach(function(bus, idx) {
+    const colorClass = typeBadgeColors[idx % typeBadgeColors.length];
+    const seatsLeft = bus.totalSeats || 40;
+    const fare = parseInt(bus.fare) || 500;
+    const busName = bus.busName || bus.vehicleName || 'New Bus';
+    const busType = bus.busType || 'AC';
+
+    const card = document.createElement('div');
+    card.className = 'bus-card dynamic-bus';
+    card.innerHTML = `
+      <div class="bus-info">
+        <div class="bus-name-row">
+          <span class="bus-name">${busName}</span>
+          <span class="bus-type-badge ${colorClass}">${busType}</span>
+        </div>
+        <div class="bus-timing">
+          <span class="time">${bus.departureTime || '08:00'}</span>
+          <span class="route-line">
+            <span class="dot-line"></span>
+            <svg width="28" height="18" viewBox="0 0 24 14" fill="none"><rect x="1" y="3" width="22" height="8" rx="2.5" fill="#f97316" opacity=".2" stroke="#f97316" stroke-width="1.5"/><rect x="3" y="1.5" width="15" height="5" rx="1.5" fill="#f97316" opacity=".15" stroke="#f97316" stroke-width="1"/><circle cx="5" cy="11" r="1.5" fill="#f97316"/><circle cx="19" cy="11" r="1.5" fill="#f97316"/></svg>
+            <span class="dot-line"></span>
+          </span>
+          <span class="time">${bus.arrivalTime || '12:00'}</span>
+        </div>
+        <div class="bus-meta-row">
+          <span class="star-inline">★ 4.5</span>
+          <span class="seats-left green-txt">${seatsLeft} seats available</span>
+          <span class="amenity-icon">🌬️</span>
+          <span class="new-badge" style="background:#dcfce7;color:#16a34a;font-size:.65rem;font-weight:800;padding:2px 8px;border-radius:50px;border:1px solid #86efac;">NEW</span>
+        </div>
+      </div>
+      <div class="bus-price-col">
+        <span class="bus-price">₹${fare}</span>
+        <button class="select-seat-btn" onclick="selectBus('${busName}','${busType}','₹${fare}',${fare})">Select Seats <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+      </div>
+    `;
+    busList.appendChild(card);
+  });
+}
+
+/* ── Bus selection (global for onclick attrs) ─────── */
+let selectedBus   = '';
+let selectedType  = '';
+let selectedPrice = '';
+let selectedFare  = 0;
+// The real backend tripId/capacity for the bus just picked — without this, booking
+// creation had no way to know which trip was actually selected (see confirmPayment).
+let selectedTripId     = '';
+let selectedTotalSeats = 40;
+
+window.selectBus = function(name, type, price, fare, tripId, totalSeats) {
+  selectedBus   = name;
+  selectedType  = type;
+  selectedPrice = price;
+  selectedFare  = fare;
+  selectedTripId     = tripId || '';
+  selectedTotalSeats = totalSeats || 40;
+  // Update seat page heading
+  document.getElementById('seatSubheading').textContent =
+    name + ' · ' + type + ' · Select one or more seats';
+  buildSeatMap();
+  goTo('seats');
+};
+
+/* ── Seat map ─────────────────────────────────────── */
+const BOOKED_SEATS = [
+  'A1','A2','A3','A4',
+  'B1','B2','B4',
+  'C1','C2','C3',
+  'D1','D4',
+  'F1'
+];
+let selectedSeats  = [];
+
+function buildSeatMap() {
+  const grid = document.getElementById('seatGrid');
+  grid.innerHTML = '';
+  selectedSeats = [];
+  updateProceedBtn();
+
+  const rows = ['A','B','C','D','E','F','G','H'];
+  rows.forEach(row => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'seat-row';
+
+    // Row label
+    const label = document.createElement('span');
+    label.className = 'row-label';
+    label.textContent = row;
+    rowEl.appendChild(label);
+
+    // Left pair (seats 1 & 2)
+    const leftPair = document.createElement('div');
+    leftPair.className = 'seat-pair';
+    [1, 2].forEach(n => leftPair.appendChild(makeSeat(row + n)));
+    rowEl.appendChild(leftPair);
+
+    // Aisle
+    const aisle = document.createElement('div');
+    aisle.className = 'seat-aisle';
+    rowEl.appendChild(aisle);
+
+    // Right pair (seats 3 & 4)
+    const rightPair = document.createElement('div');
+    rightPair.className = 'seat-pair';
+    [3, 4].forEach(n => rightPair.appendChild(makeSeat(row + n)));
+    rowEl.appendChild(rightPair);
+
+    grid.appendChild(rowEl);
+  });
+}
+
+function makeSeat(id) {
+  const btn = document.createElement('button');
+  const isBooked = BOOKED_SEATS.includes(id);
+  btn.className   = 'seat ' + (isBooked ? 'booked' : 'available');
+  btn.textContent = id;
+  btn.disabled    = isBooked;
+  btn.title       = isBooked ? 'Booked' : 'Click to select';
+  if (!isBooked) {
+    btn.addEventListener('click', () => toggleSeat(id, btn));
+  }
+  return btn;
+}
+
+function toggleSeat(id, btn) {
+  const idx = selectedSeats.indexOf(id);
+  if (idx === -1) {
+    selectedSeats.push(id);
+    btn.classList.replace('available', 'selected');
+  } else {
+    selectedSeats.splice(idx, 1);
+    btn.classList.replace('selected', 'available');
+  }
+  updateProceedBtn();
+}
+
+function updateProceedBtn() {
+  const btn = document.getElementById('proceedSeatBtn');
+  if (!btn) return;
+  if (selectedSeats.length === 0) {
+    btn.disabled = true;
+    btn.innerHTML = 'Select a seat to continue';
+    btn.style.opacity = '0.5';
+  } else {
+    btn.disabled = false;
+    btn.innerHTML =
+      'Proceed to Book (' + selectedSeats.join(', ') + ')' +
+      ' <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-7 7 7-7 7"/></svg>';
+    btn.style.opacity = '1';
+  }
+}
+
+/* ── Auth gate at seat → booking step ────────────── */
+function guestCheckAndProceed() {
+  if (selectedSeats.length === 0) { alert('Please select at least one seat.'); return; }
+  if (isLoggedIn()) {
+    loadPassengerView();
+    goTo('passenger');
+  } else {
+    // Save state so we return after login
+    sessionStorage.setItem('c2b_returnAfterLogin', 'passenger');
+    sessionStorage.setItem('c2b_pendingBus',   selectedBus);
+    sessionStorage.setItem('c2b_pendingType',  selectedType);
+    sessionStorage.setItem('c2b_pendingPrice', selectedPrice);
+    sessionStorage.setItem('c2b_pendingFare',  selectedFare);
+    sessionStorage.setItem('c2b_pendingSeats', JSON.stringify(selectedSeats));
+    window.location.href = '../landing-page/login.html';
+  }
+}
+
+/* ── Passenger info view ──────────────────────────── */
+function loadPassengerView() {
+  const count    = selectedSeats.length || 1;
+  const subtotal = selectedFare * count;
+  const gst      = Math.round(subtotal * 0.18);
+  const total    = subtotal + gst + 25;
+
+  // Store raw total for offers engine & reset any prior discount
+  _rawTotal        = total;
+  _appliedDiscount = 0;
+  const discRow    = document.getElementById('discountRow');
+  const chip       = document.getElementById('appliedOfferChip');
+  const couponInp  = document.getElementById('couponInput');
+  if (discRow)  discRow.style.display  = 'none';
+  if (chip)     chip.style.display     = 'none';
+  if (couponInp) couponInp.value       = '';
+
+  const el = id => document.getElementById(id);
+  if (el('payBusName'))   el('payBusName').textContent   = selectedBus + ' (' + selectedType + ')';
+  if (el('payBasePrice')) el('payBasePrice').textContent = selectedPrice + ' × ' + count;
+  if (el('paySeat'))      el('paySeat').textContent      = selectedSeats.join(', ') || '—';
+  if (el('paySubtotal'))  el('paySubtotal').textContent  = '₹' + subtotal;
+  if (el('payGST'))       el('payGST').textContent       = '₹' + gst;
+  if (el('payTotal'))     el('payTotal').textContent     = '₹' + total;
+  if (el('payBtnAmount')) el('payBtnAmount').textContent = '₹' + total;
+
+  // ── Build one form per selected seat ──
+  const container = document.getElementById('paxFormsContainer');
+  if (!container) return;
+  const loggedName  = sessionStorage.getItem('c2b_userName')  || localStorage.getItem('c2b_userName')  || '';
+  const loggedEmail = sessionStorage.getItem('c2b_userEmail') || localStorage.getItem('c2b_userEmail') || '';
+  const seats = selectedSeats.length ? selectedSeats : ['Seat 1'];
+  if (el('paxFormSub')) el('paxFormSub').textContent =
+    seats.length > 1 ? 'Fill details for all ' + seats.length + ' passengers' : 'Enter traveler information';
+
+  container.innerHTML = seats.map(function(seat, i) {
+    return '<div class="pax-passenger-card" style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:16px;padding:20px 20px 16px;margin-bottom:18px;">' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:#f97316;color:white;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;">' + (i+1) + '</div>' +
+        '<div style="font-weight:700;color:#1e293b;font-size:.9rem;">Passenger ' + (i+1) + ' &nbsp;<span style="font-size:.75rem;color:#64748b;background:#e2e8f0;padding:2px 10px;border-radius:50px;">Seat ' + seat + '</span></div>' +
+      '</div>' +
+      '<div class="pax-field"><label class="pax-label">FULL NAME</label>' +
+        '<div class="pax-input-wrap"><svg class="pax-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
+        '<input type="text" id="paxName_' + i + '" class="pax-input" placeholder="Full name" value="' + (i===0?loggedName:'') + '" /></div></div>' +
+      '<div class="pax-field"><label class="pax-label">AGE</label>' +
+        '<div class="pax-input-wrap"><svg class="pax-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
+        '<input type="number" id="paxAge_' + i + '" class="pax-input" placeholder="Age" min="1" max="120" /></div></div>' +
+      '<div class="pax-field"><label class="pax-label">EMAIL</label>' +
+        '<div class="pax-input-wrap"><svg class="pax-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>' +
+        '<input type="text" id="paxEmail_' + i + '" class="pax-input" placeholder="email@example.com" value="' + (i===0?loggedEmail:'') + '" /></div></div>' +
+      '<div class="pax-field"><label class="pax-label">PHONE</label>' +
+        '<div class="pax-input-wrap"><svg class="pax-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 12 19.79 19.79 0 0 1 1.08 3.5 2 2 0 0 1 3.06 1.3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.09 8.91A16 16 0 0 0 15 16.91l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22.73 17z"/></svg>' +
+        '<input type="tel" id="paxPhone_' + i + '" class="pax-input" placeholder="+91XXXXXXXXXX" /></div></div>' +
+      '<div class="pax-field"><label class="pax-label">GENDER</label>' +
+        '<div class="gender-group">' +
+          '<button class="gender-btn active" data-gender="Male" onclick="selectGenderCard(this)">Male</button>' +
+          '<button class="gender-btn" data-gender="Female" onclick="selectGenderCard(this)">Female</button>' +
+          '<button class="gender-btn" data-gender="Other" onclick="selectGenderCard(this)">Other</button>' +
+        '</div></div>' +
+    '</div>';
+  }).join('');
+}
+
+/* ── Gender selection (scoped to card) ───────────── */
+window.selectGenderCard = function(btn) {
+  var card = btn.closest('.pax-passenger-card') || btn.parentElement.parentElement;
+  card.querySelectorAll('.gender-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+};
+
+/* ── Gender selection (legacy single form) ─────── */
+window.selectGender = function(btn) {
+  document.querySelectorAll('.gender-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+};
+
+/* ── showPaxErr helper ────────────────────────────── */
+function showPaxErr(msg) {
+  var old = document.getElementById('paxErrMsg');
+  if (old) old.remove();
+  var errDiv = document.createElement('div');
+  errDiv.id = 'paxErrMsg';
+  errDiv.style.cssText = 'background:#fff1f2;border:1.5px solid #fecaca;border-radius:10px;padding:12px 16px;font-size:.84rem;color:#ef4444;font-weight:700;margin-bottom:14px;';
+  errDiv.textContent = '⚠️ ' + msg;
+  var container = document.getElementById('paxFormsContainer');
+  var btn = document.getElementById('proceedPassengerBtn');
+  if (container && container.parentNode) container.parentNode.insertBefore(errDiv, container);
+  else if (btn && btn.parentNode) btn.parentNode.insertBefore(errDiv, btn);
+  errDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/* ── Passenger form validation — ALL seats ─────── */
+window.validateAndProceed = function() {
+  var old = document.getElementById('paxErrMsg');
+  if (old) old.remove();
+
+  var count = selectedSeats.length || 1;
+  var emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9\-]+(\.[a-zA-Z0-9\-]+)*\.[a-zA-Z]{2,}$/;
+
+  for (var i = 0; i < count; i++) {
+    var nameEl  = document.getElementById('paxName_'  + i);
+    var ageEl   = document.getElementById('paxAge_'   + i);
+    var emailEl = document.getElementById('paxEmail_' + i);
+    var phoneEl = document.getElementById('paxPhone_' + i);
+    var seat    = selectedSeats[i] || ('Seat ' + (i+1));
+    var nv = nameEl  ? nameEl.value.trim()  : '';
+    var av = ageEl   ? ageEl.value.trim()   : '';
+    var ev = emailEl ? emailEl.value.trim() : '';
+    var pv = phoneEl ? phoneEl.value.trim() : '';
+
+    if (!nv)  { showPaxErr('Passenger ' + (i+1) + ' (' + seat + '): Please enter full name.'); return; }
+    if (/[0-9]/.test(nv)) { showPaxErr('Passenger ' + (i+1) + ': Name must not contain numbers.'); return; }
+    if (nv.length < 2) { showPaxErr('Passenger ' + (i+1) + ': Name must be at least 2 characters.'); return; }
+
+    // ── Age: REQUIRED, must be 1–120, integers only ──────────────
+    if (!ageEl || av === '') {
+      showPaxErr('Passenger ' + (i+1) + ' (' + seat + '): Age is required.'); return;
+    }
+    // Detect non-numeric input typed in <input type="number"> fields
+    if (ageEl.validity && ageEl.validity.badInput) {
+      showPaxErr('Passenger ' + (i+1) + ': Age must be a number (e.g. 25).'); return;
+    }
+    var aN = Number(av);
+    if (!Number.isFinite(aN) || aN !== Math.floor(aN)) {
+      showPaxErr('Passenger ' + (i+1) + ': Age must be a whole number (no decimals).'); return;
+    }
+    if (aN < 1 || aN > 120) {
+      showPaxErr('Passenger ' + (i+1) + ' (' + seat + '): Age must be between 1 and 120.'); return;
+    }
+
+    if (!ev) { showPaxErr('Passenger ' + (i+1) + ' (' + seat + '): Please enter email.'); return; }
+    if (!emailRegex.test(ev)) { showPaxErr('Passenger ' + (i+1) + ': Invalid email — ' + ev); return; }
+    if (!pv) { showPaxErr('Passenger ' + (i+1) + ' (' + seat + '): Please enter phone number.'); return; }
+    var digs = pv.replace(/[\s\-\+\(\)]/g, '');
+    if (!/^\d{10,13}$/.test(digs)) { showPaxErr('Passenger ' + (i+1) + ': Phone must be 10-13 digits.'); return; }
+    if (/^(.)\1+$/.test(digs)) { showPaxErr('Passenger ' + (i+1) + ': Phone cannot be all same digits.'); return; }
+  }
+
+  // All valid — collect and proceed
+  var passengerData = [];
+  for (var j = 0; j < count; j++) {
+    passengerData.push({
+      seat:  selectedSeats[j],
+      name:  document.getElementById('paxName_'  + j) ? document.getElementById('paxName_'  + j).value.trim() : '',
+      age:   document.getElementById('paxAge_'   + j) ? document.getElementById('paxAge_'   + j).value.trim() : '',
+      email: document.getElementById('paxEmail_' + j) ? document.getElementById('paxEmail_' + j).value.trim() : '',
+      phone: document.getElementById('paxPhone_' + j) ? document.getElementById('paxPhone_' + j).value.trim() : ''
+    });
+  }
+  sessionStorage.setItem('c2b_passengers', JSON.stringify(passengerData));
+  goTo('payment');
+};
+
+
+/* ── Payment method toggle ────────────────────────── */
+document.querySelectorAll('.pay-method').forEach(method => {
+  method.addEventListener('click', function() {
+    document.querySelectorAll('.pay-method').forEach(m => m.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+
+/* ── Offers & Coupon system ───────────────────────── */
+// Master list of all available offers
+const OFFERS_CATALOG = [
+  { code:'FIRSTBUS100', title:'First Ride Bonus',      desc:'₹100 off on your first booking',              discount:100, type:'flat',    badge:'NEW',       badgeColor:'#f97316', minFare:0   },
+  { code:'WEEKEND150',  title:'Weekend Flash Sale',    desc:'₹150 off on weekend travel bookings',          discount:150, type:'flat',    badge:'HOT',       badgeColor:'#ef4444', minFare:300 },
+  { code:'PREMIUM200',  title:'Premium Member Offer',  desc:'₹200 cashback for Premium members above ₹800', discount:200, type:'flat',    badge:'EXCLUSIVE', badgeColor:'#8b5cf6', minFare:800 },
+  { code:'REFER75',     title:'Refer a Friend',        desc:'₹75 off for you and your friend',              discount:75,  type:'flat',    badge:'HOT',       badgeColor:'#ef4444', minFare:0   },
+  { code:'NIGHTBUS25',  title:'Night Rider Offer',     desc:'25% off on overnight sleeper bookings',        discount:25,  type:'percent', badge:'LIMITED',   badgeColor:'#3b82f6', minFare:0   },
+  { code:'STUDENT150',  title:'Student Special',       desc:'₹150 off for verified students',               discount:150, type:'flat',    badge:'EXCLUSIVE', badgeColor:'#8b5cf6', minFare:0   },
+  { code:'MONSOON50',   title:'Monsoon Saver',         desc:'₹50 off on all routes during monsoon season',  discount:50,  type:'flat',    badge:'SEASONAL',  badgeColor:'#0891b2', minFare:0   },
+  { code:'SUPERFAST10', title:'Superfast 10% Off',     desc:'10% discount on express / premium buses',      discount:10,  type:'percent', badge:'',          badgeColor:'#f97316', minFare:0   },
+];
+
+let _appliedDiscount = 0; // tracks applied discount amount
+let _rawTotal        = 0; // total before discount
+
+/* Build offer cards inside the panel */
+function buildOffersPanel() {
+  const list = document.getElementById('offersList');
+  if (!list) return;
+  const fare = _rawTotal || 0;
+  list.innerHTML = OFFERS_CATALOG.map(function(o) {
+    const discAmt  = o.type === 'percent' ? Math.round(fare * o.discount / 100) : o.discount;
+    const eligible = fare >= o.minFare;
+    const badgeHtml = o.badge ? `<span style="background:${o.badgeColor}18;color:${o.badgeColor};font-size:.62rem;font-weight:800;padding:1px 8px;border-radius:50px;border:1px solid ${o.badgeColor}40;">${o.badge}</span>` : '';
+    return `
+      <div class="offer-row-item" onclick="${eligible ? "applyOfferCode('" + o.code + "')" : 'showCouponMsg("Minimum fare ₹' + o.minFare + ' required for this offer.", false)'}" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;margin-bottom:8px;border-radius:12px;border:1.5px solid ${eligible ? '#e2e8f0' : '#f3f4f6'};background:${eligible ? '#fff' : '#f9fafb'};cursor:${eligible ? 'pointer' : 'default'};transition:border .15s,box-shadow .15s;" onmouseenter="${eligible ? "this.style.borderColor='#f97316';this.style.boxShadow='0 2px 12px rgba(249,115,22,.12)'" : ''}" onmouseleave="this.style.borderColor='${eligible ? '#e2e8f0' : '#f3f4f6'}';this.style.boxShadow='none'">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+            <span style="font-size:.82rem;font-weight:700;color:${eligible ? '#0f172a' : '#94a3b8'};">${o.title}</span>
+            ${badgeHtml}
+          </div>
+          <div style="font-size:.72rem;color:#6b7280;">${o.desc}</div>
+          <div style="font-size:.7rem;font-weight:700;color:#f97316;margin-top:3px;font-family:monospace;letter-spacing:.5px;">${o.code}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:12px;">
+          <div style="font-size:.85rem;font-weight:800;color:${eligible ? '#16a34a' : '#94a3b8'};">−₹${discAmt}</div>
+          <button style="margin-top:4px;padding:4px 14px;border-radius:20px;border:none;background:${eligible ? '#f97316' : '#e5e7eb'};color:${eligible ? 'white' : '#94a3b8'};font-size:.7rem;font-weight:700;cursor:${eligible ? 'pointer' : 'not-allowed'};">${eligible ? 'Apply' : 'Min ₹' + o.minFare}</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* Toggle the offers panel open/closed */
+window.toggleOffersPanel = function() {
+  const panel = document.getElementById('offersPanel');
+  const chevron = document.getElementById('offersPanelChevron');
+  if (!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display  = isOpen ? 'none' : 'block';
+  if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+  if (!isOpen) buildOffersPanel();
+};
+
+/* Apply a specific code (called from offer row click or coupon input) */
+window.applyOfferCode = function(code) {
+  const offer = OFFERS_CATALOG.find(function(o){ return o.code === code; });
+  if (!offer) { showCouponMsg('❌ Invalid coupon code.', false); return; }
+  const fare = _rawTotal || 0;
+  if (fare < offer.minFare) {
+    showCouponMsg('⚠️ Minimum booking fare ₹' + offer.minFare + ' required for this offer.', false);
+    return;
+  }
+  const disc = offer.type === 'percent' ? Math.round(fare * offer.discount / 100) : offer.discount;
+  _appliedDiscount = Math.min(disc, fare); // can't discount more than total
+
+  // Update coupon input field
+  const inp = document.getElementById('couponInput');
+  if (inp) inp.value = code;
+
+  // Update summary rows
+  const newTotal = Math.max(0, fare - _appliedDiscount);
+  const discRow  = document.getElementById('discountRow');
+  const discDisp = document.getElementById('discountDisplay');
+  if (discRow)  discRow.style.display   = '';
+  if (discDisp) discDisp.textContent    = '−₹' + _appliedDiscount;
+  const totalEl  = document.getElementById('payTotal');
+  const payBtn   = document.getElementById('payBtnAmount');
+  if (totalEl)  totalEl.textContent     = '₹' + newTotal;
+  if (payBtn)   payBtn.textContent      = '₹' + newTotal;
+
+  // Chip on header
+  const chip = document.getElementById('appliedOfferChip');
+  if (chip) { chip.textContent = code + ' applied'; chip.style.display = ''; }
+
+  showCouponMsg('✅ "' + code + '" applied! You save ₹' + _appliedDiscount + '.', true);
+
+  // Close the panel
+  const panel = document.getElementById('offersPanel');
+  const chevron = document.getElementById('offersPanelChevron');
+  if (panel)   panel.style.display  = 'none';
+  if (chevron) chevron.style.transform = '';
+};
+
+function showCouponMsg(msg, success) {
+  const el = document.getElementById('couponMsg');
+  if (!el) return;
+  el.textContent   = msg;
+  el.style.display = 'block';
+  el.style.background  = success ? '#f0fdf4' : '#fff1f2';
+  el.style.color       = success ? '#16a34a' : '#ef4444';
+  el.style.border      = '1px solid ' + (success ? '#86efac' : '#fecaca');
+  clearTimeout(el._t);
+  el._t = setTimeout(function(){ el.style.display = 'none'; }, 4000);
+}
+
+/* Public applyCoupon called by the Apply button */
+window.applyCoupon = function() {
+  const val = (document.getElementById('couponInput')?.value || '').trim().toUpperCase();
+  if (!val) { showCouponMsg('⚠️ Please enter a coupon code first.', false); return; }
+  applyOfferCode(val);
+};
+
+/* Remove applied offer (called if user clears the input) */
+document.addEventListener('DOMContentLoaded', function() {
+  const inp = document.getElementById('couponInput');
+  if (inp) {
+    inp.addEventListener('input', function() {
+      if (!this.value.trim()) {
+        _appliedDiscount = 0;
+        const discRow = document.getElementById('discountRow');
+        const chip    = document.getElementById('appliedOfferChip');
+        if (discRow) discRow.style.display = 'none';
+        if (chip)    chip.style.display    = 'none';
+        // restore original total
+        const totalEl = document.getElementById('payTotal');
+        const payBtn  = document.getElementById('payBtnAmount');
+        if (totalEl) totalEl.textContent = '₹' + _rawTotal;
+        if (payBtn)  payBtn.textContent  = '₹' + _rawTotal;
+      }
+    });
+  }
+});
+
+/* ── Map a mock seat label ("A1", "C3", ...) to a real integer seat number,
+   clamped to the real vehicle's capacity so it's always a valid @IsNumber(). ── */
+function mockSeatLabelToNumber(label, totalSeats) {
+  var row = (label || 'A1').charCodeAt(0) - 65;   // 'A' -> 0, 'B' -> 1, ...
+  var col = parseInt((label || 'A1').slice(1), 10) || 1;
+  var n   = row * 4 + col;
+  var cap = totalSeats || 40;
+  return ((n - 1) % cap) + 1;
+}
+
+var C2B_API_HOST = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'localhost' : window.location.hostname;
+var C2B_API = 'http://' + C2B_API_HOST + ':3000/api';
+
+/* Creates the real backend booking for the trip the customer actually selected,
+   retrying with a different seat if the mock-mapped seat number is already taken. */
+async function createRealBooking(customerId, tripId, totalSeats, firstSeatLabel) {
+  var baseSeat = mockSeatLabelToNumber(firstSeatLabel, totalSeats);
+  var lastError = null;
+  for (var attempt = 0; attempt < 5; attempt++) {
+    var seatNumber = ((baseSeat - 1 + attempt) % (totalSeats || 40)) + 1;
+    try {
+      var res = await fetch(C2B_API + '/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-role': 'CUSTOMER' },
+        body: JSON.stringify({ customerId: customerId, tripId: tripId, seatNumber: seatNumber }),
+      });
+      var json = await res.json();
+      if (res.ok && json.success) return json.data;
+      lastError = json.message || ('Booking failed (' + res.status + ')');
+      if (res.status !== 409) break; // only retry on seat conflicts
+    } catch (e) {
+      lastError = e.message;
+      break; // network/offline failure — no point retrying
+    }
+  }
+  throw new Error(lastError || 'Could not create booking');
+}
+
+/* ── Confirm payment: creates the real backend booking first (this is what
+   actually drives provider revenue), then mirrors it into the local CRUD DB
+   for the legacy admin/provider mock dashboards. ───────────────────────── */
+window.confirmPayment = async function() {
+  const payBtn = document.getElementById('payNowBtn');
+  if (payBtn) { payBtn.disabled = true; payBtn.textContent = 'Processing payment…'; }
+
+  const customerId = sessionStorage.getItem('c2b_loggedInId')
+                  || localStorage.getItem('c2b_loggedInId')
+                  || 'C001';
+
+  const count    = selectedSeats.length || 1;
+  const subtotal = selectedFare * count;
+  const gst      = Math.round(subtotal * 0.18);
+  const rawTotal = subtotal + gst + 25;
+  // Use discounted total if an offer was applied
+  const discount = _appliedDiscount || 0;
+  const total    = Math.max(0, rawTotal - discount);
+
+  const paymentId  = 'PAY' + Date.now();
+  const today      = new Date().toISOString().split('T')[0];
+
+  // Read selected payment method label
+  const activeMethod = document.querySelector('.pay-method.active input');
+  const payMethod    = activeMethod ? activeMethod.value.toUpperCase() : 'UPI';
+
+  const from = (document.getElementById('fromCity')?.value || 'Unknown').trim();
+  const to   = (document.getElementById('toCity')?.value   || 'Unknown').trim();
+  const date = document.getElementById('travelDate')?.value || today;
+
+  // ── Read passenger list from session ─────────────
+  var passengers = [];
+  try { passengers = JSON.parse(sessionStorage.getItem('c2b_passengers') || '[]'); } catch(e) {}
+  var primaryName = passengers.length ? passengers[0].name : (sessionStorage.getItem('c2b_userName') || 'Customer');
+
+  // ── Create the real backend booking — this is what triggers ledger
+  // creation and provider revenue attribution, so it must use the trip the
+  // customer actually selected (selectedTripId), not a placeholder.
+  var bookingId = 'BUS' + Date.now(); // fallback id if the backend is unreachable
+  var backendOk = false;
+  if (selectedTripId) {
+    try {
+      var booking = await createRealBooking(customerId, selectedTripId, selectedTotalSeats, selectedSeats[0]);
+      bookingId = booking.bookingId;
+      backendOk = true;
+      try {
+        await fetch(C2B_API + '/bookings/' + bookingId + '/confirm', {
+          method: 'PATCH',
+          headers: { 'x-role': 'CUSTOMER' },
+        });
+      } catch (e) { console.warn('[C2B] Confirm step failed (booking still created):', e.message); }
+      console.log('[C2B] Booking created on backend ✅', bookingId, 'trip', selectedTripId);
+    } catch (e) {
+      console.warn('[C2B] Backend booking failed:', e.message);
+      if (payBtn) { payBtn.disabled = false; payBtn.textContent = 'Pay Now'; }
+      alert('We could not confirm your booking (' + e.message + '). Please try again.');
+      return;
+    }
+  } else {
+    console.warn('[C2B] No real tripId captured for this bus — booking only recorded locally.');
+  }
+
+  // ── Mirror into the local CRUD DB (used by the legacy admin/provider mock dashboards) ──
+  if (window.DB) {
+    try {
+      DB.bookings.create({
+        booking_id:        bookingId,
+        customer_id:       customerId,
+        trip_id:           selectedTripId || 'T001',
+        offer_id:          null,
+        booking_date:      today,
+        booking_status:    'CONFIRMED',
+        irctc_id:          null,
+        _busName:          selectedBus,
+        _busType:          selectedType,
+        _seats:            selectedSeats.join(', '),
+        _from:             from,
+        _to:               to,
+        _journeyDate:      date,
+        _total:            total,
+        _fare:             selectedFare,
+        _passengerCount:   count,
+        _customerName:     primaryName,
+        _paymentMethod:    payMethod,
+        _passengers:       JSON.stringify(passengers),
+      });
+    } catch(e) { console.warn('[C2B] Booking write failed:', e); }
+
+    try {
+      DB.payments.create({
+        payment_id:      paymentId,
+        booking_id:      bookingId,
+        amount:          total,
+        discount_amount: discount,
+        payment_method:  payMethod,
+        payment_status:  'SUCCESS',
+        payment_date:    today,
+      });
+    } catch(e) { console.warn('[C2B] Payment write failed:', e); }
+  }
+
+  // ── Also POST to NestJS backend (non-blocking) ────
+  (async function() {
+    try {
+      var host = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+               ? 'localhost' : window.location.hostname;
+      await fetch('http://' + host + ':3000/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-role': 'CUSTOMER' },
+        body: JSON.stringify({
+          customerId:    customerId,
+          tripId:        tripId,
+          seatNumbers:   selectedSeats,
+          from:          from,
+          to:            to,
+          journeyDate:   date,
+          totalAmount:   total,
+          paymentMethod: payMethod,
+          passengers:    passengers,
+          busName:       selectedBus,
+          busType:       selectedType,
+        })
+      });
+      console.log('[C2B] Booking synced to backend ✅');
+    } catch(e) {
+      console.warn('[C2B] Backend sync skipped (offline):', e.message);
+    }
+  })();
+
+  // ── Store for confirmation page ───────────────────
+  sessionStorage.setItem('lastBookingId',      bookingId);
+  sessionStorage.setItem('lastBusName',        selectedBus);
+  sessionStorage.setItem('lastBusType',        selectedType);
+  sessionStorage.setItem('lastSeats',          selectedSeats.join(', '));
+  sessionStorage.setItem('lastTotal',          total);
+  sessionStorage.setItem('lastDiscount',       discount);
+  sessionStorage.setItem('lastFrom',           from);
+  sessionStorage.setItem('lastTo',             to);
+  sessionStorage.setItem('lastDate',           date);
+  sessionStorage.setItem('lastPayMethod',      payMethod);
+  sessionStorage.setItem('lastPassengerCount', count);
+  sessionStorage.setItem('lastPassengers',     JSON.stringify(passengers));
+  sessionStorage.setItem('searchFrom', from);
+  sessionStorage.setItem('searchTo',   to);
+
+  // ── Navigate to confirmation page ────────────────
+  window.location.href = 'booking-confirmed-bus.html';
+};
+
+/* ── Sidebar: guest vs logged-in ──────────────────── */
+function updateSidebar() {
+  const loggedIn  = isLoggedIn();
+  const avatar    = document.getElementById('profileAvatar');
+  const name      = document.getElementById('profileName');
+  const badge     = document.getElementById('profileBadge');
+  const authBtn   = document.getElementById('authBtnLabel');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  // Nav items that should only show when logged in
+  const guestHide = ['nav-bookings','nav-cancel','nav-offers','nav-support','nav-profile'];
+
+  if (loggedIn) {
+    const userName = sessionStorage.getItem('c2b_userName') ||
+                     localStorage.getItem('c2b_userName') || 'Customer';
+    const initials = userName.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+    if (avatar) avatar.textContent = initials;
+    if (name)   name.textContent   = userName.toUpperCase();
+    if (badge)  { badge.textContent = 'Logged In'; badge.style.display = ''; }
+    if (authBtn) authBtn.textContent = 'Logout';
+    // Show all nav items — must use 'flex' to override any inline style
+    guestHide.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'flex';
+    });
+    if (logoutBtn) {
+      logoutBtn.removeAttribute('href');
+      logoutBtn.onclick = function(e) {
+        e.preventDefault();
+        if (confirm('Are you sure you want to logout?')) {
+          sessionStorage.removeItem('c2b_loggedIn');
+          localStorage.removeItem('c2b_loggedIn');
+          window.location.href = '../landing-page/index.html';
+        }
+      };
+    }
+  } else {
+    // GUEST
+    if (avatar) avatar.textContent = '👤';
+    if (name)   name.textContent   = 'GUEST';
+    if (badge)  badge.style.display = 'none';
+    if (authBtn) authBtn.textContent = 'Sign In';
+    // Hide logged-in only nav items
+    guestHide.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    if (logoutBtn) {
+      logoutBtn.href = '../landing-page/login.html';
+      logoutBtn.onclick = null;
+    }
+  }
+}
+
+/* ── Pre-fill from sessionStorage after login return  */
+function restoreStateAfterLogin() {
+  if (sessionStorage.getItem('c2b_proceedToPassenger') === 'true') {
+    sessionStorage.removeItem('c2b_proceedToPassenger');
+    // Restore previously selected bus/seat
+    const bus   = sessionStorage.getItem('c2b_pendingBus')   || '';
+    const type  = sessionStorage.getItem('c2b_pendingType')  || '';
+    const price = sessionStorage.getItem('c2b_pendingPrice') || '';
+    const fare  = parseInt(sessionStorage.getItem('c2b_pendingFare') || '0', 10);
+    const seats = JSON.parse(sessionStorage.getItem('c2b_pendingSeats') || '[]');
+    if (bus) {
+      selectedBus   = bus;
+      selectedType  = type;
+      selectedPrice = price;
+      selectedFare  = fare;
+      selectedSeats = seats;
+      loadPassengerView();
+      setTimeout(() => goTo('passenger'), 200);
+    }
+  }
+}
+
+/* ── Pre-fill search from landing-page ────────────── */
+function restoreSearchParams() {
+  const from = sessionStorage.getItem('searchFrom');
+  const to   = sessionStorage.getItem('searchTo');
+  const date = sessionStorage.getItem('searchDate');
+  if (from) document.getElementById('fromCity').value = from;
+  if (to)   document.getElementById('toCity').value   = to;
+  if (date) document.getElementById('travelDate').value = date;
+}
+
+/* ── Init ─────────────────────────────────────────── */
+restoreSearchParams();
+updateSidebar();
+updateProceedBtn();
+restoreStateAfterLogin();
+
+</script>
+
+  <!-- ═══ CRUD Engine (localStorage + Data Manager panel) ═══ -->
+  <script src="../crud functions/js/mock_data.js"></script>
+  <script src="../crud functions/js/script.js"></script>
+  <script src="../crud functions/js/ui-shared.js"></script>
+  <script src="../crud functions/js/ui-customer.js"></script>
+</body>
+</html>

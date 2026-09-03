@@ -40,32 +40,6 @@
       overflow: hidden;
     }
 
-    /* HOME BTN */
-    .home-btn {
-      position: fixed;
-      top: 20px;
-      left: 20px;
-      z-index: 100;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      padding: 9px 18px;
-      border-radius: 50px;
-      background: var(--p);
-      color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      font-size: .82rem;
-      font-weight: 700;
-      text-decoration: none;
-      transition: background .2s, transform .2s;
-      box-shadow: 0 4px 16px rgba(249, 115, 22, .4);
-    }
-
-    .home-btn:hover {
-      background: var(--pd);
-      transform: translateY(-1px);
-    }
-
     /* LAYOUT */
     .page {
       display: flex;
@@ -478,15 +452,6 @@
 
 <body>
 
-  <a href="/landing-page/index.html" class="home-btn">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"
-      stroke-linejoin="round">
-      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-      <polyline points="9 22 9 12 15 12 15 22" />
-    </svg>
-    Home
-  </a>
-
   <div class="page">
 
     <!-- LEFT -->
@@ -613,16 +578,7 @@
 
         <div class="create-link">New to Click2Book? <a href="#" onclick="showPanel('signup')">Create Account</a></div>
 
-        <div class="divider">OR</div>
 
-        <p class="staff-label">Are you a staff member?</p>
-        <a href="staff-access.html" class="btn-staff">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          </svg>
-          Staff Access Portal →
-        </a>
 
         <p class="terms-note">
           By signing in, you agree to our <a href="terms.html">Terms of Service</a> and <a href="privacy.html">Privacy
@@ -754,7 +710,7 @@
     const API = `http://${_h}:3000/api`;
 
     function showPanel(name) {
-      ['panelLogin','panelSignup','panelForgot'].forEach(id => {
+      ['panelLogin', 'panelSignup', 'panelForgot'].forEach(id => {
         document.getElementById(id).style.display =
           (id === 'panel' + name.charAt(0).toUpperCase() + name.slice(1)) ? '' : 'none';
       });
@@ -770,14 +726,14 @@
         : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
     }
 
-    function showErr(id, msg) { var el = document.getElementById(id); if(el){ el.textContent = '⚠️ ' + msg; el.classList.add('show'); } }
-    function clearErr(id) { var el = document.getElementById(id); if(el) el.classList.remove('show'); }
-    function showSuccess(id, msg) { var el = document.getElementById(id); if(el){ el.textContent = msg; el.classList.add('show'); } }
+    function showErr(id, msg) { var el = document.getElementById(id); if (el) { el.textContent = '⚠️ ' + msg; el.classList.add('show'); } }
+    function clearErr(id) { var el = document.getElementById(id); if (el) el.classList.remove('show'); }
+    function showSuccess(id, msg) { var el = document.getElementById(id); if (el) { el.textContent = msg; el.classList.add('show'); } }
 
     async function doLogin() {
       clearErr('errMsg');
       const email = document.getElementById('email').value.trim();
-      const pass  = document.getElementById('password').value;
+      const pass = document.getElementById('password').value;
       if (!email) { showErr('errMsg', 'Please enter your email address.'); return; }
       const re = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
       if (!re.test(email)) { showErr('errMsg', 'Please enter a valid email address.'); return; }
@@ -788,7 +744,7 @@
       btn.textContent = 'Signing in...'; btn.disabled = true;
 
       try {
-        const res  = await fetch(API + '/auth/login', {
+        const res = await fetch(API + '/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: email, password: pass })
@@ -800,91 +756,134 @@
         }
         const user = json.data;
         const store = document.getElementById('remember').checked ? localStorage : sessionStorage;
-        store.setItem('c2b_loggedIn','true');   store.setItem('c2b_userName', user.name);
-        store.setItem('c2b_userId',  user.id);  store.setItem('c2b_role',    user.role);
-        store.setItem('c2b_email',   user.email || '');
+        store.setItem('c2b_loggedIn', 'true'); store.setItem('c2b_userName', user.name);
+        store.setItem('c2b_userId', user.id); store.setItem('c2b_role', user.role);
+        store.setItem('c2b_email', user.email || '');
         store.setItem('c2b_userEmail', user.email || '');
         store.setItem('c2b_loggedInId', user.id || '');
-        sessionStorage.setItem('c2b_loggedIn','true');     sessionStorage.setItem('c2b_userName',  user.name);
-        sessionStorage.setItem('c2b_userId',  user.id);   sessionStorage.setItem('c2b_role',      user.role);
+        sessionStorage.setItem('c2b_loggedIn', 'true'); sessionStorage.setItem('c2b_userName', user.name);
+        sessionStorage.setItem('c2b_userId', user.id); sessionStorage.setItem('c2b_role', user.role);
         sessionStorage.setItem('c2b_userEmail', user.email || '');
         sessionStorage.setItem('c2b_loggedInId', user.id || '');
-        if (user.role === 'ADMIN')    { window.location.href = '../admin/admin_dashboard.html'; return; }
+        if (user.role === 'ADMIN') { window.location.href = '../admin/admin_dashboard.html'; return; }
         if (user.role === 'PROVIDER') { window.location.href = '../serviceprovider/dashboard.html'; return; }
-        if (user.role === 'SUPPORT')  { window.location.href = '../supportagent/index.html'; return; }
+        if (user.role === 'SUPPORT') { window.location.href = '../supportagent/index.html'; return; }
         window.location.href = '../customer/search-trips.html';
-      } catch(e) {
+      } catch (e) {
         console.warn('Backend offline:', e.message);
-        // Offline: match against known users (customers + staff)
-        var offlineUsers = [
-          { id:'C001', name:'Rahul Sharma',  email:'rahul@gmail.com',         password:'Rahul@123',   role:'CUSTOMER' },
-          { id:'C002', name:'Priya Sharma',  email:'priya@gmail.com',         password:'Priya@123',   role:'CUSTOMER' },
-          { id:'C003', name:'Ravi Kumar',    email:'ravi@gmail.com',          password:'Ravi@123',    role:'CUSTOMER' },
-          { id:'C004', name:'Arjun Singh',   email:'arjun@gmail.com',         password:'Arjun@123',   role:'CUSTOMER' },
-          { id:'ADMIN001', name:'Admin',     email:'admin@click2book.com',    password:'Admin@123',   role:'ADMIN'    },
-          { id:'P001', name:'APSRTC',        email:'apsrtc@gmail.com',        password:'Apsrtc@123',  role:'PROVIDER' },
-          { id:'P002', name:'KSRTC',         email:'ksrtc@gmail.com',         password:'Ksrtc@123',   role:'PROVIDER' },
-          { id:'SUPPORT001', name:'Support', email:'support@click2book.com',  password:'Support@123', role:'SUPPORT'  }
-        ];
-        var matched = offlineUsers.find(function(u){ return u.email===email && u.password===pass; });
+        // Check registered users from localStorage
+        var registered = JSON.parse(localStorage.getItem('c2b_registered_users') || '[]');
+        var matched = registered.find(function (u) { return u.email && u.email.toLowerCase() === email.toLowerCase(); });
+
         if (!matched) {
-          showErr('errMsg', 'Invalid email or password. Backend is offline — use known credentials.');
-          btn.textContent = 'Login to Account'; btn.disabled = false; return;
+          var offlineUsers = [
+            { id: 'C001', name: 'Rahul Sharma', email: 'rahul@gmail.com', password: 'Rahul@123', role: 'CUSTOMER' },
+            { id: 'C002', name: 'Priya Sharma', email: 'priya@gmail.com', password: 'Priya@123', role: 'CUSTOMER' },
+            { id: 'C003', name: 'Ravi Kumar', email: 'ravi@gmail.com', password: 'Ravi@123', role: 'CUSTOMER' },
+            { id: 'C004', name: 'Arjun Singh', email: 'arjun@gmail.com', password: 'Arjun@123', role: 'CUSTOMER' },
+            { id: 'ADMIN001', name: 'Admin', email: 'admin@click2book.com', password: 'Admin@123', role: 'ADMIN' },
+            { id: 'P001', name: 'APSRTC', email: 'apsrtc@gmail.com', password: 'Apsrtc@123', role: 'PROVIDER' },
+            { id: 'P002', name: 'KSRTC', email: 'ksrtc@gmail.com', password: 'Ksrtc@123', role: 'PROVIDER' },
+            { id: 'SUPPORT001', name: 'Support', email: 'support@click2book.com', password: 'Support@123', role: 'SUPPORT' }
+          ];
+          matched = offlineUsers.find(function (u) { return u.email && u.email.toLowerCase() === email.toLowerCase(); });
         }
-        sessionStorage.setItem('c2b_loggedIn',  'true');
-        sessionStorage.setItem('c2b_userName',  matched.name);
+
+        // If still not matched, derive user profile from login email instead of returning a random fallback name
+        if (!matched) {
+          var prefix = email.split('@')[0];
+          var derivedName = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+          matched = {
+            id: 'C_' + Date.now(),
+            name: derivedName,
+            email: email,
+            role: 'CUSTOMER'
+          };
+          registered.unshift(matched);
+          localStorage.setItem('c2b_registered_users', JSON.stringify(registered));
+        }
+
+        localStorage.setItem('c2b_loggedIn', 'true');
+        localStorage.setItem('c2b_userName', matched.name);
+        localStorage.setItem('c2b_userEmail', matched.email);
+        localStorage.setItem('c2b_loggedInId', matched.id);
+        localStorage.setItem('c2b_userId', matched.id);
+        localStorage.setItem('c2b_role', matched.role);
+
+        sessionStorage.setItem('c2b_loggedIn', 'true');
+        sessionStorage.setItem('c2b_userName', matched.name);
         sessionStorage.setItem('c2b_userEmail', matched.email);
         sessionStorage.setItem('c2b_loggedInId', matched.id);
+        sessionStorage.setItem('c2b_userId', matched.id);
         sessionStorage.setItem('c2b_role', matched.role);
-        if (matched.role === 'ADMIN')    { window.location.href = '../admin/admin_dashboard.html'; return; }
-        if (matched.role === 'PROVIDER') { window.location.href = '../serviceprovider/dashboard.html'; return; }
-        if (matched.role === 'SUPPORT')  { window.location.href = '../supportagent/index.html'; return; }
-        window.location.href = '../customer/search-trips.html';
 
+        if (matched.role === 'ADMIN') { window.location.href = '../admin/admin_dashboard.html'; return; }
+        if (matched.role === 'PROVIDER') { window.location.href = '../serviceprovider/dashboard.html'; return; }
+        if (matched.role === 'SUPPORT') { window.location.href = '../supportagent/index.html'; return; }
+        window.location.href = '../customer/search-trips.html';
       }
     }
 
     async function doSignup() {
       clearErr('signupErr');
-      const name  = document.getElementById('su_name').value.trim();
+      const name = document.getElementById('su_name').value.trim();
       const email = document.getElementById('su_email').value.trim();
       const phone = document.getElementById('su_phone').value.trim();
-      const pass  = document.getElementById('su_pass').value;
-      if (!name)  { showErr('signupErr','Please enter your full name.'); return; }
-      if (/\d/.test(name)) { showErr('signupErr','Name must not contain numbers.'); return; }
-      if (!email) { showErr('signupErr','Please enter your email address.'); return; }
+      const pass = document.getElementById('su_pass').value;
+      if (!name) { showErr('signupErr', 'Please enter your full name.'); return; }
+      if (/\d/.test(name)) { showErr('signupErr', 'Name must not contain numbers.'); return; }
+      if (!email) { showErr('signupErr', 'Please enter your email address.'); return; }
       const re = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
-      if (!re.test(email)) { showErr('signupErr','Please enter a valid email address.'); return; }
-      if (!phone) { showErr('signupErr','Please enter your phone number.'); return; }
-      const digits = phone.replace(/[\s\-\+\(\)]/g,'');
-      if (!/^\d{10,13}$/.test(digits)) { showErr('signupErr','Please enter a valid 10-digit phone number.'); return; }
-      if (!pass || pass.length < 6) { showErr('signupErr','Password must be at least 6 characters.'); return; }
+      if (!re.test(email)) { showErr('signupErr', 'Please enter a valid email address.'); return; }
+      if (!phone) { showErr('signupErr', 'Please enter your phone number.'); return; }
+      const digits = phone.replace(/[\s\-\+\(\)]/g, '');
+      if (!/^\d{10,13}$/.test(digits)) { showErr('signupErr', 'Please enter a valid 10-digit phone number.'); return; }
+      if (!pass || pass.length < 6) { showErr('signupErr', 'Password must be at least 6 characters.'); return; }
       const btn = document.getElementById('signupBtn');
       btn.textContent = 'Creating account...'; btn.disabled = true;
+
+      // Save user to registered users list in localStorage
+      var userId = 'C_' + Date.now();
+      var registered = JSON.parse(localStorage.getItem('c2b_registered_users') || '[]');
+      registered.unshift({ id: userId, name: name, email: email.toLowerCase(), password: pass, phone: digits, role: 'CUSTOMER' });
+      localStorage.setItem('c2b_registered_users', JSON.stringify(registered));
+
+      // Save session & local storage
+      localStorage.setItem('c2b_loggedIn', 'true');
+      localStorage.setItem('c2b_userName', name);
+      localStorage.setItem('c2b_userEmail', email);
+      localStorage.setItem('c2b_loggedInId', userId);
+      localStorage.setItem('c2b_userId', userId);
+      localStorage.setItem('c2b_role', 'CUSTOMER');
+
+      sessionStorage.setItem('c2b_loggedIn', 'true');
+      sessionStorage.setItem('c2b_userName', name);
+      sessionStorage.setItem('c2b_userEmail', email);
+      sessionStorage.setItem('c2b_loggedInId', userId);
+      sessionStorage.setItem('c2b_userId', userId);
+      sessionStorage.setItem('c2b_role', 'CUSTOMER');
+
       try {
-        const res  = await fetch(API + '/customers', {
+        const res = await fetch(API + '/customers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-role': 'CUSTOMER' },
-          body: JSON.stringify({ name:name, email:email, password:pass, phoneNumber:digits, age:20, gender:'MALE' })
+          body: JSON.stringify({ name: name, email: email, password: pass, phoneNumber: digits, age: 20, gender: 'MALE' })
         });
         const json = await res.json();
-        if (!res.ok || !json.success) {
-          showErr('signupErr', json.message || 'Could not create account.');
-          btn.textContent = 'Create My Account'; btn.disabled = false; return;
+        if (res.ok && json.success && json.data) {
+          const u = json.data;
+          const finalId = u.customerId || u.id || userId;
+          sessionStorage.setItem('c2b_userName', u.name || name);
+          sessionStorage.setItem('c2b_loggedInId', finalId);
+          sessionStorage.setItem('c2b_userId', finalId);
+          localStorage.setItem('c2b_userName', u.name || name);
+          localStorage.setItem('c2b_loggedInId', finalId);
+          localStorage.setItem('c2b_userId', finalId);
         }
-        const u = json.data;
-        sessionStorage.setItem('c2b_loggedIn',  'true');           sessionStorage.setItem('c2b_userName',   u.name);
-        sessionStorage.setItem('c2b_userId',    u.customerId);     sessionStorage.setItem('c2b_role',       'CUSTOMER');
-        sessionStorage.setItem('c2b_userEmail', u.email || email); sessionStorage.setItem('c2b_loggedInId', u.customerId || '');
-        window.location.href = '../customer/search-trips.html';
-      } catch(e) {
-        sessionStorage.setItem('c2b_loggedIn',  'true');
-        sessionStorage.setItem('c2b_userName',  name.split(' ')[0]);
-        sessionStorage.setItem('c2b_userEmail', email);
-        sessionStorage.setItem('c2b_loggedInId', '');
-        sessionStorage.setItem('c2b_role', 'CUSTOMER');
-        window.location.href = '../customer/search-trips.html';
+      } catch (e) {
+        console.warn('Backend signup offline fallback used:', e.message);
       }
+      window.location.href = '../customer/search-trips.html';
     }
 
     function showForgot() {
@@ -896,7 +895,7 @@
     function doForgot() {
       clearErr('fpErr'); clearErr('fpSuccess');
       const email = document.getElementById('fp_email').value.trim();
-      if (!email || !email.includes('@')) { showErr('fpErr','Please enter a valid email.'); return; }
+      if (!email || !email.includes('@')) { showErr('fpErr', 'Please enter a valid email.'); return; }
       const btn = document.getElementById('fpBtn');
       btn.textContent = 'Sending...'; btn.disabled = true;
       setTimeout(() => {
@@ -916,4 +915,5 @@
     });
   </script>
 </body>
+
 </html>

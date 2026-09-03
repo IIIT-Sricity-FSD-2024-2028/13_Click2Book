@@ -771,13 +771,22 @@ function initUI(defaultTable, actorLabel = 'Actor Portal') {
 
   /* ── Panel open / close ── */
   const root   = document.getElementById('c2b-root');
-  document.getElementById('c2b-toggle-btn').addEventListener('click', () => {
+  function openSuperUserPanel(e) {
+    if (e && e.preventDefault) e.preventDefault();
     if (sessionStorage.getItem('superUserAuth') === 'true') {
       root.classList.add('c2b-open');
     } else {
-      window.location.href = '/admin/super-user-login.html';
+      var path = window.location.pathname || '';
+      var href = window.location.href || '';
+      if (path.includes('/admin/') || href.includes('/admin/')) {
+        window.location.href = 'super-user-login.html';
+      } else {
+        window.location.href = '../admin/super-user-login.html';
+      }
     }
-  });
+  }
+  window.openSuperUserModal = openSuperUserPanel;
+  document.getElementById('c2b-toggle-btn').addEventListener('click', openSuperUserPanel);
   document.getElementById('c2b-closeBtn').addEventListener('click', () =>
     root.classList.remove('c2b-open')
   );

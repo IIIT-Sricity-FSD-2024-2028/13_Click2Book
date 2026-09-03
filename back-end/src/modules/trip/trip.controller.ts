@@ -68,4 +68,11 @@ export class TripController {
   @ApiParam({ name: 'id', example: 'T001' })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
   confirm(@Param('id') id: string) { return this.tripService.confirm(id); }
+
+  @Patch(':id/complete')
+  @Roles(Role.PROVIDER)
+  @ApiOperation({ summary: 'End a trip — IN_PROGRESS to COMPLETED (Provider)' })
+  @ApiParam({ name: 'id', example: 'T001' })
+  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  complete(@Param('id') id: string) { return this.tripService.complete(id); }
 }

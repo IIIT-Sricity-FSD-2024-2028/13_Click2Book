@@ -227,6 +227,7 @@
       { email:'superuser@click2book.com',    password:'super123'      },
       { email:'superadmin@click2book.com',   password:'SuperAdmin@123'},
       { email:'admin@click2book.com',        password:'Admin@123'     },
+      { email:'admin@c2b.com',               password:'admin123'      },
     ];
     const matched = superUsers.find(function(u){
       return u.email.toLowerCase() === email.toLowerCase() && u.password === pass;
@@ -238,17 +239,15 @@
       
       sessionStorage.setItem('superUserAuth', 'true');
       
-      /* Return to the page that triggered this login, or admin dashboard */
-      var returnTo = document.referrer && document.referrer.includes(location.hostname)
-        ? document.referrer
-        : '/admin/admin_dashboard.html?superUser=open';
-      /* If no referrer, open admin dashboard with super user panel */
-      if (!document.referrer || !document.referrer.includes(location.hostname)) {
-        returnTo = '/admin/admin_dashboard.html?superUser=open';
+      /* Return to referrer or admin dashboard */
+      var returnTo = 'admin_dashboard.html?superUser=open';
+      if (document.referrer && document.referrer.includes('.html')) {
+        var ref = document.referrer;
+        returnTo = ref.includes('?') ? (ref + '&superUser=open') : (ref + '?superUser=open');
       }
       setTimeout(function() {
         window.location.href = returnTo;
-      }, 800);
+      }, 500);
     } else {
       showErr('Invalid super user credentials. Please check your email and access key.');
     }

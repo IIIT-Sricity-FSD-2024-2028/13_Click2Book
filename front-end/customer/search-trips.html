@@ -675,10 +675,45 @@ document.getElementById('swapBtn').addEventListener('click', function() {
 });
 
 /* ── Search buses ─────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', function() {
+  const travelDateInp = document.getElementById('travelDate');
+  if (travelDateInp) {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const maxD = new Date(now);
+    maxD.setMonth(maxD.getMonth() + 2);
+    const maxStr = maxD.toISOString().split('T')[0];
+    travelDateInp.min = todayStr;
+    travelDateInp.max = maxStr;
+
+    // Load from sessionStorage if available and valid
+    const sessDate = sessionStorage.getItem('searchDate');
+    if (sessDate && sessDate >= todayStr && sessDate <= maxStr) {
+      travelDateInp.value = sessDate;
+    } else {
+      travelDateInp.value = todayStr;
+    }
+  }
+
+  const sessFrom = sessionStorage.getItem('searchFrom');
+  if (sessFrom) document.getElementById('fromCity').value = sessFrom;
+  const sessTo = sessionStorage.getItem('searchTo');
+  if (sessTo) document.getElementById('toCity').value = sessTo;
+});
+
 document.getElementById('searchBtn').addEventListener('click', async function() {
   const from = document.getElementById('fromCity').value.trim();
   const to   = document.getElementById('toCity').value.trim();
   const date = document.getElementById('travelDate').value;
+
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+  const maxD = new Date(now);
+  maxD.setMonth(maxD.getMonth() + 2);
+  const maxStr = maxD.toISOString().split('T')[0];
+  const curH = String(now.getHours()).padStart(2, '0');
+  const curM = String(now.getMinutes()).padStart(2, '0');
+  const curTimeStr = curH + ':' + curM;
 
   // Remove any previous search error
   const prev = document.getElementById('searchErrMsg');
@@ -697,90 +732,117 @@ document.getElementById('searchBtn').addEventListener('click', async function() 
   if (/^\d+$/.test(from)) { showSearchErr('Departure city name cannot be just numbers. Please enter a valid city name.'); return; }
   if (/^\d+$/.test(to))   { showSearchErr('Destination city name cannot be just numbers. Please enter a valid city name.'); return; }
   if (from.toLowerCase() === to.toLowerCase()) { showSearchErr('Departure and destination cannot be the same city.'); return; }
+  if (!date) { showSearchErr('Please select a travel date.'); return; }
+  if (date < todayStr) { showSearchErr('Travel date cannot be in the past. Please select today (' + todayStr + ') or a future date.'); return; }
+  if (date > maxStr) { showSearchErr('Travel date cannot be more than 2 months in advance (maximum allowed date: ' + maxStr + ').'); return; }
 
+  // Save to sessionStorage
+  sessionStorage.setItem('searchFrom', from);
+  sessionStorage.setItem('searchTo', to);
+  sessionStorage.setItem('searchDate', date);
+
+  let apiMatches = [];
   // ── Try real backend API first ─────────────────────
   try {
-    if (window.API) {
+    if (window.API && API.trips && API.trips.search) {
       const results = await API.trips.search(from, to, date);
       if (results && results.length > 0) {
-        const busList = document.getElementById('busList');
-
-        // Helper: amenity icons
-        function amenityIcon(a) {
-          const icons = { 'WiFi':'📶','AC':'❄️','Charging Point':'🔌','Blanket':'🛌','Pillow':'🛏️','Meals':'🍱','Bedding':'🛌','Water Bottle':'💧','Reading Light':'💡','Panoramic Windows':'🪟','AC Chair Car':'🪑' };
-          return `<span title="${a}" style="font-size:.9rem;">${icons[a] || '✔'}</span>`;
+        // If searched date is today, filter out buses whose departure time has passed
+        if (date === todayStr) {
+          apiMatches = results.filter(r => !r.departureTime || r.departureTime >= curTimeStr);
+        } else {
+          apiMatches = results;
         }
-
-        busList.innerHTML = results.map(r => {
-          const typeColor = { 'AC Sleeper':'#9333ea','Volvo AC':'#2563eb','Train':'#0891b2','AC':'#f97316','Non-AC':'#16a34a' }[r.vehicleType] || '#f97316';
-          const stars = '★'.repeat(Math.round(r.rating || 4)) + '☆'.repeat(5 - Math.round(r.rating || 4));
-          const ams = (r.amenities || []).slice(0, 5).map(amenityIcon).join(' ');
-          return `
-          <div class="bus-card" style="border-left:3px solid ${typeColor}">
-            <div class="bus-info">
-              <div class="bus-name-row">
-                <span class="bus-name" style="font-size:1rem;font-weight:800;">${r.busName}</span>
-                <span class="bus-type-badge" style="background:${typeColor}20;color:${typeColor};border:1px solid ${typeColor}40;padding:2px 10px;border-radius:50px;font-size:.7rem;font-weight:700;">${r.vehicleType}</span>
-              </div>
-              <div style="font-size:.72rem;color:#94a3b8;margin-bottom:6px;">${r.providerName} &nbsp;·&nbsp; ${r.boardingPoint} → ${r.droppingPoint}</div>
-              <div class="bus-timing">
-                <span class="time">${r.departureTime}</span>
-                <span class="route-line">
-                  <span class="dot-line"></span>
-                  <span style="font-size:.68rem;color:#94a3b8;white-space:nowrap;">${r.duration}</span>
-                  <span class="dot-line"></span>
-                </span>
-                <span class="time">${r.arrivalTime}</span>
-              </div>
-              <div class="bus-meta-row" style="gap:12px;margin-top:6px;">
-                <span style="color:#f59e0b;font-size:.78rem;">${stars} ${r.rating}</span>
-                <span class="seats-left orange-txt">${r.availableSeats} seats left</span>
-                <span style="font-size:.85rem;">${ams}</span>
-              </div>
-            </div>
-            <div class="bus-price-col">
-              <span class="bus-price">&#8377;${r.price}</span>
-              <button class="select-seat-btn"
-                onclick="selectBus('${r.busName}','${r.vehicleType}','&#8377;${r.price}',${r.price},'${r.tripId}',${r.totalSeats || 40})"
-              >Select Seats &#8250;</button>
-            </div>
-          </div>
-        `}).join('');
-
-        document.getElementById('busRouteTitle').textContent = from + ' → ' + to;
-        /* ── Also show locally-added service provider schedules ── */
-        const localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-        const localMatch = localSchedules.filter(b =>
-          b.from && b.to &&
-          b.from.toLowerCase() === from.toLowerCase() &&
-          b.to.toLowerCase() === to.toLowerCase()
-        );
-        const totalCount = results.length + localMatch.length;
-        document.getElementById('busRouteMeta').textContent = (date || 'All dates') + ' · ' + totalCount + ' bus' + (totalCount !== 1 ? 'es' : '') + ' found (Live)';
-        if (localMatch.length) renderDynamicBuses(localSchedules, from, to);
-        goTo('buses');
-        return;
       }
     }
   } catch(e) {
-    console.warn('API search failed, using static data:', e.message);
+    console.warn('API search failed or returned 0, using local data:', e.message);
   }
 
-  // ── Fallback: static bus cards ─────────────────────
-  const dynamicBuses = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-  const routeMatch = dynamicBuses.filter(b =>
-    b.from.toLowerCase() === from.toLowerCase() &&
-    b.to.toLowerCase() === to.toLowerCase()
-  );
-  document.getElementById('busRouteTitle').textContent = from + ' \u2192 ' + to;
-  document.getElementById('busRouteMeta').textContent = (date || 'Today') + ' \u00b7 ' + routeMatch.length + ' bus' + (routeMatch.length !== 1 ? 'es' : '') + ' found';
-  var busListEl = document.getElementById('busList');
-  if (busListEl) busListEl.innerHTML = '';
-  if (routeMatch.length > 0) {
-    renderDynamicBuses(dynamicBuses, from, to);
-  } else if (busListEl) {
-    busListEl.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#94a3b8;"><div style="font-size:2.5rem;margin-bottom:14px;">\uD83D\uDE8C</div><div style="font-weight:700;font-size:1rem;margin-bottom:8px;color:#64748b;">No buses available for this route</div><div style="font-size:.82rem;">No provider has added a schedule for <strong style="color:#f97316">' + from + ' \u2192 ' + to + '</strong> yet.<br>Try a different route or check back later.</div></div>';
+  // ── Local Schedules (Service Provider added + DB) ──
+  const localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+  const localMatches = localSchedules.filter(b => {
+    if (!b.from || !b.to) return false;
+    if (b.from.toLowerCase() !== from.toLowerCase() || b.to.toLowerCase() !== to.toLowerCase()) return false;
+    // Check journey date: match specific date or general
+    if (b.journeyDate && b.journeyDate !== date) return false;
+    // If today, filter out past departure times
+    if (date === todayStr && b.departureTime && b.departureTime < curTimeStr) return false;
+    return true;
+  });
+
+  const totalCount = apiMatches.length + localMatches.length;
+  document.getElementById('busRouteTitle').textContent = from + ' → ' + to;
+  
+  const timeNote = (date === todayStr) ? ` (Today · Dep. after ${curTimeStr})` : '';
+  document.getElementById('busRouteMeta').textContent = `${date}${timeNote} · ${totalCount} bus${totalCount !== 1 ? 'es' : ''} available`;
+
+  const busList = document.getElementById('busList');
+  busList.innerHTML = '';
+
+  // Helper: amenity icons
+  function amenityIcon(a) {
+    const icons = { 'WiFi':'📶','AC':'❄️','Charging Point':'🔌','Blanket':'🛌','Pillow':'🛏️','Meals':'🍱','Bedding':'🛌','Water Bottle':'💧','Reading Light':'💡','Panoramic Windows':'🪟','AC Chair Car':'🪑' };
+    return `<span title="${a}" style="font-size:.9rem;">${icons[a] || '✔'}</span>`;
   }
+
+  if (apiMatches.length > 0) {
+    apiMatches.forEach(r => {
+      const typeColor = { 'AC Sleeper':'#9333ea','Volvo AC':'#2563eb','Train':'#0891b2','AC':'#f97316','Non-AC':'#16a34a' }[r.vehicleType] || '#f97316';
+      const stars = '★'.repeat(Math.round(r.rating || 4)) + '☆'.repeat(5 - Math.round(r.rating || 4));
+      const ams = (r.amenities || []).slice(0, 5).map(amenityIcon).join(' ');
+      const card = document.createElement('div');
+      card.className = 'bus-card';
+      card.style.borderLeft = `3px solid ${typeColor}`;
+      card.innerHTML = `
+        <div class="bus-info">
+          <div class="bus-name-row">
+            <span class="bus-name" style="font-size:1rem;font-weight:800;">${r.busName}</span>
+            <span class="bus-type-badge" style="background:${typeColor}20;color:${typeColor};border:1px solid ${typeColor}40;padding:2px 10px;border-radius:50px;font-size:.7rem;font-weight:700;">${r.vehicleType}</span>
+          </div>
+          <div style="font-size:.72rem;color:#94a3b8;margin-bottom:6px;">${r.providerName} &nbsp;·&nbsp; ${r.boardingPoint} → ${r.droppingPoint} ${r.via ? '&nbsp;·&nbsp; <span style="background:#ffedd5;color:#c2410c;font-weight:700;padding:1px 6px;border-radius:4px;border:1px solid #fed7aa;">Via ' + r.via + '</span>' : ''} &nbsp;·&nbsp; <strong>${date}</strong></div>
+          <div class="bus-timing">
+            <span class="time">${r.departureTime}</span>
+            <span class="route-line">
+              <span class="dot-line"></span>
+              <span style="font-size:.68rem;color:#94a3b8;white-space:nowrap;">${r.duration || '4h 00m'}</span>
+              <span class="dot-line"></span>
+            </span>
+            <span class="time">${r.arrivalTime}</span>
+          </div>
+          <div class="bus-meta-row" style="gap:12px;margin-top:6px;">
+            <span style="color:#f59e0b;font-size:.78rem;">${stars} ${r.rating || 4.5}</span>
+            <span class="seats-left orange-txt">${r.availableSeats} seats left</span>
+            <span style="font-size:.85rem;">${ams}</span>
+          </div>
+        </div>
+        <div class="bus-price-col">
+          <span class="bus-price">&#8377;${r.price}</span>
+          <button class="select-seat-btn"
+            onclick="selectBus('${r.busName}','${r.vehicleType}','&#8377;${r.price}',${r.price},'${r.tripId}',${r.totalSeats || 40},'${r.vehicleId || ''}','${r.providerId || 'P001'}')"
+          >Select Seats &#8250;</button>
+        </div>
+      `;
+      busList.appendChild(card);
+    });
+  }
+
+  if (localMatches.length > 0) {
+    renderDynamicBuses(localMatches, from, to, date);
+  }
+
+  if (totalCount === 0) {
+    busList.innerHTML = `
+      <div style="text-align:center;padding:60px 20px;color:#94a3b8;">
+        <div style="font-size:2.5rem;margin-bottom:14px;">🚌</div>
+        <div style="font-weight:700;font-size:1.05rem;margin-bottom:8px;color:#64748b;">No buses available on ${date}${date === todayStr ? ' after ' + curTimeStr : ''}</div>
+        <div style="font-size:.84rem;max-width:440px;margin:0 auto;line-height:1.5;">
+          No buses are currently scheduled for <strong style="color:#f97316;">${from} → ${to}</strong> on <strong>${date}</strong>${date === todayStr ? ' after ' + curTimeStr : ''}.<br>
+          Please select a different date or earlier/later timing.
+        </div>
+      </div>`;
+  }
+
   goTo('buses');
 });
 
@@ -793,28 +855,25 @@ document.querySelectorAll('.recent-tag').forEach(tag => {
 });
 
 /* ── Render dynamic buses from localStorage ────────── */
-function renderDynamicBuses(allBuses, from, to) {
-  // Remove any previously rendered dynamic bus cards
-  document.querySelectorAll('.bus-card.dynamic-bus').forEach(el => el.remove());
-
-  const routeMatch = allBuses.filter(b =>
-    b.from.toLowerCase() === from.toLowerCase() &&
-    b.to.toLowerCase() === to.toLowerCase()
-  );
-
-  if (!routeMatch.length) return;
-
+function renderDynamicBuses(routeMatches, from, to, date) {
   const busList = document.querySelector('.bus-list');
-  if (!busList) return;
+  if (!busList || !routeMatches.length) return;
 
   const typeBadgeColors = ['orange', 'green', 'blue', 'purple'];
 
-  routeMatch.forEach(function(bus, idx) {
+  routeMatches.forEach(function(bus, idx) {
     const colorClass = typeBadgeColors[idx % typeBadgeColors.length];
-    const seatsLeft = bus.totalSeats || 40;
+    const totalSeats = bus.totalSeats || 40;
+    const bookedCount = bus.bookedSeats || 0;
+    const seatsLeft = bus.availableSeats != null ? bus.availableSeats : Math.max(0, totalSeats - bookedCount);
     const fare = parseInt(bus.fare) || 500;
     const busName = bus.busName || bus.vehicleName || 'New Bus';
     const busType = bus.busType || 'AC';
+    const tripId = bus.tripId || bus.id || ('LOCAL_' + idx);
+    const vehicleId = bus.vehicleId || '';
+    const providerId = bus.providerId || 'P001';
+    const jDate = bus.journeyDate || date || 'Today';
+    const viaInfo = bus.via ? ` &nbsp;·&nbsp; <span style="background:#ffedd5;color:#c2410c;font-weight:700;padding:1px 6px;border-radius:4px;border:1px solid #fed7aa;">Via ${bus.via}</span>` : '';
 
     const card = document.createElement('div');
     card.className = 'bus-card dynamic-bus';
@@ -824,6 +883,7 @@ function renderDynamicBuses(allBuses, from, to) {
           <span class="bus-name">${busName}</span>
           <span class="bus-type-badge ${colorClass}">${busType}</span>
         </div>
+        <div style="font-size:.72rem;color:#94a3b8;margin-bottom:6px;">Date: <strong>${jDate}</strong> &nbsp;·&nbsp; ${from} → ${to}${viaInfo}</div>
         <div class="bus-timing">
           <span class="time">${bus.departureTime || '08:00'}</span>
           <span class="route-line">
@@ -835,14 +895,14 @@ function renderDynamicBuses(allBuses, from, to) {
         </div>
         <div class="bus-meta-row">
           <span class="star-inline">★ 4.5</span>
-          <span class="seats-left green-txt">${seatsLeft} seats available</span>
+          <span class="seats-left green-txt">${seatsLeft}/${totalSeats} seats available</span>
           <span class="amenity-icon">🌬️</span>
           <span class="new-badge" style="background:#dcfce7;color:#16a34a;font-size:.65rem;font-weight:800;padding:2px 8px;border-radius:50px;border:1px solid #86efac;">NEW</span>
         </div>
       </div>
       <div class="bus-price-col">
         <span class="bus-price">₹${fare}</span>
-        <button class="select-seat-btn" onclick="selectBus('${busName}','${busType}','₹${fare}',${fare})">Select Seats <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+        <button class="select-seat-btn" onclick="selectBus('${busName}','${busType}','₹${fare}',${fare},'${tripId}',${totalSeats},'${vehicleId}','${providerId}')">Select Seats <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
       </div>
     `;
     busList.appendChild(card);
@@ -850,60 +910,137 @@ function renderDynamicBuses(allBuses, from, to) {
 }
 
 /* ── Bus selection (global for onclick attrs) ─────── */
-let selectedBus   = '';
-let selectedType  = '';
-let selectedPrice = '';
-let selectedFare  = 0;
-// The real backend tripId/capacity for the bus just picked — without this, booking
-// creation had no way to know which trip was actually selected (see confirmPayment).
+let selectedBus        = '';
+let selectedType       = '';
+let selectedPrice      = '';
+let selectedFare       = 0;
 let selectedTripId     = '';
 let selectedTotalSeats = 40;
+let selectedVehicleId  = '';
+let selectedProviderId = 'P001';
+let currentBookedSeats = [];
 
-window.selectBus = function(name, type, price, fare, tripId, totalSeats) {
-  selectedBus   = name;
-  selectedType  = type;
-  selectedPrice = price;
-  selectedFare  = fare;
+function mockNumberToSeatLabel(seatNum) {
+  if (typeof seatNum === 'string' && /^[A-Z]\d+$/.test(seatNum)) return seatNum;
+  const num = parseInt(seatNum, 10) || 1;
+  const rowIndex = Math.floor((num - 1) / 4);
+  const colIndex = ((num - 1) % 4) + 1;
+  const rowLetter = String.fromCharCode(65 + rowIndex);
+  return rowLetter + colIndex;
+}
+
+async function fetchBookedSeatsForTrip(tripId, vehicleId, busName) {
+  const booked = new Set();
+
+  // 1. Local storage bookings
+  try {
+    const localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+    localBookings.forEach(b => {
+      if (b.status !== 'CANCELLED' && (b.tripId === tripId || b.busName === busName || b._busName === busName)) {
+        if (Array.isArray(b.seats)) {
+          b.seats.forEach(s => booked.add(s));
+        } else if (b._seats) {
+          b._seats.split(',').forEach(s => booked.add(s.trim()));
+        } else if (b.seatNumber) {
+          booked.add(mockNumberToSeatLabel(b.seatNumber));
+        }
+      }
+    });
+  } catch (e) {}
+
+  // 2. DB bookings (CRUD Engine)
+  try {
+    if (window.DB && DB.bookings) {
+      const dbBookings = DB.bookings.getAll().filter(b => 
+        b.booking_status !== 'CANCELLED' && (b.trip_id === tripId || b._busName === busName)
+      );
+      dbBookings.forEach(b => {
+        if (b._seats) {
+          b._seats.split(',').forEach(s => booked.add(s.trim()));
+        }
+      });
+    }
+  } catch (e) {}
+
+  // 3. Backend API seats
+  if (vehicleId) {
+    try {
+      const _h = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'localhost' : location.hostname;
+      const res = await fetch(`http://${_h}:3000/api/seats/vehicle/${vehicleId}`, {
+        headers: { 'x-role': 'CUSTOMER' }
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const seats = json.data || [];
+        seats.forEach(s => {
+          if (s.seatStatus === 'BOOKED' || s.seatStatus === 'BLOCKED') {
+            booked.add(mockNumberToSeatLabel(s.seatNumber));
+          }
+        });
+      }
+    } catch (e) {}
+  }
+
+  return Array.from(booked);
+}
+
+window.selectBus = async function(name, type, price, fare, tripId, totalSeats, vehicleId, providerId) {
+  selectedBus        = name;
+  selectedType       = type;
+  selectedPrice      = price;
+  selectedFare       = fare;
   selectedTripId     = tripId || '';
-  selectedTotalSeats = totalSeats || 40;
+  selectedTotalSeats = parseInt(totalSeats) || 40;
+  selectedVehicleId  = vehicleId || '';
+  selectedProviderId = providerId || 'P001';
+
   // Update seat page heading
   document.getElementById('seatSubheading').textContent =
-    name + ' · ' + type + ' · Select one or more seats';
+    name + ' · ' + type + ' · (' + selectedTotalSeats + ' Total Seats) · Select your seats';
+
+  currentBookedSeats = await fetchBookedSeatsForTrip(selectedTripId, selectedVehicleId, selectedBus);
   buildSeatMap();
   goTo('seats');
 };
 
-/* ── Seat map ─────────────────────────────────────── */
-const BOOKED_SEATS = [
-  'A1','A2','A3','A4',
-  'B1','B2','B4',
-  'C1','C2','C3',
-  'D1','D4',
-  'F1'
-];
-let selectedSeats  = [];
+/* ── Dynamic Seat Map (Renders exact totalSeats added by provider) ── */
+let selectedSeats = [];
 
 function buildSeatMap() {
   const grid = document.getElementById('seatGrid');
+  if (!grid) return;
   grid.innerHTML = '';
   selectedSeats = [];
   updateProceedBtn();
 
-  const rows = ['A','B','C','D','E','F','G','H'];
-  rows.forEach(row => {
+  const total = selectedTotalSeats || 40;
+  const totalRows = Math.ceil(total / 4);
+
+  for (let r = 0; r < totalRows; r++) {
+    const rowLetter = String.fromCharCode(65 + r);
     const rowEl = document.createElement('div');
     rowEl.className = 'seat-row';
 
     // Row label
     const label = document.createElement('span');
     label.className = 'row-label';
-    label.textContent = row;
+    label.textContent = rowLetter;
     rowEl.appendChild(label);
 
     // Left pair (seats 1 & 2)
     const leftPair = document.createElement('div');
     leftPair.className = 'seat-pair';
-    [1, 2].forEach(n => leftPair.appendChild(makeSeat(row + n)));
+    [1, 2].forEach(col => {
+      const seatIndex = r * 4 + col;
+      if (seatIndex <= total) {
+        leftPair.appendChild(makeSeat(rowLetter + col));
+      } else {
+        const emptySeat = document.createElement('div');
+        emptySeat.style.width = '38px';
+        emptySeat.style.height = '38px';
+        leftPair.appendChild(emptySeat);
+      }
+    });
     rowEl.appendChild(leftPair);
 
     // Aisle
@@ -914,20 +1051,30 @@ function buildSeatMap() {
     // Right pair (seats 3 & 4)
     const rightPair = document.createElement('div');
     rightPair.className = 'seat-pair';
-    [3, 4].forEach(n => rightPair.appendChild(makeSeat(row + n)));
+    [3, 4].forEach(col => {
+      const seatIndex = r * 4 + col;
+      if (seatIndex <= total) {
+        rightPair.appendChild(makeSeat(rowLetter + col));
+      } else {
+        const emptySeat = document.createElement('div');
+        emptySeat.style.width = '38px';
+        emptySeat.style.height = '38px';
+        rightPair.appendChild(emptySeat);
+      }
+    });
     rowEl.appendChild(rightPair);
 
     grid.appendChild(rowEl);
-  });
+  }
 }
 
 function makeSeat(id) {
   const btn = document.createElement('button');
-  const isBooked = BOOKED_SEATS.includes(id);
+  const isBooked = currentBookedSeats.includes(id);
   btn.className   = 'seat ' + (isBooked ? 'booked' : 'available');
   btn.textContent = id;
   btn.disabled    = isBooked;
-  btn.title       = isBooked ? 'Booked' : 'Click to select';
+  btn.title       = isBooked ? 'Seat ' + id + ' (Booked)' : 'Seat ' + id + ' (Available - Click to select)';
   if (!isBooked) {
     btn.addEventListener('click', () => toggleSeat(id, btn));
   }
@@ -1324,6 +1471,8 @@ window.confirmPayment = async function() {
 
   const customerId = sessionStorage.getItem('c2b_loggedInId')
                   || localStorage.getItem('c2b_loggedInId')
+                  || sessionStorage.getItem('c2b_userId')
+                  || localStorage.getItem('c2b_userId')
                   || 'C001';
 
   const count    = selectedSeats.length || 1;
@@ -1350,57 +1499,119 @@ window.confirmPayment = async function() {
   try { passengers = JSON.parse(sessionStorage.getItem('c2b_passengers') || '[]'); } catch(e) {}
   var primaryName = passengers.length ? passengers[0].name : (sessionStorage.getItem('c2b_userName') || 'Customer');
 
-  // ── Create the real backend booking — this is what triggers ledger
-  // creation and provider revenue attribution, so it must use the trip the
-  // customer actually selected (selectedTripId), not a placeholder.
-  var bookingId = 'BUS' + Date.now(); // fallback id if the backend is unreachable
+  // ── Create the real backend bookings for all selected seats — this triggers
+  // ledger creation and provider revenue attribution for each seat booked.
+  var bookingId = 'BUS' + Date.now();
   var backendOk = false;
   if (selectedTripId) {
     try {
-      var booking = await createRealBooking(customerId, selectedTripId, selectedTotalSeats, selectedSeats[0]);
-      bookingId = booking.bookingId;
-      backendOk = true;
-      try {
-        await fetch(C2B_API + '/bookings/' + bookingId + '/confirm', {
-          method: 'PATCH',
-          headers: { 'x-role': 'CUSTOMER' },
+      for (var sIdx = 0; sIdx < selectedSeats.length; sIdx++) {
+        var seatLbl = selectedSeats[sIdx];
+        var seatNum = mockSeatLabelToNumber(seatLbl, selectedTotalSeats);
+        var bRes = await fetch(C2B_API + '/bookings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-role': 'CUSTOMER' },
+          body: JSON.stringify({ customerId: customerId, tripId: selectedTripId, seatNumber: seatNum }),
         });
-      } catch (e) { console.warn('[C2B] Confirm step failed (booking still created):', e.message); }
-      console.log('[C2B] Booking created on backend ✅', bookingId, 'trip', selectedTripId);
+        var bJson = await bRes.json();
+        if (bRes.ok && bJson.success && bJson.data) {
+          var bId = bJson.data.bookingId;
+          if (sIdx === 0) bookingId = bId;
+          try {
+            await fetch(C2B_API + '/bookings/' + bId + '/confirm', {
+              method: 'PATCH',
+              headers: { 'x-role': 'CUSTOMER' },
+            });
+          } catch(e) {}
+        }
+      }
+      backendOk = true;
+      console.log('[C2B] Backend bookings created successfully for seats:', selectedSeats);
     } catch (e) {
-      console.warn('[C2B] Backend booking failed:', e.message);
-      if (payBtn) { payBtn.disabled = false; payBtn.textContent = 'Pay Now'; }
-      alert('We could not confirm your booking (' + e.message + '). Please try again.');
-      return;
+      console.warn('[C2B] Backend booking failed (falling back to local):', e.message);
     }
-  } else {
-    console.warn('[C2B] No real tripId captured for this bus — booking only recorded locally.');
   }
 
-  // ── Mirror into the local CRUD DB (used by the legacy admin/provider mock dashboards) ──
+  // ── Unified booking object with both camelCase & snake_case support ──
+  var newBooking = {
+    booking_id:        bookingId,
+    bookingId:         bookingId,
+    customer_id:       customerId,
+    customerId:        customerId,
+    trip_id:           selectedTripId || 'T001',
+    tripId:            selectedTripId || 'T001',
+    bus_name:          selectedBus,
+    busName:           selectedBus,
+    _busName:          selectedBus,
+    bus_type:          selectedType,
+    busType:           selectedType,
+    _busType:          selectedType,
+    seats:             selectedSeats.join(', '),
+    _seats:            selectedSeats.join(', '),
+    seat_list:         selectedSeats,
+    from:              from,
+    _from:             from,
+    source:            from,
+    to:                to,
+    _to:               to,
+    destination:       to,
+    journey_date:      date,
+    journeyDate:       date,
+    _journeyDate:      date,
+    booking_date:      today,
+    bookingDate:       today,
+    total:             total,
+    _total:            total,
+    amount:            total,
+    fare:              selectedFare,
+    _fare:             selectedFare,
+    passenger_count:   count,
+    passengerCount:    count,
+    _passengerCount:   count,
+    customer_name:     primaryName,
+    customerName:      primaryName,
+    _customerName:     primaryName,
+    payment_method:    payMethod,
+    paymentMethod:     payMethod,
+    _paymentMethod:    payMethod,
+    provider_id:       selectedProviderId || 'P001',
+    providerId:        selectedProviderId || 'P001',
+    booking_status:    'CONFIRMED',
+    status:            'CONFIRMED',
+    created_at:        new Date().toISOString(),
+    createdAt:         new Date().toISOString(),
+    _passengers:       JSON.stringify(passengers),
+  };
+
+  // ── Save to local c2b_bookings for instant sync across tabs ──
+  try {
+    var allBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+    // Remove existing with same ID if any to prevent duplicates
+    allBookings = allBookings.filter(function(b) {
+      return (b.bookingId !== bookingId) && (b.booking_id !== bookingId);
+    });
+    allBookings.unshift(newBooking);
+    localStorage.setItem('c2b_bookings', JSON.stringify(allBookings));
+  } catch(e) {}
+
+  // ── Update local schedules with booked seats and revenue for the respective bus ──
+  try {
+    var localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    localSchedules.forEach(function(s) {
+      if (s.id === selectedTripId || s.tripId === selectedTripId || (s.busName === selectedBus && s.from && s.from.toLowerCase() === from.toLowerCase() && s.to && s.to.toLowerCase() === to.toLowerCase())) {
+        s.bookedSeats = (s.bookedSeats || 0) + count;
+        s.availableSeats = Math.max(0, (s.totalSeats || 40) - s.bookedSeats);
+        s.revenue = (s.revenue || 0) + subtotal;
+        s.operatorPayout = Math.round((s.revenue || 0) * 0.9);
+      }
+    });
+    localStorage.setItem('c2b_bus_schedules', JSON.stringify(localSchedules));
+  } catch(e) {}
+
+  // ── Mirror into the local CRUD DB ──
   if (window.DB) {
     try {
-      DB.bookings.create({
-        booking_id:        bookingId,
-        customer_id:       customerId,
-        trip_id:           selectedTripId || 'T001',
-        offer_id:          null,
-        booking_date:      today,
-        booking_status:    'CONFIRMED',
-        irctc_id:          null,
-        _busName:          selectedBus,
-        _busType:          selectedType,
-        _seats:            selectedSeats.join(', '),
-        _from:             from,
-        _to:               to,
-        _journeyDate:      date,
-        _total:            total,
-        _fare:             selectedFare,
-        _passengerCount:   count,
-        _customerName:     primaryName,
-        _paymentMethod:    payMethod,
-        _passengers:       JSON.stringify(passengers),
-      });
+      DB.bookings.create(newBooking);
     } catch(e) { console.warn('[C2B] Booking write failed:', e); }
 
     try {
@@ -1415,34 +1626,6 @@ window.confirmPayment = async function() {
       });
     } catch(e) { console.warn('[C2B] Payment write failed:', e); }
   }
-
-  // ── Also POST to NestJS backend (non-blocking) ────
-  (async function() {
-    try {
-      var host = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-               ? 'localhost' : window.location.hostname;
-      await fetch('http://' + host + ':3000/api/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-role': 'CUSTOMER' },
-        body: JSON.stringify({
-          customerId:    customerId,
-          tripId:        tripId,
-          seatNumbers:   selectedSeats,
-          from:          from,
-          to:            to,
-          journeyDate:   date,
-          totalAmount:   total,
-          paymentMethod: payMethod,
-          passengers:    passengers,
-          busName:       selectedBus,
-          busType:       selectedType,
-        })
-      });
-      console.log('[C2B] Booking synced to backend ✅');
-    } catch(e) {
-      console.warn('[C2B] Backend sync skipped (offline):', e.message);
-    }
-  })();
 
   // ── Store for confirmation page ───────────────────
   sessionStorage.setItem('lastBookingId',      bookingId);

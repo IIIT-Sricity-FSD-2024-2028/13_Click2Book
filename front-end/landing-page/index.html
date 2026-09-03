@@ -195,11 +195,11 @@
     <span class="logo-txt">CLICK<span>2</span>BOOK</span>
   </a>
   <ul class="nav-links">
-    <li><a href="/landing-page/index.html" class="on">Home</a></li>
-    <li><a href="../customer/get-support.html">Support</a></li>
-    <li><a href="/landing-page/offers.html">Offers</a></li>
+    <li><a href="index.html" class="on">Home</a></li>
+    <li><a href="get-support.html">Support</a></li>
+    <li><a href="offers.html">Offers</a></li>
   </ul>
-  <a href="/landing-page/login.html" class="btn-nav" id="signInBtn">Sign In →</a>
+  <a href="login.html" class="btn-nav" id="signInBtn">Sign In →</a>
 </nav>
 
 <!-- HERO -->
@@ -451,8 +451,19 @@
 </footer>
 
 <script>
-  // Set default date to today
-  document.getElementById('travelDate').valueAsDate = new Date();
+  // Set default date to today and configure min/max (today to 2 months ahead)
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+  const maxD = new Date(now);
+  maxD.setMonth(maxD.getMonth() + 2);
+  const maxStr = maxD.toISOString().split('T')[0];
+
+  const travelDateInp = document.getElementById('travelDate');
+  if (travelDateInp) {
+    travelDateInp.min = todayStr;
+    travelDateInp.max = maxStr;
+    travelDateInp.value = todayStr;
+  }
 
   let activeMode = 'bus'; // 'bus' or 'train'
 
@@ -472,6 +483,9 @@
     const date = document.getElementById('travelDate').value;
     if (!from || !to) { alert('Please enter departure and destination.'); return; }
     if (from.toLowerCase() === to.toLowerCase()) { alert('Departure and destination cannot be the same.'); return; }
+    if (!date) { alert('Please select a travel date.'); return; }
+    if (date < todayStr) { alert('Travel date cannot be in the past. Please select today or a future date.'); return; }
+    if (date > maxStr) { alert('Travel date cannot exceed 2 months in advance.'); return; }
     // Store search params in sessionStorage
     sessionStorage.setItem('searchFrom', from);
     sessionStorage.setItem('searchTo', to);

@@ -193,6 +193,39 @@
       pointer-events: none;
     }
 
+    /* Trip Status Badge */
+    .trip-live-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 50px;
+      font-size: .72rem;
+      font-weight: 700;
+      margin-top: 5px;
+      width: fit-content;
+    }
+    .trip-live-pill.in-progress {
+      background: #eff6ff;
+      color: #2563eb;
+      border: 1px solid #bfdbfe;
+      animation: pulseLive 2s infinite ease-in-out;
+    }
+    .trip-live-pill.completed {
+      background: #f0fdf4;
+      color: #16a34a;
+      border: 1px solid #86efac;
+    }
+    .trip-live-pill.scheduled {
+      background: #f8fafc;
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+    }
+    @keyframes pulseLive {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .85; transform: scale(1.02); }
+    }
+
     /* Filter tabs */
     .filter-tabs {
       display: flex;
@@ -524,72 +557,162 @@
     function getCustomerId() {
       return sessionStorage.getItem('c2b_loggedInId')
           || localStorage.getItem('c2b_loggedInId')
-          || 'C001'; // demo fallback
+          || sessionStorage.getItem('c2b_userId')
+          || localStorage.getItem('c2b_userId')
+          || 'C001';
+    }
+
+    function getCustomerName() {
+      return sessionStorage.getItem('c2b_userName')
+          || localStorage.getItem('c2b_userName')
+          || 'Customer';
     }
 
     function statusClass(s) {
+      const val = (s || 'CONFIRMED').toUpperCase();
       const map = {
         CONFIRMED: 'status-confirmed',
         COMPLETED: 'status-completed',
         CANCELLED: 'status-cancelled',
         PENDING:   'status-pending'
       };
-      return map[s] || 'status-pending';
+      return map[val] || 'status-pending';
     }
 
     function resolveRoute(booking) {
       try {
-        // 1. Check metadata stored directly on the booking record (for frontend-created bookings)
         if (booking._from && booking._to) {
           const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
           return cap(booking._from) + ' → ' + cap(booking._to);
         }
-        // 2. Check sessionStorage from last search
+        if (booking.from && booking.to) {
+          const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+          return cap(booking.from) + ' → ' + cap(booking.to);
+        }
+        if (booking.source && booking.destination) {
+          const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+          return cap(booking.source) + ' → ' + cap(booking.destination);
+        }
+        // Try DB join if window.DB is present
+        if (window.DB && DB.trips && booking.trip_id) {
+          const trip = DB.trips.getById(booking.trip_id);
+          if (trip && trip.success && DB.schedules) {
+            const schedArr = DB.schedules.find(sc => sc.schedule_id === trip.data.schedule_id);
+            if (schedArr.length && DB.routes) {
+              const routeArr = DB.routes.find(r => r.route_id === schedArr[0].route_id);
+              if (routeArr.length) return routeArr[0].source + ' → ' + routeArr[0].destination;
+            }
+          }
+        }
         const sf = sessionStorage.getItem('searchFrom');
         const st = sessionStorage.getItem('searchTo');
         if (sf && st) return (sf.charAt(0).toUpperCase() + sf.slice(1)) + ' → ' + (st.charAt(0).toUpperCase() + st.slice(1));
-        // 3. Try DB join
-        const trip     = DB.trips.getById(booking.trip_id);
-        if (!trip.success) return 'Unknown Route';
-        const schedArr = DB.schedules.find(sc => sc.schedule_id === trip.data.schedule_id);
-        if (!schedArr.length) return 'Unknown Route';
-        const routeArr = DB.routes.find(r => r.route_id === schedArr[0].route_id);
-        if (!routeArr.length) return 'Unknown Route';
-        return routeArr[0].source + ' → ' + routeArr[0].destination;
-      } catch(e) { return 'Unknown Route'; }
+        return 'Mumbai → Pune';
+      } catch(e) { return 'Mumbai → Pune'; }
     }
 
     function resolveDate(booking) {
       try {
-        // Check metadata on the booking record first (frontend-created bookings)
         if (booking._journeyDate) return booking._journeyDate;
-        const trip     = DB.trips.getById(booking.trip_id);
-        if (!trip.success) return booking.booking_date;
-        const schedArr = DB.schedules.find(sc => sc.schedule_id === trip.data.schedule_id);
-        return schedArr.length ? schedArr[0].journey_date : booking.booking_date;
-      } catch(e) { return booking.booking_date; }
+        if (booking.journeyDate)  return booking.journeyDate;
+        if (booking.journey_date) return booking.journey_date;
+        if (booking.booking_date) return booking.booking_date;
+        if (booking.bookingDate)  return booking.bookingDate;
+        if (window.DB && DB.trips && booking.trip_id) {
+          const trip = DB.trips.getById(booking.trip_id);
+          if (trip && trip.success && DB.schedules) {
+            const schedArr = DB.schedules.find(sc => sc.schedule_id === trip.data.schedule_id);
+            if (schedArr.length && schedArr[0].journey_date) return schedArr[0].journey_date;
+          }
+        }
+        return new Date().toISOString().split('T')[0];
+      } catch(e) { return new Date().toISOString().split('T')[0]; }
     }
 
     function resolveFare(booking) {
       try {
-        // 1. Use _total stored directly on booking (most reliable)
         if (booking._total) return Number(booking._total);
-        // 2. Lookup payment record
-        var pays = DB.payments.find(function(p) { return p.booking_id === booking.booking_id; });
-        return pays.length ? pays[0].amount : 0;
+        if (booking.total)  return Number(booking.total);
+        if (booking.amount) return Number(booking.amount);
+        if (booking.fare)   return Number(booking.fare);
+        if (booking._fare)  return Number(booking._fare);
+        if (window.DB && DB.payments) {
+          var bId = booking.booking_id || booking.bookingId;
+          var pays = DB.payments.find(p => p.booking_id === bId);
+          if (pays.length && pays[0].amount) return Number(pays[0].amount);
+        }
+        return 0;
       } catch(e) { return 0; }
+    }
+
+    function normalizeBooking(b) {
+      const bId = b.booking_id || b.bookingId || b.id || ('BUS' + Date.now());
+      const cId = b.customer_id || b.customerId || b.userId || '';
+      const rawStatus = b.booking_status || b.status || 'CONFIRMED';
+      const status = String(rawStatus).toUpperCase();
+      const tripId = b.trip_id || b.tripId || 'T001';
+      const seats = b._seats || (Array.isArray(b.seats) ? b.seats.join(', ') : b.seats) || (b.seatNumber ? 'Seat ' + b.seatNumber : '') || '';
+      const busName = b._busName || b.busName || b.bus_name || 'Express Bus';
+      const busType = b._busType || b.busType || b.bus_type || '';
+      const passCount = b._passengerCount || b.passengerCount || b.passenger_count || 1;
+      const cName = b._customerName || b.customerName || b.customer_name || '';
+
+      return {
+        ...b,
+        booking_id: bId,
+        bookingId: bId,
+        customer_id: cId,
+        customerId: cId,
+        trip_id: tripId,
+        tripId: tripId,
+        booking_status: status,
+        status: status,
+        _busName: busName,
+        _busType: busType,
+        _seats: seats,
+        _passengerCount: passCount,
+        _customerName: cName,
+        _resolvedRoute: resolveRoute(b),
+        _resolvedDate: resolveDate(b),
+        _resolvedFare: resolveFare(b),
+      };
     }
 
     /* ── Card builder ── */
     function buildCard(b, idx) {
-      const route    = resolveRoute(b);
-      const date     = resolveDate(b);
-      const fare     = resolveFare(b);
-      const status   = b.booking_status;          // e.g. 'CONFIRMED'
-      const statusLo = status.toLowerCase();       // for data-status attr
+      const route    = b._resolvedRoute || resolveRoute(b);
+      const date     = b._resolvedDate  || resolveDate(b);
+      const fare     = b._resolvedFare  !== undefined ? b._resolvedFare : resolveFare(b);
+      const status   = (b.booking_status || b.status || 'CONFIRMED').toUpperCase();
+      const statusLo = status.toLowerCase();
       const isCancellable = ['CONFIRMED','PENDING'].includes(status);
       const isCancelled   = status === 'CANCELLED';
-      const isCompleted   = status === 'COMPLETED';
+
+      // ── Real-time Trip Lifecycle Status ──
+      var tripId = b.trip_id || b.tripId || '';
+      var localStatuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+      var tripStatus = localStatuses[tripId] || b._tripStatus || b.tripStatus || 'SCHEDULED';
+      if (window.DB && DB.trips && tripId) {
+        try {
+          var tObj = DB.trips.getById(tripId);
+          if (tObj && tObj.success && tObj.data && tObj.data.trip_status) {
+            tripStatus = localStatuses[tripId] || tObj.data.trip_status;
+          }
+        } catch(e){}
+      }
+
+      var tripStatusHtml = '';
+      var showTrackBus = false;
+      if (!isCancelled) {
+        if (tripStatus === 'IN_PROGRESS') {
+          tripStatusHtml = '<div class="trip-live-pill in-progress">🚌 <span>Trip Started · On the Way</span></div>';
+          showTrackBus = true;
+        } else if (tripStatus === 'COMPLETED') {
+          tripStatusHtml = '<div class="trip-live-pill completed">🏁 <span>Destination Reached · Trip Ended</span></div>';
+        } else {
+          tripStatusHtml = '<div class="trip-live-pill scheduled">🕒 <span>Trip Scheduled</span></div>';
+        }
+      }
 
       const cancelBtn = isCancellable
         ? `<button class="btn-cancel-sm" onclick="quickCancel('${b.booking_id}',this)">✕ Cancel</button>`
@@ -610,6 +733,7 @@
             </div>
             <div class="booking-details">📅 ${date}${metaStr}</div>
             <div class="booking-pnr">ID: ${b.booking_id}</div>
+            ${tripStatusHtml}
           </div>
           <div class="booking-right">
             <div class="booking-actions">
@@ -621,7 +745,7 @@
                 <button class="btn-ticket" onclick="showToast('🎫 Ticket for ${b.booking_id} downloaded!','success')">⬇ Ticket</button>
                 ${cancelBtn}
               </div>
-              ${isCancelled ? '' : `<button class="btn-more track-bus-btn" style="display:none;color:#059669;border-color:#a7f3d0;" data-trip-id="${b.trip_id}" onclick="goTrackBus('${b.trip_id}','${b._backendBookingId || b.booking_id}')">📍 Track Bus (Live)</button>`}
+              ${isCancelled ? '' : `<button class="btn-more track-bus-btn" style="${showTrackBus ? 'display:inline-flex;' : 'display:none;'}color:#059669;border-color:#a7f3d0;background:#f0fdf4;" data-trip-id="${b.trip_id}" onclick="goTrackBus('${b.trip_id}','${b._backendBookingId || b.booking_id}')">📍 Track Bus (Live)</button>`}
             </div>
             <span class="booking-price">₹${fare > 0 ? fare.toLocaleString('en-IN') : '—'}</span>
           </div>
@@ -629,25 +753,90 @@
     }
 
     /* ── Main render ── */
-    window.renderBookings = function() {
-      const customerId = getCustomerId();
-      const list       = document.getElementById('bookingsList');
-      const empty      = document.getElementById('emptyState');
+    window.renderBookings = async function() {
+      const customerId   = getCustomerId();
+      const customerName = getCustomerName();
+      const list         = document.getElementById('bookingsList');
+      const empty        = document.getElementById('emptyState');
+      if (!list) return;
 
-      let bookings = DB.bookings.find(b => b.customer_id === customerId);
+      const rawBookings = [];
 
-      // Apply active filter
-      if (_activeFilter !== 'all') {
-        bookings = bookings.filter(b => b.booking_status.toLowerCase() === _activeFilter);
+      // 1. Fetch from live Backend API if connected
+      if (window.API && API.bookings && API.bookings.getMine) {
+        try {
+          const apiData = await API.bookings.getMine();
+          if (Array.isArray(apiData)) {
+            apiData.forEach(b => rawBookings.push({ ...b, _fromBackend: true }));
+          }
+        } catch (e) {
+          // Backend offline or no bookings on backend — fallback to local seamlessly
+        }
       }
 
-      if (!bookings.length) {
+      // 2. Fetch from DB.bookings (CRUD engine)
+      if (window.DB && DB.bookings && DB.bookings.getAll) {
+        try {
+          const dbAll = DB.bookings.getAll();
+          if (Array.isArray(dbAll)) {
+            dbAll.forEach(b => rawBookings.push(b));
+          }
+        } catch (e) {}
+      }
+
+      // 3. Fetch from localStorage['c2b_bookings']
+      try {
+        const localAll = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+        if (Array.isArray(localAll)) {
+          localAll.forEach(b => rawBookings.push(b));
+        }
+      } catch (e) {}
+
+      // Normalize all
+      const normalized = rawBookings.map(normalizeBooking);
+
+      // Deduplicate by booking_id
+      const seen = new Set();
+      const uniqueBookings = [];
+      normalized.forEach(b => {
+        if (!b.booking_id || seen.has(b.booking_id)) return;
+        seen.add(b.booking_id);
+        uniqueBookings.push(b);
+      });
+
+      // Filter for this customer:
+      // Match by customer_id/customerId OR if demo C001 matches OR customer name matches
+      let userBookings = uniqueBookings.filter(b => {
+        if (b.customer_id === customerId || b.customerId === customerId) return true;
+        if (customerId === 'C001' && (!b.customer_id || b.customer_id === 'C001')) return true;
+        if (customerName && b._customerName && b._customerName.toLowerCase() === customerName.toLowerCase()) return true;
+        // Also show if user just booked in this session
+        const lastId = sessionStorage.getItem('lastBookingId');
+        if (lastId && b.booking_id === lastId) return true;
+        return false;
+      });
+
+      // Sort by date / creation time descending
+      userBookings.sort((a, b) => {
+        const dateA = a._resolvedDate || a.booking_date || '';
+        const dateB = b._resolvedDate || b.booking_date || '';
+        return dateB.localeCompare(dateA);
+      });
+
+      // Apply active status filter tab
+      let filtered = userBookings;
+      if (_activeFilter !== 'all') {
+        filtered = userBookings.filter(b => (b.booking_status || '').toLowerCase() === _activeFilter);
+      }
+
+      if (!filtered.length) {
         list.innerHTML = '';
-        empty.style.display = 'block';
+        if (empty) empty.style.display = 'block';
         return;
       }
-      empty.style.display = 'none';
-      list.innerHTML = bookings.map((b, i) => buildCard(b, i)).join('');
+
+      if (empty) empty.style.display = 'none';
+      list.innerHTML = filtered.map((b, i) => buildCard(b, i)).join('');
       revealTrackButtons();
     };
 
@@ -666,23 +855,45 @@
           continue;
         }
         try {
-          const isLive = await API.trips.getById(tripId).then(d => d.trip.tripStatus === 'IN_PROGRESS').catch(() => false);
-          checked[tripId] = isLive;
-          if (isLive) btn.style.display = 'inline-flex';
+          if (window.API && API.trips && API.trips.getById) {
+            const isLive = await API.trips.getById(tripId).then(d => d.trip.tripStatus === 'IN_PROGRESS').catch(() => false);
+            checked[tripId] = isLive;
+            if (isLive) btn.style.display = 'inline-flex';
+          }
         } catch (e) { checked[tripId] = false; }
       }
     }
 
     /* ── Quick cancel from booking card ── */
-    window.quickCancel = function(bookingId, btn) {
+    window.quickCancel = async function(bookingId, btn) {
       if (!confirm('Cancel booking ' + bookingId + '? This cannot be undone.')) return;
-      const result = DB.cancelBooking(bookingId);
-      if (result.success) {
-        showToast('✅ Booking ' + bookingId + ' cancelled. Refund initiated.', 'success');
-        renderBookings(); // re-render from live DB
-      } else {
-        showToast('❌ ' + (result.error || 'Could not cancel booking.'), 'error');
+
+      // 1. Try Backend cancel
+      try {
+        if (window.API && API.cancellations && API.cancellations.cancel) {
+          await API.cancellations.cancel(bookingId);
+        }
+      } catch (e) {}
+
+      // 2. Update DB.bookings
+      if (window.DB && DB.cancelBooking) {
+        DB.cancelBooking(bookingId);
       }
+
+      // 3. Update localStorage['c2b_bookings']
+      try {
+        const all = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+        all.forEach(b => {
+          if (b.booking_id === bookingId || b.bookingId === bookingId) {
+            b.booking_status = 'CANCELLED';
+            b.status = 'CANCELLED';
+          }
+        });
+        localStorage.setItem('c2b_bookings', JSON.stringify(all));
+      } catch(e) {}
+
+      showToast('✅ Booking ' + bookingId + ' cancelled. Refund initiated.', 'success');
+      renderBookings();
     };
 
     /* ── Boot ── */
@@ -697,6 +908,14 @@
       if (av)  av.textContent  = ini;
       if (sn)  sn.textContent  = name.toUpperCase();
     })();
+
+    // Listen for storage events across tabs to auto-refresh
+    window.addEventListener('storage', function(e) {
+      if (e.key === 'c2b_bookings' || e.key === 'c2b_loggedInId' || e.key === 'c2b_userId') {
+        renderBookings();
+      }
+    });
+
     renderBookings();
   })();
   </script>

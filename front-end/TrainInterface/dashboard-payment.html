@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -269,6 +269,8 @@
         function confirmDashPayment() {
             const customerId = sessionStorage.getItem('c2b_loggedInId')
                             || localStorage.getItem('c2b_loggedInId')
+                            || sessionStorage.getItem('c2b_userId')
+                            || localStorage.getItem('c2b_userId')
                             || 'C001';
 
             const now        = Date.now();
@@ -288,24 +290,53 @@
                 if (allTrips.length) tripId = allTrips[0].trip_id;
             } catch(e) {}
 
+            var newBooking = {
+                booking_id:     bookingId,
+                bookingId:      bookingId,
+                customer_id:    customerId,
+                customerId:     customerId,
+                trip_id:        tripId,
+                tripId:         tripId,
+                offer_id:       'O001',
+                booking_date:   today,
+                bookingDate:    today,
+                booking_status: 'CONFIRMED',
+                status:         'CONFIRMED',
+                irctc_id:       null,
+                _busName:       'Royal Express',
+                busName:        'Royal Express',
+                _busType:       'Sleeper AC',
+                busType:        'Sleeper AC',
+                _seats:         'A4',
+                seats:          'A4',
+                _from:          'Mumbai',
+                from:           'Mumbai',
+                _to:            'Pune',
+                to:             'Pune',
+                _journeyDate:   today,
+                journeyDate:    today,
+                total:          total,
+                _total:         total,
+                amount:         total,
+                paymentMethod:  payMethod,
+                _paymentMethod: payMethod,
+                createdAt:      new Date().toISOString(),
+            };
+
+            // ── Save to local c2b_bookings ──
+            try {
+                var allBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+                allBookings = allBookings.filter(function(b) {
+                    return (b.bookingId !== bookingId) && (b.booking_id !== bookingId);
+                });
+                allBookings.unshift(newBooking);
+                localStorage.setItem('c2b_bookings', JSON.stringify(allBookings));
+            } catch(e) {}
+
             // ── Write to DB ──
             if (window.DB) {
                 try {
-                    DB.bookings.create({
-                        booking_id:     bookingId,
-                        customer_id:    customerId,
-                        trip_id:        tripId,
-                        offer_id:       'O001',
-                        booking_date:   today,
-                        booking_status: 'CONFIRMED',
-                        irctc_id:       null,
-                        _busName:       'Royal Express',
-                        _busType:       'Sleeper AC',
-                        _seats:         'A4',
-                        _from:          'Mumbai',
-                        _to:            'Pune',
-                        _journeyDate:   today,
-                    });
+                    DB.bookings.create(newBooking);
                 } catch(e) { console.warn('[C2B] Booking write failed:', e); }
 
                 try {

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -512,18 +512,114 @@
                 </div>
             </div>
 
+            <div id="dynamicTrainBookings"></div>
+
         </div><!-- /dashboard-wrapper -->
     </div><!-- /user-main-content -->
 </div><!-- /user-dash-layout -->
 
+<script src="../crud functions/js/mock_data.js"></script>
+<script src="../crud functions/js/script.js"></script>
 <script>
+    function getCustomerId() {
+        return sessionStorage.getItem('c2b_loggedInId')
+            || localStorage.getItem('c2b_loggedInId')
+            || sessionStorage.getItem('c2b_userId')
+            || localStorage.getItem('c2b_userId')
+            || 'C001';
+    }
+
+    function renderDynamicTrainBookings() {
+        const container = document.getElementById('dynamicTrainBookings');
+        if (!container) return;
+
+        const customerId = getCustomerId();
+        const raw = [];
+        if (window.DB && DB.bookings && DB.bookings.getAll) {
+            try { raw.push(...DB.bookings.getAll()); } catch(e) {}
+        }
+        try {
+            const loc = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+            raw.push(...loc);
+        } catch(e) {}
+
+        const seen = new Set();
+        const userBookings = [];
+        raw.forEach(b => {
+            const bId = b.booking_id || b.bookingId;
+            if (!bId || seen.has(bId)) return;
+            seen.add(bId);
+            const cId = b.customer_id || b.customerId || '';
+            if (cId === customerId || customerId === 'C001') {
+                userBookings.push(b);
+            }
+        });
+
+        if (!userBookings.length) {
+            container.innerHTML = '';
+            return;
+        }
+
+        container.innerHTML = userBookings.map(b => {
+            const bId = b.booking_id || b.bookingId;
+            const from = b.from || b._from || b.source || 'Mumbai';
+            const to = b.to || b._to || b.destination || 'Pune';
+            const date = b.journeyDate || b._journeyDate || b.booking_date || new Date().toISOString().split('T')[0];
+            const fare = b.total || b._total || b.fare || 615;
+            const name = b.busName || b._busName || 'Royal Express';
+            const type = b.busType || b._busType || 'Train / Coach';
+            const pass = b.customerName || b._customerName || 'Rahul Sharma';
+            const status = (b.booking_status || b.status || 'CONFIRMED').toLowerCase();
+            const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+            const badgeClass = status === 'confirmed' ? 'status-confirmed' : (status === 'cancelled' ? 'status-cancelled' : 'status-completed');
+
+            return `
+            <div class="booking-card dynamic-card" data-status="${status}">
+                <div class="bc-top">
+                    <div class="bc-train-info">
+                        <div class="bc-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="2"></rect><path d="M4 11h16"></path><path d="M12 3v8"></path><path d="M8 19l-2 3"></path><path d="M18 22l-2-3"></path><path d="M8 15h0"></path><path d="M16 15h0"></path></svg></div>
+                        <div>
+                            <p class="bc-name">${name}</p>
+                            <p class="bc-number">#${bId} · ${type}</p>
+                        </div>
+                    </div>
+                    <div class="bc-route">
+                        <div class="bc-station">
+                            <span class="bc-time">08:00</span>
+                            <span class="bc-city">${from}</span>
+                        </div>
+                        <div class="bc-divider">
+                            <div class="bc-divider-line"></div>
+                            <span class="bc-dur">Express</span>
+                        </div>
+                        <div class="bc-station">
+                            <span class="bc-time">14:00</span>
+                            <span class="bc-city">${to}</span>
+                        </div>
+                    </div>
+                    <span class="bc-status-badge ${badgeClass}">${statusLabel}</span>
+                </div>
+                <div class="bc-bottom">
+                    <div class="bc-meta">
+                        <span>ID: <strong>${bId}</strong></span>
+                        <span>Date: <strong>${date}</strong></span>
+                        <span>Passenger: <strong>${pass}</strong></span>
+                        <span>Fare: <strong>₹${Number(fare).toLocaleString('en-IN')}</strong></span>
+                    </div>
+                    <div class="bc-actions">
+                        <a href="ticket-downloaded.html" class="bc-btn bc-btn-ghost">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> View Ticket
+                        </a>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
 
     function filterBookings(status, btn) {
-        // Update active tab
         document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
         btn.classList.add('active');
 
-        // Show/hide cards
         document.querySelectorAll('.booking-card').forEach(card => {
             if (status === 'all' || card.dataset.status === status) {
                 card.style.display = '';
@@ -532,6 +628,10 @@
             }
         });
     }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        renderDynamicTrainBookings();
+    });
 </script>
 </body>
 </html>

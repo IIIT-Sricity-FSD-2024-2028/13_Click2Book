@@ -49,11 +49,17 @@ export class TripService {
     return `${h}h ${m > 0 ? m + 'm' : ''}`.trim();
   }
 
-  // Search trips by source, destination (date shown in UI but not used to filter — demo mode)
+  // Search trips by source, destination, date, and departure time
   search(source: string, destination: string, date: string) {
     const allTrips = this.tripRepo.findAll();
     const src = source.trim().toLowerCase();
     const dst = destination.trim().toLowerCase();
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const curH = String(now.getHours()).padStart(2, '0');
+    const curM = String(now.getMinutes()).padStart(2, '0');
+    const nowTime = `${curH}:${curM}`;
 
     const results = allTrips
       .map(trip => {
@@ -63,6 +69,19 @@ export class TripService {
         if (!route) return null;
         if (src && !route.source.toLowerCase().includes(src)) return null;
         if (dst && !route.destination.toLowerCase().includes(dst)) return null;
+
+        // If journeyDate is specified on schedule, match against requested date
+        if (schedule.journeyDate && date && schedule.journeyDate !== date) {
+          return null;
+        }
+
+        // If date searched is today, filter out buses whose departure time has already passed
+        if (date && date === todayStr) {
+          if (schedule.departureTime && schedule.departureTime < nowTime) {
+            return null;
+          }
+        }
+
         const vehicle = this.vehicleRepo.findById(trip.vehicleId);
         if (!vehicle || vehicle.remainingSeats <= 0) return null;
         // Only approved providers may appear in — or be booked from — search results.
@@ -93,13 +112,14 @@ export class TripService {
           rating:         v.rating || 4.0,
           tripStatus:     trip.tripStatus,
           distance:       route.distance,
+          via:            (schedule as any).via || (route as any).via || undefined,
         };
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)
       .sort((a, b) => a.departureTime.localeCompare(b.departureTime));
 
     if (results.length === 0)
-      throw new NotFoundException(`No available trips found from ${source} to ${destination}`);
+      throw new NotFoundException(`No available trips found from ${source} to ${destination} on ${date || 'today'}`);
 
     return successResponse(`${results.length} bus(es) found from ${source} to ${destination}`, results);
   }
@@ -126,5 +146,14 @@ export class TripService {
     if (trip.tripStatus !== TripStatus.SCHEDULED)
       throw new BadRequestException('Only SCHEDULED trips can depart');
     return successResponse('Trip departed — now in progress', this.tripRepo.update(id, { tripStatus: TripStatus.IN_PROGRESS }));
+  }
+
+  // Arrival / Completion: moves a trip from IN_PROGRESS / SCHEDULED into COMPLETED
+  complete(id: string) {
+    const trip = this.tripRepo.findById(id);
+    if (!trip) throw new NotFoundException(`Trip ${id} not found`);
+    if (trip.tripStatus !== TripStatus.IN_PROGRESS && trip.tripStatus !== TripStatus.SCHEDULED)
+      throw new BadRequestException('Only active trips can be completed');
+    return successResponse('Trip completed — destination reached', this.tripRepo.update(id, { tripStatus: TripStatus.COMPLETED }));
   }
 }

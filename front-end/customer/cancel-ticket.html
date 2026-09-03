@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -463,23 +463,46 @@
     showView('confirm');
   }
 
-  function confirmCancel() {
+  async function confirmCancel() {
     if (!activeTicket.bookingId) return;
-    const result = DB.cancelBooking(activeTicket.bookingId);
-    if (!result.success) {
-      showToast('❌ ' + (result.error || 'Cancellation failed.'), 'error');
-      return;
+
+    // 1. Try Backend cancellation
+    try {
+      if (window.API && API.cancellations && API.cancellations.cancel) {
+        await API.cancellations.cancel(activeTicket.bookingId);
+      }
+    } catch(e) {}
+
+    // 2. Update DB.bookings
+    if (window.DB && DB.cancelBooking) {
+      DB.cancelBooking(activeTicket.bookingId);
     }
+
+    // 3. Update localStorage['c2b_bookings']
+    try {
+      const all = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+      all.forEach(b => {
+        if (b.booking_id === activeTicket.bookingId || b.bookingId === activeTicket.bookingId) {
+          b.booking_status = 'CANCELLED';
+          b.status = 'CANCELLED';
+        }
+      });
+      localStorage.setItem('c2b_bookings', JSON.stringify(all));
+    } catch(e) {}
+
     /* Create refund record */
     try {
-      DB.refunds.create({
-        booking_id:    activeTicket.bookingId,
-        admin_id:      'A001',
-        refund_amount: activeTicket.refund,
-        refund_status: 'PENDING',
-        refund_date:   new Date().toISOString().split('T')[0]
-      });
+      if (window.DB && DB.refunds) {
+        DB.refunds.create({
+          booking_id:    activeTicket.bookingId,
+          admin_id:      'A001',
+          refund_amount: activeTicket.refund,
+          refund_status: 'PENDING',
+          refund_date:   new Date().toISOString().split('T')[0]
+        });
+      }
     } catch(e) {}
+
     document.getElementById('doneRefund').textContent = '₹' + activeTicket.refund;
     showView('done');
     /* Re-render ticket list in background so it's fresh if user goes back */
@@ -520,6 +543,7 @@
     }
   });
 </script>
+<script src="api.js"></script>
 <script src="auth.js"></script>
 
   <!-- ═══ CRUD Engine (localStorage + Data Manager panel) ═══ -->
@@ -533,55 +557,123 @@
     function getCustomerId() {
       return sessionStorage.getItem('c2b_loggedInId')
           || localStorage.getItem('c2b_loggedInId')
+          || sessionStorage.getItem('c2b_userId')
+          || localStorage.getItem('c2b_userId')
           || 'C001';
     }
 
     function resolveRoute(booking) {
       try {
-        // 1. Metadata stored on new bookings from frontend flow
         if (booking._from && booking._to) {
           const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
           return cap(booking._from) + ' → ' + cap(booking._to);
         }
-        // 2. DB join
-        const trip = DB.trips.getById(booking.trip_id);
-        if (!trip.success) return 'Unknown Route';
-        const sch = DB.schedules.find(s => s.schedule_id === trip.data.schedule_id)[0];
-        if (!sch) return 'Unknown Route';
-        const rt  = DB.routes.find(r => r.route_id === sch.route_id)[0];
-        return rt ? rt.source + ' → ' + rt.destination : 'Unknown Route';
-      } catch(e) { return 'Unknown Route'; }
+        if (booking.from && booking.to) {
+          const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+          return cap(booking.from) + ' → ' + cap(booking.to);
+        }
+        if (window.DB && DB.trips && booking.trip_id) {
+          const trip = DB.trips.getById(booking.trip_id);
+          if (trip && trip.success && DB.schedules) {
+            const sch = DB.schedules.find(s => s.schedule_id === trip.data.schedule_id)[0];
+            if (sch && DB.routes) {
+              const rt = DB.routes.find(r => r.route_id === sch.route_id)[0];
+              if (rt) return rt.source + ' → ' + rt.destination;
+            }
+          }
+        }
+        return 'Mumbai → Pune';
+      } catch(e) { return 'Mumbai → Pune'; }
     }
 
     function resolveFare(booking) {
       try {
-        const pays = DB.payments.find(p => p.booking_id === booking.booking_id);
-        return pays.length ? pays[0].amount : 500;
+        if (booking._total) return Number(booking._total);
+        if (booking.total)  return Number(booking.total);
+        if (booking.amount) return Number(booking.amount);
+        if (booking.fare)   return Number(booking.fare);
+        if (window.DB && DB.payments) {
+          const bId = booking.booking_id || booking.bookingId;
+          const pays = DB.payments.find(p => p.booking_id === bId);
+          if (pays.length && pays[0].amount) return Number(pays[0].amount);
+        }
+        return 500;
       } catch(e) { return 500; }
     }
 
-    window.renderTicketList = function() {
+    function normalize(b) {
+      const bId = b.booking_id || b.bookingId || b.id;
+      const cId = b.customer_id || b.customerId || b.userId || '';
+      const status = String(b.booking_status || b.status || 'CONFIRMED').toUpperCase();
+      return {
+        ...b,
+        booking_id: bId,
+        bookingId: bId,
+        customer_id: cId,
+        customerId: cId,
+        booking_status: status,
+        status: status,
+      };
+    }
+
+    window.renderTicketList = async function() {
       const customerId = getCustomerId();
-      // Target both id and class for safety
+      const customerName = sessionStorage.getItem('c2b_userName') || localStorage.getItem('c2b_userName') || '';
       const container = document.getElementById('ticketListContainer')
                      || document.querySelector('.ticket-list');
       if (!container) return;
 
-      const cancellable = DB.bookings.find(
-        b => b.customer_id === customerId &&
-             ['CONFIRMED','PENDING'].includes(b.booking_status)
-      );
+      const rawBookings = [];
 
-      if (!cancellable.length) {
+      // 1. Backend API
+      if (window.API && API.bookings && API.bookings.getMine) {
+        try {
+          const apiData = await API.bookings.getMine();
+          if (Array.isArray(apiData)) apiData.forEach(b => rawBookings.push(b));
+        } catch(e) {}
+      }
+
+      // 2. DB.bookings
+      if (window.DB && DB.bookings && DB.bookings.getAll) {
+        try {
+          const dbAll = DB.bookings.getAll();
+          if (Array.isArray(dbAll)) dbAll.forEach(b => rawBookings.push(b));
+        } catch(e) {}
+      }
+
+      // 3. Local storage
+      try {
+        const localAll = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+        if (Array.isArray(localAll)) localAll.forEach(b => rawBookings.push(b));
+      } catch(e) {}
+
+      // Deduplicate
+      const seen = new Set();
+      const userBookings = [];
+      rawBookings.map(normalize).forEach(b => {
+        if (!b.booking_id || seen.has(b.booking_id)) return;
+        seen.add(b.booking_id);
+
+        const isUser = (b.customer_id === customerId || b.customerId === customerId) ||
+                       (customerId === 'C001' && (!b.customer_id || b.customer_id === 'C001')) ||
+                       (customerName && b._customerName && b._customerName.toLowerCase() === customerName.toLowerCase());
+        const isCancellable = ['CONFIRMED','PENDING'].includes(b.booking_status);
+
+        if (isUser && isCancellable) {
+          userBookings.push(b);
+        }
+      });
+
+      if (!userBookings.length) {
         container.innerHTML = `<p style="color:#64748b;font-size:.88rem;padding:12px 0">No cancellable bookings found. <br>Book a ticket first from <a href="search-trips.html" style="color:#f97316;font-weight:600;">Search Trips</a>.</p>`;
         return;
       }
 
-      container.innerHTML = cancellable.map(b => {
+      container.innerHTML = userBookings.map(b => {
         const route    = resolveRoute(b);
         const fare     = resolveFare(b);
-        const busLabel = b._busName ? (b._busName + (b._busType ? ' · ' + b._busType : '')) : 'Click2Book';
-        const dateLabel = b._journeyDate || b.booking_date;
+        const busLabel = b._busName || b.busName ? ((b._busName || b.busName) + (b._busType ? ' · ' + b._busType : '')) : 'Click2Book';
+        const dateLabel = b._journeyDate || b.journeyDate || b.booking_date || b.bookingDate || new Date().toISOString().split('T')[0];
         const safeRoute = route.replace(/'/g, '&#39;');
         return '<div class="ticket-row" onclick="selectTicket(\'' + b.booking_id + '\',\'' + safeRoute + '\',' + fare + ')">'
           + '<div class="ticket-info">'

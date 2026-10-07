@@ -574,7 +574,6 @@
       }
       localStorage.setItem('c2b_refunds', JSON.stringify(refList));
     } catch(e) {}
-
     document.getElementById('doneRefund').textContent = '₹' + activeTicket.refund;
     showView('done');
     /* Re-render ticket list in background so it's fresh if user goes back */

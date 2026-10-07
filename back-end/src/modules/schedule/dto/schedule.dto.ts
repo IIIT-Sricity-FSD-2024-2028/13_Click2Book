@@ -23,6 +23,11 @@ export class CreateScheduleDto {
   @ApiProperty({ example: 600 })
   @IsNumber() @Min(1)
   fare: number;
+
+  @ApiPropertyOptional({ example: 'Pune, Lonavala' })
+  @IsOptional()
+  @IsString()
+  via?: string;
 }
 
 export class UpdateScheduleDto {
@@ -31,4 +36,9 @@ export class UpdateScheduleDto {
 
   @ApiPropertyOptional({ example: 650 })
   @IsOptional() @IsNumber() @Min(1) fare?: number;
+
+  @ApiPropertyOptional({ example: 'Pune, Lonavala' })
+  @IsOptional()
+  @IsString()
+  via?: string;
 }

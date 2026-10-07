@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Track Refunds – Click2Book</title>
+  <meta name="description" content="Track your ticket cancellation refunds, ARN references, and bank credit status on Click2Book." />
+  <link rel="stylesheet" href="common.css" />
+  <style>
+    /* ── Summary KPI Cards ── */
+    .refund-kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi-card {
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: var(--shadow-sm);
+      transition: transform .2s, box-shadow .2s;
+    }
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+    .kpi-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+    .kpi-icon.orange { background: #fff7ed; color: #ea580c; border: 1px solid #ffedd5; }
+    .kpi-icon.green  { background: #f0fdf4; color: #16a34a; border: 1px solid #dcfce7; }
+    .kpi-icon.blue   { background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }
+    .kpi-icon.slate  { background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
+
+    .kpi-info h4 { font-size: .75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+    .kpi-info p  { font-size: 1.35rem; font-weight: 800; color: var(--text-main); line-height: 1.1; margin: 0; }
+
+    /* ── Controls Row (Search & Filter) ── */
+    .controls-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 22px;
+      flex-wrap: wrap;
+    }
+    .search-box {
+      position: relative;
+      flex: 1;
+      max-width: 380px;
+      min-width: 240px;
+    }
+    .search-box svg {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    .search-box input {
+      width: 100%;
+      padding: 10px 14px 10px 38px;
+      border-radius: 50px;
+      border: 1.5px solid var(--border);
+      background: var(--white);
+      font-family: inherit;
+      font-size: .85rem;
+      color: var(--text-main);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .search-box input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(249,115,22,.15);
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 0;
+    }
+    .filter-tab {
+      padding: 8px 18px;
+      border-radius: 50px;
+      border: 1.5px solid var(--border);
+      background: var(--white);
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: .78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .filter-tab:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .filter-tab.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    /* ── Refund Cards List ── */
+    .refund-list {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .refund-card {
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+      transition: border-color .2s, box-shadow .2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .refund-card:hover {
+      border-color: rgba(249,115,22,.28);
+      box-shadow: var(--shadow-md);
+    }
+    .refund-card.highlight {
+      border-color: #10b981;
+      box-shadow: 0 0 0 4px rgba(16,185,129,.15);
+    }
+
+    /* Top Strip of the Card */
+    .rc-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .rc-title-area {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .rc-route-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .rc-route {
+      font-size: 1.12rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+    .rc-meta {
+      font-size: .8rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .rc-pnr {
+      font-size: .75rem;
+      color: var(--text-light);
+      font-family: monospace;
+      font-weight: 600;
+    }
+
+    /* Status Pill */
+    .refund-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: 50px;
+      font-size: .75rem;
+      font-weight: 800;
+      letter-spacing: .3px;
+    }
+    .refund-pill.processing {
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fde68a;
+    }
+    .refund-pill.completed {
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #86efac;
+    }
+    .refund-pill.requested {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+
+    /* ── Stepper / Progress Bar ── */
+    .stepper-wrap {
+      padding: 24px 8px 18px;
+    }
+    .stepper {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      position: relative;
+    }
+    .stepper-track {
+      position: absolute;
+      top: 15px;
+      left: 30px;
+      right: 30px;
+      height: 4px;
+      background: #e2e8f0;
+      z-index: 1;
+      border-radius: 4px;
+    }
+    .stepper-track-fill {
+      position: absolute;
+      top: 15px;
+      left: 30px;
+      height: 4px;
+      background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+      z-index: 2;
+      border-radius: 4px;
+      transition: width .5s ease;
+    }
+    .step-item {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      width: 110px;
+    }
+    .step-dot {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: white;
+      border: 2.5px solid #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .75rem;
+      font-weight: 700;
+      color: #64748b;
+      margin-bottom: 8px;
+      transition: all .3s;
+    }
+    .step-item.done .step-dot {
+      background: #10b981;
+      border-color: #10b981;
+      color: white;
+      box-shadow: 0 0 0 4px rgba(16,185,129,.18);
+    }
+    .step-item.active .step-dot {
+      background: #f97316;
+      border-color: #f97316;
+      color: white;
+      box-shadow: 0 0 0 5px rgba(249,115,22,.22);
+      animation: pulseStep 1.8s infinite;
+    }
+    @keyframes pulseStep {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+    .step-label {
+      font-size: .75rem;
+      font-weight: 700;
+      color: #64748b;
+      line-height: 1.25;
+    }
+    .step-item.done .step-label { color: #0f172a; }
+    .step-item.active .step-label { color: var(--primary-dark); font-weight: 800; }
+    .step-time {
+      font-size: .65rem;
+      color: #94a3b8;
+      margin-top: 3px;
+      font-weight: 500;
+    }
+
+    /* ── Details Matrix ── */
+    .rc-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      margin-top: 10px;
+    }
+    @media (max-width: 640px) {
+      .rc-body { grid-template-columns: 1fr; }
+    }
+    .rc-detail-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .rc-detail-label {
+      font-size: .68rem;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+    .rc-detail-val {
+      font-size: .88rem;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .rc-detail-val.green {
+      color: #15803d;
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+
+    /* ── Footer / Actions ── */
+    .rc-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .rc-eta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .78rem;
+      color: #475569;
+      font-weight: 600;
+    }
+    .rc-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-sm-ghost {
+      padding: 7px 14px;
+      border-radius: 50px;
+      border: 1.5px solid var(--border);
+      background: white;
+      color: #475569;
+      font-family: inherit;
+      font-size: .75rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .2s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .btn-sm-ghost:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: #fff7ed;
+    }
+
+    .btn-sm-primary {
+      padding: 7px 16px;
+      border-radius: 50px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: white;
+      font-family: inherit;
+      font-size: .75rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      transition: all .2s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      box-shadow: 0 2px 8px rgba(249,115,22,.3);
+    }
+    .btn-sm-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(249,115,22,.45);
+    }
+
+    /* ── Empty State ── */
+    .refund-empty {
+      text-align: center;
+      padding: 60px 20px;
+      background: white;
+      border-radius: var(--radius-xl);
+      border: 1.5px dashed var(--border);
+    }
+    .re-icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+    }
+    .re-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+    .re-text {
+      font-size: .85rem;
+      color: var(--text-muted);
+      max-width: 440px;
+      margin: 0 auto 20px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Notification Popup -->
+  <div class="notif-overlay" id="notifOverlay" onclick="closeNotif()"></div>
+  <div class="notif-panel" id="notifPanel" style="display:none;">
+    <div class="notif-panel-header">
+      <h3>Notifications <span class="notif-count-badge">3</span></h3>
+      <button class="notif-close-btn" onclick="closeNotif()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="notif-list">
+      <div class="notif-item unread">
+        <div class="notif-icon-wrap success">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <div class="notif-text">
+          <h4>Refund Initiated!</h4>
+          <p>Your refund is being processed by the banking partner.</p>
+          <time>Just now</time>
+        </div>
+      </div>
+    </div>
+    <div class="notif-panel-footer"><a href="#">View all notifications →</a></div>
+  </div>
+
+  <!-- ═══════ SIDEBAR ═══════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <rect x="2" y="8" width="20" height="12" rx="3" fill="white" opacity=".9" />
+          <rect x="5" y="5" width="14" height="5" rx="2" fill="white" opacity=".6" />
+          <circle cx="6.5" cy="20" r="1.5" fill="#f97316" />
+          <circle cx="17.5" cy="20" r="1.5" fill="#f97316" />
+          <rect x="7" y="11" width="3" height="3" rx=".5" fill="#1e3a5f" opacity=".6" />
+          <rect x="11" y="11" width="3" height="3" rx=".5" fill="#1e3a5f" opacity=".6" />
+          <rect x="15" y="11" width="3" height="3" rx=".5" fill="#1e3a5f" opacity=".6" />
+        </svg>
+      </div>
+      <span class="logo-text">CLICK<span class="logo-accent">2</span>BOOK</span>
+    </div>
+
+    <div class="profile-card" onclick="window.location.href='my-profile.html'" style="cursor:pointer">
+      <div class="profile-avatar" id="trAvatar">CU</div>
+      <div class="profile-info">
+        <p class="profile-name" id="trSidebarName">CUSTOMER</p>
+        <p class="profile-badge">Premium Member</p>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="search-trips.html" class="nav-item">
+        <span class="nav-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+        </span>
+        <span>Search Trips</span>
+      </a>
+      <a href="my-bookings.html" class="nav-item">
+        <span class="nav-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </span>
+        <span>My Bookings</span>
+      </a>
+      <a href="cancel-ticket.html" class="nav-item">
+        <span class="nav-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
+          </svg>
+        </span>
+        <span>Cancel Ticket</span>
+      </a>
+      <!-- Active Side Button -->
+      <a href="track-refunds.html" class="nav-item active">
+        <span class="nav-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+        </span>
+        <span>Track Refunds</span>
+        <span class="nav-badge-pill" id="trNavBadge">0</span>
+      </a>
+      <a href="offers.html" class="nav-item">
+        <span class="nav-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+            <line x1="7" y1="7" x2="7.01" y2="7"/>
+          </svg>
+        </span>
+        <span>Offers</span>
+      </a>
+      <a href="get-support.html" class="nav-item">
+        <span class="nav-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/>
+            <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
+          </svg>
+        </span>
+        <span>Get Support</span>
+      </a>
+      <a href="lost-found.html" class="nav-item">
+        <span class="nav-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+          </svg>
+        </span>
+        <span>Lost &amp; Found</span>
+      </a>
+      <a href="my-profile.html" class="nav-item">
+        <span class="nav-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+          </svg>
+        </span>
+        <span>My Profile</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a href="#" class="logout-btn" id="logoutBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        <span>Logout</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- ═══════ MAIN CONTENT ═══════ -->
+  <main class="main-content">
+    <header class="top-header">
+      <div class="header-left">
+        <h2 class="header-title">Track Refunds</h2>
+        <p class="header-subtitle" id="trSubtitle">Real-time status of your ticket cancellation refunds</p>
+      </div>
+      <div class="header-right">
+        <button class="notif-btn" id="notifBtn" aria-label="Notifications">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="notif-count-dot">1</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="page-body fade-up">
+      <h1 class="page-heading">Refund Tracker</h1>
+      <p class="page-subhead">Monitor refund progress, banking partner transfers, and Acquirer Reference Numbers (ARN)</p>
+
+      <!-- KPI Summary Cards -->
+      <div class="refund-kpis">
+        <div class="kpi-card">
+          <div class="kpi-icon orange">💸</div>
+          <div class="kpi-info">
+            <h4>Total Refund Amount</h4>
+            <p id="kpiTotalAmount">₹0</p>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon blue">⏳</div>
+          <div class="kpi-info">
+            <h4>Processing</h4>
+            <p id="kpiProcessingCount">0</p>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon green">✅</div>
+          <div class="kpi-info">
+            <h4>Credited</h4>
+            <p id="kpiCompletedCount">0</p>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon slate">🎫</div>
+          <div class="kpi-info">
+            <h4>Cancelled Tickets</h4>
+            <p id="kpiTotalTickets">0</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls Row -->
+      <div class="controls-row">
+        <div class="search-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="refundSearch" placeholder="Search by Booking ID, Route, or ARN..." oninput="handleSearch(this.value)" />
+        </div>
+
+        <div class="filter-tabs">
+          <button class="filter-tab active" onclick="setFilter(this, 'all')">All Refunds</button>
+          <button class="filter-tab" onclick="setFilter(this, 'processing')">Processing</button>
+          <button class="filter-tab" onclick="setFilter(this, 'completed')">Completed</button>
+        </div>
+      </div>
+
+      <!-- List of Refunds -->
+      <div class="refund-list" id="refundListContainer">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Empty State -->
+      <div class="refund-empty" id="refundEmptyState" style="display:none;">
+        <div class="re-icon">💸</div>
+        <h3 class="re-title">No Refunds Found</h3>
+        <p class="re-text">You don't have any cancellation refunds matching this criteria. Once you cancel a booking, live tracking will appear right here.</p>
+        <div style="display:flex; justify-content:center; gap:10px;">
+          <a href="my-bookings.html" class="btn-orange" style="font-size:.85rem; padding:10px 20px;">View My Bookings</a>
+          <a href="search-trips.html" class="btn-ghost" style="font-size:.85rem; padding:10px 20px;">Book a Bus</a>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="api.js"></script>
+  <script src="auth.js"></script>
+  <script src="../crud functions/js/mock_data.js"></script>
+  <script src="../crud functions/js/script.js"></script>
+  <script src="../crud functions/js/ui-shared.js"></script>
+  <script src="../crud functions/js/ui-customer.js"></script>
+
+  <script>
+    let _allRefunds = [];
+    let _activeFilter = 'all';
+    let _searchTerm = '';
+
+    function getCustomerId() {
+      return sessionStorage.getItem('c2b_loggedInId')
+          || localStorage.getItem('c2b_loggedInId')
+          || sessionStorage.getItem('c2b_userId')
+          || localStorage.getItem('c2b_userId')
+          || 'C001';
+    }
+
+    function getCustomerName() {
+      return sessionStorage.getItem('c2b_userName')
+          || localStorage.getItem('c2b_userName')
+          || 'Customer';
+    }
+
+    /* ── Load & Unify Refunds from API, DB, and LocalStorage ── */
+    async function loadRefunds() {
+      const cId = getCustomerId();
+      const raw = [];
+
+      // 1. From live backend API
+      if (window.API && API.refunds && API.refunds.getAll) {
+        try {
+          const apiRefunds = await API.refunds.getAll();
+          if (Array.isArray(apiRefunds)) {
+            apiRefunds.forEach(r => raw.push({
+              booking_id: r.bookingId || r.booking_id,
+              refund_amount: Number(r.refundAmount || r.refund_amount || 0),
+              refund_status: (r.refundStatus || r.refund_status || 'PROCESSING').toUpperCase(),
+              refund_date: r.refundDate || r.refund_date || new Date().toISOString().split('T')[0],
+              _source: 'api'
+            }));
+          }
+        } catch(e) {}
+      }
+
+      // 2. From CRUD DB.refunds
+      if (window.DB && DB.refunds && DB.refunds.getAll) {
+        try {
+          const dbList = DB.refunds.getAll();
+          if (Array.isArray(dbList)) {
+            dbList.forEach(r => raw.push({
+              booking_id: r.booking_id || r.bookingId,
+              refund_amount: Number(r.refund_amount || r.refundAmount || 0),
+              refund_status: (r.refund_status || r.refundStatus || 'PROCESSING').toUpperCase(),
+              refund_date: r.refund_date || r.refundDate || new Date().toISOString().split('T')[0],
+              _source: 'db'
+            }));
+          }
+        } catch(e) {}
+      }
+
+      // 3. From localStorage['c2b_refunds']
+      try {
+        const localList = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
+        if (Array.isArray(localList)) {
+          localList.forEach(r => raw.push(r));
+        }
+      } catch(e) {}
+
+      // 4. Also scan localStorage['c2b_bookings'] for any CANCELLED bookings that might not have a refund record yet
+      try {
+        const localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+        localBookings.forEach(b => {
+          const status = (b.booking_status || b.status || '').toUpperCase();
+          if (status === 'CANCELLED') {
+            const bId = b.booking_id || b.bookingId;
+            const fare = Number(b._total || b.total || b.amount || b.fare || 500);
+            const refAmt = Math.max(0, fare - 50);
+            raw.push({
+              refund_id: 'REF-' + bId,
+              booking_id: bId,
+              customer_id: b.customer_id || b.customerId || cId,
+              route: b._resolvedRoute || (b.from && b.to ? b.from + ' → ' + b.to : 'Trip Route'),
+              bus_name: b._busName || b.busName || 'Click2Book Express',
+              original_fare: fare,
+              fee: 50,
+              refund_amount: refAmt,
+              status: 'PROCESSING',
+              refund_status: 'PROCESSING',
+              request_date: b.cancelled_at ? b.cancelled_at.split('T')[0] : new Date().toISOString().split('T')[0],
+              payment_method: 'UPI / Bank Account',
+              arn: 'ARN' + Math.floor(100000000000 + Math.random() * 900000000000)
+            });
+          }
+        });
+      } catch(e) {}
+
+      // Deduplicate by booking_id
+      const seen = new Set();
+      const unified = [];
+
+      // Helper to fetch booking details for route/bus
+      function findBookingMeta(bookingId) {
+        try {
+          const localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+          const b = localBookings.find(x => (x.booking_id === bookingId || x.bookingId === bookingId));
+          if (b) return b;
+        } catch(e) {}
+        if (window.DB && DB.bookings) {
+          const res = DB.bookings.getById(bookingId);
+          if (res && res.success && res.data) return res.data;
+        }
+        return null;
+      }
+
+      raw.forEach(item => {
+        const bId = item.booking_id || item.bookingId;
+        if (!bId || seen.has(bId)) return;
+        seen.add(bId);
+
+        const meta = findBookingMeta(bId);
+        const route = item.route || (meta && meta._resolvedRoute) || (meta && meta.from && meta.to ? meta.from + ' → ' + meta.to : 'Mumbai → Pune');
+        const busName = item.bus_name || (meta && meta._busName) || (meta && meta.busName) || 'Click2Book Express';
+        const origFare = Number(item.original_fare || (meta && (meta._total || meta.total || meta.amount || meta.fare)) || 550);
+        const refAmt = Number(item.refund_amount || item.amount || Math.max(0, origFare - 50));
+        const st = String(item.status || item.refund_status || 'PROCESSING').toUpperCase();
+        const date = item.request_date || item.refund_date || new Date().toISOString().split('T')[0];
+        const arn = item.arn || ('ARN' + (bId.replace(/\D/g,'') || '7829104') + '55');
+
+        unified.push({
+          refund_id: item.refund_id || ('REF-' + bId),
+          booking_id: bId,
+          customer_id: item.customer_id || (meta && meta.customer_id) || cId,
+          route: route,
+          bus_name: busName,
+          original_fare: origFare,
+          fee: 50,
+          refund_amount: refAmt,
+          status: st,
+          request_date: date,
+          arn: arn,
+          payment_method: item.payment_method || 'UPI (Instant Refund)',
+          eta: st === 'COMPLETED' ? 'Credited to Source Account' : 'Expected in 2–3 Business Days'
+        });
+      });
+
+      _allRefunds = unified;
+      renderAll();
+    }
+
+    function setFilter(btn, filter) {
+      document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _activeFilter = filter;
+      renderAll();
+    }
+
+    function handleSearch(term) {
+      _searchTerm = term.toLowerCase().trim();
+      renderAll();
+    }
+
+    function renderAll() {
+      const container = document.getElementById('refundListContainer');
+      const emptyState = document.getElementById('refundEmptyState');
+
+      let filtered = _allRefunds;
+
+      // Filter by status tab
+      if (_activeFilter === 'processing') {
+        filtered = filtered.filter(r => r.status === 'PROCESSING' || r.status === 'PENDING' || r.status === 'REQUESTED');
+      } else if (_activeFilter === 'completed') {
+        filtered = filtered.filter(r => r.status === 'COMPLETED' || r.status === 'REFUNDED');
+      }
+
+      // Filter by search term
+      if (_searchTerm) {
+        filtered = filtered.filter(r =>
+          r.booking_id.toLowerCase().includes(_searchTerm) ||
+          r.route.toLowerCase().includes(_searchTerm) ||
+          r.arn.toLowerCase().includes(_searchTerm) ||
+          r.bus_name.toLowerCase().includes(_searchTerm)
+        );
+      }
+
+      // Update KPI metrics
+      let totalAmt = 0;
+      let procCount = 0;
+      let compCount = 0;
+      _allRefunds.forEach(r => {
+        totalAmt += r.refund_amount;
+        if (r.status === 'COMPLETED' || r.status === 'REFUNDED') compCount++;
+        else procCount++;
+      });
+      document.getElementById('kpiTotalAmount').textContent = '₹' + totalAmt.toLocaleString('en-IN');
+      document.getElementById('kpiProcessingCount').textContent = procCount;
+      document.getElementById('kpiCompletedCount').textContent = compCount;
+      document.getElementById('kpiTotalTickets').textContent = _allRefunds.length;
+
+      const navBadge = document.getElementById('trNavBadge');
+      if (navBadge) {
+        navBadge.textContent = procCount;
+        navBadge.style.display = procCount > 0 ? 'inline-block' : 'none';
+      }
+
+      if (!filtered.length) {
+        container.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+      }
+
+      emptyState.style.display = 'none';
+
+      // Check URL for auto-highlighting bookingId
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetBookingId = urlParams.get('bookingId');
+
+      container.innerHTML = filtered.map(r => {
+        const isHighlight = targetBookingId && r.booking_id === targetBookingId;
+        const isCompleted = (r.status === 'COMPLETED' || r.status === 'REFUNDED');
+
+        // Stepper state
+        let trackWidth = '50%';
+        let s1Class = 'step-item done';
+        let s2Class = 'step-item done';
+        let s3Class = 'step-item active';
+        let s4Class = 'step-item';
+
+        if (isCompleted) {
+          trackWidth = '100%';
+          s3Class = 'step-item done';
+          s4Class = 'step-item done';
+        }
+
+        const pillClass = isCompleted ? 'completed' : 'processing';
+        const pillText  = isCompleted ? '✓ REFUND CREDITED' : '⏳ BANK PROCESSING';
+
+        return `
+          <div class="refund-card ${isHighlight ? 'highlight' : ''}" id="card-${r.booking_id}">
+            <div class="rc-header">
+              <div class="rc-title-area">
+                <div class="rc-route-badge">
+                  <span class="rc-route">${r.route}</span>
+                  <span class="refund-pill ${pillClass}">${pillText}</span>
+                </div>
+                <div class="rc-meta">${r.bus_name} · Requested on ${r.request_date}</div>
+                <div class="rc-pnr">Booking ID: ${r.booking_id} &nbsp;·&nbsp; ARN: ${r.arn}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:.72rem; color:#94a3b8; font-weight:700; text-transform:uppercase;">Refund Amount</div>
+                <div style="font-size:1.45rem; font-weight:800; color:#10b981;">₹${r.refund_amount.toLocaleString('en-IN')}</div>
+              </div>
+            </div>
+
+            <!-- 4-Stage Live Progress Stepper -->
+            <div class="stepper-wrap">
+              <div class="stepper">
+                <div class="stepper-track"></div>
+                <div class="stepper-track-fill" style="width:${trackWidth}"></div>
+
+                <div class="${s1Class}">
+                  <div class="step-dot">✓</div>
+                  <div class="step-label">Ticket Cancelled</div>
+                  <div class="step-time">${r.request_date}</div>
+                </div>
+
+                <div class="${s2Class}">
+                  <div class="step-dot">✓</div>
+                  <div class="step-label">Refund Approved</div>
+                  <div class="step-time">Instant</div>
+                </div>
+
+                <div class="${s3Class}">
+                  <div class="step-dot">${isCompleted ? '✓' : '3'}</div>
+                  <div class="step-label">Bank Processing</div>
+                  <div class="step-time">${isCompleted ? 'Completed' : 'In Progress'}</div>
+                </div>
+
+                <div class="${s4Class}">
+                  <div class="step-dot">${isCompleted ? '✓' : '4'}</div>
+                  <div class="step-label">Amount Credited</div>
+                  <div class="step-time">${isCompleted ? 'Credited to Source' : 'Pending Bank'}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Financial & Payment Matrix -->
+            <div class="rc-body">
+              <div class="rc-detail-item">
+                <span class="rc-detail-label">Original Ticket Fare</span>
+                <span class="rc-detail-val">₹${r.original_fare.toLocaleString('en-IN')}</span>
+              </div>
+              <div class="rc-detail-item">
+                <span class="rc-detail-label">Cancellation Deduction</span>
+                <span class="rc-detail-val" style="color:#ef4444;">−₹${r.fee}</span>
+              </div>
+              <div class="rc-detail-item">
+                <span class="rc-detail-label">Destination Account</span>
+                <span class="rc-detail-val">${r.payment_method}</span>
+              </div>
+              <div class="rc-detail-item">
+                <span class="rc-detail-label">Net Refund Issued</span>
+                <span class="rc-detail-val green">₹${r.refund_amount.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            <!-- Footer Details -->
+            <div class="rc-footer">
+              <div class="rc-eta">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>${r.eta}</span>
+              </div>
+              <div class="rc-actions">
+                <button class="btn-sm-ghost" onclick="showToast('📄 Refund receipt for ${r.booking_id} downloaded!','success')">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Receipt
+                </button>
+                <a href="get-support.html?query=refund_${r.booking_id}" class="btn-sm-ghost">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  Need Help?
+                </a>
+                <a href="my-bookings.html" class="btn-sm-primary">
+                  View Bookings →
+                </a>
+              </div>
+            </div>
+
+          </div>
+        `;
+      }).join('');
+
+      // Auto-scroll to target card if URL specified
+      if (targetBookingId) {
+        const targetEl = document.getElementById('card-' + targetBookingId);
+        if (targetEl) {
+          setTimeout(() => {
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 200);
+        }
+      }
+    }
+
+    /* ── Toast Helper ── */
+    function showToast(message, type) {
+      document.querySelectorAll('.c2b-toast').forEach(t => t.remove());
+      const toast = document.createElement('div');
+      toast.className = 'c2b-toast c2b-toast-' + type;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; });
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(12px)';
+        setTimeout(() => toast.remove(), 400);
+      }, 3500);
+    }
+
+    /* ── Notifications ── */
+    document.getElementById('notifBtn').addEventListener('click', toggleNotif);
+    function toggleNotif() {
+      var panel = document.getElementById('notifPanel');
+      var overlay = document.getElementById('notifOverlay');
+      var isOpen = panel.style.display === 'block';
+      panel.style.display = isOpen ? 'none' : 'block';
+      overlay.style.display = isOpen ? 'none' : 'block';
+    }
+    function closeNotif() {
+      document.getElementById('notifPanel').style.display = 'none';
+      document.getElementById('notifOverlay').style.display = 'none';
+    }
+
+    /* ── Identity ── */
+    (function setIdentity() {
+      var name  = sessionStorage.getItem('c2b_userName')  || localStorage.getItem('c2b_userName')  || 'Customer';
+      var first = name.split(' ')[0];
+      var ini   = name.trim().split(/\s+/).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2) || 'CU';
+      var sub   = document.getElementById('trSubtitle');
+      var av    = document.getElementById('trAvatar');
+      var sn    = document.getElementById('trSidebarName');
+      if (sub) sub.textContent = 'Welcome back, ' + first + '! Here is your live refund breakdown.';
+      if (av)  av.textContent  = ini;
+      if (sn)  sn.textContent  = name.toUpperCase();
+    })();
+
+    /* ── Logout ── */
+    document.getElementById('logoutBtn').addEventListener('click', e => {
+      e.preventDefault();
+      if (confirm('Are you sure you want to logout?')) {
+        showToast('👋 Logged out successfully!', 'success');
+        setTimeout(() => { window.location.href = '../landing-page/login.html'; }, 1500);
+      }
+    });
+
+    // Initialize
+    loadRefunds();
+  </script>
+</body>
+</html>

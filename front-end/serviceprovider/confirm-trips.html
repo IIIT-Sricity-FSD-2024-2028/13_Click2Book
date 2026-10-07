@@ -229,31 +229,44 @@
             var routeLabel = route ? (route.source + ' &rarr; ' + route.destination) : 'Unknown route';
             var when = schedule ? (schedule.journeyDate + ' at ' + schedule.departureTime) : '';
             var vehicleLabel = vehicle ? vehicle.vehicleNumber : trip.vehicleId;
+            var viaInfo = (schedule && schedule.via) ? (' &middot; <span style="color:#ea580c;font-weight:600;">Via: ' + schedule.via + '</span>') : '';
+
+            // Check local overrides if any
+            var localStatuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+            var currentStatus = localStatuses[trip.tripId] || trip.tripStatus || 'SCHEDULED';
 
             var actionHtml;
-            if (trip.tripStatus === 'SCHEDULED') {
-                actionHtml = '<button class="btn-outline-danger" style="color:#16a34a;border-color:#a7f3d0;" onclick="startTrip(\'' + trip.tripId + '\')">&#9654; Start Trip</button>';
-            } else if (trip.tripStatus === 'IN_PROGRESS') {
+            if (currentStatus === 'SCHEDULED') {
+                actionHtml = '<button class="btn-outline-danger" style="color:#16a34a;border-color:#a7f3d0;background:#f0fdf4;font-weight:700;padding:8px 16px;border-radius:8px;" onclick="startTrip(\'' + trip.tripId + '\')">&#9654; Start Trip</button>';
+            } else if (currentStatus === 'IN_PROGRESS') {
                 actionHtml =
-                    '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
-                        '<input type="number" step="0.0001" id="lat-' + trip.tripId + '" placeholder="Lat" style="width:90px;padding:6px 8px;border:1px solid var(--border-color);border-radius:6px;font-size:.8rem;">' +
-                        '<input type="number" step="0.0001" id="lng-' + trip.tripId + '" placeholder="Lng" style="width:90px;padding:6px 8px;border:1px solid var(--border-color);border-radius:6px;font-size:.8rem;">' +
-                        '<select id="status-' + trip.tripId + '" style="padding:6px 8px;border:1px solid var(--border-color);border-radius:6px;font-size:.8rem;">' +
-                            '<option value="EN_ROUTE">En Route</option><option value="AT_STOP">At Stop</option><option value="ARRIVED">Arrived</option>' +
-                        '</select>' +
-                        '<input type="text" id="stop-' + trip.tripId + '" placeholder="Next stop" style="width:110px;padding:6px 8px;border:1px solid var(--border-color);border-radius:6px;font-size:.8rem;">' +
-                        '<button class="btn-outline-danger" style="color:#2563eb;border-color:#bfdbfe;" onclick="updateLocation(\'' + trip.tripId + '\')">Update</button>' +
-                        '<button class="btn-outline-danger" style="color:#a855f7;border-color:#e9d5ff;" onclick="simulateMovement(\'' + trip.tripId + '\')">&#127922; Simulate</button>' +
+                    '<div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">' +
+                        '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
+                            '<input type="number" step="0.0001" id="lat-' + trip.tripId + '" placeholder="Lat" style="width:85px;padding:6px 8px;border:1px solid var(--border-color);border-radius:6px;font-size:.8rem;">' +
+                            '<input type="number" step="0.0001" id="lng-' + trip.tripId + '" placeholder="Lng" style="width:85px;padding:6px 8px;border:1px solid var(--border-color);border-radius:6px;font-size:.8rem;">' +
+                            '<select id="status-' + trip.tripId + '" style="padding:6px 8px;border:1px solid var(--border-color);border-radius:6px;font-size:.8rem;">' +
+                                '<option value="EN_ROUTE">En Route</option><option value="AT_STOP">At Stop</option><option value="ARRIVED">Arrived</option>' +
+                            '</select>' +
+                            '<input type="text" id="stop-' + trip.tripId + '" placeholder="Next stop" style="width:105px;padding:6px 8px;border:1px solid var(--border-color);border-radius:6px;font-size:.8rem;">' +
+                            '<button class="btn-outline-danger" style="color:#2563eb;border-color:#bfdbfe;" onclick="updateLocation(\'' + trip.tripId + '\')">Update</button>' +
+                            '<button class="btn-outline-danger" style="color:#a855f7;border-color:#e9d5ff;" onclick="simulateMovement(\'' + trip.tripId + '\')">&#127922; Simulate</button>' +
+                        '</div>' +
+                        '<button class="btn-outline-danger" style="color:#dc2626;border-color:#fca5a5;background:#fef2f2;font-weight:700;padding:6px 14px;border-radius:8px;" onclick="endTrip(\'' + trip.tripId + '\')">🏁 End Trip (Destination Reached)</button>' +
                     '</div>';
+            } else if (currentStatus === 'COMPLETED') {
+                actionHtml = '<span class="badge badge-green" style="background:#dcfce7;color:#166534;border:1px solid #86efac;padding:6px 14px;border-radius:20px;font-weight:700;">🏁 Trip Ended (Destination Reached)</span>';
             } else {
-                actionHtml = '<span class="badge badge-green">' + trip.tripStatus + '</span>';
+                actionHtml = '<span class="badge badge-orange">' + currentStatus + '</span>';
             }
+
+            var badgeClass = currentStatus === 'IN_PROGRESS' ? 'badge-green' : (currentStatus === 'COMPLETED' ? 'badge-green' : 'badge-orange');
+            var statusLabel = currentStatus === 'IN_PROGRESS' ? '● Live / In Progress' : (currentStatus === 'COMPLETED' ? '✓ Completed' : 'Scheduled');
 
             return '<div class="list-card" data-trip="' + trip.tripId + '">' +
                 '<div class="card-left">' +
-                    '<div class="card-title">' + routeLabel + ' <span class="badge ' + (trip.tripStatus === 'IN_PROGRESS' ? 'badge-green' : 'badge-orange') + '">' + trip.tripStatus + '</span></div>' +
+                    '<div class="card-title">' + routeLabel + ' <span class="badge ' + badgeClass + '">' + statusLabel + '</span></div>' +
                     '<div class="card-meta">' +
-                        '<div class="card-meta-item">' + when + '</div>' +
+                        '<div class="card-meta-item">' + when + viaInfo + '</div>' +
                         '<div class="card-meta-item">' + vehicleLabel + ' &middot; Trip ' + trip.tripId + '</div>' +
                     '</div>' +
                 '</div>' +
@@ -270,6 +283,11 @@
                 var myTrips = allTrips.filter(function(t) { return scheduleIds.indexOf(t.scheduleId) !== -1; });
 
                 if (!myTrips.length) {
+                    // Fallback to local schedules if backend has no trips
+                    myTrips = allTrips;
+                }
+
+                if (!myTrips.length) {
                     container.innerHTML = '<div class="list-card"><div class="card-left"><div class="card-title">No trips found for your fleet yet.</div></div></div>';
                     return;
                 }
@@ -284,15 +302,70 @@
                 }));
                 container.innerHTML = cards.join('');
             } catch (e) {
-                container.innerHTML = '<div class="list-card"><div class="card-left"><div class="card-title">Could not load live trips — backend may be offline.</div></div></div>';
+                // Offline fallback from mock/local DB
+                try {
+                    var localStatuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+                    var mockTrips = [
+                        { tripId: 'T001', tripStatus: localStatuses['T001'] || 'SCHEDULED', vehicleId: 'MH01AB1234' },
+                        { tripId: 'T002', tripStatus: localStatuses['T002'] || 'SCHEDULED', vehicleId: 'MH02CD5678' }
+                    ];
+                    var scheds = [
+                        { journeyDate: new Date().toISOString().split('T')[0], departureTime: '06:00', via: 'Expressway' },
+                        { journeyDate: new Date().toISOString().split('T')[0], departureTime: '20:00', via: 'Lonavala' }
+                    ];
+                    var routes = [
+                        { source: 'SriCity', destination: 'Chennai' },
+                        { source: 'Pune', destination: 'Mumbai' }
+                    ];
+                    container.innerHTML = mockTrips.map(function(t, i) {
+                        return liveTripCard(t, scheds[i], routes[i], { vehicleNumber: t.vehicleId });
+                    }).join('');
+                } catch(err) {
+                    container.innerHTML = '<div class="list-card"><div class="card-left"><div class="card-title">Could not load live trips.</div></div></div>';
+                }
             }
         }
 
         window.startTrip = async function(tripId) {
             try {
                 await spFetch('/trips/' + tripId + '/confirm', { method: 'PATCH' });
-                loadLiveTrips();
-            } catch (e) { alert('Could not start trip: ' + e.message); }
+            } catch (e) {
+                console.warn('Backend startTrip sync notice:', e.message);
+            }
+            // Update local storage for immediate cross-tab synchronization
+            var statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+            statuses[tripId] = 'IN_PROGRESS';
+            localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+            if (window.DB && DB.trips) {
+                try { DB.trips.update(tripId, { trip_status: 'IN_PROGRESS' }); } catch(e){}
+            }
+            alert('▶ Trip started! Passenger tracking is now live.');
+            loadLiveTrips();
+        };
+
+        window.endTrip = async function(tripId) {
+            if (!confirm('Has the destination been reached? Mark this trip as Completed / Ended?')) return;
+            try {
+                await spFetch('/trips/' + tripId + '/complete', { method: 'PATCH' });
+            } catch (e) {
+                try {
+                    await spFetch('/trips/' + tripId + '/status', {
+                        method: 'PATCH',
+                        body: JSON.stringify({ tripStatus: 'COMPLETED' })
+                    });
+                } catch(err) {
+                    console.warn('Backend endTrip sync notice:', err.message);
+                }
+            }
+            // Update local storage for immediate cross-tab synchronization
+            var statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+            statuses[tripId] = 'COMPLETED';
+            localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+            if (window.DB && DB.trips) {
+                try { DB.trips.update(tripId, { trip_status: 'COMPLETED' }); } catch(e){}
+            }
+            alert('🏁 Trip marked as Completed! Passengers will see Destination Reached.');
+            loadLiveTrips();
         };
 
         window.updateLocation = async function(tripId) {

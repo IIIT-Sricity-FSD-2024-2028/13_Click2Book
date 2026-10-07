@@ -248,68 +248,13 @@
         </svg>
         <span>Dashboard</span>
       </a>
-      <a href="#" class="nav-item" id="nav-bookings" data-section="section-bookings">
+      <a href="#" class="nav-item" id="nav-providers" data-section="section-providers">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="16" y1="13" x2="8" y2="13" />
-          <line x1="16" y1="17" x2="8" y2="17" />
+          <rect x="1" y="3" width="22" height="13" rx="2" />
+          <path d="M5 20h14M8 17v3M16 17v3" />
         </svg>
-        <span>Daily Bookings</span>
-      </a>
-      <a href="#" class="nav-item" id="nav-users" data-section="section-users">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-        <span>Manage Users</span>
-      </a>
-      <a href="#" class="nav-item" id="nav-refund" data-section="section-refund">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="23 4 23 10 17 10" />
-          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-        </svg>
-        <span>Refund Management</span>
-      </a>
-      <a href="#" class="nav-item" id="nav-emergency" data-section="section-emergency">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-        <span>Emergency Alerts</span>
-        <span class="nav-badge" id="emergencyNavBadge" style="display:none;"></span>
-      </a>
-      <a href="#" class="nav-item" id="nav-lostfound" data-section="section-lostfound">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-        </svg>
-        <span>Lost &amp; Found</span>
-      </a>
-      <a href="#" class="nav-item" id="nav-reports" data-section="section-reports">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="12" y1="18" x2="12" y2="12" />
-          <line x1="9" y1="15" x2="15" y2="15" />
-        </svg>
-        <span>Reports</span>
-      </a>
-      <a href="revenue-dashboard.html" class="nav-item" id="nav-revenue">
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-        </svg>
-        <span>Revenue &amp; Cost Split</span>
+        <span>Service Providers</span>
       </a>
     </nav>
 
@@ -468,262 +413,31 @@
     </div><!-- /section-dashboard -->
 
     <!-- ══════════════════════════════════════════════════
-         SECTION: DAILY BOOKINGS
+         SECTION: SERVICE PROVIDERS
          ══════════════════════════════════════════════════ -->
-    <div class="dashboard-body page-section" id="section-bookings" style="display:none" aria-hidden="true">
+    <div class="dashboard-body page-section" id="section-providers" style="display:none" aria-hidden="true">
       <section class="bookings-section">
         <div class="section-header">
-          <h2 class="section-title">All Bookings</h2>
+          <h2 class="section-title">Service Providers</h2>
           <div class="filter-bar">
-            <select id="bookingStatusFilter" class="filter-select">
-              <option value="">All Status</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="pending">Pending</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="refund_pending">Refund Pending</option>
-            </select>
-            <input type="text" id="bookingSearch" class="filter-input" placeholder="Search customer / route…" />
+            <input type="text" id="providerSearch" class="filter-input" placeholder="Search name / email / ID…" />
           </div>
         </div>
         <div class="table-wrap">
           <table class="bookings-table">
             <thead>
               <tr>
-                <th>Booking ID</th>
-                <th>Customer</th>
-                <th>Route</th>
-                <th>Date</th>
-                <th>Seats</th>
-                <th>Status</th>
-                <th>Amount</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="allBookingsTbody"></tbody>
-          </table>
-        </div>
-      </section>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════
-         SECTION: MANAGE USERS
-         ══════════════════════════════════════════════════ -->
-    <div class="dashboard-body page-section" id="section-users" style="display:none" aria-hidden="true">
-      <section class="bookings-section">
-        <div class="section-header">
-          <h2 class="section-title">User Accounts</h2>
-          <div class="filter-bar">
-            <select id="userRoleFilter" class="filter-select">
-              <option value="">All Roles</option>
-              <option value="admin">Admin</option>
-              <option value="customer">Customer</option>
-              <option value="support">Support</option>
-              <option value="service_provider">Service Provider</option>
-            </select>
-            <input type="text" id="userSearch" class="filter-input" placeholder="Search name / email…" />
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table class="bookings-table">
-            <thead>
-              <tr>
-                <th>User ID</th>
+                <th>Provider ID</th>
                 <th>Name</th>
                 <th>Email</th>
-                <th>Role</th>
                 <th>Phone</th>
+                <th>Active Trips</th>
                 <th>Status</th>
                 <th>Joined</th>
                 <th>Action</th>
               </tr>
             </thead>
-            <tbody id="usersTbody"></tbody>
-          </table>
-        </div>
-      </section>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════
-         SECTION: REFUND MANAGEMENT
-         ══════════════════════════════════════════════════ -->
-    <div class="dashboard-body page-section" id="section-refund" style="display:none" aria-hidden="true">
-      <section class="bookings-section">
-        <div class="section-header">
-          <h2 class="section-title">Refund Requests</h2>
-          <span class="badge badge-pending" id="pendingRefundCount" style="font-size:.8rem;padding:4px 14px">0
-            Pending</span>
-        </div>
-        <div class="table-wrap">
-          <table class="bookings-table">
-            <thead>
-              <tr>
-                <th>Refund ID</th>
-                <th>Booking ID</th>
-                <th>Customer</th>
-                <th>Amount</th>
-                <th>Reason</th>
-                <th>Date</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="refundsTbody"></tbody>
-          </table>
-        </div>
-      </section>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════
-         SECTION: EMERGENCY ALERTS
-         ══════════════════════════════════════════════════ -->
-    <div class="dashboard-body page-section" id="section-emergency" style="display:none" aria-hidden="true">
-      <section class="bookings-section">
-        <div class="section-header">
-          <h2 class="section-title">Emergency Alerts</h2>
-          <span class="badge badge-cancelled" id="openAlertCount" style="font-size:.8rem;padding:4px 14px">0 Open</span>
-        </div>
-        <div id="emergencyBanner" style="display:none;margin:0 0 16px;padding:14px 18px;background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;color:#9f1239;font-size:.85rem;font-weight:600;"></div>
-        <div class="table-wrap">
-          <table class="bookings-table">
-            <thead>
-              <tr>
-                <th>Alert ID</th>
-                <th>Booking</th>
-                <th>Customer</th>
-                <th>Trip</th>
-                <th>Type</th>
-                <th>Message</th>
-                <th>Raised</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="emergencyTbody"></tbody>
-          </table>
-        </div>
-      </section>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════
-         SECTION: LOST & FOUND
-         ══════════════════════════════════════════════════ -->
-    <div class="dashboard-body page-section" id="section-lostfound" style="display:none" aria-hidden="true">
-      <section class="bookings-section">
-        <div class="section-header">
-          <h2 class="section-title">Lost &amp; Found — All Providers</h2>
-        </div>
-        <div class="table-wrap">
-          <table class="bookings-table">
-            <thead>
-              <tr>
-                <th>Item ID</th>
-                <th>Trip</th>
-                <th>Booking</th>
-                <th>Description</th>
-                <th>Category</th>
-                <th>Date Lost</th>
-                <th>Contact</th>
-                <th>Status</th>
-                <th>Note</th>
-              </tr>
-            </thead>
-            <tbody id="lostFoundTbody"></tbody>
-          </table>
-        </div>
-      </section>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════
-         SECTION: REPORTS
-         ══════════════════════════════════════════════════ -->
-    <div class="dashboard-body page-section" id="section-reports" style="display:none" aria-hidden="true">
-      <section class="stats-grid" aria-label="Report summary">
-        <div class="stat-card" style="--accent:#F97316;--accent-light:#FFF4EC">
-          <div class="stat-icon-wrap" style="background:var(--accent-light)"><svg width="24" height="24"
-              viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-            </svg></div>
-          <div class="stat-body">
-            <div class="stat-delta positive">▲ 12%</div>
-            <div class="stat-value" id="rpt-total-bookings">—</div>
-            <div class="stat-label">Total Bookings</div>
-          </div>
-          <div class="stat-decorator" style="background:var(--accent-light)"></div>
-        </div>
-        <div class="stat-card" style="--accent:#22c55e;--accent-light:#F0FDF4">
-          <div class="stat-icon-wrap" style="background:var(--accent-light)"><svg width="24" height="24"
-              viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round"
-              stroke-linejoin="round">
-              <path d="M6 3h12" />
-              <path d="M6 8h12" />
-              <path d="M6 13h8.5l-5 8" />
-              <path d="M6 13h3" />
-              <path d="M9 13c6.667 0 6.667-10 0-10" />
-            </svg></div>
-          <div class="stat-body">
-            <div class="stat-delta positive">▲ 8%</div>
-            <div class="stat-value" id="rpt-revenue">—</div>
-            <div class="stat-label">Total Revenue</div>
-          </div>
-          <div class="stat-decorator" style="background:var(--accent-light)"></div>
-        </div>
-        <div class="stat-card" style="--accent:#ef4444;--accent-light:#FEF2F2">
-          <div class="stat-icon-wrap" style="background:var(--accent-light)"><svg width="24" height="24"
-              viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">
-              <polyline points="23 4 23 10 17 10" />
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-            </svg></div>
-          <div class="stat-body">
-            <div class="stat-delta negative">▼ 2%</div>
-            <div class="stat-value" id="rpt-refunds">—</div>
-            <div class="stat-label">Total Refunds</div>
-          </div>
-          <div class="stat-decorator" style="background:var(--accent-light)"></div>
-        </div>
-        <div class="stat-card" style="--accent:#3b82f6;--accent-light:#EFF6FF">
-          <div class="stat-icon-wrap" style="background:var(--accent-light)"><svg width="24" height="24"
-              viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-            </svg></div>
-          <div class="stat-body">
-            <div class="stat-delta positive">▲ 5%</div>
-            <div class="stat-value" id="rpt-users">—</div>
-            <div class="stat-label">Total Users</div>
-          </div>
-          <div class="stat-decorator" style="background:var(--accent-light)"></div>
-        </div>
-      </section>
-
-      <section class="charts-row">
-        <div class="chart-card">
-          <h2 class="chart-title">Booking Status Distribution</h2>
-          <div class="chart-wrap"><canvas id="statusDonutChart"></canvas></div>
-        </div>
-        <div class="chart-card">
-          <h2 class="chart-title">Revenue by Route</h2>
-          <div class="chart-wrap"><canvas id="routeBarChart"></canvas></div>
-        </div>
-      </section>
-
-      <!-- Routes table -->
-      <section class="bookings-section">
-        <div class="section-header">
-          <h2 class="section-title">Route Analytics</h2>
-        </div>
-        <div class="table-wrap">
-          <table class="bookings-table">
-            <thead>
-              <tr>
-                <th>Route ID</th>
-                <th>From</th>
-                <th>To</th>
-                <th>Distance</th>
-                <th>Duration</th>
-                <th>Active Buses</th>
-              </tr>
-            </thead>
-            <tbody id="routesTbody"></tbody>
+            <tbody id="providersTbody"></tbody>
           </table>
         </div>
       </section>
@@ -929,12 +643,7 @@
       if (navEl) navEl.classList.add('active');
       const titles = {
         'section-dashboard': ['Dashboard Overview', 'Admin Control Panel'],
-        'section-bookings': ['Daily Bookings', 'All booking records'],
-        'section-users': ['Manage Users', 'User account management'],
-        'section-refund': ['Refund Management', 'Process refund requests'],
-        'section-emergency': ['Emergency Alerts', 'Customer SOS alerts raised on in-progress trips'],
-        'section-lostfound': ['Lost & Found', 'Read-only oversight across all providers'],
-        'section-reports': ['Reports & Analytics', 'Business insights'],
+        'section-providers': ['Service Providers', 'Manage and monitor registered service providers'],
       };
       const t = titles[sectionId] || ['Dashboard', ''];
       document.getElementById('pageTitle').textContent = t[0];
@@ -1280,6 +989,62 @@
       </tr>`).join('');
     }
 
+    /* ── PROVIDERS ── */
+    function renderProviders(filter) {
+      filter = filter || '';
+      const tbody = document.getElementById('providersTbody');
+      if (!tbody) return;
+      var providers = [];
+      // From CRUD DB
+      if (typeof DB !== 'undefined' && DB.serviceProviders) {
+        providers = DB.serviceProviders.getAll().map(function(p) {
+          var trips = (typeof DB !== 'undefined' && DB.trips) ? DB.trips.find(function(t) {
+            var sched = DB.schedules.find(function(s) { return s.schedule_id === t.schedule_id; });
+            return sched.length && sched[0].provider_id === p.provider_id;
+          }).length : 0;
+          return {
+            id: p.provider_id, name: p.name, email: p.email,
+            phone: p.phone_number || p.phone || '—',
+            trips: trips, status: 'active', joined: '2025-10-01'
+          };
+        });
+      }
+      // Fallback from localStorage
+      if (!providers.length) {
+        try {
+          var stored = JSON.parse(localStorage.getItem('c2b_providers') || '[]');
+          providers = stored.map(function(p) { return { id: p.provider_id || p.id || '—', name: p.name || '—', email: p.email || '—', phone: p.phone || '—', trips: 0, status: 'active', joined: p.joinedAt ? p.joinedAt.split('T')[0] : '—' }; });
+        } catch(e) {}
+      }
+      if (filter) providers = providers.filter(function(p) {
+        var q = filter.toLowerCase();
+        return p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q) || p.id.toLowerCase().includes(q);
+      });
+      if (!providers.length) { renderEmptyState(tbody, 'No service providers registered yet.', '🚌'); return; }
+      tbody.innerHTML = providers.map(function(p) {
+        return '<tr>' +
+          '<td class="booking-id">' + p.id + '</td>' +
+          '<td><strong>' + p.name + '</strong></td>' +
+          '<td>' + p.email + '</td>' +
+          '<td>' + p.phone + '</td>' +
+          '<td><span class="badge badge-confirmed">' + p.trips + ' trips</span></td>' +
+          '<td>' + statusBadge(p.status) + '</td>' +
+          '<td>' + p.joined + '</td>' +
+          '<td><button class="action-btn btn-danger" onclick="toggleProviderStatus(\'' + p.id + '\',\'active\',this)">Deactivate</button></td>' +
+          '</tr>';
+      }).join('');
+      // Wire search filter
+      var searchEl = document.getElementById('providerSearch');
+      if (searchEl && !searchEl._wired) {
+        searchEl._wired = true;
+        searchEl.addEventListener('input', function() { renderProviders(this.value); });
+      }
+    }
+
+    window.toggleProviderStatus = function(id, currentStatus, btn) {
+      showToast('Provider ' + id + ' status toggled.', 'success');
+    };
+
     // ═══════════════════════════════════════════════════════════════════
     //  SECTION RENDERER DISPATCHER
     // ═══════════════════════════════════════════════════════════════════
@@ -1287,20 +1052,8 @@
       if (sectionId === 'section-dashboard') {
         renderStats();
         renderRecentBookings();
-      } else if (sectionId === 'section-bookings') {
-        renderAllBookings();
-        wireBookingFilters();
-      } else if (sectionId === 'section-users') {
-        renderUsers();
-        wireUserFilters();
-      } else if (sectionId === 'section-refund') {
-        renderRefunds();
-      } else if (sectionId === 'section-emergency') {
-        renderEmergencyAlerts();
-      } else if (sectionId === 'section-lostfound') {
-        renderLostFound();
-      } else if (sectionId === 'section-reports') {
-        renderReports();
+      } else if (sectionId === 'section-providers') {
+        renderProviders();
       }
     }
 
@@ -1418,24 +1171,17 @@
     //  AppState; only render dashboard if no saved page was restored.
     // ═══════════════════════════════════════════════════════════════════
     (function initDashboard() {
-      // Clear Super User auth unless we just returned from super-user-login
-      // (i.e., ?superUser=open is in the URL set by the login page)
-      if (new URLSearchParams(location.search).get('superUser') !== 'open') {
-        sessionStorage.removeItem('superUserAuth');
-      }
       const savedPage = AppState.getVal('currentPage');
       if (savedPage && document.getElementById(savedPage)) {
-        // app.js DOMContentLoaded will handle navigation; just render content
         renderSection(savedPage);
       } else {
         renderSection('section-dashboard');
       }
-      refreshEmergencyBadge();
-      setInterval(refreshEmergencyBadge, 20000);
     })();
     function doAdminLogout(e) {
       e.preventDefault();
       if (confirm('Are you sure you want to logout?')) {
+        sessionStorage.removeItem('superUserAuth');
         setTimeout(() => { window.location.href = '../landing-page/index.html'; }, 300);
       }
     }
@@ -1589,5 +1335,11 @@
     if (filterEl) filterEl.addEventListener('change', applyFilter);
   })();
   </script>
+
+  <!-- ═══ CRUD Engine & Super User Control Panel ═══ -->
+  <script src="../crud functions/js/mock_data.js"></script>
+  <script src="../crud functions/js/script.js"></script>
+  <script src="../crud functions/js/ui-shared.js"></script>
+  <script src="../crud functions/js/ui-admin.js"></script>
 </body>
 </html>

@@ -10,20 +10,27 @@
   
   <link rel="stylesheet" href="common.css" />
   <style>
-    /* ── Page centering ── */
+    /* ── Page layout — scrollable ── */
+    html, body {
+      height: 100%;
+    }
     body {
       background: linear-gradient(135deg, #0B2447 0%, #19376D 60%, #f97316 200%);
+      background-attachment: fixed;    /* gradient stays fixed while page scrolls */
       min-height: 100vh;
+      overflow-y: auto;                /* allow vertical scrolling */
       display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px 16px;
+      flex-direction: column;          /* stack children top-to-bottom */
+      align-items: center;             /* centre horizontally */
+      justify-content: flex-start;     /* start from top — no clipping on small screens */
+      padding: 32px 16px 48px;         /* top padding + generous bottom breathing room */
       font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
     }
 
     .confirm-wrap {
       width: 100%;
       max-width: 560px;
+      margin: 0 auto;                  /* keep centred when viewport is wider */
     }
 
     /* ── Brand header ── */
@@ -413,6 +420,37 @@
         if (row) row.style.display = 'block';
         if (sav) sav.textContent  = '₹' + discount.toLocaleString('en-IN');
       }
+
+      // Check if this booking has been cancelled
+      try {
+        const all = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+        const found = all.find(b => (b.booking_id === id || b.bookingId === id));
+        if (found && (found.booking_status === 'CANCELLED' || found.status === 'CANCELLED')) {
+          const top = document.querySelector('.success-top');
+          if (top) {
+            top.style.background = 'linear-gradient(135deg, #b91c1c 0%, #ef4444 100%)';
+            top.querySelector('h1').textContent = 'Ticket Cancelled ✕';
+            top.querySelector('p').textContent = 'This booking was cancelled · Refund has been initiated';
+          }
+          const bStatus = document.querySelector('.bid-status');
+          if (bStatus) {
+            bStatus.className = 'status-badge status-cancelled';
+            bStatus.style.cssText = 'background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:800; padding:4px 10px; border-radius:50px;';
+            bStatus.innerHTML = '✕ CANCELLED';
+          }
+          const act = document.querySelector('.action-row');
+          if (act) {
+            act.innerHTML = `
+              <a href="track-refunds.html?bookingId=${encodeURIComponent(id)}" class="btn-primary-c" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                💸 Track Refund Status
+              </a>
+              <a href="my-bookings.html" class="btn-secondary-c">
+                My Bookings
+              </a>
+            `;
+          }
+        }
+      } catch(e) {}
     });
   </script>
 

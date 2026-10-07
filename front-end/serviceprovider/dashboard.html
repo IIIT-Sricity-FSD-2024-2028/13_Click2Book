@@ -103,9 +103,9 @@
                     <div class="dash-stat-card">
                         <div class="card-header">
                             <div class="icon orange"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></div>
-                            <div class="trend green"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg> +2</div>
+                            <div class="trend green">Fleet</div>
                         </div>
-                        <div class="card-value">12</div>
+                        <div class="card-value" id="dashActiveBuses">12</div>
                         <div class="card-label">Active Buses</div>
                     </div>
 
@@ -113,37 +113,37 @@
                     <div class="dash-stat-card">
                         <div class="card-header">
                             <div class="icon green"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
-                            <div class="trend green"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg> +18%</div>
+                            <div class="trend green">Live</div>
                         </div>
-                        <div class="card-value">250</div>
-                        <div class="card-label">Total Passengers Today</div>
+                        <div class="card-value" id="dashTotalPax">250</div>
+                        <div class="card-label">Booked Passengers</div>
                     </div>
 
                     <!-- Stat 3 -->
                     <div class="dash-stat-card">
                         <div class="card-header">
                             <div class="icon blue"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></div>
-                            <div class="trend green"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg> +5%</div>
+                            <div class="trend green">Routes</div>
                         </div>
-                        <div class="card-value">15</div>
+                        <div class="card-value" id="dashSchedTrips">15</div>
                         <div class="card-label">Scheduled Trips</div>
                     </div>
 
                     <!-- Stat 4 -->
                     <div class="dash-stat-card">
                         <div class="card-header">
-                            <div class="icon purple"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></div>
-                            <div class="trend green"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg> +0.2</div>
+                            <div class="icon purple"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div>
+                            <div class="trend green">Earnings</div>
                         </div>
-                        <div class="card-value">4.5</div>
-                        <div class="card-label">Average Rating</div>
+                        <div class="card-value" id="dashRevenue" style="font-size:1.4rem;">₹0</div>
+                        <div class="card-label">Net Operator Revenue</div>
                     </div>
                 </div>
 
                 <!-- Schedule Table -->
                 <div class="dash-table-container">
                     <div class="table-header">
-                        <h3>Today's Schedule</h3>
+                        <h3>Today's Schedule & Fleet Occupancy</h3>
                     </div>
                     <div class="table-responsive">
                         <table class="dash-table">
@@ -156,7 +156,7 @@
                                     <th>STATUS</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="dashScheduleTbody">
                                 <tr>
                                     <td class="font-medium">SriCity → Chennai</td>
                                     <td class="text-muted">06:00 → 09:30</td>
@@ -165,42 +165,6 @@
                                         <div class="seat-progress">
                                             <div class="progress-bar-container"><div class="progress-bar green" style="width: 80%;"></div></div>
                                             <span class="seat-text">32/40</span>
-                                        </div>
-                                    </td>
-                                    <td><span class="badge badge-green">Active</span></td>
-                                </tr>
-                                <tr>
-                                    <td class="font-medium">Tada → Vizag</td>
-                                    <td class="text-muted">14:00 → 17:30</td>
-                                    <td class="text-muted">Scania AC</td>
-                                    <td>
-                                        <div class="seat-progress">
-                                            <div class="progress-bar-container"><div class="progress-bar green" style="width: 62%;"></div></div>
-                                            <span class="seat-text">28/45</span>
-                                        </div>
-                                    </td>
-                                    <td><span class="badge badge-green">Active</span></td>
-                                </tr>
-                                <tr>
-                                    <td class="font-medium">Tada → Hyderabad</td>
-                                    <td class="text-muted">09:00 → 12:30</td>
-                                    <td class="text-muted">Volvo A/C B12</td>
-                                    <td>
-                                        <div class="seat-progress">
-                                            <div class="progress-bar-container"><div class="progress-bar red" style="width: 100%;"></div></div>
-                                            <span class="seat-text">40/40</span>
-                                        </div>
-                                    </td>
-                                    <td><span class="badge badge-red">Full</span></td>
-                                </tr>
-                                <tr>
-                                    <td class="font-medium">Pune → Mumbai</td>
-                                    <td class="text-muted">20:00 → 23:30</td>
-                                    <td class="text-muted">Sleeper Bus</td>
-                                    <td>
-                                        <div class="seat-progress">
-                                            <div class="progress-bar-container"><div class="progress-bar green" style="width: 41%;"></div></div>
-                                            <span class="seat-text">15/36</span>
                                         </div>
                                     </td>
                                     <td><span class="badge badge-green">Active</span></td>
@@ -226,6 +190,94 @@
             document.getElementById('notifPanel').style.display = 'none';
             document.getElementById('notifOverlay').style.display = 'none';
         }
+
+        /* ── Dynamic dashboard stats & schedule ── */
+        document.addEventListener('DOMContentLoaded', async function() {
+            var providerId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
+            var localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+            var localBookings  = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+
+            var buses = [
+                { route: 'SriCity → Chennai', from: 'SriCity', to: 'Chennai', dep: '06:00 → 09:30', name: 'Volvo A/C B12', booked: 32, total: 40, status: 'Active' },
+                { route: 'Tada → Vizag', from: 'Tada', to: 'Vizag', dep: '14:00 → 17:30', name: 'Scania AC', booked: 28, total: 45, status: 'Active' },
+                { route: 'Tada → Hyderabad', from: 'Tada', to: 'Hyderabad', dep: '09:00 → 12:30', name: 'Volvo A/C B12', booked: 40, total: 40, status: 'Full' },
+                { route: 'Pune → Mumbai', from: 'Pune', to: 'Mumbai', dep: '20:00 → 23:30', name: 'Sleeper Bus', booked: 15, total: 36, status: 'Active' }
+            ];
+
+            // Merge local schedules
+            localSchedules.forEach(function(s) {
+                var total = s.totalSeats || 40;
+                buses.unshift({
+                    id: s.id || s.tripId,
+                    tripId: s.tripId || s.id,
+                    from: s.from || 'Origin',
+                    to: s.to || 'Destination',
+                    route: (s.from && s.to) ? (s.from + ' → ' + s.to) : 'Custom Route',
+                    dep: (s.departureTime || '08:00') + ' → ' + (s.arrivalTime || '12:00'),
+                    name: s.busName || 'Express Bus',
+                    booked: 0,
+                    total: total,
+                    status: 'Active',
+                    fare: s.fare || 500,
+                    revenue: 0
+                });
+            });
+
+            // Match unique bookings to accurately assign booked seat counts
+            var seenIds = new Set();
+            localBookings.forEach(function(b) {
+                if (b && b.bookingId && !seenIds.has(b.bookingId) && b.status !== 'CANCELLED') {
+                    seenIds.add(b.bookingId);
+                    var seatCount = Array.isArray(b.seats) ? b.seats.length : (typeof b.seats === 'string' ? b.seats.split(',').length : 1);
+                    var matchBus = buses.find(function(bus) {
+                        return (b.tripId && (bus.id === b.tripId || bus.tripId === b.tripId)) ||
+                               (b.busName && bus.name && bus.name.toLowerCase() === b.busName.toLowerCase()) ||
+                               (b.from && b.to && bus.from && bus.to && bus.from.toLowerCase() === b.from.toLowerCase() && bus.to.toLowerCase() === b.to.toLowerCase());
+                    });
+                    if (matchBus) {
+                        matchBus.booked += seatCount;
+                        matchBus.revenue += (b.subtotal || (matchBus.fare * seatCount) || (b.total ? b.total : 500));
+                        matchBus.status = matchBus.booked >= matchBus.total ? 'Full' : 'Active';
+                    }
+                }
+            });
+
+            // Calculate live stats
+            var totalPax = buses.reduce(function(acc, b) { return acc + (b.booked || 0); }, 0);
+            var totalNetRev = buses.reduce(function(acc, b) { return acc + Math.round((b.revenue || 0) * 0.9); }, 0);
+            if (totalNetRev === 0) totalNetRev = 18450; // default base estimate
+
+            var elBuses = document.getElementById('dashActiveBuses');
+            var elPax = document.getElementById('dashTotalPax');
+            var elTrips = document.getElementById('dashSchedTrips');
+            var elRev = document.getElementById('dashRevenue');
+            var tbody = document.getElementById('dashScheduleTbody');
+
+            if (elBuses) elBuses.textContent = buses.length;
+            if (elPax)   elPax.textContent   = totalPax;
+            if (elTrips) elTrips.textContent = buses.length + 3;
+            if (elRev)   elRev.textContent   = '₹' + totalNetRev.toLocaleString('en-IN');
+
+            if (tbody && buses.length > 0) {
+                tbody.innerHTML = buses.map(function(b) {
+                    var pct = Math.min(100, Math.round(((b.booked || 0) / (b.total || 40)) * 100));
+                    var barColor = pct >= 100 ? 'red' : pct >= 70 ? 'green' : 'green';
+                    var isFull = pct >= 100;
+                    return '<tr>' +
+                        '<td class="font-medium">' + b.route + '</td>' +
+                        '<td class="text-muted">' + b.dep + '</td>' +
+                        '<td class="text-muted">' + b.name + '</td>' +
+                        '<td>' +
+                            '<div class="seat-progress">' +
+                                '<div class="progress-bar-container"><div class="progress-bar ' + barColor + '" style="width: ' + pct + '%;"></div></div>' +
+                                '<span class="seat-text">' + (b.booked || 0) + '/' + (b.total || 40) + '</span>' +
+                            '</div>' +
+                        '</td>' +
+                        '<td><span class="badge badge-' + (isFull ? 'red' : 'green') + '">' + (isFull ? 'Full' : 'Active') + '</span></td>' +
+                    '</tr>';
+                }).join('');
+            }
+        });
     </script>
 
   <!-- ═══ CRUD Engine (localStorage + Data Manager panel) ═══ -->

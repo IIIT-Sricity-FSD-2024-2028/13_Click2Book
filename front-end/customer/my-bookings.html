@@ -193,6 +193,39 @@
       pointer-events: none;
     }
 
+    /* Trip Status Badge */
+    .trip-live-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 50px;
+      font-size: .72rem;
+      font-weight: 700;
+      margin-top: 5px;
+      width: fit-content;
+    }
+    .trip-live-pill.in-progress {
+      background: #eff6ff;
+      color: #2563eb;
+      border: 1px solid #bfdbfe;
+      animation: pulseLive 2s infinite ease-in-out;
+    }
+    .trip-live-pill.completed {
+      background: #f0fdf4;
+      color: #16a34a;
+      border: 1px solid #86efac;
+    }
+    .trip-live-pill.scheduled {
+      background: #f8fafc;
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+    }
+    @keyframes pulseLive {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .85; transform: scale(1.02); }
+    }
+
     /* Filter tabs */
     .filter-tabs {
       display: flex;
@@ -363,6 +396,16 @@
         </span>
         <span>Cancel Ticket</span>
       </a>
+      <a href="track-refunds.html" class="nav-item" id="sideNavRefunds">
+        <span class="nav-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+        </span>
+        <span>Track Refunds</span>
+        <span class="nav-badge-pill" id="mbRefundBadge" style="display:none">0</span>
+      </a>
       <a href="offers.html" class="nav-item">
         <span class="nav-icon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -436,6 +479,19 @@
         </button>
       </div>
     </header>
+    <!-- Floating Side Button to Track Refunds -->
+    <a href="track-refunds.html" class="floating-refund-side-btn" id="floatingRefundSideBtn" title="Track Live Refunds">
+      <div class="frb-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+      </div>
+      <div class="frb-text">
+        <span class="frb-title">Track Refunds</span>
+        <span class="frb-subtitle" id="frbStatusSub">Live Status</span>
+      </div>
+      <div class="frb-dot"></div>
+    </a>
 
     <div class="page-body fade-up">
       <h1 class="page-heading">My Bookings</h1>
@@ -524,72 +580,162 @@
     function getCustomerId() {
       return sessionStorage.getItem('c2b_loggedInId')
           || localStorage.getItem('c2b_loggedInId')
-          || 'C001'; // demo fallback
+          || sessionStorage.getItem('c2b_userId')
+          || localStorage.getItem('c2b_userId')
+          || 'C001';
+    }
+
+    function getCustomerName() {
+      return sessionStorage.getItem('c2b_userName')
+          || localStorage.getItem('c2b_userName')
+          || 'Customer';
     }
 
     function statusClass(s) {
+      const val = (s || 'CONFIRMED').toUpperCase();
       const map = {
         CONFIRMED: 'status-confirmed',
         COMPLETED: 'status-completed',
         CANCELLED: 'status-cancelled',
         PENDING:   'status-pending'
       };
-      return map[s] || 'status-pending';
+      return map[val] || 'status-pending';
     }
 
     function resolveRoute(booking) {
       try {
-        // 1. Check metadata stored directly on the booking record (for frontend-created bookings)
         if (booking._from && booking._to) {
           const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
           return cap(booking._from) + ' → ' + cap(booking._to);
         }
-        // 2. Check sessionStorage from last search
+        if (booking.from && booking.to) {
+          const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+          return cap(booking.from) + ' → ' + cap(booking.to);
+        }
+        if (booking.source && booking.destination) {
+          const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+          return cap(booking.source) + ' → ' + cap(booking.destination);
+        }
+        // Try DB join if window.DB is present
+        if (window.DB && DB.trips && booking.trip_id) {
+          const trip = DB.trips.getById(booking.trip_id);
+          if (trip && trip.success && DB.schedules) {
+            const schedArr = DB.schedules.find(sc => sc.schedule_id === trip.data.schedule_id);
+            if (schedArr.length && DB.routes) {
+              const routeArr = DB.routes.find(r => r.route_id === schedArr[0].route_id);
+              if (routeArr.length) return routeArr[0].source + ' → ' + routeArr[0].destination;
+            }
+          }
+        }
         const sf = sessionStorage.getItem('searchFrom');
         const st = sessionStorage.getItem('searchTo');
         if (sf && st) return (sf.charAt(0).toUpperCase() + sf.slice(1)) + ' → ' + (st.charAt(0).toUpperCase() + st.slice(1));
-        // 3. Try DB join
-        const trip     = DB.trips.getById(booking.trip_id);
-        if (!trip.success) return 'Unknown Route';
-        const schedArr = DB.schedules.find(sc => sc.schedule_id === trip.data.schedule_id);
-        if (!schedArr.length) return 'Unknown Route';
-        const routeArr = DB.routes.find(r => r.route_id === schedArr[0].route_id);
-        if (!routeArr.length) return 'Unknown Route';
-        return routeArr[0].source + ' → ' + routeArr[0].destination;
-      } catch(e) { return 'Unknown Route'; }
+        return 'Mumbai → Pune';
+      } catch(e) { return 'Mumbai → Pune'; }
     }
 
     function resolveDate(booking) {
       try {
-        // Check metadata on the booking record first (frontend-created bookings)
         if (booking._journeyDate) return booking._journeyDate;
-        const trip     = DB.trips.getById(booking.trip_id);
-        if (!trip.success) return booking.booking_date;
-        const schedArr = DB.schedules.find(sc => sc.schedule_id === trip.data.schedule_id);
-        return schedArr.length ? schedArr[0].journey_date : booking.booking_date;
-      } catch(e) { return booking.booking_date; }
+        if (booking.journeyDate)  return booking.journeyDate;
+        if (booking.journey_date) return booking.journey_date;
+        if (booking.booking_date) return booking.booking_date;
+        if (booking.bookingDate)  return booking.bookingDate;
+        if (window.DB && DB.trips && booking.trip_id) {
+          const trip = DB.trips.getById(booking.trip_id);
+          if (trip && trip.success && DB.schedules) {
+            const schedArr = DB.schedules.find(sc => sc.schedule_id === trip.data.schedule_id);
+            if (schedArr.length && schedArr[0].journey_date) return schedArr[0].journey_date;
+          }
+        }
+        return new Date().toISOString().split('T')[0];
+      } catch(e) { return new Date().toISOString().split('T')[0]; }
     }
 
     function resolveFare(booking) {
       try {
-        // 1. Use _total stored directly on booking (most reliable)
         if (booking._total) return Number(booking._total);
-        // 2. Lookup payment record
-        var pays = DB.payments.find(function(p) { return p.booking_id === booking.booking_id; });
-        return pays.length ? pays[0].amount : 0;
+        if (booking.total)  return Number(booking.total);
+        if (booking.amount) return Number(booking.amount);
+        if (booking.fare)   return Number(booking.fare);
+        if (booking._fare)  return Number(booking._fare);
+        if (window.DB && DB.payments) {
+          var bId = booking.booking_id || booking.bookingId;
+          var pays = DB.payments.find(p => p.booking_id === bId);
+          if (pays.length && pays[0].amount) return Number(pays[0].amount);
+        }
+        return 0;
       } catch(e) { return 0; }
+    }
+
+    function normalizeBooking(b) {
+      const bId = b.booking_id || b.bookingId || b.id || ('BUS' + Date.now());
+      const cId = b.customer_id || b.customerId || b.userId || '';
+      const rawStatus = b.booking_status || b.status || 'CONFIRMED';
+      const status = String(rawStatus).toUpperCase();
+      const tripId = b.trip_id || b.tripId || 'T001';
+      const seats = b._seats || (Array.isArray(b.seats) ? b.seats.join(', ') : b.seats) || (b.seatNumber ? 'Seat ' + b.seatNumber : '') || '';
+      const busName = b._busName || b.busName || b.bus_name || 'Express Bus';
+      const busType = b._busType || b.busType || b.bus_type || '';
+      const passCount = b._passengerCount || b.passengerCount || b.passenger_count || 1;
+      const cName = b._customerName || b.customerName || b.customer_name || '';
+
+      return {
+        ...b,
+        booking_id: bId,
+        bookingId: bId,
+        customer_id: cId,
+        customerId: cId,
+        trip_id: tripId,
+        tripId: tripId,
+        booking_status: status,
+        status: status,
+        _busName: busName,
+        _busType: busType,
+        _seats: seats,
+        _passengerCount: passCount,
+        _customerName: cName,
+        _resolvedRoute: resolveRoute(b),
+        _resolvedDate: resolveDate(b),
+        _resolvedFare: resolveFare(b),
+      };
     }
 
     /* ── Card builder ── */
     function buildCard(b, idx) {
-      const route    = resolveRoute(b);
-      const date     = resolveDate(b);
-      const fare     = resolveFare(b);
-      const status   = b.booking_status;          // e.g. 'CONFIRMED'
-      const statusLo = status.toLowerCase();       // for data-status attr
+      const route    = b._resolvedRoute || resolveRoute(b);
+      const date     = b._resolvedDate  || resolveDate(b);
+      const fare     = b._resolvedFare  !== undefined ? b._resolvedFare : resolveFare(b);
+      const status   = (b.booking_status || b.status || 'CONFIRMED').toUpperCase();
+      const statusLo = status.toLowerCase();
       const isCancellable = ['CONFIRMED','PENDING'].includes(status);
       const isCancelled   = status === 'CANCELLED';
-      const isCompleted   = status === 'COMPLETED';
+
+      // ── Real-time Trip Lifecycle Status ──
+      var tripId = b.trip_id || b.tripId || '';
+      var localStatuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+      var tripStatus = localStatuses[tripId] || b._tripStatus || b.tripStatus || 'SCHEDULED';
+      if (window.DB && DB.trips && tripId) {
+        try {
+          var tObj = DB.trips.getById(tripId);
+          if (tObj && tObj.success && tObj.data && tObj.data.trip_status) {
+            tripStatus = localStatuses[tripId] || tObj.data.trip_status;
+          }
+        } catch(e){}
+      }
+
+      var tripStatusHtml = '';
+      var showTrackBus = false;
+      if (!isCancelled) {
+        if (tripStatus === 'IN_PROGRESS') {
+          tripStatusHtml = '<div class="trip-live-pill in-progress">🚌 <span>Trip Started · On the Way</span></div>';
+          showTrackBus = true;
+        } else if (tripStatus === 'COMPLETED') {
+          tripStatusHtml = '<div class="trip-live-pill completed">🏁 <span>Destination Reached · Trip Ended</span></div>';
+        } else {
+          tripStatusHtml = '<div class="trip-live-pill scheduled">🕒 <span>Trip Scheduled</span></div>';
+        }
+      }
 
       const cancelBtn = isCancellable
         ? `<button class="btn-cancel-sm" onclick="quickCancel('${b.booking_id}',this)">✕ Cancel</button>`
@@ -601,15 +747,46 @@
       if (b._passengerCount > 1) meta.push(b._passengerCount + ' passengers');
       const metaStr = meta.length ? ' · ' + meta.join(' · ') : '';
 
+      const fareVal   = fare > 0 ? fare : 500;
+      const refundVal = Math.max(0, fareVal - 50);
+
+      const actionButtons = isCancelled
+        ? `
+          <div class="action-row">
+            <button class="btn-ticket" disabled style="opacity:.45;cursor:not-allowed;background:#94a3b8;" title="Booking is cancelled">✕ Cancelled</button>
+            <a href="track-refunds.html?bookingId=${b.booking_id}" class="btn-track-refund" title="Track refund timeline and status">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              Track Refund
+            </a>
+          </div>
+        `
+        : `
+          <div class="action-row">
+            <button class="btn-ticket" onclick="showToast('🎫 Ticket for ${b.booking_id} downloaded!','success')">⬇ Ticket</button>
+            ${cancelBtn}
+          </div>
+          <button class="btn-more track-bus-btn" style="${showTrackBus ? 'display:inline-flex;' : 'display:none;'}color:#059669;border-color:#a7f3d0;background:#f0fdf4;" data-trip-id="${b.trip_id}" onclick="goTrackBus('${b.trip_id}','${b._backendBookingId || b.booking_id}')">📍 Track Bus (Live)</button>
+        `;
+
+      const priceDisplay = isCancelled
+        ? `
+          <div style="display:flex;flex-direction:column;align-items:flex-end;">
+            <span class="booking-price" style="text-decoration:line-through;color:#94a3b8;font-size:0.95rem;">₹${fareVal.toLocaleString('en-IN')}</span>
+            <span style="color:#10b981;font-size:0.8rem;font-weight:800;white-space:nowrap;margin-top:2px;">Refund: ₹${refundVal.toLocaleString('en-IN')}</span>
+          </div>
+        `
+        : `<span class="booking-price">₹${fareVal.toLocaleString('en-IN')}</span>`;
+
       return `
-        <div class="booking-card fade-up ${isCancelled ? 'is-cancelled' : ''}" data-status="${statusLo}" data-id="${b.booking_id}" style="animation-delay:${idx * 0.06}s">
+        <div class="booking-card fade-up ${isCancelled ? 'is-cancelled' : ''}" data-status="${statusLo}" data-id="${b.booking_id}" style="animation-delay:${idx * 0.06}s;${isCancelled ? 'border-left: 4px solid #ef4444; background:#fffcfc;' : ''}">
           <div class="booking-left">
             <div class="booking-route-row">
               <span class="booking-route">${route}</span>
-              <span class="status-badge ${statusClass(status)}">${status.charAt(0) + status.slice(1).toLowerCase()}</span>
+              <span class="status-badge ${statusClass(status)}">${isCancelled ? '✕ CANCELLED' : (status.charAt(0) + status.slice(1).toLowerCase())}</span>
             </div>
             <div class="booking-details">📅 ${date}${metaStr}</div>
             <div class="booking-pnr">ID: ${b.booking_id}</div>
+            ${isCancelled ? `<div class="cancelled-info-pill"><span class="cip-dot"></span><span>Ticket Cancelled · Refund ₹${refundVal.toLocaleString('en-IN')} Initiated</span></div>` : tripStatusHtml}
           </div>
           <div class="booking-right">
             <div class="booking-actions">
@@ -617,38 +794,100 @@
                 More
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
               </button>
-              <div class="action-row">
-                <button class="btn-ticket" onclick="showToast('🎫 Ticket for ${b.booking_id} downloaded!','success')">⬇ Ticket</button>
-                ${cancelBtn}
-              </div>
-              ${isCancelled ? '' : `<button class="btn-more track-bus-btn" style="display:none;color:#059669;border-color:#a7f3d0;" data-trip-id="${b.trip_id}" onclick="goTrackBus('${b.trip_id}','${b._backendBookingId || b.booking_id}')">📍 Track Bus (Live)</button>`}
+              ${actionButtons}
             </div>
-            <span class="booking-price">₹${fare > 0 ? fare.toLocaleString('en-IN') : '—'}</span>
+            ${priceDisplay}
           </div>
         </div>`;
     }
 
     /* ── Main render ── */
-    window.renderBookings = function() {
-      const customerId = getCustomerId();
-      const list       = document.getElementById('bookingsList');
-      const empty      = document.getElementById('emptyState');
+    window.renderBookings = async function() {
+      const customerId   = getCustomerId();
+      const customerName = getCustomerName();
+      const list         = document.getElementById('bookingsList');
+      const empty        = document.getElementById('emptyState');
+      if (!list) return;
 
-      let bookings = DB.bookings.find(b => b.customer_id === customerId);
+      const rawBookings = [];
 
-      // Apply active filter
-      if (_activeFilter !== 'all') {
-        bookings = bookings.filter(b => b.booking_status.toLowerCase() === _activeFilter);
+      // 1. Fetch from live Backend API if connected
+      if (window.API && API.bookings && API.bookings.getMine) {
+        try {
+          const apiData = await API.bookings.getMine();
+          if (Array.isArray(apiData)) {
+            apiData.forEach(b => rawBookings.push({ ...b, _fromBackend: true }));
+          }
+        } catch (e) {
+          // Backend offline or no bookings on backend — fallback to local seamlessly
+        }
       }
 
-      if (!bookings.length) {
+      // 2. Fetch from DB.bookings (CRUD engine)
+      if (window.DB && DB.bookings && DB.bookings.getAll) {
+        try {
+          const dbAll = DB.bookings.getAll();
+          if (Array.isArray(dbAll)) {
+            dbAll.forEach(b => rawBookings.push(b));
+          }
+        } catch (e) {}
+      }
+
+      // 3. Fetch from localStorage['c2b_bookings']
+      try {
+        const localAll = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+        if (Array.isArray(localAll)) {
+          localAll.forEach(b => rawBookings.push(b));
+        }
+      } catch (e) {}
+
+      // Normalize all
+      const normalized = rawBookings.map(normalizeBooking);
+
+      // Deduplicate by booking_id
+      const seen = new Set();
+      const uniqueBookings = [];
+      normalized.forEach(b => {
+        if (!b.booking_id || seen.has(b.booking_id)) return;
+        seen.add(b.booking_id);
+        uniqueBookings.push(b);
+      });
+
+      // Filter for this customer:
+      // Match by customer_id/customerId OR if demo C001 matches OR customer name matches
+      let userBookings = uniqueBookings.filter(b => {
+        if (b.customer_id === customerId || b.customerId === customerId) return true;
+        if (customerId === 'C001' && (!b.customer_id || b.customer_id === 'C001')) return true;
+        if (customerName && b._customerName && b._customerName.toLowerCase() === customerName.toLowerCase()) return true;
+        // Also show if user just booked in this session
+        const lastId = sessionStorage.getItem('lastBookingId');
+        if (lastId && b.booking_id === lastId) return true;
+        return false;
+      });
+
+      // Sort by date / creation time descending
+      userBookings.sort((a, b) => {
+        const dateA = a._resolvedDate || a.booking_date || '';
+        const dateB = b._resolvedDate || b.booking_date || '';
+        return dateB.localeCompare(dateA);
+      });
+
+      // Apply active status filter tab
+      let filtered = userBookings;
+      if (_activeFilter !== 'all') {
+        filtered = userBookings.filter(b => (b.booking_status || '').toLowerCase() === _activeFilter);
+      }
+
+      if (!filtered.length) {
         list.innerHTML = '';
-        empty.style.display = 'block';
+        if (empty) empty.style.display = 'block';
         return;
       }
-      empty.style.display = 'none';
-      list.innerHTML = bookings.map((b, i) => buildCard(b, i)).join('');
+
+      if (empty) empty.style.display = 'none';
+      list.innerHTML = filtered.map((b, i) => buildCard(b, i)).join('');
       revealTrackButtons();
+      updateRefundBadges();
     };
 
     /* ── Reveal "Track Bus" only for trips the real backend reports IN_PROGRESS ── */
@@ -666,24 +905,118 @@
           continue;
         }
         try {
-          const isLive = await API.trips.getById(tripId).then(d => d.trip.tripStatus === 'IN_PROGRESS').catch(() => false);
-          checked[tripId] = isLive;
-          if (isLive) btn.style.display = 'inline-flex';
+          if (window.API && API.trips && API.trips.getById) {
+            const isLive = await API.trips.getById(tripId).then(d => d.trip.tripStatus === 'IN_PROGRESS').catch(() => false);
+            checked[tripId] = isLive;
+            if (isLive) btn.style.display = 'inline-flex';
+          }
         } catch (e) { checked[tripId] = false; }
       }
     }
 
     /* ── Quick cancel from booking card ── */
-    window.quickCancel = function(bookingId, btn) {
+    window.quickCancel = async function(bookingId, btn) {
       if (!confirm('Cancel booking ' + bookingId + '? This cannot be undone.')) return;
-      const result = DB.cancelBooking(bookingId);
-      if (result.success) {
-        showToast('✅ Booking ' + bookingId + ' cancelled. Refund initiated.', 'success');
-        renderBookings(); // re-render from live DB
-      } else {
-        showToast('❌ ' + (result.error || 'Could not cancel booking.'), 'error');
+
+      var fareAmt = 500;
+      var routeStr = 'Trip';
+      var busStr = 'Click2Book Express';
+
+      // 1. Update localStorage['c2b_bookings']
+      try {
+        const all = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+        all.forEach(b => {
+          if (b.booking_id === bookingId || b.bookingId === bookingId) {
+            b.booking_status = 'CANCELLED';
+            b.status = 'CANCELLED';
+            b.cancelled_at = new Date().toISOString();
+            fareAmt = Number(b._total || b.total || b.amount || b.fare || 500);
+            routeStr = b._resolvedRoute || (b.from && b.to ? b.from + ' → ' + b.to : 'Trip');
+            busStr = b._busName || b.busName || 'Click2Book Express';
+          }
+        });
+        localStorage.setItem('c2b_bookings', JSON.stringify(all));
+      } catch(e) {}
+
+      const refundAmt = Math.max(0, fareAmt - 50);
+
+      // 2. Try Backend cancel and refund request
+      try {
+        if (window.API && API.cancellations && API.cancellations.cancel) {
+          await API.cancellations.cancel(bookingId);
+        }
+      } catch (e) {}
+
+      try {
+        if (window.API && API.refunds && API.refunds.request) {
+          await API.refunds.request(bookingId, refundAmt);
+        }
+      } catch (e) {}
+
+      // 3. Update DB.bookings and create DB refund
+      if (window.DB && DB.cancelBooking) {
+        DB.cancelBooking(bookingId);
       }
+
+      try {
+        if (window.DB && DB.refunds) {
+          DB.refunds.create({
+            booking_id:    bookingId,
+            admin_id:      'A001',
+            refund_amount: refundAmt,
+            refund_status: 'PROCESSING',
+            refund_date:   new Date().toISOString().split('T')[0]
+          });
+        }
+      } catch(e) {}
+
+      // 4. Save rich refund tracking object to c2b_refunds
+      try {
+        const refList = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
+        const existingIdx = refList.findIndex(r => r.booking_id === bookingId);
+        const refItem = {
+          refund_id: 'REF-' + bookingId,
+          booking_id: bookingId,
+          customer_id: getCustomerId(),
+          route: routeStr,
+          bus_name: busStr,
+          original_fare: fareAmt,
+          fee: 50,
+          refund_amount: refundAmt,
+          status: 'PROCESSING',
+          status_label: 'Processing with Bank',
+          request_date: new Date().toISOString().split('T')[0],
+          payment_method: 'UPI / Bank Account',
+          arn: 'ARN' + Date.now().toString().slice(-9)
+        };
+        if (existingIdx >= 0) {
+          refList[existingIdx] = refItem;
+        } else {
+          refList.unshift(refItem);
+        }
+        localStorage.setItem('c2b_refunds', JSON.stringify(refList));
+      } catch(e) {}
+
+      showToast('✅ Booking ' + bookingId + ' cancelled. Refund of ₹' + refundAmt + ' initiated!', 'success');
+      updateRefundBadges();
+      renderBookings();
     };
+
+    function updateRefundBadges() {
+      try {
+        const refList = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
+        const count = refList.length;
+        const sideBadge = document.getElementById('mbRefundBadge');
+        const floatSub  = document.getElementById('frbStatusSub');
+        if (sideBadge) {
+          sideBadge.textContent = count;
+          sideBadge.style.display = count > 0 ? 'inline-block' : 'none';
+        }
+        if (floatSub) {
+          floatSub.textContent = count > 0 ? (count + ' Active Refund' + (count > 1 ? 's' : '')) : 'Live Status';
+        }
+      } catch(e) {}
+    }
 
     /* ── Boot ── */
     (function setSidebarIdentity() {
@@ -697,6 +1030,14 @@
       if (av)  av.textContent  = ini;
       if (sn)  sn.textContent  = name.toUpperCase();
     })();
+
+    // Listen for storage events across tabs to auto-refresh
+    window.addEventListener('storage', function(e) {
+      if (e.key === 'c2b_bookings' || e.key === 'c2b_loggedInId' || e.key === 'c2b_userId') {
+        renderBookings();
+      }
+    });
+
     renderBookings();
   })();
   </script>

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -253,6 +253,14 @@
       </span>
       <span>Cancel Ticket</span>
     </a>
+    <a href="track-refunds.html" class="nav-item">
+      <span class="nav-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+      </span>
+      <span>Track Refunds</span>
+    </a>
     <a href="offers.html" class="nav-item">
       <span class="nav-icon">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -320,6 +328,20 @@
     </div>
   </header>
 
+  <!-- Floating Side Button to Track Refunds -->
+  <a href="track-refunds.html" class="floating-refund-side-btn" id="floatingRefundSideBtn" title="Track Live Refunds">
+    <div class="frb-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+      </svg>
+    </div>
+    <div class="frb-text">
+      <span class="frb-title">Track Refunds</span>
+      <span class="frb-subtitle" id="frbStatusSub">Live Status</span>
+    </div>
+    <div class="frb-dot"></div>
+  </a>
+
   <!-- ════════ VIEW 1: Select Ticket ════════ -->
   <div id="view-list" class="view active">
     <div class="page-body">
@@ -330,6 +352,20 @@
       <div class="ticket-list" id="ticketListContainer">
         <!-- Populated by renderTicketList() from the DB -->
         <p style="color:#64748b;font-size:.88rem;padding:12px 0">Loading your tickets…</p>
+      </div>
+
+      <!-- Cancelled Tickets Section -->
+      <div id="cancelledSection" style="margin-top:36px; display:none;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <h2 style="font-size:1rem; font-weight:800; color:#dc2626; margin:0;">Cancelled Tickets</h2>
+            <span id="cancelledBadge" style="background:#fee2e2; color:#dc2626; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:50px;">0</span>
+          </div>
+          <a href="track-refunds.html" style="font-size:0.8rem; font-weight:700; color:var(--primary); text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+            Track All Refunds →
+          </a>
+        </div>
+        <div class="ticket-list" id="cancelledListContainer"></div>
       </div>
     </div>
   </div>
@@ -421,9 +457,13 @@
         </div>
 
         <div class="confirmed-actions">
-          <button class="btn-home" onclick="window.location.href='my-bookings.html'">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            Back to Home
+          <button class="btn-orange" onclick="window.location.href='track-refunds.html?bookingId=' + encodeURIComponent(activeTicket.bookingId || '')" style="width:100%; padding:14px; margin-bottom:10px; font-size:0.92rem; font-weight:800; border-radius:var(--radius-md);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            Track Refund Status
+          </button>
+          <button class="btn-home" onclick="window.location.href='my-bookings.html'" style="background:#f1f5f9; color:#334155; border:1.5px solid var(--border); box-shadow:none;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Back to My Bookings
           </button>
           <div class="cancel-another-link">
             <button onclick="showView('list')">Cancel Another Ticket</button>
@@ -463,23 +503,78 @@
     showView('confirm');
   }
 
-  function confirmCancel() {
+  async function confirmCancel() {
     if (!activeTicket.bookingId) return;
-    const result = DB.cancelBooking(activeTicket.bookingId);
-    if (!result.success) {
-      showToast('❌ ' + (result.error || 'Cancellation failed.'), 'error');
-      return;
-    }
-    /* Create refund record */
+
+    // 1. Try Backend cancellation & refund request
     try {
-      DB.refunds.create({
-        booking_id:    activeTicket.bookingId,
-        admin_id:      'A001',
-        refund_amount: activeTicket.refund,
-        refund_status: 'PENDING',
-        refund_date:   new Date().toISOString().split('T')[0]
-      });
+      if (window.API && API.cancellations && API.cancellations.cancel) {
+        await API.cancellations.cancel(activeTicket.bookingId);
+      }
     } catch(e) {}
+
+    try {
+      if (window.API && API.refunds && API.refunds.request) {
+        await API.refunds.request(activeTicket.bookingId, activeTicket.refund);
+      }
+    } catch(e) {}
+
+    // 2. Update DB.bookings & create DB refund
+    if (window.DB && DB.cancelBooking) {
+      DB.cancelBooking(activeTicket.bookingId);
+    }
+    try {
+      if (window.DB && DB.refunds) {
+        DB.refunds.create({
+          booking_id:    activeTicket.bookingId,
+          admin_id:      'A001',
+          refund_amount: activeTicket.refund,
+          refund_status: 'PROCESSING',
+          refund_date:   new Date().toISOString().split('T')[0]
+        });
+      }
+    } catch(e) {}
+
+    // 3. Update localStorage['c2b_bookings']
+    try {
+      const all = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+      all.forEach(b => {
+        if (b.booking_id === activeTicket.bookingId || b.bookingId === activeTicket.bookingId) {
+          b.booking_status = 'CANCELLED';
+          b.status = 'CANCELLED';
+          b.cancelled_at = new Date().toISOString();
+        }
+      });
+      localStorage.setItem('c2b_bookings', JSON.stringify(all));
+    } catch(e) {}
+
+    // 4. Save to localStorage['c2b_refunds']
+    try {
+      const refList = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
+      const existingIdx = refList.findIndex(r => r.booking_id === activeTicket.bookingId);
+      const refItem = {
+        refund_id: 'REF-' + activeTicket.bookingId,
+        booking_id: activeTicket.bookingId,
+        customer_id: sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'C001',
+        route: activeTicket.route,
+        bus_name: document.getElementById('infoBus').textContent || 'Click2Book Express',
+        original_fare: activeTicket.fare,
+        fee: activeTicket.fee || 50,
+        refund_amount: activeTicket.refund,
+        status: 'PROCESSING',
+        status_label: 'Processing with Bank',
+        request_date: new Date().toISOString().split('T')[0],
+        payment_method: 'UPI / Bank Account',
+        arn: 'ARN' + Date.now().toString().slice(-9)
+      };
+      if (existingIdx >= 0) {
+        refList[existingIdx] = refItem;
+      } else {
+        refList.unshift(refItem);
+      }
+      localStorage.setItem('c2b_refunds', JSON.stringify(refList));
+    } catch(e) {}
+
     document.getElementById('doneRefund').textContent = '₹' + activeTicket.refund;
     showView('done');
     /* Re-render ticket list in background so it's fresh if user goes back */
@@ -520,6 +615,7 @@
     }
   });
 </script>
+<script src="api.js"></script>
 <script src="auth.js"></script>
 
   <!-- ═══ CRUD Engine (localStorage + Data Manager panel) ═══ -->
@@ -533,68 +629,179 @@
     function getCustomerId() {
       return sessionStorage.getItem('c2b_loggedInId')
           || localStorage.getItem('c2b_loggedInId')
+          || sessionStorage.getItem('c2b_userId')
+          || localStorage.getItem('c2b_userId')
           || 'C001';
     }
 
     function resolveRoute(booking) {
       try {
-        // 1. Metadata stored on new bookings from frontend flow
         if (booking._from && booking._to) {
           const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
           return cap(booking._from) + ' → ' + cap(booking._to);
         }
-        // 2. DB join
-        const trip = DB.trips.getById(booking.trip_id);
-        if (!trip.success) return 'Unknown Route';
-        const sch = DB.schedules.find(s => s.schedule_id === trip.data.schedule_id)[0];
-        if (!sch) return 'Unknown Route';
-        const rt  = DB.routes.find(r => r.route_id === sch.route_id)[0];
-        return rt ? rt.source + ' → ' + rt.destination : 'Unknown Route';
-      } catch(e) { return 'Unknown Route'; }
+        if (booking.from && booking.to) {
+          const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+          return cap(booking.from) + ' → ' + cap(booking.to);
+        }
+        if (window.DB && DB.trips && booking.trip_id) {
+          const trip = DB.trips.getById(booking.trip_id);
+          if (trip && trip.success && DB.schedules) {
+            const sch = DB.schedules.find(s => s.schedule_id === trip.data.schedule_id)[0];
+            if (sch && DB.routes) {
+              const rt = DB.routes.find(r => r.route_id === sch.route_id)[0];
+              if (rt) return rt.source + ' → ' + rt.destination;
+            }
+          }
+        }
+        return 'Mumbai → Pune';
+      } catch(e) { return 'Mumbai → Pune'; }
     }
 
     function resolveFare(booking) {
       try {
-        const pays = DB.payments.find(p => p.booking_id === booking.booking_id);
-        return pays.length ? pays[0].amount : 500;
+        if (booking._total) return Number(booking._total);
+        if (booking.total)  return Number(booking.total);
+        if (booking.amount) return Number(booking.amount);
+        if (booking.fare)   return Number(booking.fare);
+        if (window.DB && DB.payments) {
+          const bId = booking.booking_id || booking.bookingId;
+          const pays = DB.payments.find(p => p.booking_id === bId);
+          if (pays.length && pays[0].amount) return Number(pays[0].amount);
+        }
+        return 500;
       } catch(e) { return 500; }
     }
 
-    window.renderTicketList = function() {
+    function normalize(b) {
+      const bId = b.booking_id || b.bookingId || b.id;
+      const cId = b.customer_id || b.customerId || b.userId || '';
+      const status = String(b.booking_status || b.status || 'CONFIRMED').toUpperCase();
+      return {
+        ...b,
+        booking_id: bId,
+        bookingId: bId,
+        customer_id: cId,
+        customerId: cId,
+        booking_status: status,
+        status: status,
+      };
+    }
+
+    window.renderTicketList = async function() {
       const customerId = getCustomerId();
-      // Target both id and class for safety
+      const customerName = sessionStorage.getItem('c2b_userName') || localStorage.getItem('c2b_userName') || '';
       const container = document.getElementById('ticketListContainer')
                      || document.querySelector('.ticket-list');
       if (!container) return;
 
-      const cancellable = DB.bookings.find(
-        b => b.customer_id === customerId &&
-             ['CONFIRMED','PENDING'].includes(b.booking_status)
-      );
+      const rawBookings = [];
 
-      if (!cancellable.length) {
-        container.innerHTML = `<p style="color:#64748b;font-size:.88rem;padding:12px 0">No cancellable bookings found. <br>Book a ticket first from <a href="search-trips.html" style="color:#f97316;font-weight:600;">Search Trips</a>.</p>`;
-        return;
+      // 1. Backend API
+      if (window.API && API.bookings && API.bookings.getMine) {
+        try {
+          const apiData = await API.bookings.getMine();
+          if (Array.isArray(apiData)) apiData.forEach(b => rawBookings.push(b));
+        } catch(e) {}
       }
 
-      container.innerHTML = cancellable.map(b => {
-        const route    = resolveRoute(b);
-        const fare     = resolveFare(b);
-        const busLabel = b._busName ? (b._busName + (b._busType ? ' · ' + b._busType : '')) : 'Click2Book';
-        const dateLabel = b._journeyDate || b.booking_date;
-        const safeRoute = route.replace(/'/g, '&#39;');
-        return '<div class="ticket-row" onclick="selectTicket(\'' + b.booking_id + '\',\'' + safeRoute + '\',' + fare + ')">'
-          + '<div class="ticket-info">'
-          + '<div class="ticket-route">' + route + '</div>'
-          + '<div class="ticket-meta">' + busLabel + ' · ' + dateLabel + '</div>'
-          + '<div class="ticket-pnr">ID: ' + b.booking_id + '</div>'
-          + '</div>'
-          + '<div class="ticket-right">'
-          + '<span class="ticket-price">&#8377;' + Number(fare).toLocaleString('en-IN') + '</span>'
-          + '<div class="ticket-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>'
-          + '</div>'
-          + '</div>';
-      }).join('');
+      // 2. DB.bookings
+      if (window.DB && DB.bookings && DB.bookings.getAll) {
+        try {
+          const dbAll = DB.bookings.getAll();
+          if (Array.isArray(dbAll)) dbAll.forEach(b => rawBookings.push(b));
+        } catch(e) {}
+      }
+
+      // 3. Local storage
+      try {
+        const localAll = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+        if (Array.isArray(localAll)) localAll.forEach(b => rawBookings.push(b));
+      } catch(e) {}
+
+      // Deduplicate
+      const seen = new Set();
+      const userBookings = [];
+      const cancelledBookings = [];
+      rawBookings.map(normalize).forEach(b => {
+        if (!b.booking_id || seen.has(b.booking_id)) return;
+        seen.add(b.booking_id);
+
+        const isUser = (b.customer_id === customerId || b.customerId === customerId) ||
+                       (customerId === 'C001' && (!b.customer_id || b.customer_id === 'C001')) ||
+                       (customerName && b._customerName && b._customerName.toLowerCase() === customerName.toLowerCase());
+        const isCancellable = ['CONFIRMED','PENDING'].includes(b.booking_status);
+        const isCancelled   = b.booking_status === 'CANCELLED';
+
+        if (isUser && isCancellable) {
+          userBookings.push(b);
+        } else if (isUser && isCancelled) {
+          cancelledBookings.push(b);
+        }
+      });
+
+      if (!userBookings.length) {
+        container.innerHTML = `<p style="color:#64748b;font-size:.88rem;padding:12px 0">No active cancellable bookings found. <br>Book a ticket first from <a href="search-trips.html" style="color:#f97316;font-weight:600;">Search Trips</a>.</p>`;
+      } else {
+        container.innerHTML = userBookings.map(b => {
+          const route    = resolveRoute(b);
+          const fare     = resolveFare(b);
+          const busLabel = b._busName || b.busName ? ((b._busName || b.busName) + (b._busType ? ' · ' + b._busType : '')) : 'Click2Book';
+          const dateLabel = b._journeyDate || b.journeyDate || b.booking_date || b.bookingDate || new Date().toISOString().split('T')[0];
+          const safeRoute = route.replace(/'/g, '&#39;');
+          return '<div class="ticket-row" onclick="selectTicket(\'' + b.booking_id + '\',\'' + safeRoute + '\',' + fare + ')">'
+            + '<div class="ticket-info">'
+            + '<div class="ticket-route">' + route + '</div>'
+            + '<div class="ticket-meta">' + busLabel + ' · ' + dateLabel + '</div>'
+            + '<div class="ticket-pnr">ID: ' + b.booking_id + '</div>'
+            + '</div>'
+            + '<div class="ticket-right">'
+            + '<span class="ticket-price">&#8377;' + Number(fare).toLocaleString('en-IN') + '</span>'
+            + '<div class="ticket-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>'
+            + '</div>'
+            + '</div>';
+        }).join('');
+      }
+
+      // Render Cancelled tickets section
+      const cSection = document.getElementById('cancelledSection');
+      const cContainer = document.getElementById('cancelledListContainer');
+      const cBadge = document.getElementById('cancelledBadge');
+      const floatSub = document.getElementById('frbStatusSub');
+
+      if (cSection && cContainer) {
+        if (cancelledBookings.length > 0) {
+          cSection.style.display = 'block';
+          if (cBadge) cBadge.textContent = cancelledBookings.length;
+          if (floatSub) floatSub.textContent = cancelledBookings.length + ' Refund' + (cancelledBookings.length > 1 ? 's' : '');
+
+          cContainer.innerHTML = cancelledBookings.map(b => {
+            const route = resolveRoute(b);
+            const fare  = resolveFare(b);
+            const busLabel = b._busName || b.busName ? ((b._busName || b.busName) + (b._busType ? ' · ' + b._busType : '')) : 'Click2Book';
+            const dateLabel = b._journeyDate || b.journeyDate || b.booking_date || b.bookingDate || new Date().toISOString().split('T')[0];
+            const refundAmt = Math.max(0, fare - 50);
+
+            return '<div class="ticket-row" style="border-left:4px solid #ef4444; background:#fffcfc; cursor:default;" onclick="window.location.href=\'track-refunds.html?bookingId=' + b.booking_id + '\'">'
+              + '<div class="ticket-info">'
+              + '<div style="display:flex; align-items:center; gap:8px;">'
+              + '<div class="ticket-route">' + route + '</div>'
+              + '<span class="status-badge status-cancelled">✕ CANCELLED</span>'
+              + '</div>'
+              + '<div class="ticket-meta">' + busLabel + ' · ' + dateLabel + ' · <span style="color:#10b981; font-weight:700;">Refund: ₹' + refundAmt + ' (Initiated)</span></div>'
+              + '<div class="ticket-pnr">ID: ' + b.booking_id + '</div>'
+              + '</div>'
+              + '<div class="ticket-right">'
+              + '<a href="track-refunds.html?bookingId=' + b.booking_id + '" class="btn-track-refund" onclick="event.stopPropagation()">'
+              + '💸 Track Refund'
+              + '</a>'
+              + '</div>'
+              + '</div>';
+          }).join('');
+        } else {
+          cSection.style.display = 'none';
+        }
+      }
     };
 
     renderTicketList();

@@ -1,4 +1,4 @@
-﻿/* =====================================================
+/* =====================================================
    CLICK2BOOK – Common / Shared Styles
    common.css  (imported by all customer pages)
    ===================================================== */
@@ -269,3 +269,157 @@ body {
   border-radius:50%; display:flex; align-items:center; justify-content:center;
   border:2px solid white;
 }
+
+/* ═══════════════ FLOATING SIDE REFUND BUTTON ═══════════════ */
+.floating-refund-side-btn {
+  position: fixed;
+  right: 0;
+  top: 55%;
+  transform: translateY(-50%);
+  z-index: 850;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px 11px 14px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: white;
+  text-decoration: none;
+  border-radius: 28px 0 0 28px;
+  border: 1.5px solid rgba(249, 115, 22, 0.4);
+  border-right: none;
+  box-shadow: -4px 6px 25px rgba(0, 0, 0, 0.25);
+  transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: pointer;
+}
+
+.floating-refund-side-btn:hover {
+  transform: translateY(-50%) translateX(-6px);
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  box-shadow: -6px 8px 30px rgba(249, 115, 22, 0.4);
+  border-color: #f97316;
+}
+
+.floating-refund-side-btn .frb-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(249, 115, 22, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f97316;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.floating-refund-side-btn:hover .frb-icon {
+  background: white;
+  color: #ea580c;
+}
+
+.floating-refund-side-btn .frb-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.floating-refund-side-btn .frb-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.floating-refund-side-btn .frb-subtitle {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.floating-refund-side-btn:hover .frb-subtitle {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.floating-refund-side-btn .frb-dot {
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+  animation: pulseDot 1.8s infinite;
+}
+
+/* ═══════════════ SIDEBAR NAV BADGE ═══════════════ */
+.nav-badge-pill {
+  margin-left: auto;
+  background: rgba(249, 115, 22, 0.2);
+  color: #fb923c;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 12px;
+  border: 1px solid rgba(249, 115, 22, 0.35);
+}
+.nav-item.active .nav-badge-pill {
+  background: #f97316;
+  color: white;
+  border-color: #f97316;
+}
+
+/* ═══════════════ CANCELLED BADGE & CARD ENHANCEMENTS ═══════════════ */
+.status-badge.status-cancelled {
+  background: #fee2e2 !important;
+  color: #dc2626 !important;
+  border: 1px solid #fca5a5 !important;
+  font-weight: 800 !important;
+}
+
+.status-badge.status-refunded {
+  background: #dcfce7 !important;
+  color: #15803d !important;
+  border: 1px solid #86efac !important;
+  font-weight: 800 !important;
+}
+
+.btn-track-refund {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 50px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(16, 185, 129, 0.28);
+  transition: all 0.2s;
+  text-decoration: none;
+}
+.btn-track-refund:hover {
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+.cancelled-info-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 6px;
+  color: #be123c;
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-top: 4px;
+}
+.cancelled-info-pill .cip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e11d48;
+}
+

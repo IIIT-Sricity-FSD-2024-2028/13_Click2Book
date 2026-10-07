@@ -84,6 +84,14 @@ function createCRUD(storageKey, pkField, seedData) {
     storageSave(storageKey, data);
   }
 
+  function matchPk(r, id) {
+    if (!r) return false;
+    if (r[pkField] === id) return true;
+    if (pkField === 'booking_id' && (r.bookingId === id || r.booking_id === id)) return true;
+    if (pkField === 'customer_id' && (r.customerId === id || r.customer_id === id || r.id === id)) return true;
+    return false;
+  }
+
   // ── READ ────────────────────────────────────────────────────
 
   /** Return a shallow copy of all records */
@@ -93,7 +101,7 @@ function createCRUD(storageKey, pkField, seedData) {
 
   /** Find a single record by primary key */
   function getById(id) {
-    const record = _getData().find(r => r[pkField] === id);
+    const record = _getData().find(r => matchPk(r, id));
     if (!record) {
       return { success: false, error: `No "${storageKey}" record with ${pkField} = "${id}"` };
     }
@@ -108,15 +116,31 @@ function createCRUD(storageKey, pkField, seedData) {
   // ── CREATE ──────────────────────────────────────────────────
 
   function create(record) {
-    if (!record[pkField]) {
+    const id = record[pkField] || (pkField === 'booking_id' ? record.bookingId : null);
+    if (!id) {
       return { success: false, error: `Primary key "${pkField}" is required.` };
     }
     const data = _getData();
-    if (data.find(r => r[pkField] === record[pkField])) {
-      return { success: false, error: `"${record[pkField]}" already exists in ${storageKey}.` };
-    }
+    const existingIndex = data.findIndex(r => matchPk(r, id));
+    
+    // Normalize booking aliases if table is bookings
     const newRecord = { ...record };
-    data.push(newRecord);
+    if (storageKey === 'bookings') {
+      newRecord.booking_id     = newRecord.booking_id || newRecord.bookingId || id;
+      newRecord.bookingId      = newRecord.bookingId || newRecord.booking_id;
+      newRecord.customer_id    = newRecord.customer_id || newRecord.customerId;
+      newRecord.customerId     = newRecord.customerId || newRecord.customer_id;
+      newRecord.booking_status = newRecord.booking_status || newRecord.status || 'CONFIRMED';
+      newRecord.status         = newRecord.status || newRecord.booking_status || 'CONFIRMED';
+    }
+
+    if (existingIndex !== -1) {
+      data[existingIndex] = { ...data[existingIndex], ...newRecord };
+      _save(data);
+      return { success: true, data: { ...data[existingIndex] }, message: `Record updated in ${storageKey}.` };
+    }
+
+    data.unshift(newRecord);
     _save(data);
     return { success: true, data: { ...newRecord }, message: `Record created in ${storageKey}.` };
   }
@@ -125,13 +149,20 @@ function createCRUD(storageKey, pkField, seedData) {
 
   function update(id, changes) {
     const data  = _getData();
-    const index = data.findIndex(r => r[pkField] === id);
+    const index = data.findIndex(r => matchPk(r, id));
     if (index === -1) {
       return { success: false, error: `No "${storageKey}" record with ${pkField} = "${id}"` };
     }
     // Never overwrite the primary key
     const safeChanges = { ...changes };
     delete safeChanges[pkField];
+    if (pkField === 'booking_id') delete safeChanges.bookingId;
+
+    if (storageKey === 'bookings') {
+      if (safeChanges.booking_status) safeChanges.status = safeChanges.booking_status;
+      if (safeChanges.status) safeChanges.booking_status = safeChanges.status;
+    }
+
     data[index] = { ...data[index], ...safeChanges };
     _save(data);
     return { success: true, data: { ...data[index] }, message: `Record updated in ${storageKey}.` };
@@ -141,7 +172,7 @@ function createCRUD(storageKey, pkField, seedData) {
 
   function remove(id) {
     const data  = _getData();
-    const index = data.findIndex(r => r[pkField] === id);
+    const index = data.findIndex(r => matchPk(r, id));
     if (index === -1) {
       return { success: false, error: `No "${storageKey}" record with ${pkField} = "${id}"` };
     }

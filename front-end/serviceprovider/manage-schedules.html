@@ -144,6 +144,7 @@
                   tripId:        trip.trip_id,
                   source:        route.source       || '—',
                   destination:   route.destination  || '—',
+                  via:           sched.via || route.via || '',
                   departureTime: sched.departure_time || '—',
                   arrivalTime:   sched.arrival_time_to_destination || sched.arrival_time || '—',
                   journeyDate:   sched.journey_date  || '—',
@@ -171,9 +172,10 @@
               var pct = Math.round((avail/total)*100);
               var bar = pct>60?'#16a34a':pct>30?'#f59e0b':'#ef4444';
               var stCol = SC[t.status]||'#6b7280';
+              var viaTag = t.via ? (' <span style="background:#ffedd5;color:#c2410c;font-size:.72rem;padding:2px 8px;border-radius:6px;font-weight:600;margin-left:6px;border:1px solid #fed7aa;">Via: ' + t.via + '</span>') : '';
               return '<div class="list-card" style="border-left:4px solid '+bar+';">' +
                 '<div class="manage-card-meta">' +
-                  '<div class="route" style="font-weight:700;color:#1e293b;font-size:1rem;">' + t.source + ' &rarr; ' + t.destination + (t.isNew ? ' <span style="background:#f97316;color:#fff;font-size:.62rem;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;font-weight:700;">NEW</span>' : '') + '</div>' +
+                  '<div class="route" style="font-weight:700;color:#1e293b;font-size:1rem;">' + t.source + ' &rarr; ' + t.destination + viaTag + (t.isNew ? ' <span style="background:#f97316;color:#fff;font-size:.62rem;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;font-weight:700;">NEW</span>' : '') + '</div>' +
                   '<div style="font-size:.82rem;color:#64748b;margin-top:4px;">'+t.departureTime+' &rarr; '+t.arrivalTime+' &middot; <strong>'+t.busName+'</strong> &middot; '+t.vehicleType+'</div>' +
                   '<div style="font-size:.75rem;color:#94a3b8;margin-top:4px;">Trip: '+t.tripId+' &middot; Date: '+t.journeyDate+' &middot; <span style="color:'+stCol+';font-weight:700;">'+t.status+'</span></div>' +
                 '</div>' +
@@ -193,12 +195,13 @@
                   tripId:         s.id || ('LOCAL-' + (i + 1)),
                   source:         s.from || '—',
                   destination:    s.to   || '—',
+                  via:            s.via  || '',
                   departureTime:  s.departureTime || '—',
                   arrivalTime:    s.arrivalTime   || '—',
-                  journeyDate:    s.addedAt ? s.addedAt.split('T')[0] : '—',
+                  journeyDate:    s.journeyDate || (s.addedAt ? s.addedAt.split('T')[0] : '—'),
                   busName:        s.busName || '—',
                   vehicleType:    s.busType || '—',
-                  availableSeats: s.totalSeats || 0,
+                  availableSeats: s.availableSeats != null ? s.availableSeats : Math.max(0, (s.totalSeats || 0) - (s.bookedSeats || 0)),
                   totalSeats:     s.totalSeats || 0,
                   fare:           s.fare || 0,
                   status:         'SCHEDULED',

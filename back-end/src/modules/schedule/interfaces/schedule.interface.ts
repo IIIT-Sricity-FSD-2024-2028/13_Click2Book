@@ -7,4 +7,5 @@ export interface Schedule {
   journeyDate: string;
   arrivalTimeToDestination: string;
   fare: number;
+  via?: string;
 }

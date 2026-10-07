@@ -13,12 +13,12 @@ desktop.ini
 back-end/logs/
 back-end/logs/**
 
-<<<<<<< HEAD
-# File uploads (created at runtime by multer — Phase 4)
-back-end/uploads/
-
 # Node dependencies
 node_modules/
+*/node_modules/
+
+# File uploads (created at runtime by multer — Phase 4)
+back-end/uploads/
 
 # Smoke test scripts (development only)
 back-end/smoke-test-*.ts
@@ -26,11 +26,8 @@ back-end/smoke-test-*.ts
 # Winston log audit files
 back-end/logs/.*-audit.json
 
-# Compiled build output (project uses ts-node via npm run start:dev)
-back-end/dist/
-=======
-# Node / NestJS back-end
-node_modules/
+# Compiled build output
+dist/
 back-end/dist/
 back-end/.env
 
@@ -38,4 +35,6 @@ back-end/.env
 Videos/*.mp4
 Videos/*.mov
 Videos/*.avi
->>>>>>> origin/main
+
+# AI tool directories
+.claude/

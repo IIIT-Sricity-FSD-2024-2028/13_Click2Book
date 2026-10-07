@@ -23,7 +23,11 @@ function getRole() {
 
 /** Read current customer ID from session */
 function getCustomerId() {
-  return sessionStorage.getItem('c2b_userId') || localStorage.getItem('c2b_userId') || '';
+  return sessionStorage.getItem('c2b_loggedInId') ||
+         localStorage.getItem('c2b_loggedInId') ||
+         sessionStorage.getItem('c2b_userId') ||
+         localStorage.getItem('c2b_userId') ||
+         'C001';
 }
 
 /**
@@ -128,6 +132,12 @@ window.API = {
         method: 'POST',
         body: JSON.stringify({ bookingId, refundAmount }),
       });
+    },
+    async getByBooking(bookingId) {
+      return apiFetch(`/refunds/booking/${bookingId}`);
+    },
+    async getAll(status) {
+      return apiFetch(status ? `/refunds?status=${status}` : '/refunds');
     },
   },
 

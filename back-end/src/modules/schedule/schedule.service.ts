@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ScheduleRepository } from './schedule.repository';
 import { CreateScheduleDto, UpdateScheduleDto } from './dto/schedule.dto';
 import { successResponse } from '../../common/utils/response.util';
@@ -8,6 +8,19 @@ export class ScheduleService {
   constructor(private readonly scheduleRepo: ScheduleRepository) {}
 
   create(dto: CreateScheduleDto) {
+    if (dto.journeyDate) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const maxDate = new Date();
+      maxDate.setMonth(maxDate.getMonth() + 2);
+      const maxDateStr = maxDate.toISOString().split('T')[0];
+
+      if (dto.journeyDate < todayStr) {
+        throw new BadRequestException(`Journey date (${dto.journeyDate}) cannot be in the past`);
+      }
+      if (dto.journeyDate > maxDateStr) {
+        throw new BadRequestException(`Schedule can only be added up to 2 months in advance (maximum: ${maxDateStr})`);
+      }
+    }
     return successResponse('Schedule created', this.scheduleRepo.create(dto));
   }
 

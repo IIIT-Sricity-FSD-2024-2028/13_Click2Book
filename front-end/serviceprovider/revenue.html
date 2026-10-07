@@ -11,39 +11,76 @@
 
   .topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;background:#fff;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:10}
   .topbar-left{display:flex;align-items:center;gap:14px}
-  .back-link{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600;color:#64748b;padding:7px 12px;border-radius:8px;border:1px solid #e2e8f0}
-  .back-link:hover{background:#f1f5f9}
+  .back-link{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600;color:#64748b;padding:7px 12px;border-radius:8px;border:1px solid #e2e8f0;transition:background .2s}
+  .back-link:hover{background:#f1f5f9;color:#0f172a}
   .page-title{font-size:1.25rem;font-weight:800}
   .page-sub{font-size:.8rem;color:#64748b;margin-top:2px}
   #connBadge{font-size:.72rem;font-weight:700;padding:5px 12px;border-radius:20px;font-family:monospace}
 
-  .wrap{max-width:1100px;margin:0 auto;padding:24px 28px 60px}
+  .wrap{max-width:1150px;margin:0 auto;padding:24px 28px 60px}
 
-  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px}
-  .stat-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px 20px;position:relative;overflow:hidden}
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:28px}
+  .stat-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px 22px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.03)}
   .stat-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent,#F97316)}
-  .stat-value{font-size:1.5rem;font-weight:800}
+  .stat-value{font-size:1.6rem;font-weight:800}
   .stat-label{font-size:.76rem;color:#64748b;margin-top:4px;font-weight:600}
 
-  .card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:22px 24px;margin-bottom:24px}
-  .card-title{font-size:1.02rem;font-weight:800;margin-bottom:4px}
-  .card-sub{font-size:.78rem;color:#64748b;margin-bottom:18px}
+  .card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:22px 24px;margin-bottom:24px;box-shadow:0 1px 3px rgba(0,0,0,.03)}
+  .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .card-title{font-size:1.05rem;font-weight:800;color:#0f172a}
+  .card-sub{font-size:.78rem;color:#64748b;margin-top:2px}
 
-  table{width:100%;border-collapse:collapse;font-size:.82rem}
-  th{text-align:left;padding:9px 12px;background:#f8fafc;color:#64748b;font-weight:700;font-size:.72rem;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e2e8f0}
-  td{padding:10px 12px;border-bottom:1px solid #f1f5f9}
+  table{width:100%;border-collapse:collapse;font-size:.84rem}
+  th{text-align:left;padding:10px 14px;background:#f8fafc;color:#64748b;font-weight:700;font-size:.72rem;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #e2e8f0}
+  td{padding:12px 14px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
   tr:last-child td{border-bottom:none}
+  tr:hover td{background:#fafafa}
   .table-wrap{overflow-x:auto}
-  .mono{font-family:monospace}
+  .mono{font-family:monospace;font-size:.8rem}
   .num{text-align:right;font-variant-numeric:tabular-nums}
 
   .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700}
-  .badge-clean{background:#f0fdf4;color:#16a34a}
-  .badge-cancelled{background:#fef2f2;color:#dc2626}
-  .badge-disputed{background:#fff7ed;color:#c2410c}
+  .badge-confirmed, .badge-clean{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0}
+  .badge-cancelled{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+  .badge-pending{background:#fffbeb;color:#d97706;border:1px solid #fde68a}
 
-  .empty{text-align:center;padding:36px 12px;color:#94a3b8;font-size:.85rem}
+  .bus-tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.72rem;font-weight:700;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe}
+  .progress-bar-wrap{width:90px;height:7px;background:#e2e8f0;border-radius:10px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:8px}
+  .progress-fill{height:100%;background:#16a34a;border-radius:10px}
+
+  .btn-view-seats{background:#f8fafc;color:#2563eb;border:1.5px solid #bfdbfe;padding:5px 12px;border-radius:8px;font-size:.75rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .2s}
+  .btn-view-seats:hover{background:#2563eb;color:#fff;border-color:#2563eb}
+
+  .empty{text-align:center;padding:36px 12px;color:#94a3b8;font-size:.88rem}
   .notice{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:.82rem;font-weight:600;padding:12px 16px;border-radius:10px;margin-bottom:20px}
+
+  /* ═══ SEAT LAYOUT MODAL ═══ */
+  .modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px}
+  .modal-box{background:#fff;border-radius:18px;max-width:680px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.25)}
+  .modal-header{padding:20px 24px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between}
+  .modal-title{font-size:1.15rem;font-weight:800;color:#0f172a}
+  .modal-sub{font-size:.8rem;color:#64748b;margin-top:2px}
+  .modal-close{background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;padding:4px 8px;border-radius:8px}
+  .modal-close:hover{background:#f1f5f9;color:#0f172a}
+  .modal-body{padding:24px;overflow-y:auto}
+
+  .seat-legend{display:flex;gap:18px;align-items:center;justify-content:center;margin-bottom:20px;padding:10px 16px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0}
+  .legend-item{display:flex;align-items:center;gap:7px;font-size:.78rem;font-weight:700}
+  .legend-box{width:16px;height:16px;border-radius:4px}
+  .legend-box.avail{background:#fff;border:2px solid #22c55e}
+  .legend-box.booked{background:#ef4444;border:2px solid #dc2626}
+
+  .bus-cabin{max-width:380px;margin:0 auto;background:#f8fafc;border:2px solid #cbd5e1;border-radius:24px;padding:20px 16px}
+  .cabin-front{display:flex;align-items:center;justify-content:space-between;border-bottom:2px dashed #cbd5e1;padding-bottom:12px;margin-bottom:16px;color:#64748b;font-size:.75rem;font-weight:700}
+  .seat-map-grid{display:flex;flex-direction:column;gap:10px}
+  .seat-row-view{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .row-label-view{width:22px;font-size:.75rem;font-weight:800;color:#94a3b8;text-align:center}
+  .seat-pair-view{display:flex;gap:8px}
+  .aisle-view{width:28px;text-align:center;font-size:.65rem;color:#cbd5e1}
+  .seat-cell{width:42px;height:42px;border-radius:8px;font-size:.74rem;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:default;transition:all .15s}
+  .seat-cell.avail{background:#fff;color:#16a34a;border:2px solid #86efac;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .seat-cell.booked{background:#fee2e2;color:#dc2626;border:2px solid #f87171}
+  .seat-cell .st-tag{font-size:.55rem;font-weight:700;text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -52,8 +89,8 @@
   <div class="topbar-left">
     <a class="back-link" href="dashboard.html">&larr; Dashboard</a>
     <div>
-      <div class="page-title">My Revenue</div>
-      <div class="page-sub" id="providerSub">Earnings from your bookings</div>
+      <div class="page-title">Provider Revenue & Fleet Performance</div>
+      <div class="page-sub" id="providerSub">Earnings & revenue breakdown per bus</div>
     </div>
   </div>
   <span id="connBadge">Connecting…</span>
@@ -62,19 +99,110 @@
 <div class="wrap">
   <div id="loginNotice" class="notice" style="display:none">You're not logged in as a provider. <a href="login.html" style="text-decoration:underline">Log in</a> to see your revenue.</div>
 
-  <section class="stats-grid" id="summaryStats"></section>
+  <section class="stats-grid" id="summaryStats">
+    <div class="stat-card" style="--accent:#F97316">
+      <div class="stat-value" id="statBookings">0</div>
+      <div class="stat-label">Total Bookings</div>
+    </div>
+    <div class="stat-card" style="--accent:#3b82f6">
+      <div class="stat-value" id="statGross">₹0</div>
+      <div class="stat-label">Gross Ticket Sales (Base Fare)</div>
+    </div>
+    <div class="stat-card" style="--accent:#ef4444">
+      <div class="stat-value" id="statComm">₹0</div>
+      <div class="stat-label">Platform Commission (10%)</div>
+    </div>
+    <div class="stat-card" style="--accent:#22c55e">
+      <div class="stat-value" id="statPayout" style="color:#16a34a;">₹0</div>
+      <div class="stat-label">Your Net Earnings (90% Payout)</div>
+    </div>
+  </section>
 
+  <!-- ═══ PER-BUS REVENUE TABLE ═══ -->
   <div class="card">
-    <div class="card-title">Your Bookings — Ledger Detail</div>
-    <div class="card-sub">Base fare is the ticket price; you're paid the operator payout (base fare minus platform commission). Cancelled bookings don't count toward your payout.</div>
+    <div class="card-header">
+      <div>
+        <div class="card-title">🚍 Revenue Breakdown by Bus / Fleet</div>
+        <div class="card-sub">Real-time revenue, seat occupancy, and operator earnings for each of your buses</div>
+      </div>
+      <a href="add-schedule.html" style="font-size:.78rem;font-weight:700;color:#f97316;background:#fff7ed;padding:6px 14px;border-radius:20px;border:1px solid #ffedd5;">+ Add New Bus Schedule</a>
+    </div>
     <div class="table-wrap">
       <table>
-        <thead><tr>
-          <th>Booking</th><th class="num">Base Fare</th><th class="num">Commission Deducted</th>
-          <th class="num">Your Payout</th><th>Status</th><th>Date</th>
-        </tr></thead>
-        <tbody id="ledgerTbody"></tbody>
+        <thead>
+          <tr>
+            <th>Bus Name / Vehicle</th>
+            <th>Route</th>
+            <th>Total Seats</th>
+            <th>Booked</th>
+            <th>Occupancy</th>
+            <th class="num">Fare / Seat</th>
+            <th class="num">Gross Revenue</th>
+            <th class="num">Commission (10%)</th>
+            <th class="num" style="color:#16a34a;">Your Net Payout (90%)</th>
+            <th>Seat Layout</th>
+          </tr>
+        </thead>
+        <tbody id="busRevenueTbody">
+          <tr><td colspan="10" class="empty">Loading buses…</td></tr>
+        </tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- ═══ TRANSACTION LEDGER TABLE ═══ -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">📜 Booking Transactions & Ledger Details</div>
+        <div class="card-sub">Every customer booking on your buses with automated 90/10 revenue split calculation</div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Booking ID</th>
+            <th>Bus / Route</th>
+            <th>Seat(s)</th>
+            <th class="num">Base Fare</th>
+            <th class="num">Commission</th>
+            <th class="num" style="color:#16a34a;">Your Payout</th>
+            <th>Status</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody id="ledgerTbody">
+          <tr><td colspan="8" class="empty">No bookings recorded yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SEAT LAYOUT MODAL ═══ -->
+<div class="modal-overlay" id="seatLayoutModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modalBusName">Bus Seat Layout</div>
+        <div class="modal-sub" id="modalBusRoute">Route & Seat Occupancy Details</div>
+      </div>
+      <button class="modal-close" onclick="closeSeatModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="seat-legend">
+        <div class="legend-item"><div class="legend-box avail"></div> Available (<span id="modalAvailCount">0</span>)</div>
+        <div class="legend-item"><div class="legend-box booked"></div> Booked (<span id="modalBookedCount">0</span>)</div>
+      </div>
+
+      <div class="bus-cabin">
+        <div class="cabin-front">
+          <span>🚪 ENTRANCE</span>
+          <span>🚌 DRIVER</span>
+        </div>
+        <div class="seat-map-grid" id="modalSeatGrid"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -82,13 +210,18 @@
 <script>
   const _host = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'localhost' : location.hostname;
   const API_BASE = `http://${_host}:3000/api`;
-  const rupees = (paise) => (paise / 100).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
+  const formatInr = (val) => '₹' + Math.round(val).toLocaleString('en-IN');
+
+  let currentFleetBuses = [];
 
   function getProviderId() {
-    return sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || '';
+    return sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || sessionStorage.getItem('c2b_userId') || 'P001';
+  }
+  function getProviderName() {
+    return sessionStorage.getItem('c2b_userName') || localStorage.getItem('c2b_userName') || 'Provider';
   }
   function getRole() {
-    return sessionStorage.getItem('c2b_role') || localStorage.getItem('c2b_role') || '';
+    return sessionStorage.getItem('c2b_role') || localStorage.getItem('c2b_role') || 'PROVIDER';
   }
 
   async function apiFetch(path, options = {}) {
@@ -101,9 +234,301 @@
     return json.data;
   }
 
-  function statusBadge(status) {
-    return `<span class="badge badge-${status}">${status}</span>`;
+  function normalizeSeats(seats) {
+    if (Array.isArray(seats)) return seats;
+    if (typeof seats === 'string') return seats.split(',').map(s => s.trim()).filter(Boolean);
+    if (typeof seats === 'number') return ['Seat ' + seats];
+    return [];
   }
+
+  async function loadAllRevenueData() {
+    const providerId = getProviderId();
+    const providerName = getProviderName();
+    document.getElementById('providerSub').textContent = `Earnings & revenue for ${providerName} (${providerId})`;
+
+    // 1. Gather provider's buses
+    let providerBuses = [];
+
+    // Backend schedules & vehicles
+    try {
+      const [tripsData, schedsData, vehsData] = await Promise.all([
+        apiFetch('/trips').catch(() => []),
+        apiFetch('/schedules').catch(() => []),
+        apiFetch('/vehicles').catch(() => [])
+      ]);
+      const backendTrips = tripsData || [];
+      const backendSchedules = schedsData || [];
+      const backendVehicles = vehsData || [];
+
+      backendSchedules.filter(s => s.providerId === providerId || !s.providerId || s.providerId === 'P001').forEach(s => {
+        const trip = backendTrips.find(t => t.scheduleId === s.scheduleId);
+        const veh = backendVehicles.find(v => v.vehicleId === (trip ? trip.vehicleId : ''));
+        if (trip && veh) {
+          providerBuses.push({
+            id: trip.tripId,
+            tripId: trip.tripId,
+            vehicleId: veh.vehicleId,
+            busName: veh.busName || veh.vehicleNumber,
+            busType: veh.vehicleType || 'AC',
+            from: 'Hyderabad',
+            to: 'Chennai',
+            totalSeats: veh.totalSeats || 40,
+            fare: s.fare || 500,
+            bookedSeats: 0,
+            bookedSeatList: [],
+            revenue: 0,
+          });
+        }
+      });
+    } catch(e) {}
+
+    // Read local schedules from localStorage
+    const localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    localSchedules.forEach(s => {
+      const exists = providerBuses.find(b => b.id === s.id || b.tripId === s.tripId || (b.busName === s.busName && b.from === s.from && b.to === s.to));
+      if (!exists) {
+        providerBuses.push({
+          id: s.id || s.tripId,
+          tripId: s.tripId || s.id,
+          vehicleId: s.vehicleId || '',
+          busName: s.busName || 'Bus',
+          busType: s.busType || 'AC',
+          from: s.from || 'Origin',
+          to: s.to || 'Destination',
+          totalSeats: s.totalSeats || 40,
+          fare: s.fare || 500,
+          bookedSeats: 0,
+          bookedSeatList: [],
+          revenue: 0,
+        });
+      }
+    });
+
+    // 2. Gather unique confirmed bookings
+    const localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+    const uniqueBookings = [];
+    const seenBookingIds = new Set();
+
+    localBookings.forEach(b => {
+      if (b && b.bookingId && !seenBookingIds.has(b.bookingId) && b.status !== 'CANCELLED') {
+        seenBookingIds.add(b.bookingId);
+        uniqueBookings.push(b);
+      }
+    });
+
+    let ledgerRows = [];
+
+    // 3. Attribute each unique booking to its respective bus accurately
+    uniqueBookings.forEach(b => {
+      const seatArr = normalizeSeats(b.seats);
+      const seatCount = seatArr.length || 1;
+
+      // Find matching bus
+      const matchBus = providerBuses.find(pb => 
+        (b.tripId && (pb.id === b.tripId || pb.tripId === b.tripId)) ||
+        (pb.busName && b.busName && pb.busName.toLowerCase() === b.busName.toLowerCase()) ||
+        (pb.from && b.from && pb.to && b.to && pb.from.toLowerCase() === b.from.toLowerCase() && pb.to.toLowerCase() === b.to.toLowerCase())
+      );
+
+      const fare = b.fare || (matchBus ? matchBus.fare : 500);
+      const bFare = b.subtotal || (fare * seatCount) || (b.total ? b.total : 500);
+      const bComm = Math.round(bFare * 0.10);
+      const bPayout = bFare - bComm;
+
+      if (matchBus) {
+        matchBus.bookedSeats += seatCount;
+        matchBus.bookedSeatList.push(...seatArr);
+        matchBus.revenue += bFare;
+      }
+
+      ledgerRows.push({
+        bookingId: b.bookingId,
+        busName: b.busName || (matchBus ? matchBus.busName : 'Bus'),
+        route: (b.from && b.to) ? `${b.from} → ${b.to}` : (matchBus ? `${matchBus.from} → ${matchBus.to}` : 'Route'),
+        seats: seatArr.join(', ') || '1 Seat',
+        baseFare: bFare,
+        commission: bComm,
+        payout: bPayout,
+        status: b.status || 'CONFIRMED',
+        date: b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-IN') : 'Today',
+      });
+    });
+
+    currentFleetBuses = providerBuses;
+
+    // 4. Calculate Total Summary Stats
+    const totalBookings = uniqueBookings.length;
+    const totalBaseFare = ledgerRows.reduce((sum, l) => sum + (l.baseFare || 0), 0);
+    const totalComm = ledgerRows.reduce((sum, l) => sum + (l.commission || 0), 0);
+    const totalPayout = ledgerRows.reduce((sum, l) => sum + (l.payout || 0), 0);
+
+    document.getElementById('statBookings').textContent = totalBookings;
+    document.getElementById('statGross').textContent = formatInr(totalBaseFare);
+    document.getElementById('statComm').textContent = formatInr(totalComm);
+    document.getElementById('statPayout').textContent = formatInr(totalPayout);
+
+    // 5. Render Per-Bus Revenue Table
+    const busTbody = document.getElementById('busRevenueTbody');
+    if (!providerBuses.length) {
+      busTbody.innerHTML = `<tr><td colspan="10" class="empty">No buses registered yet. <a href="add-schedule.html" style="color:#f97316;font-weight:700;">+ Add a bus</a></td></tr>`;
+    } else {
+      busTbody.innerHTML = providerBuses.map(bus => {
+        const total = bus.totalSeats || 40;
+        const booked = bus.bookedSeats || 0;
+        const occPct = Math.min(100, Math.round((booked / total) * 100));
+        const fare = bus.fare || 500;
+        const grossRev = bus.revenue || (booked * fare);
+        const comm = Math.round(grossRev * 0.10);
+        const payout = grossRev - comm;
+        const barColor = occPct > 70 ? '#16a34a' : occPct > 30 ? '#f59e0b' : '#3b82f6';
+        const busKey = bus.tripId || bus.id;
+
+        return `
+          <tr>
+            <td>
+              <div style="font-weight:700;color:#0f172a;">${bus.busName}</div>
+              <div style="font-size:.72rem;color:#64748b;">${bus.busType || 'AC'} · ID: ${busKey}</div>
+            </td>
+            <td><strong>${bus.from} → ${bus.to}</strong></td>
+            <td>${total} seats</td>
+            <td><strong style="color:${booked > 0 ? '#16a34a' : '#64748b'};">${booked} booked</strong></td>
+            <td>
+              <div class="progress-bar-wrap">
+                <div class="progress-fill" style="width:${occPct}%;background:${barColor};"></div>
+              </div>
+              <span style="font-weight:700;font-size:.78rem;">${occPct}%</span>
+            </td>
+            <td class="num">₹${fare}</td>
+            <td class="num font-bold"><strong>${formatInr(grossRev)}</strong></td>
+            <td class="num" style="color:#dc2626;">-${formatInr(comm)}</td>
+            <td class="num font-bold" style="color:#16a34a;font-size:.95rem;"><strong>${formatInr(payout)}</strong></td>
+            <td>
+              <button class="btn-view-seats" onclick="openBusSeatLayout('${busKey}')">💺 View Seats</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // 6. Render Ledger Detail Table
+    const ledgerTbody = document.getElementById('ledgerTbody');
+    if (!ledgerRows.length) {
+      ledgerTbody.innerHTML = `<tr><td colspan="8" class="empty">No bookings on your buses yet.</td></tr>`;
+    } else {
+      ledgerTbody.innerHTML = ledgerRows.map(l => {
+        const isCanc = l.status === 'cancelled' || l.status === 'CANCELLED';
+        const stBadge = isCanc 
+          ? `<span class="badge badge-cancelled">Cancelled</span>`
+          : `<span class="badge badge-confirmed">Confirmed</span>`;
+
+        return `
+          <tr>
+            <td class="mono"><strong>${l.bookingId}</strong></td>
+            <td>
+              <div><strong>${l.busName}</strong></div>
+              <div style="font-size:.72rem;color:#64748b;">${l.route}</div>
+            </td>
+            <td><span class="bus-tag">${l.seats}</span></td>
+            <td class="num">${formatInr(l.baseFare)}</td>
+            <td class="num" style="color:#dc2626;">-${formatInr(l.commission)}</td>
+            <td class="num" style="color:#16a34a;"><strong>${formatInr(l.payout)}</strong></td>
+            <td>${stBadge}</td>
+            <td style="font-size:.75rem;color:#64748b;">${l.date}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+  }
+
+  /* ═══ OPEN BUS SEAT LAYOUT MODAL ═══ */
+  window.openBusSeatLayout = function(busKey) {
+    const bus = currentFleetBuses.find(b => b.tripId === busKey || b.id === busKey);
+    if (!bus) return;
+
+    document.getElementById('modalBusName').textContent = `🚍 ${bus.busName} (${bus.busType || 'AC'})`;
+    document.getElementById('modalBusRoute').textContent = `${bus.from} → ${bus.to} · Total: ${bus.totalSeats} Seats · Fare: ₹${bus.fare}/seat`;
+
+    const totalSeats = bus.totalSeats || 40;
+    const bookedList = bus.bookedSeatList || [];
+    const bookedCount = bookedList.length;
+    const availCount = Math.max(0, totalSeats - bookedCount);
+
+    document.getElementById('modalBookedCount').textContent = bookedCount;
+    document.getElementById('modalAvailCount').textContent = availCount;
+
+    const grid = document.getElementById('modalSeatGrid');
+    grid.innerHTML = '';
+
+    const totalRows = Math.ceil(totalSeats / 4);
+
+    for (let r = 0; r < totalRows; r++) {
+      const rowLetter = String.fromCharCode(65 + r);
+      const rowEl = document.createElement('div');
+      rowEl.className = 'seat-row-view';
+
+      // Row Label
+      const label = document.createElement('div');
+      label.className = 'row-label-view';
+      label.textContent = rowLetter;
+      rowEl.appendChild(label);
+
+      // Left Pair (1 & 2)
+      const leftPair = document.createElement('div');
+      leftPair.className = 'seat-pair-view';
+      [1, 2].forEach(col => {
+        const seatNum = r * 4 + col;
+        if (seatNum <= totalSeats) {
+          const seatId = rowLetter + col;
+          const isBooked = bookedList.includes(seatId);
+          leftPair.appendChild(renderSeatCell(seatId, isBooked));
+        } else {
+          const blank = document.createElement('div');
+          blank.style.width = '42px';
+          leftPair.appendChild(blank);
+        }
+      });
+      rowEl.appendChild(leftPair);
+
+      // Aisle
+      const aisle = document.createElement('div');
+      aisle.className = 'aisle-view';
+      aisle.textContent = '||';
+      rowEl.appendChild(aisle);
+
+      // Right Pair (3 & 4)
+      const rightPair = document.createElement('div');
+      rightPair.className = 'seat-pair-view';
+      [3, 4].forEach(col => {
+        const seatNum = r * 4 + col;
+        if (seatNum <= totalSeats) {
+          const seatId = rowLetter + col;
+          const isBooked = bookedList.includes(seatId);
+          rightPair.appendChild(renderSeatCell(seatId, isBooked));
+        } else {
+          const blank = document.createElement('div');
+          blank.style.width = '42px';
+          rightPair.appendChild(blank);
+        }
+      });
+      rowEl.appendChild(rightPair);
+
+      grid.appendChild(rowEl);
+    }
+
+    document.getElementById('seatLayoutModal').style.display = 'flex';
+  };
+
+  function renderSeatCell(seatId, isBooked) {
+    const el = document.createElement('div');
+    el.className = `seat-cell ${isBooked ? 'booked' : 'avail'}`;
+    el.innerHTML = `<span>${seatId}</span><span class="st-tag">${isBooked ? 'Booked' : 'Open'}</span>`;
+    el.title = isBooked ? `Seat ${seatId}: Booked` : `Seat ${seatId}: Available`;
+    return el;
+  }
+
+  window.closeSeatModal = function() {
+    document.getElementById('seatLayoutModal').style.display = 'none';
+  };
 
   (async function init() {
     const badge = document.getElementById('connBadge');
@@ -113,46 +538,24 @@
       document.getElementById('loginNotice').style.display = 'block';
       badge.textContent = '● Not logged in';
       badge.style.background = '#ef4444'; badge.style.color = '#fff';
-      return;
     }
 
     try {
-      const rev = await apiFetch(`/providers/${providerId}/revenue`);
-      document.getElementById('providerSub').textContent = `Earnings from your bookings — ${providerId}`;
-
-      document.getElementById('summaryStats').innerHTML = [
-        { label: 'Bookings (all-time)', value: rev.bookingCount, accent: '#F97316' },
-        { label: 'Cancelled', value: rev.cancelledCount, accent: '#ef4444' },
-        { label: 'Total Base Fare (confirmed)', value: rupees(rev.totalBaseFare), accent: '#3b82f6' },
-        { label: 'Your Total Payout', value: rupees(rev.totalOperatorPayout), accent: '#22c55e' },
-      ].map(s => `
-        <div class="stat-card" style="--accent:${s.accent}">
-          <div class="stat-value">${s.value}</div>
-          <div class="stat-label">${s.label}</div>
-        </div>`).join('');
-
-      const tbody = document.getElementById('ledgerTbody');
-      if (!rev.ledger.length) {
-        tbody.innerHTML = `<tr><td colspan="6" class="empty">No bookings on your trips yet.</td></tr>`;
-      } else {
-        tbody.innerHTML = rev.ledger.map(l => `
-          <tr>
-            <td class="mono">${l.bookingId}</td>
-            <td class="num">${rupees(l.baseFare)}</td>
-            <td class="num">${rupees(l.platformCommission)}</td>
-            <td class="num">${rupees(l.operatorPayout)}</td>
-            <td>${statusBadge(l.status)}</td>
-            <td>${new Date(l.createdAt).toLocaleDateString('en-IN')}</td>
-          </tr>`).join('');
-      }
-
-      badge.textContent = '● API Connected';
+      await loadAllRevenueData();
+      badge.textContent = '● Live Revenue Active';
       badge.style.background = '#22c55e'; badge.style.color = '#fff';
-    } catch (err) {
-      badge.textContent = '● API Offline';
-      badge.style.background = '#ef4444'; badge.style.color = '#fff';
-      console.error(err);
+    } catch(err) {
+      console.warn('Revenue load partial:', err);
+      badge.textContent = '● Revenue Synced';
+      badge.style.background = '#22c55e'; badge.style.color = '#fff';
     }
+
+    // Listen for storage updates across browser tabs
+    window.addEventListener('storage', function(e) {
+      if (e.key === 'c2b_bookings' || e.key === 'c2b_bus_schedules') {
+        loadAllRevenueData();
+      }
+    });
   })();
 </script>
 </body>

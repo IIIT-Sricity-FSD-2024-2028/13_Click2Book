@@ -1,0 +1,61 @@
+/*
+ * Global base styles. Each page's own CSS is scoped to its root <div>
+ * (see build/postcss-scope.js), and that root stands in for <body>, so the
+ * real <body> only needs to get out of the way. `:where()` keeps the
+ * page-root default at zero specificity so page CSS always wins.
+ */
+/* Readable base size: every rem-based size in the app scales from this (16px → 18px). */
+html {
+  font-size: 112.5%;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+:where(#root > div) {
+  min-height: 100vh;
+}
+
+/* ── Global polish (zero specificity: page styles always win) ── */
+:where(html) {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  line-height: 1.5;
+}
+
+/* Keyboard users get a clear focus ring; mouse clicks don't. */
+:where(a, button, input, select, textarea, summary, [tabindex], [role='button']):focus-visible {
+  outline: 3px solid rgba(249, 115, 22, 0.55);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+:where(button, [role='button'], select, input[type='checkbox'], input[type='radio'], label[for]) {
+  cursor: pointer;
+}
+:where(button, input, select, textarea):disabled {
+  cursor: not-allowed;
+}
+
+:where(img) {
+  max-width: 100%;
+}
+
+::selection {
+  background: rgba(249, 115, 22, 0.22);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

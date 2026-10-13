@@ -217,8 +217,7 @@
 
     <div class="sc">
       <div class="tabs">
-        <button class="tab on" id="tabBus" onclick="setTab(this,'bus')">🚌 &nbsp;Bus</button>
-        <button class="tab" id="tabTrain" onclick="setTab(this,'train')">🚆 &nbsp;Train</button>
+        <button class="tab on" id="tabBus">🚌 &nbsp;Bus</button>
       </div>
       <div class="srow">
         <div class="sf">
@@ -291,13 +290,13 @@
     </div>
     <div class="dcard" onclick="qs('Delhi','Jaipur')">
       <img class="dimg" src="https://images.unsplash.com/photo-1477587458883-47145ed6736c?w=500&q=75" alt="Delhi to Jaipur" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#1e3a5f,#2d1b69)'"/>
-      <div class="dov"></div><span class="dbadge">TRAIN</span>
-      <div class="dinfo"><span class="dtag">Mix</span><span class="droute">Delhi → Jaipur</span><span class="dprice" id="price-DelhiJaipur">From ₹350 · 4½ hrs</span></div>
+      <div class="dov"></div><span class="dbadge">POPULAR</span>
+      <div class="dinfo"><span class="dtag">Bus</span><span class="droute">Delhi → Jaipur</span><span class="dprice" id="price-DelhiJaipur">From ₹350 · 4½ hrs</span></div>
     </div>
     <div class="dcard" onclick="qs('Hyderabad','Vijayawada')">
       <img class="dimg" src="https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=500&q=75" alt="Hyderabad to Vijayawada" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#1a365d,#0f1f3d)'"/>
-      <div class="dov"></div><span class="dbadge">VANDE BHARAT</span>
-      <div class="dinfo"><span class="dtag">Train</span><span class="droute">Hyderabad → Vijayawada</span><span class="dprice" id="price-HyderabadVijayawada">From ₹320 · 5 hrs</span></div>
+      <div class="dov"></div><span class="dbadge">EXPRESS</span>
+      <div class="dinfo"><span class="dtag">Bus</span><span class="droute">Hyderabad → Vijayawada</span><span class="dprice" id="price-HyderabadVijayawada">From ₹320 · 5 hrs</span></div>
     </div>
     <div class="dcard" onclick="qs('Vijayawada','Tirupati')">
       <img class="dimg" src="https://images.unsplash.com/photo-1560448075-cbc16bb4af8e?w=500&q=75" alt="Vijayawada to Tirupati" loading="lazy" onerror="this.parentElement.style.background='linear-gradient(135deg,#7c2d12,#0f1f3d)'"/>
@@ -490,16 +489,8 @@
     sessionStorage.setItem('searchFrom', from);
     sessionStorage.setItem('searchTo', to);
     sessionStorage.setItem('searchDate', date);
-    if (activeMode === 'train') {
-      // Redirect directly to the train booking page (Guntur → Sullurpeta flow)
-      sessionStorage.setItem('trainFrom', from);
-      sessionStorage.setItem('trainTo', to);
-      sessionStorage.setItem('trainDate', date);
-      window.location.href = '../TrainInterface/available-trains.html';
-    } else {
-      // Bus: go directly to search-trips (no login required to browse)
-      window.location.href = '../customer/search-trips.html';
-    }
+    // Bus: go directly to search-trips (no login required to browse)
+    window.location.href = '../customer/search-trips.html';
   }
 
   function swapCities() {

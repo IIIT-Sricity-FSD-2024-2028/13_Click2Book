@@ -188,6 +188,7 @@ export default function ConfirmTrips({ provider, showToast }) {
   const [trips,   setTrips]   = useState([]);
   const [isLive,  setIsLive]  = useState(false);
   const [loading, setLoading] = useState(true);
+  const [category, setCategory] = useState('All');
 
   // Track which trips were auto-notified so we don't toast repeatedly
   const notifiedRef = useRef(new Set());
@@ -295,6 +296,29 @@ export default function ConfirmTrips({ provider, showToast }) {
     await updateLocation(tripId, lat, lng, status, nextStop, providerId);
   };
 
+  // Filter trips by category
+  const filteredTrips = trips.filter((item) => {
+    if (category === 'All') return true;
+
+    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    const tripId = item?.trip?.tripId;
+    const currentStatus = (statuses[tripId] || item?.trip?.tripStatus || 'SCHEDULED').toUpperCase();
+
+    if (category === 'Completed') {
+      return currentStatus === 'COMPLETED';
+    }
+    if (category === 'On Going') {
+      return currentStatus === 'IN_PROGRESS' || currentStatus === 'ON_GOING' || currentStatus === 'ONGOING';
+    }
+    if (category === 'Pending') {
+      return currentStatus === 'PENDING' || currentStatus === 'SCHEDULED';
+    }
+    if (category === 'Confirmed') {
+      return currentStatus === 'CONFIRMED' || currentStatus === 'SCHEDULED';
+    }
+    return true;
+  });
+
   if (loading) return <div className="empty-state" style={{ paddingTop: '4rem' }}><p>⏳ Loading trips…</p></div>;
 
   return (
@@ -311,18 +335,63 @@ export default function ConfirmTrips({ provider, showToast }) {
         )}
       </div>
 
-      <div style={{ marginBottom: 20 }}>
-        <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 4 }}>Live Trips</h4>
-        <p style={{ fontSize: '0.82rem', color: '#6b7280' }}>
-          Start a trip once the driver departs, then report its location for customer tracking.
-          Trips automatically switch to <strong>In Progress</strong> when their scheduled departure time is reached.
-        </p>
+      {/* Category Dropdown Filter Bar */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '12px',
+        marginBottom: 20,
+        padding: '0.85rem 1.1rem',
+        background: 'var(--white, #fff)',
+        border: '1px solid var(--border, #e5e7eb)',
+        borderRadius: 'var(--radius-md, 8px)',
+        boxShadow: 'var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05))',
+      }}>
+        <div>
+          <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>Live Trips</h4>
+          <p style={{ fontSize: '0.82rem', color: '#6b7280', margin: '2px 0 0 0' }}>
+            Trips automatically switch to <strong>In Progress</strong> when scheduled departure time is reached.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <label htmlFor="tripCategory" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>
+            Category :
+          </label>
+          <select
+            id="tripCategory"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            style={{
+              padding: '7px 14px',
+              borderRadius: '7px',
+              border: '1.5px solid #d1d5db',
+              background: '#ffffff',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              color: '#1f2937',
+              cursor: 'pointer',
+              outline: 'none',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+            }}
+          >
+            <option value="All">All</option>
+            <option value="Completed">Completed</option>
+            <option value="Pending">Pending</option>
+            <option value="Confirmed">Confirmed</option>
+            <option value="On Going">On Going</option>
+          </select>
+        </div>
       </div>
 
-      {trips.length === 0 ? (
-        <div className="empty-state"><p>No trips found for your fleet yet.</p></div>
+      {filteredTrips.length === 0 && (category === 'Completed' || category === 'On Going' || (trips.length === 0 && category === 'All')) ? (
+        <div className="empty-state">
+          <p>{category === 'All' ? 'No trips found for your fleet yet.' : `No trips found in "${category}" category.`}</p>
+        </div>
       ) : (
-        trips.map((item, i) => (
+        filteredTrips.map((item, i) => (
           <TripCard
             key={item?.trip?.tripId || i}
             item={item}
@@ -333,59 +402,63 @@ export default function ConfirmTrips({ provider, showToast }) {
         ))
       )}
 
-      {/* Static fallback cards matching original HTML */}
-      <div className="trip-card">
-        <div style={{ flex: 1 }}>
-          <div className="card-title">
-            SriCity → Chennai
-            <span className="badge badge-orange">Pending</span>
+      {/* Static fallback cards matching original HTML (shown according to selected category) */}
+      {(category === 'All' || category === 'Pending') && (
+        <div className="trip-card">
+          <div style={{ flex: 1 }}>
+            <div className="card-title">
+              SriCity → Chennai
+              <span className="badge badge-orange">Pending</span>
+            </div>
+            <div className="card-meta">
+              <div className="card-meta-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                {new Date().toISOString().split('T')[0]} at 06:00
+              </div>
+              <div className="card-meta-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                MH01AB1234 · Driver: Ramesh Kumar
+              </div>
+              <div className="card-meta-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                32 passengers confirmed
+              </div>
+            </div>
           </div>
-          <div className="card-meta">
-            <div className="card-meta-item">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              {new Date().toISOString().split('T')[0]} at 06:00
-            </div>
-            <div className="card-meta-item">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-              MH01AB1234 · Driver: Ramesh Kumar
-            </div>
-            <div className="card-meta-item">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              32 passengers confirmed
-            </div>
+          <div>
+            <button className="btn btn-outline" style={{ color: '#f59e0b', borderColor: '#fde68a' }}>⚠ Pending</button>
           </div>
         </div>
-        <div>
-          <button className="btn btn-outline" style={{ color: '#f59e0b', borderColor: '#fde68a' }}>⚠ Pending</button>
-        </div>
-      </div>
+      )}
 
-      <div className="trip-card confirmed">
-        <div style={{ flex: 1 }}>
-          <div className="card-title">
-            Pune → Mumbai
-            <span className="badge badge-green">Confirmed</span>
+      {(category === 'All' || category === 'Confirmed') && (
+        <div className="trip-card confirmed">
+          <div style={{ flex: 1 }}>
+            <div className="card-title">
+              Pune → Mumbai
+              <span className="badge badge-green">Confirmed</span>
+            </div>
+            <div className="card-meta">
+              <div className="card-meta-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                {new Date().toISOString().split('T')[0]} at 20:00
+              </div>
+              <div className="card-meta-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                MH02CD5678 · Driver: Rama Krishna
+              </div>
+              <div className="card-meta-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                15 passengers confirmed
+              </div>
+            </div>
           </div>
-          <div className="card-meta">
-            <div className="card-meta-item">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              {new Date().toISOString().split('T')[0]} at 20:00
-            </div>
-            <div className="card-meta-item">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-              MH02CD5678 · Driver: Rama Krishna
-            </div>
-            <div className="card-meta-item">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              15 passengers confirmed
-            </div>
+          <div className="text-success">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Trip Confirmed
           </div>
         </div>
-        <div className="text-success">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          Trip Confirmed
-        </div>
-      </div>
+      )}
     </div>
   );
 }

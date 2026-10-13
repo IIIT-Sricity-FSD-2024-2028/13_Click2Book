@@ -1,0 +1,237 @@
+import { Link } from 'react-router-dom';
+import usePageTitle from '../hooks/usePageTitle';
+import BusLogoIcon from '../components/BusLogoIcon';
+import './StaffAccess.css';
+
+export default function StaffAccess() {
+  usePageTitle('Staff Access Portal – Click2Book');
+
+  return (
+    <div className="pg-landing-staff-access">
+      {/* background dots */}
+      <div className="dot" style={{ width: '70px', height: '70px', bottom: '15%', left: '8%', animationDuration: '18s' }} />
+      <div
+        className="dot"
+        style={{ width: '45px', height: '45px', bottom: '40%', right: '10%', animationDuration: '22s', animationDelay: '4s' }}
+      />
+      <div
+        className="dot"
+        style={{ width: '25px', height: '25px', bottom: '65%', left: '22%', animationDuration: '16s', animationDelay: '2s' }}
+      />
+      <div
+        className="dot"
+        style={{ width: '55px', height: '55px', bottom: '25%', right: '28%', animationDuration: '20s', animationDelay: '6s' }}
+      />
+      {/* HOME BTN */}
+      <Link to="/" className="home-btn">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="white"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <polyline points="9 22 9 12 15 12 15 22" />
+        </svg>{' '}
+        Home
+      </Link>
+      {/* MAIN CARD */}
+      <div className="card">
+        {/* Card Header */}
+        <div className="card-header">
+          <Link to="/" className="logo-row" title="Go to home page" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div className="logo-icon">
+              <BusLogoIcon size={26} />
+            </div>
+            <span className="logo-name">CLICK2BOOK</span>
+          </Link>
+          <div className="portal-badge">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>{' '}
+            Staff Access Portal
+          </div>
+        </div>
+        {/* Card Body */}
+        <div className="card-body">
+          <h1 className="body-title">Welcome to Staff Portal</h1>
+          <p className="body-sub">Select your role to access your dedicated dashboard</p>
+          <div className="roles-grid">
+            {/* Admin portal */}
+            <Link to="/admin/login" className="role-card admin">
+              <div className="role-icon-wrap">
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#3b82f6"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </div>
+              <div className="role-name">Admin</div>
+              <p className="role-desc">System administration & full control over users, bookings and platform settings</p>
+              <span className="role-link">
+                Access Portal{' '}
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M5 12h14m-6-7 7 7-7 7" />
+                </svg>
+              </span>
+            </Link>
+            {/* Customer Support portal */}
+            <Link to="/support/login" className="role-card support">
+              <div className="role-icon-wrap">
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#8b5cf6"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+                  <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z" />
+                  <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+                </svg>
+              </div>
+              <div className="role-name">Customer Support</div>
+              <p className="role-desc">Handle queries, manage tickets & assist travelers with their bookings and issues</p>
+              <span className="role-link">
+                Access Portal{' '}
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M5 12h14m-6-7 7 7-7 7" />
+                </svg>
+              </span>
+            </Link>
+            {/* Service Provider portal */}
+            <Link to="/provider/login" className="role-card provider">
+              <div className="role-icon-wrap">
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#f97316"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="2" y="8" width="20" height="12" rx="3" />
+                  <rect x="5" y="5" width="14" height="5" rx="2" />
+                  <circle cx="6.5" cy="20" r="1.5" />
+                  <circle cx="17.5" cy="20" r="1.5" />
+                </svg>
+              </div>
+              <div className="role-name">Service Provider</div>
+              <p className="role-desc">Manage trips, schedules, seat maps & fleet performance for your bus services</p>
+              <span className="role-link">
+                Access Portal{' '}
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M5 12h14m-6-7 7 7-7 7" />
+                </svg>
+              </span>
+            </Link>
+            {/* Super Admin portal */}
+            <Link to="/super-admin/login" className="role-card superadmin" id="superAdminCard">
+              <div className="role-icon-wrap">
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#0b2447"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <ellipse cx="12" cy="5" rx="9" ry="3" />
+                  <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                  <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" />
+                </svg>
+              </div>
+              <div className="role-name">Super Admin</div>
+              <p className="role-desc">Platform data console: manage every table, edit or remove any record and reset demo data</p>
+              <span className="role-link">
+                Access Portal{' '}
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M5 12h14m-6-7 7 7-7 7" />
+                </svg>
+              </span>
+            </Link>
+          </div>
+          {/* Security Notice */}
+          <div className="security-notice">
+            <div className="sec-icon">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#f97316"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+            </div>
+            <div className="sec-text">
+              <strong>Secure Staff Access</strong>{' '}
+              <span>This portal is for authorized staff only. All activities are monitored and logged for security purposes.</span>
+            </div>
+          </div>
+          {/* Customer Link */}
+          <div className="customer-link">
+            Looking for customer login? <Link to="/login">Go to Customer Login →</Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

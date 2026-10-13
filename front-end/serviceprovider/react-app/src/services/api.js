@@ -119,35 +119,100 @@ export function getDashboardData() {
 export function getLocalSchedules() {
   try {
     const raw = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-    return raw.map((s, i) => ({
-      tripId:         s.id || `LOCAL-${i + 1}`,
-      source:         s.from || '—',
-      destination:    s.to   || '—',
-      via:            s.via  || '',
-      departureTime:  s.departureTime || '—',
-      arrivalTime:    s.arrivalTime   || '—',
-      journeyDate:    s.journeyDate || (s.addedAt ? s.addedAt.split('T')[0] : '—'),
-      busName:        s.busName || '—',
-      vehicleType:    s.busType || '—',
-      availableSeats: s.availableSeats != null ? s.availableSeats : Math.max(0, (s.totalSeats || 0) - (s.bookedSeats || 0)),
-      totalSeats:     s.totalSeats || 0,
-      fare:           s.fare || 0,
-      status:         'SCHEDULED',
-      isNew:          true,
-    }));
+    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    const completions = JSON.parse(localStorage.getItem('c2b_trip_completions') || '{}');
+    return raw.map((s, i) => {
+      const tripId = s.id || s.tripId || `LOCAL-${i + 1}`;
+      const status = statuses[tripId] || 'SCHEDULED';
+      const totalSeats = s.totalSeats || 40;
+      const bookedSeats = s.bookedSeats || 0;
+      const availableSeats = s.availableSeats != null ? s.availableSeats : Math.max(0, totalSeats - bookedSeats);
+      const fare = s.fare || 0;
+      const revenue = s.revenue != null ? s.revenue : (bookedSeats * fare);
+      return {
+        tripId,
+        source:         s.from || '—',
+        destination:    s.to   || '—',
+        via:            s.via  || '',
+        departureTime:  s.departureTime || '—',
+        arrivalTime:    s.arrivalTime   || '—',
+        journeyDate:    s.journeyDate || (s.addedAt ? s.addedAt.split('T')[0] : '—'),
+        busName:        s.busName || '—',
+        vehicleType:    s.busType || '—',
+        availableSeats,
+        totalSeats,
+        bookedSeats,
+        fare,
+        revenue,
+        status,
+        isNew:          true,
+        completedAt:    completions[tripId] || s.completedAt || null,
+        addedAt:        s.addedAt || null,
+      };
+    });
   } catch (e) { return []; }
 }
 
 export async function fetchSchedulesFromAPI() {
   const localTrips = getLocalSchedules();
+  const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+  const completions = JSON.parse(localStorage.getItem('c2b_trip_completions') || '{}');
+
+  // Hardcoded sample trips for offline demo with realistic dates across the last few days
+  const now = Date.now();
+  const dayMs = 86400000;
+  const sampleFallback = [
+    {
+      tripId: 'T001', source: 'SriCity', destination: 'Chennai', via: 'Expressway',
+      departureTime: '06:00', arrivalTime: '09:30',
+      journeyDate: new Date(now).toISOString().split('T')[0],
+      busName: 'Volvo A/C B12', vehicleType: 'Volvo AC', totalSeats: 40, bookedSeats: 32, availableSeats: 8,
+      fare: 650, revenue: 20800, status: statuses['T001'] || 'SCHEDULED', isNew: false,
+      completedAt: completions['T001'] || null,
+    },
+    {
+      tripId: 'T002', source: 'Pune', destination: 'Mumbai', via: 'Lonavala',
+      departureTime: '20:00', arrivalTime: '23:30',
+      journeyDate: new Date(now).toISOString().split('T')[0],
+      busName: 'Scania AC', vehicleType: 'AC Seater', totalSeats: 45, bookedSeats: 28, availableSeats: 17,
+      fare: 500, revenue: 14000, status: statuses['T002'] || 'SCHEDULED', isNew: false,
+      completedAt: completions['T002'] || null,
+    },
+    {
+      tripId: 'T003', source: 'Tada', destination: 'Hyderabad', via: 'Nellore',
+      departureTime: '18:00', arrivalTime: '06:00',
+      journeyDate: new Date(now - 2 * dayMs).toISOString().split('T')[0],
+      busName: 'Garuda Plus AC', vehicleType: 'Volvo AC', totalSeats: 42, bookedSeats: 40, availableSeats: 2,
+      fare: 900, revenue: 36000, status: statuses['T003'] || 'COMPLETED', isNew: false,
+      completedAt: completions['T003'] || new Date(now - 2 * dayMs).toISOString(),
+    },
+    {
+      tripId: 'T004', source: 'Bangalore', destination: 'Chennai', via: 'Hosur',
+      departureTime: '14:00', arrivalTime: '20:30',
+      journeyDate: new Date(now - 4 * dayMs).toISOString().split('T')[0],
+      busName: 'InterCity Express', vehicleType: 'Sleeper AC', totalSeats: 36, bookedSeats: 34, availableSeats: 2,
+      fare: 750, revenue: 25500, status: statuses['T004'] || 'COMPLETED', isNew: false,
+      completedAt: completions['T004'] || new Date(now - 4 * dayMs).toISOString(),
+    },
+  ];
+
   try {
     const apiData = await spFetch('/trips', {});
     if (apiData?.length && (apiData[0]?.source || apiData[0]?.route)) {
-      return { data: [...apiData, ...localTrips], isLive: true };
+      const mappedApi = apiData.map((t) => ({
+        ...t,
+        status: statuses[t.tripId] || t.status || 'SCHEDULED',
+        completedAt: completions[t.tripId] || t.completedAt || null,
+      }));
+      return { data: [...mappedApi, ...localTrips], isLive: true };
     }
-    return { data: localTrips, isLive: false };
+    const localIds = new Set(localTrips.map((lt) => lt.tripId));
+    const extraSample = sampleFallback.filter((st) => !localIds.has(st.tripId));
+    return { data: [...localTrips, ...extraSample], isLive: false };
   } catch {
-    return { data: localTrips, isLive: false };
+    const localIds = new Set(localTrips.map((lt) => lt.tripId));
+    const extraSample = sampleFallback.filter((st) => !localIds.has(st.tripId));
+    return { data: [...localTrips, ...extraSample], isLive: false };
   }
 }
 
@@ -255,6 +320,26 @@ export function updateLocalSchedule(tripId, { from, to, via, dep, arr, busName, 
   };
   localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
   return true;
+}
+
+/* ── Delete a locally-stored schedule ── */
+export function deleteLocalSchedule(tripId) {
+  try {
+    const raw = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const filtered = raw.filter((s) => s.id !== tripId && s.tripId !== tripId);
+    localStorage.setItem('c2b_bus_schedules', JSON.stringify(filtered));
+
+    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    delete statuses[tripId];
+    localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+
+    const completions = JSON.parse(localStorage.getItem('c2b_trip_completions') || '{}');
+    delete completions[tripId];
+    localStorage.setItem('c2b_trip_completions', JSON.stringify(completions));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /* ── Seat Management ── */
@@ -406,6 +491,10 @@ export async function endTrip(tripId) {
   const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
   statuses[tripId] = 'COMPLETED';
   localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+
+  const completions = JSON.parse(localStorage.getItem('c2b_trip_completions') || '{}');
+  completions[tripId] = new Date().toISOString();
+  localStorage.setItem('c2b_trip_completions', JSON.stringify(completions));
 }
 
 export async function updateLocation(tripId, lat, lng, status, nextStop, providerId) {

@@ -246,13 +246,14 @@ export function getSeatData() {
     type:          s.busType || 'AC',
     total:         s.totalSeats || 40,
     bookedSeatList: [],
+    passengerMap:   {}, // seatId → { name, phone, bookingId, bookingDate, email }
   }));
 
   if (!buses.length) {
     buses = [
-      { id: 'T001', tripId: 'T001', route: 'SriCity → Chennai', from: 'SriCity', to: 'Chennai', time: '06:00 → 09:30', name: 'Volvo A/C B12', type: 'AC', total: 40, bookedSeatList: [] },
-      { id: 'T002', tripId: 'T002', route: 'Tada → Vizag',      from: 'Tada',    to: 'Vizag',    time: '14:00 → 17:30', name: 'Scania AC',     type: 'AC', total: 45, bookedSeatList: [] },
-      { id: 'T003', tripId: 'T003', route: 'Pune → Mumbai',     from: 'Pune',    to: 'Mumbai',   time: '20:00 → 23:30', name: 'Sleeper Bus',   type: 'Sleeper', total: 36, bookedSeatList: [] },
+      { id: 'T001', tripId: 'T001', route: 'SriCity → Chennai', from: 'SriCity', to: 'Chennai', time: '06:00 → 09:30', name: 'Volvo A/C B12', type: 'AC', total: 40, bookedSeatList: [], passengerMap: {} },
+      { id: 'T002', tripId: 'T002', route: 'Tada → Vizag',      from: 'Tada',    to: 'Vizag',    time: '14:00 → 17:30', name: 'Scania AC',     type: 'AC', total: 45, bookedSeatList: [], passengerMap: {} },
+      { id: 'T003', tripId: 'T003', route: 'Pune → Mumbai',     from: 'Pune',    to: 'Mumbai',   time: '20:00 → 23:30', name: 'Sleeper Bus',   type: 'Sleeper', total: 36, bookedSeatList: [], passengerMap: {} },
     ];
   }
 
@@ -271,7 +272,23 @@ export function getSeatData() {
         (b.busName && bus.name?.toLowerCase() === b.busName.toLowerCase()) ||
         (b.from && b.to && bus.from?.toLowerCase() === b.from.toLowerCase() && bus.to?.toLowerCase() === b.to.toLowerCase())
     );
-    if (match) match.bookedSeatList.push(...seatArr);
+    if (match) {
+      match.bookedSeatList.push(...seatArr);
+      // Build passenger map keyed by seatId
+      const passengerInfo = {
+        name:        b.passengerName || b.name || b.userName || b.customerName || 'Passenger',
+        phone:       b.phone || b.mobile || b.contactNumber || b.passengerPhone || '—',
+        email:       b.email || b.passengerEmail || '—',
+        bookingId:   b.bookingId,
+        bookingDate: b.bookingDate || b.createdAt || b.bookedAt || b.addedAt || '—',
+        seats:       seatArr,
+        fare:        b.subtotal || b.fare || b.amount || '—',
+        status:      b.status || 'CONFIRMED',
+      };
+      seatArr.forEach((seatId) => {
+        match.passengerMap[seatId] = passengerInfo;
+      });
+    }
   });
 
   return buses;

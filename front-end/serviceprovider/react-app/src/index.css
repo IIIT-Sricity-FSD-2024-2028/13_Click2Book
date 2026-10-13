@@ -957,6 +957,132 @@ select.form-control { cursor: pointer; }
 .seat-cell.avail { background: #fff; color: #16a34a; border: 2px solid #86efac; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
 .seat-cell.booked { background: var(--danger-bg); color: #dc2626; border: 2px solid #f87171; }
 .seat-tag { font-size: 0.55rem; font-weight: 700; text-transform: uppercase; }
+.seat-clickable { cursor: pointer !important; }
+.seat-clickable:hover { transform: scale(1.08); box-shadow: 0 3px 10px rgba(239,68,68,0.3) !important; }
+.seat-active { outline: 3px solid #f97316 !important; outline-offset: 2px; transform: scale(1.08); }
+
+/* ── Wider seat modal (split layout) ── */
+.seat-modal-wide { max-width: 860px !important; }
+.seat-modal-wide.with-drawer { max-width: 1060px !important; }
+
+.seat-modal-body {
+  display: flex;
+  overflow: hidden;
+  flex: 1;
+}
+.seat-modal-body .modal-body-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* ── Seat Occupancy Summary Strip ── */
+.seat-summary-strip {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 14px 0 4px;
+  border-top: 1px solid var(--border);
+}
+.seat-summary-item {
+  flex: 1;
+  text-align: center;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 10px 6px;
+  border: 1px solid var(--border);
+}
+.seat-summary-item.green { border-color: #86efac; background: #f0fdf4; }
+.seat-summary-item.red   { border-color: #fca5a5; background: #fff1f2; }
+.seat-summary-item.blue  { border-color: #93c5fd; background: #eff6ff; }
+.seat-summary-item.orange{ border-color: #fdba74; background: #fff7ed; }
+.seat-summary-num {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.seat-summary-lbl {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+/* ── Passenger Drawer ── */
+.pax-drawer {
+  width: 270px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  animation: slideInRight 0.22s ease;
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.pax-drawer-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--white);
+}
+.pax-drawer-title { font-size: 1rem; font-weight: 800; color: #0f172a; }
+.pax-drawer-sub   { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+
+.pax-info-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 18px 4px;
+  padding: 5px 12px;
+  background: var(--success-bg);
+  border: 1px solid #a7f3d0;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #15803d;
+  width: fit-content;
+}
+.pax-status-dot {
+  width: 7px; height: 7px;
+  background: var(--success);
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+.pax-field-list { padding: 8px 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+.pax-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.pax-field:last-child { border-bottom: none; }
+.pax-field-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pax-field-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  word-break: break-all;
+}
+.pax-field-value.mono { font-family: monospace; font-size: 0.8rem; color: var(--primary-hover); }
 
 /* ───────────────────────────────────────────
    CONFIRM TRIPS

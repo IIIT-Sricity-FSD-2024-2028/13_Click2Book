@@ -12,11 +12,17 @@ function hasDepartureTimePassed(item) {
 
     if (!journeyDate || !departureTime) return false;
 
-    // Build a Date for departure
-    const [hh, mm]     = departureTime.split(':').map(Number);
-    const depDate      = new Date(journeyDate);
+    const dateParts = String(journeyDate).split('T')[0].split('-').map(Number);
+    if (dateParts.length < 3) return false;
+    const [year, month, day] = dateParts;
+
+    const cleanTime = String(departureTime).split('→')[0].trim();
+    const timeParts = cleanTime.split(':').map(Number);
+    const hh = timeParts[0] || 0;
+    const mm = timeParts[1] || 0;
+
+    const depDate = new Date(year, month - 1, day, hh, mm, 0, 0);
     if (isNaN(depDate.getTime())) return false;
-    depDate.setHours(hh, mm, 0, 0);
 
     return new Date() >= depDate;
   } catch {
@@ -29,8 +35,9 @@ function autoStartDueTrips(trips) {
   const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
   let changed = false;
 
-  trips.forEach((item) => {
+  (trips || []).forEach((item) => {
     const tripId       = item?.trip?.tripId;
+    if (!tripId) return;
     const currentStatus = statuses[tripId] || item?.trip?.tripStatus || 'SCHEDULED';
 
     if (currentStatus === 'SCHEDULED' && hasDepartureTimePassed(item)) {
@@ -46,7 +53,7 @@ function autoStartDueTrips(trips) {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   TripCard (unchanged logic, only reads localStatus from fresh storage)
+   TripCard (reads localStatus from fresh storage & updates in sync)
    ───────────────────────────────────────────────────────────── */
 function TripCard({ item, onStart, onEnd, onUpdateLocation }) {
   const { trip, schedule, route, vehicle } = item;
@@ -56,15 +63,15 @@ function TripCard({ item, onStart, onEnd, onUpdateLocation }) {
   const [nextStop, setNextStop] = useState('');
   const [localStatus, setLocalStatus] = useState(() => {
     const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
-    return statuses[trip?.tripId] || trip?.tripStatus || trip?.tripId?.startsWith('T') ? (JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}')[trip?.tripId] || trip?.tripStatus || 'SCHEDULED') : 'SCHEDULED';
+    return statuses[trip?.tripId] || trip?.tripStatus || 'SCHEDULED';
   });
 
-  // Sync localStatus whenever localStorage may have been updated by the auto-start
+  // Sync localStatus whenever localStorage may have been updated by auto-start or trip updates
   useEffect(() => {
     const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
     const fresh = statuses[trip?.tripId] || trip?.tripStatus || 'SCHEDULED';
     setLocalStatus(fresh);
-  }, [trip]);
+  }, [trip, trip?.tripId, trip?.tripStatus]);
 
   const routeLabel = route
     ? `${route.source} → ${route.destination}`
@@ -192,16 +199,39 @@ export default function ConfirmTrips({ provider, showToast }) {
 
   const load = useCallback(async () => {
     const { data, isLive: live } = await fetchLiveTrips(providerId);
-    setTrips(data);
+    autoStartDueTrips(data);
+    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    const synced = (data || []).map((item) => {
+      const tid = item?.trip?.tripId;
+      return {
+        ...item,
+        trip: {
+          ...item.trip,
+          tripStatus: statuses[tid] || item?.trip?.tripStatus || 'SCHEDULED',
+        },
+      };
+    });
+    setTrips(synced);
     setIsLive(live);
     setLoading(false);
-    return data;
+    return synced;
   }, [providerId]);
 
   // ── Initial load ──
   useEffect(() => { load(); }, [load]);
 
-  // ── Auto-start checker: runs every 60 s ──
+  // ── Listen for changes (e.g. schedules added or edited) & window focus ──
+  useEffect(() => {
+    const handleSync = () => { load(); };
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('focus', handleSync);
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('focus', handleSync);
+    };
+  }, [load]);
+
+  // ── Auto-start checker: checks trips and auto-starts parallelly when departure time is reached ──
   useEffect(() => {
     const check = () => {
       if (!trips.length) return;
@@ -228,18 +258,28 @@ export default function ConfirmTrips({ provider, showToast }) {
           }
         });
 
-        // Force re-render TripCards by refreshing trips array in-place
-        setTrips((prev) => [...prev]);
+        // Force parallel re-render of TripCards by updating trips with fresh statuses
+        setTrips((prev) =>
+          prev.map((item) => {
+            const tid = item?.trip?.tripId;
+            return {
+              ...item,
+              trip: {
+                ...item.trip,
+                tripStatus: statuses[tid] || item?.trip?.tripStatus || 'SCHEDULED',
+              },
+            };
+          })
+        );
       }
     };
 
-    // Run immediately on mount/trips change
+    // Run immediately on trips update
     check();
 
-    const interval = setInterval(check, 60_000); // check every 60 s
+    const interval = setInterval(check, 5000); // Check every 5s so trips update parallelly as soon as time arrives
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trips.length, showToast]);
+  }, [trips, showToast]);
 
   const handleStart = async (tripId) => {
     await startTrip(tripId);

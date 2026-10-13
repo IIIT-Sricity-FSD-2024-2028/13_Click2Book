@@ -321,8 +321,47 @@ export function getSeatData() {
   return buses;
 }
 
+function getLocalTripsForConfirm(localStatuses) {
+  try {
+    const localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    return localSchedules.map((s, idx) => {
+      const tripId = s.tripId || s.id || `LOCAL_T_${idx + 1}`;
+      const status = localStatuses[tripId] || 'SCHEDULED';
+      return {
+        trip: {
+          tripId,
+          tripStatus: status,
+          vehicleId: s.vehicleId || s.busName || `BUS-${idx + 1}`,
+        },
+        schedule: {
+          scheduleId: s.scheduleId || tripId,
+          journeyDate: s.journeyDate || (s.addedAt ? s.addedAt.split('T')[0] : new Date().toISOString().split('T')[0]),
+          departureTime: s.departureTime || '08:00',
+          arrivalTime: s.arrivalTime || '12:00',
+          via: s.via || '',
+          from: s.from || 'Origin',
+          to: s.to || 'Destination',
+        },
+        route: {
+          source: s.from || 'Origin',
+          destination: s.to || 'Destination',
+        },
+        vehicle: {
+          vehicleNumber: s.vehicleId || s.busName || `BUS-${idx + 1}`,
+          busName: s.busName || 'Express Bus',
+        },
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 /* ── Confirm Trips / Live Trips ── */
 export async function fetchLiveTrips(providerId) {
+  const localStatuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+  const localTrips = getLocalTripsForConfirm(localStatuses);
+
   try {
     const schedules = await spFetch(`/schedules?providerId=${encodeURIComponent(providerId)}`);
     const scheduleIds = (schedules || []).map((s) => s.scheduleId);
@@ -337,14 +376,17 @@ export async function fetchLiveTrips(providerId) {
         } catch { return { trip, schedule: null, vehicle: null }; }
       })
     );
-    return { data: detailed, isLive: true };
+    const existingIds = new Set(detailed.map((d) => d?.trip?.tripId).filter(Boolean));
+    const extraLocal = localTrips.filter((lt) => !existingIds.has(lt.trip.tripId));
+    return { data: [...detailed, ...extraLocal], isLive: true };
   } catch {
-    const localStatuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
     const mockTrips = [
       { trip: { tripId: 'T001', tripStatus: localStatuses['T001'] || 'SCHEDULED', vehicleId: 'MH01AB1234' }, schedule: { journeyDate: new Date().toISOString().split('T')[0], departureTime: '06:00', via: 'Expressway' }, route: { source: 'SriCity', destination: 'Chennai' }, vehicle: { vehicleNumber: 'MH01AB1234' } },
       { trip: { tripId: 'T002', tripStatus: localStatuses['T002'] || 'SCHEDULED', vehicleId: 'MH02CD5678' }, schedule: { journeyDate: new Date().toISOString().split('T')[0], departureTime: '20:00', via: 'Lonavala' }, route: { source: 'Pune', destination: 'Mumbai' }, vehicle: { vehicleNumber: 'MH02CD5678' } },
     ];
-    return { data: mockTrips, isLive: false };
+    const existingMockIds = new Set(mockTrips.map((m) => m.trip.tripId));
+    const extraLocal = localTrips.filter((lt) => !existingMockIds.has(lt.trip.tripId));
+    return { data: [...mockTrips, ...extraLocal], isLive: false };
   }
 }
 

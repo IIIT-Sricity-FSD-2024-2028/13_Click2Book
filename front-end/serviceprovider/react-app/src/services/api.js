@@ -230,6 +230,33 @@ function _saveToLocalStorage({ tripId, vehicleId, scheduleId, providerId, journe
   localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
 }
 
+/* ── Edit / Update a locally-stored schedule ── */
+export function updateLocalSchedule(tripId, { from, to, via, dep, arr, busName, busType, seats, fare, journeyDate }) {
+  const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+  const idx = schedules.findIndex((s) => (s.id || s.tripId) === tripId);
+  if (idx === -1) return false;
+
+  const existing = schedules[idx];
+  const prevTotal  = existing.totalSeats || 0;
+  const bookedSeats = existing.bookedSeats || 0;
+  const newTotal   = seats;
+  // keep availableSeats proportional (never below booked count)
+  const newAvail   = Math.max(0, newTotal - bookedSeats);
+
+  schedules[idx] = {
+    ...existing,
+    from, to, via,
+    departureTime: dep, arrivalTime: arr, journeyDate,
+    busName, busType,
+    totalSeats: newTotal,
+    availableSeats: newAvail,
+    fare,
+    updatedAt: new Date().toISOString(),
+  };
+  localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
+  return true;
+}
+
 /* ── Seat Management ── */
 export function getSeatData() {
   const localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');

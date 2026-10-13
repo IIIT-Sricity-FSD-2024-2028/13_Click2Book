@@ -838,6 +838,19 @@ select.form-control { cursor: pointer; }
 .card-seats.orange { color: var(--warning); }
 .card-seats.red { color: var(--danger); }
 
+/* ── Edit Schedule Modal ── */
+.edit-sched-modal {
+  max-width: 620px !important;
+}
+.edit-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
 /* ───────────────────────────────────────────
    SEAT MANAGEMENT
    ─────────────────────────────────────────── */

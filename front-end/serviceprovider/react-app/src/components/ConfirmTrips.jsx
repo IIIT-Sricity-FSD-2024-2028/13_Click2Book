@@ -1,6 +1,53 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchLiveTrips, startTrip, endTrip, updateLocation } from '../services/api';
 
+/* ── Helper: check if a trip's departure time has passed ── */
+function hasDepartureTimePassed(item) {
+  try {
+    const schedule = item?.schedule;
+    if (!schedule) return false;
+
+    const journeyDate   = schedule.journeyDate;    // "YYYY-MM-DD"
+    const departureTime = schedule.departureTime;  // "HH:MM"
+
+    if (!journeyDate || !departureTime) return false;
+
+    // Build a Date for departure
+    const [hh, mm]     = departureTime.split(':').map(Number);
+    const depDate      = new Date(journeyDate);
+    if (isNaN(depDate.getTime())) return false;
+    depDate.setHours(hh, mm, 0, 0);
+
+    return new Date() >= depDate;
+  } catch {
+    return false;
+  }
+}
+
+/* ── Auto-start any SCHEDULED trip whose departure time has passed ── */
+function autoStartDueTrips(trips) {
+  const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+  let changed = false;
+
+  trips.forEach((item) => {
+    const tripId       = item?.trip?.tripId;
+    const currentStatus = statuses[tripId] || item?.trip?.tripStatus || 'SCHEDULED';
+
+    if (currentStatus === 'SCHEDULED' && hasDepartureTimePassed(item)) {
+      statuses[tripId] = 'IN_PROGRESS';
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+  }
+  return changed;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TripCard (unchanged logic, only reads localStatus from fresh storage)
+   ───────────────────────────────────────────────────────────── */
 function TripCard({ item, onStart, onEnd, onUpdateLocation }) {
   const { trip, schedule, route, vehicle } = item;
   const [lat, setLat] = useState('');
@@ -12,9 +59,11 @@ function TripCard({ item, onStart, onEnd, onUpdateLocation }) {
     return statuses[trip?.tripId] || trip?.tripStatus || trip?.tripId?.startsWith('T') ? (JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}')[trip?.tripId] || trip?.tripStatus || 'SCHEDULED') : 'SCHEDULED';
   });
 
+  // Sync localStatus whenever localStorage may have been updated by the auto-start
   useEffect(() => {
     const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
-    setLocalStatus(statuses[trip?.tripId] || trip?.tripStatus || 'SCHEDULED');
+    const fresh = statuses[trip?.tripId] || trip?.tripStatus || 'SCHEDULED';
+    setLocalStatus(fresh);
   }, [trip]);
 
   const routeLabel = route
@@ -57,7 +106,7 @@ function TripCard({ item, onStart, onEnd, onUpdateLocation }) {
     } catch (e) { alert('Could not update: ' + e.message); }
   };
 
-  const badgeClass = localStatus === 'IN_PROGRESS' ? 'badge-green' : localStatus === 'COMPLETED' ? 'badge-green' : 'badge-orange';
+  const badgeClass  = localStatus === 'IN_PROGRESS' ? 'badge-green' : localStatus === 'COMPLETED' ? 'badge-green' : 'badge-orange';
   const statusLabel = localStatus === 'IN_PROGRESS' ? '● Live / In Progress' : localStatus === 'COMPLETED' ? '✓ Completed' : 'Scheduled';
 
   return (
@@ -66,6 +115,12 @@ function TripCard({ item, onStart, onEnd, onUpdateLocation }) {
         <div className="card-title">
           {routeLabel}
           <span className={`badge ${badgeClass}`}>{statusLabel}</span>
+          {/* Auto-started indicator */}
+          {localStatus === 'IN_PROGRESS' && hasDepartureTimePassed(item) && (
+            <span className="badge badge-orange" style={{ fontSize: '0.68rem', background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' }}>
+              ⏰ Auto-started
+            </span>
+          )}
         </div>
         <div className="card-meta">
           <div className="card-meta-item">
@@ -119,10 +174,16 @@ function TripCard({ item, onStart, onEnd, onUpdateLocation }) {
   );
 }
 
+/* ─────────────────────────────────────────────────────────────
+   Main ConfirmTrips page
+   ───────────────────────────────────────────────────────────── */
 export default function ConfirmTrips({ provider, showToast }) {
-  const [trips, setTrips] = useState([]);
-  const [isLive, setIsLive] = useState(false);
+  const [trips,   setTrips]   = useState([]);
+  const [isLive,  setIsLive]  = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Track which trips were auto-notified so we don't toast repeatedly
+  const notifiedRef = useRef(new Set());
 
   const providerId = provider?.id
     || sessionStorage.getItem('c2b_loggedInId')
@@ -134,9 +195,51 @@ export default function ConfirmTrips({ provider, showToast }) {
     setTrips(data);
     setIsLive(live);
     setLoading(false);
+    return data;
   }, [providerId]);
 
+  // ── Initial load ──
   useEffect(() => { load(); }, [load]);
+
+  // ── Auto-start checker: runs every 60 s ──
+  useEffect(() => {
+    const check = () => {
+      if (!trips.length) return;
+
+      const changed = autoStartDueTrips(trips);
+
+      if (changed) {
+        // Find newly auto-started trips to toast
+        const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+        trips.forEach((item) => {
+          const tripId = item?.trip?.tripId;
+          if (
+            statuses[tripId] === 'IN_PROGRESS' &&
+            !notifiedRef.current.has(tripId) &&
+            hasDepartureTimePassed(item)
+          ) {
+            const route = item?.route
+              ? `${item.route.source} → ${item.route.destination}`
+              : item?.schedule?.from && item?.schedule?.to
+              ? `${item.schedule.from} → ${item.schedule.to}`
+              : tripId;
+            showToast(`⏰ Trip auto-started: ${route} — departure time reached!`, 'info');
+            notifiedRef.current.add(tripId);
+          }
+        });
+
+        // Force re-render TripCards by refreshing trips array in-place
+        setTrips((prev) => [...prev]);
+      }
+    };
+
+    // Run immediately on mount/trips change
+    check();
+
+    const interval = setInterval(check, 60_000); // check every 60 s
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trips.length, showToast]);
 
   const handleStart = async (tripId) => {
     await startTrip(tripId);
@@ -170,7 +273,10 @@ export default function ConfirmTrips({ provider, showToast }) {
 
       <div style={{ marginBottom: 20 }}>
         <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 4 }}>Live Trips</h4>
-        <p style={{ fontSize: '0.82rem', color: '#6b7280' }}>Start a trip once the driver departs, then report its location for customer tracking</p>
+        <p style={{ fontSize: '0.82rem', color: '#6b7280' }}>
+          Start a trip once the driver departs, then report its location for customer tracking.
+          Trips automatically switch to <strong>In Progress</strong> when their scheduled departure time is reached.
+        </p>
       </div>
 
       {trips.length === 0 ? (

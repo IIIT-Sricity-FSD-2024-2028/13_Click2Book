@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Support Dashboard – Click2Book</title>
+  
+  
+  <script>(function(){var l=document.createElement('link');l.rel='stylesheet';l.href=location.pathname.split('/supportagent')[0]+'/supportagent/style.css';document.head.appendChild(l);})();</script>
+</head>
+<body>
+<script>document.addEventListener('DOMContentLoaded',function(){var p=location.pathname.split('/supportagent')[0];document.querySelectorAll('a[href^="/supportagent/"]').forEach(function(a){a.href=p+a.getAttribute('href');});});</script>
+<!-- Notification Popup -->
+<div class="notif-overlay" id="notifOverlay" onclick="closeNotif()"></div>
+<div class="notif-panel" id="notifPanel" style="display:none;">
+  <div class="notif-panel-header">
+    <h3>Notifications <span class="notif-count-badge">4</span></h3>
+    <button class="notif-close-btn" onclick="closeNotif()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="notif-list">
+    <div class="notif-item unread"><div class="notif-icon-wrap urgent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="notif-text"><h4>New High-Priority Ticket</h4><p>TKT006 – Seat double booked on Rajdhani Express. Priority: High</p><time>Just now</time></div></div>
+    <div class="notif-item unread"><div class="notif-icon-wrap warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="notif-text"><h4>SLA Breach Warning</h4><p>TKT001 has been open for 48 hours without resolution.</p><time>15 mins ago</time></div></div>
+    <div class="notif-item unread"><div class="notif-icon-wrap info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="notif-text"><h4>Customer Reply</h4><p>Rahul Sharma replied to ticket TKT001 with new information.</p><time>30 mins ago</time></div></div>
+    <div class="notif-item unread"><div class="notif-icon-wrap success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div class="notif-text"><h4>Ticket Resolved</h4><p>TKT003 (Bus arrived 2 hours late) marked as Resolved by Agent.</p><time>1 hour ago</time></div></div>
+  </div>
+  <div class="notif-panel-footer"><a href="#">View all notifications &rarr;</a></div>
+</div>
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">SP</div>
+      <div><div class="brand-title">Support Panel</div><div class="brand-sub">Click2Book</div></div>
+    </div>
+    <div class="agent-profile">
+      <div class="agent-avatar">SA</div>
+      <div><div class="agent-name">Support Agent</div><div class="agent-status">&#9679; Online</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" href="/supportagent/index.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+      <a class="nav-item" href="/supportagent/tickets.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Support Tickets
+        <span class="nav-badge">2</span>
+      </a>
+      <a class="nav-item" href="/supportagent/revenue-impact.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Ticket Cost Impact
+      </a>
+    </nav>
+    <div class="sidebar-bottom">
+      <a class="nav-item" href="login.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Staff Portal
+      </a>
+      <a class="nav-item" href="#">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M4.93 4.93a10 10 0 0 0 14.14 14.14"/></svg>
+        Settings
+      </a>
+      <a class="nav-item danger" href="#" onclick="doLogout()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Logout
+      </a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Support Dashboard</h1>
+        <p>Customer Support Portal</p>
+      </div>
+      <div class="topbar-right">
+        <div class="notif-btn" id="bellBtn" onclick="toggleNotif()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <div class="notif-count-dot">4</div>
+        </div>
+        <div class="topbar-avatar">SA</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- STAT CARDS -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-trend">&#8593; +3</div>
+          <div class="stat-icon orange">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2.2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <div class="stat-value">12</div>
+          <div class="stat-label">Open Tickets</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-trend" style="color:#3b82f6">&#8593;</div>
+          <div class="stat-icon blue">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="stat-value" style="color:#3b82f6">8</div>
+          <div class="stat-label">In Progress</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-trend">&#8593; +8</div>
+          <div class="stat-icon green">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="stat-value" style="color:#16a34a">24</div>
+          <div class="stat-label">Resolved Today</div>
+        </div>
+      </div>
+
+      <!-- RECENT TICKETS -->
+      <div class="table-card">
+        <div class="table-header">
+          <h2>Recent Tickets</h2>
+          <a class="btn-view-all" href="/supportagent/tickets.html">View All &#8594;</a>
+        </div>
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Customer</th><th>Subject</th><th>Priority</th><th>Status</th></tr>
+          </thead>
+          <tbody id="agentTicketsTbody">
+            <!-- Populated dynamically from CRUD DB + backend -->
+            <tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px;font-size:.85rem;">Loading tickets…</td></tr>
+          </tbody>
+
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast-container"></div>
+<script>
+  function doLogout() {
+    if (confirm('Are you sure you want to logout?')) {
+      window.location.href = '../landing-page/index.html';
+    }
+  }
+  function toggleNotif() {
+    var panel = document.getElementById('notifPanel');
+    var overlay = document.getElementById('notifOverlay');
+    var isOpen = panel.style.display === 'block';
+    panel.style.display = isOpen ? 'none' : 'block';
+    overlay.style.display = isOpen ? 'none' : 'block';
+  }
+  function closeNotif() {
+    document.getElementById('notifPanel').style.display = 'none';
+    document.getElementById('notifOverlay').style.display = 'none';
+  }
+</script>
+
+  <!-- ═══ CRUD Engine ═══ -->
+  <script src="../crud functions/js/mock_data.js"></script>
+  <script src="../crud functions/js/script.js"></script>
+  <script src="../crud functions/js/ui-shared.js"></script>
+  <script src="../crud functions/js/ui-support.js"></script>
+  <script>
+    /* Remove Super User button — not needed on Support Dashboard */
+    document.addEventListener('DOMContentLoaded', function () {
+      var btn = document.getElementById('c2b-toggle-btn');
+      if (btn) btn.remove();
+    });
+  </script>
+
+  <!-- Live ticket renderer: CRUD DB (localStorage) + backend API -->
+  <script>
+  /* ── Helpers ── */
+  function priorityFromCategory(cat) {
+    if (!cat) return 'MEDIUM';
+    cat = cat.toUpperCase();
+    if (cat.includes('BOOKING') || cat.includes('REFUND')) return 'HIGH';
+    if (cat.includes('COMPLAINT')) return 'HIGH';
+    if (cat.includes('OTHER')) return 'LOW';
+    return 'MEDIUM';
+  }
+
+  function makeBadge(text, colorHex) {
+    return '<span style="font-size:.7rem;font-weight:700;padding:2px 9px;border-radius:50px;background:'+colorHex+'1a;color:'+colorHex+';">'+text+'</span>';
+  }
+
+  var STATUS_COLOR = {
+    'OPEN':'#ef4444','IN_PROGRESS':'#3b82f6','RESOLVED':'#16a34a','PENDING':'#f59e0b'
+  };
+  var PRIORITY_COLOR = { 'HIGH':'#ef4444','MEDIUM':'#f59e0b','LOW':'#6b7280' };
+
+  function makeRow(t, idx) {
+    var id      = t.request_id || t.requestId || ('TKT'+(100+idx));
+    var cust    = t._customerName || t.customerId || t.customerName || 'Customer';
+    var subject = t._category ? (t._category + (t._message ? ': '+t._message.slice(0,50)+'…' : ''))
+                              : (t.issue || t.subject || t.description || 'Support request').slice(0,60);
+    var status  = (t.status || 'OPEN').toUpperCase();
+    var prio    = (t.priority || priorityFromCategory(t._category)).toUpperCase();
+    var sColor  = STATUS_COLOR[status]   || '#6b7280';
+    var pColor  = PRIORITY_COLOR[prio]   || '#6b7280';
+    var bookTag = t._bookingId ? ' <span style="font-size:.65rem;color:#94a3b8;">['+t._bookingId+']</span>' : '';
+    return '<tr>' +
+      '<td><span class="ticket-id">'+id+'</span></td>' +
+      '<td><span class="customer-name">'+cust+'</span></td>' +
+      '<td>'+subject+bookTag+'</td>' +
+      '<td>'+makeBadge(prio, pColor)+'</td>' +
+      '<td>'+makeBadge(status.replace('_',' '), sColor)+'</td>' +
+      '</tr>';
+  }
+
+  function updateStats(tickets) {
+    var vals = document.querySelectorAll('.stat-value');
+    var open  = tickets.filter(function(t){ return (t.status||'OPEN').toUpperCase()==='OPEN'; }).length;
+    var inp   = tickets.filter(function(t){ return (t.status||'').toUpperCase()==='IN_PROGRESS'; }).length;
+    var res   = tickets.filter(function(t){ return (t.status||'').toUpperCase()==='RESOLVED'; }).length;
+    if (vals[0]) vals[0].textContent = open;
+    if (vals[1]) { vals[1].textContent = inp;  vals[1].style.color = '#3b82f6'; }
+    if (vals[2]) { vals[2].textContent = res;  vals[2].style.color = '#16a34a'; }
+  }
+
+  /* ── Main render: merge CRUD DB + API ── */
+  function renderAgentTickets(apiTickets) {
+    apiTickets = apiTickets || [];
+    var dbTickets = [];
+
+    /* Read from CRUD DB (localStorage) */
+    try {
+      if (window.DB && DB.supportRequests) {
+        dbTickets = DB.supportRequests.find(function(){ return true; }) || [];
+      }
+    } catch(e) { console.warn('[Support Agent] DB read failed:', e.message); }
+
+    /* Merge: DB first (newest), deduplicate by request_id */
+    var seen = {};
+    var all = dbTickets.concat(apiTickets).filter(function(t) {
+      var id = t.request_id || t.requestId || t.id;
+      if (!id || seen[id]) return false;
+      seen[id] = true;
+      return true;
+    }).reverse(); /* newest first */
+
+    var tbody = document.getElementById('agentTicketsTbody');
+    if (!tbody) return;
+
+    if (!all.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:30px;font-size:.85rem;">No support tickets yet. Customer queries will appear here.</td></tr>';
+      updateStats([]);
+      return;
+    }
+
+    tbody.innerHTML = all.slice(0, 8).map(makeRow).join('');
+    updateStats(all);
+
+    console.log('[Support Agent] Rendered', all.length, 'tickets (DB:', dbTickets.length, ', API:', apiTickets.length, ')');
+  }
+
+  /* ── Load from backend, then render merged ── */
+  (async function loadAndRender() {
+    /* Render DB tickets immediately (fast) */
+    renderAgentTickets([]);
+
+    var _h = (location.hostname==='localhost'||location.hostname==='127.0.0.1')?'localhost':location.hostname;
+    var API = 'http://'+_h+':3000/api';
+    try {
+      var res     = await fetch(API+'/support-requests', { headers:{'x-role':'SUPPORT'} });
+      var json    = await res.json();
+      var apiData = json.data || [];
+      renderAgentTickets(apiData);
+
+      var b = document.createElement('div');
+      b.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:9999;padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;font-family:monospace;background:#dcfce7;color:#166534;border:1px solid #86efac;';
+      b.textContent = '🟢 Live — '+apiData.length+' API + DB tickets';
+      document.body.appendChild(b);
+      setTimeout(function(){ b.style.opacity='0.4'; }, 6000);
+    } catch(e) {
+      var b = document.createElement('div');
+      b.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:9999;padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;font-family:monospace;background:#fef9c3;color:#854d0e;border:1px solid #fde047;';
+      b.textContent = '🟡 Offline — showing DB tickets only';
+      document.body.appendChild(b);
+      setTimeout(function(){ b.style.opacity='0.4'; }, 6000);
+    }
+
+    /* Auto-refresh every 15s to catch new customer tickets */
+    setInterval(function(){ renderAgentTickets([]); }, 15000);
+  })();
+  </script>
+</body>
+</html>
+
+

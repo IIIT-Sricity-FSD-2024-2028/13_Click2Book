@@ -1,0 +1,205 @@
+/* Search box + suggestions dropdown (shared by the admin console and the Super Admin panel). */
+.ss-root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    Segoe UI,
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+}
+.ss-root .ss-icon {
+  position: absolute;
+  left: 12px;
+  color: #9ca3af;
+  pointer-events: none;
+}
+.ss-root .ss-input {
+  width: 260px;
+  padding: 9px 34px 9px 36px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #1f2937;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    background 0.15s,
+    width 0.25s;
+}
+.ss-root .ss-input::placeholder {
+  color: #9ca3af;
+}
+.ss-root .ss-input:focus {
+  border-color: #f97316;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+}
+.ss-root .ss-clear {
+  position: absolute;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #4b5563;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.ss-root .ss-clear:hover {
+  background: #d1d5db;
+  color: #111827;
+}
+
+/* Dropdown */
+.ss-root .ss-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  width: max(100%, 340px);
+  max-width: min(440px, calc(100vw - 32px));
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow:
+    0 12px 32px rgba(15, 23, 42, 0.14),
+    0 2px 6px rgba(15, 23, 42, 0.06);
+  z-index: 1000;
+  overflow: hidden;
+  animation: ss-in 0.12s ease-out;
+}
+@keyframes ss-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.ss-root .ss-head {
+  padding: 9px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7280;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+}
+.ss-root .ss-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.ss-root .ss-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.ss-root .ss-item.active {
+  background: #fff7ed;
+}
+.ss-root .ss-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ss-root .ss-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0b2447;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ss-root .ss-sub {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ss-root mark {
+  background: #fed7aa;
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+.ss-root .ss-tag {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  border-radius: 999px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+.ss-root .ss-item.active .ss-tag {
+  background: #ffedd5;
+  color: #c2410c;
+}
+.ss-root .ss-empty {
+  padding: 18px 14px;
+  font-size: 13px;
+  color: #6b7280;
+  text-align: center;
+}
+.ss-root .ss-foot {
+  display: flex;
+  gap: 14px;
+  padding: 8px 14px;
+  font-size: 11px;
+  color: #9ca3af;
+  border-top: 1px solid #f1f5f9;
+  background: #fcfcfd;
+}
+.ss-root kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 5px;
+  margin-right: 3px;
+  font-family: inherit;
+  font-size: 10px;
+  text-align: center;
+  color: #475569;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+}
+
+@media (max-width: 640px) {
+  .ss-root,
+  .ss-root .ss-input {
+    width: 100%;
+  }
+  .ss-root .ss-dropdown {
+    width: 100%;
+  }
+  .ss-root .ss-foot {
+    display: none;
+  }
+}

@@ -4,6 +4,7 @@ import PlatformBanner from './components/PlatformBanner';
 import StaffAccess from './landing/StaffAccess';
 import SuperAdminLogin from './superadmin/Login';
 import SuperAdminConsole from './superadmin/Console';
+import SuperAdminRevenue from './superadmin/Revenue';
 
 /**
  * Click2Book — Super Admin portal (standalone copy).
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/super-admin">
           <Route index element={<SuperAdminConsole />} />
           <Route path="login" element={<SuperAdminLogin />} />
+          <Route path="revenue" element={<SuperAdminRevenue />} />
         </Route>
 
         {/* Other portals are not part of this copy */}

@@ -89,6 +89,7 @@ function RecordForm({ schema, record, formRef }) {
 /**
  * `alwaysOpen` renders it as a full page (the Super Admin portal): no toggle button,
  * and the ✕ button calls `onClose` (logout) instead of hiding the panel.
+ * `links` ([{ label, to }]) adds sidebar entries that open other pages.
  */
 export default function SuperUserPanel({
   schemas,
@@ -97,6 +98,7 @@ export default function SuperUserPanel({
   hideToggle = false,
   alwaysOpen = false,
   onClose,
+  links = [],
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -263,6 +265,7 @@ export default function SuperUserPanel({
             schemas={schemas}
             currentTable={currentTable}
             onSelect={selectTable}
+            links={links}
           />
 
           {/* Main */}

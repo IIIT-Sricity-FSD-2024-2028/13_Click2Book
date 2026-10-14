@@ -63,7 +63,7 @@ export default function StaffAccess() {
                 </svg>
               </div>
               <div className="role-name">Super Admin</div>
-              <p className="role-desc">Platform data console: manage every table, edit or remove any record and reset demo data</p>
+              <p className="role-desc">Platform data console and revenue: manage every table, edit or remove any record, reset demo data</p>
               <span className="role-link">
                 Access Portal{' '}
                 <svg

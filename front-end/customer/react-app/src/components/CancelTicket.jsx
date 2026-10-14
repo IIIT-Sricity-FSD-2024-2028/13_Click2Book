@@ -80,75 +80,138 @@ export default function CancelTicket({
     if (!selectedTicket) return;
     setLoading(true);
 
-    const bId = selectedTicket.bookingId;
+    const bId = selectedTicket.bookingId || selectedTicket.booking_id;
     const fee = 50;
     const refundAmt = Math.max(0, selectedTicket.total - fee);
-    let refundStatus = 'REQUESTED';
+
+    const idsToProcess = (selectedTicket.backendBookingIds && selectedTicket.backendBookingIds.length > 0)
+      ? selectedTicket.backendBookingIds
+      : [bId];
+    const perSeatRefund = Math.round(refundAmt / idsToProcess.length);
 
     try {
-      // 1. Backend cancellation endpoint
-      try {
-        await API.cancellations.cancel(bId);
-      } catch (e) {
-        console.warn('Backend cancellation note:', e.message);
-      }
+      const cancellationResults = [];
+      const refundResults = [];
 
-      // 2. Backend refund request endpoint
-      try {
-        const refRes = await API.refunds.request(bId, refundAmt);
-        if (refRes && refRes.refundStatus) {
-          refundStatus = refRes.refundStatus;
+      // 1. Backend cancellation endpoint (cancels booking & releases seat on vehicle)
+      for (const id of idsToProcess) {
+        let cancelSuccess = false;
+        let cancelErrorMsg = '';
+        try {
+          await API.cancellations.cancel(id);
+          cancelSuccess = true;
+        } catch (e) {
+          cancelErrorMsg = e.message || 'Cancellation rejected by backend';
+          console.warn('Backend cancellation note for', id, e.message);
         }
-      } catch (e) {
-        console.warn('Backend refund request note:', e.message);
+        cancellationResults.push({ id, success: cancelSuccess, error: cancelErrorMsg });
       }
 
-      // 3. Update localStorage bookings
+      const successfulCancels = cancellationResults.filter((r) => r.success);
+      const failedCancels = cancellationResults.filter((r) => !r.success);
+
+      // Total failure: NO seat could be cancelled on backend
+      if (successfulCancels.length === 0) {
+        const errorDetail = failedCancels.map((f) => `${f.id}: ${f.error}`).join('; ');
+        showToast(`Cancellation failed: ${errorDetail}`, 'error');
+        return;
+      }
+
+      // 2. Backend refund request endpoint (only for successfully cancelled seats)
+      for (const s of successfulCancels) {
+        let refundSuccess = false;
+        let refundStatusForSeat = 'REQUESTED';
+        let refundErrorMsg = '';
+        try {
+          const refRes = await API.refunds.request(s.id, perSeatRefund);
+          refundSuccess = true;
+          if (refRes && refRes.refundStatus) {
+            refundStatusForSeat = refRes.refundStatus;
+          }
+        } catch (e) {
+          refundErrorMsg = e.message || 'Refund request rejected';
+          console.warn('Backend refund request note for', s.id, e.message);
+        }
+        refundResults.push({
+          id: s.id,
+          success: refundSuccess,
+          status: refundStatusForSeat,
+          error: refundErrorMsg,
+        });
+      }
+
+      const successfulRefunds = refundResults.filter((r) => r.success);
+      const isPartial = failedCancels.length > 0;
+      const actualRefundAmt = perSeatRefund * successfulCancels.length;
+
+      // 3. Update localStorage bookings based on actual backend results
       try {
         const allBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
         allBookings.forEach((b) => {
           if (b.bookingId === bId || b.booking_id === bId) {
-            b.status = 'CANCELLED';
-            b.booking_status = 'CANCELLED';
-            b.cancelled_at = new Date().toISOString();
+            if (isPartial) {
+              b.status = 'PARTIALLY_CANCELLED';
+              b.booking_status = 'PARTIALLY_CANCELLED';
+              b.cancelledSeatIds = successfulCancels.map((c) => c.id);
+              b.remainingSeatIds = failedCancels.map((f) => f.id);
+            } else {
+              b.status = 'CANCELLED';
+              b.booking_status = 'CANCELLED';
+              b.cancelled_at = new Date().toISOString();
+            }
           }
         });
         localStorage.setItem('c2b_bookings', JSON.stringify(allBookings));
       } catch {}
 
-      // 4. Save refund record to localStorage
-      try {
-        const allRefunds = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
-        const existingIdx = allRefunds.findIndex((r) => r.booking_id === bId || r.bookingId === bId);
-        const refItem = {
-          refund_id: `REF-${bId}`,
-          booking_id: bId,
-          bookingId: bId,
-          customer_id: customer?.id || user?.id || 'C001',
-          route: `${selectedTicket.from} → ${selectedTicket.to}`,
-          bus_name: selectedTicket.busName,
-          original_fare: selectedTicket.total,
-          fee,
-          refund_amount: refundAmt,
-          status: refundStatus === 'COMPLETED' ? 'COMPLETED' : 'PROCESSING',
-          request_date: new Date().toISOString().split('T')[0],
-          payment_method: 'UPI / Bank Source',
-          arn: `ARN${Date.now().toString().slice(-9)}`,
-        };
-        if (existingIdx >= 0) {
-          allRefunds[existingIdx] = refItem;
-        } else {
-          allRefunds.unshift(refItem);
-        }
-        localStorage.setItem('c2b_refunds', JSON.stringify(allRefunds));
-      } catch {}
+      // 4. Save refund record to localStorage for the cancelled seats
+      if (successfulRefunds.length > 0) {
+        try {
+          const allRefunds = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
+          const existingIdx = allRefunds.findIndex((r) => r.booking_id === bId || r.bookingId === bId);
+          const refItem = {
+            refund_id: `REF-${bId}`,
+            booking_id: bId,
+            bookingId: bId,
+            customer_id: customer?.id || user?.id || 'C001',
+            route: `${selectedTicket.from} → ${selectedTicket.to}`,
+            bus_name: selectedTicket.busName,
+            original_fare: selectedTicket.total,
+            fee,
+            refund_amount: actualRefundAmt,
+            status: isPartial ? 'PARTIALLY_REFUNDED' : 'PROCESSING',
+            request_date: new Date().toISOString().split('T')[0],
+            payment_method: 'UPI / Bank Source',
+            arn: `ARN${Date.now().toString().slice(-9)}`,
+          };
+          if (existingIdx >= 0) {
+            allRefunds[existingIdx] = refItem;
+          } else {
+            allRefunds.unshift(refItem);
+          }
+          localStorage.setItem('c2b_refunds', JSON.stringify(allRefunds));
+        } catch {}
+      }
 
-      showToast(`Booking ${bId} cancelled. Refund request submitted for processing.`, 'success');
+      if (isPartial) {
+        showToast(
+          `⚠️ Partially cancelled: ${successfulCancels.length} of ${idsToProcess.length} seats cancelled.`,
+          'warning'
+        );
+      } else {
+        showToast(`Booking ${bId} cancelled. Refund request submitted for processing.`, 'success');
+      }
+
       setCancelledResult({
         bookingId: bId,
-        refundAmount: refundAmt,
+        refundAmount: actualRefundAmt,
         fee,
-        status: refundStatus,
+        status: isPartial ? 'PARTIALLY_CANCELLED' : 'REQUESTED',
+        isPartial,
+        cancelledCount: successfulCancels.length,
+        totalCount: idsToProcess.length,
+        cancelledIds: successfulCancels.map((c) => c.id),
+        failedIds: failedCancels.map((f) => `${f.id} (${f.error})`),
       });
     } catch (err) {
       showToast(err.message || 'Cancellation failed.', 'error');
@@ -187,11 +250,21 @@ export default function CancelTicket({
             <CheckCircle size={36} />
           </div>
           <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a', marginBottom: '6px' }}>
-            Ticket Cancelled Successfully
+            {cancelledResult.isPartial ? 'Partial Cancellation Processed' : 'Ticket Cancelled Successfully'}
           </h3>
           <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '14px' }}>
             Booking Reference: <strong style={{ color: '#0f172a' }}>{cancelledResult.bookingId}</strong>
           </p>
+          {cancelledResult.isPartial && (
+            <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '10px', padding: '10px 14px', fontSize: '0.8rem', color: '#b45309', marginBottom: '16px', textAlign: 'left' }}>
+              ⚠️ Cancelled {cancelledResult.cancelledCount} of {cancelledResult.totalCount} seat(s).
+              {cancelledResult.failedIds?.length > 0 && (
+                <div style={{ marginTop: '4px', fontSize: '0.75rem', color: '#dc2626' }}>
+                  Failed: {cancelledResult.failedIds.join(', ')}
+                </div>
+              )}
+            </div>
+          )}
           <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 18px', maxWidth: '400px', margin: '0 auto 20px', textAlign: 'left', fontSize: '0.84rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
               <span style={{ color: '#64748b' }}>Cancellation Fee:</span>

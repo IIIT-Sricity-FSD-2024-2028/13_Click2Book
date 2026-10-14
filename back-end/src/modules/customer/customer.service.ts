@@ -31,7 +31,11 @@ export class CustomerService {
   update(id: string, dto: UpdateCustomerDto) {
     const customer = this.customerRepo.findById(id);
     if (!customer) throw new NotFoundException(`Customer ${id} not found`);
-    const updated = this.customerRepo.update(id, dto);
+    const updateData: any = { ...dto };
+    if (dto.phone && !dto.phoneNumber) {
+      updateData.phoneNumber = dto.phone;
+    }
+    const updated = this.customerRepo.update(id, updateData);
     return successResponse('Customer updated successfully', updated);
   }
 

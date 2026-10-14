@@ -7,4 +7,9 @@ export interface Vehicle {
   vehicleType: VehicleType;
   totalSeats: number;
   remainingSeats: number;
+  busName?: string;
+  amenities?: string[];
+  rating?: number;
+  boardingPoint?: string;
+  droppingPoint?: string;
 }

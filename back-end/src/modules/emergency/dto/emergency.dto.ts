@@ -20,4 +20,10 @@ export class CreateEmergencyAlertDto {
 
   @ApiPropertyOptional({ example: 78.4867 })
   @IsOptional() @IsNumber() lng?: number;
+
+  @ApiPropertyOptional({ example: 'TRIP-101' })
+  @IsOptional() @IsString() tripId?: string;
+
+  @ApiPropertyOptional({ example: '2026-10-14T05:00:00.000Z' })
+  @IsOptional() @IsString() timestamp?: string;
 }

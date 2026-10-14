@@ -110,7 +110,32 @@ export default function TrackBus({ tripId: propTripId, onNavigate, showToast }) 
 
   const handleSendSos = async () => {
     setIsSendingSos(true);
+    let bId = null;
+    const hash = window.location.hash || '';
+    if (hash.includes('?')) {
+      const params = new URLSearchParams(hash.split('?')[1]);
+      bId = params.get('bookingId');
+    }
+    if (!bId) {
+      try {
+        const bks = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+        const matching = bks.find((b) => b.tripId === tripId || b.trip_id === tripId);
+        if (matching) bId = matching.bookingId || matching.booking_id;
+        else if (bks.length > 0) bId = bks[0].bookingId || bks[0].booking_id;
+      } catch {}
+    }
+    if (!bId) bId = 'B001';
+
+    const customerId =
+      sessionStorage.getItem('c2b_loggedInId') ||
+      localStorage.getItem('c2b_loggedInId') ||
+      sessionStorage.getItem('c2b_userId') ||
+      localStorage.getItem('c2b_userId') ||
+      'C001';
+
     const alertData = {
+      bookingId: bId,
+      customerId,
       tripId,
       type: sosType,
       message: sosDetails.trim() || 'Passenger SOS distress button triggered',

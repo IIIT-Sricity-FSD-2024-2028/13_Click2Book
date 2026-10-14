@@ -18,6 +18,30 @@ export class CreateVehicleDto {
   @ApiProperty({ example: 40 })
   @IsNumber() @Min(1)
   totalSeats: number;
+
+  @ApiPropertyOptional({ example: 40 })
+  @IsOptional() @IsNumber()
+  remainingSeats?: number;
+
+  @ApiPropertyOptional({ example: 'KPN Express' })
+  @IsOptional() @IsString()
+  busName?: string;
+
+  @ApiPropertyOptional({ example: ['AC', 'WiFi'] })
+  @IsOptional()
+  amenities?: string[];
+
+  @ApiPropertyOptional({ example: 4.5 })
+  @IsOptional() @IsNumber()
+  rating?: number;
+
+  @ApiPropertyOptional({ example: 'Majestic' })
+  @IsOptional() @IsString()
+  boardingPoint?: string;
+
+  @ApiPropertyOptional({ example: 'CMBT' })
+  @IsOptional() @IsString()
+  droppingPoint?: string;
 }
 
 export class UpdateVehicleDto {

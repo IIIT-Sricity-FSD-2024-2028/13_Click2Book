@@ -253,9 +253,20 @@ export const API = {
 API.customers = API.customer;
 API.supportRequests = {
   create: async (data) => {
+    const payload = {
+      customerId: data.customerId || getCustomerId(),
+      description: data.description,
+    };
+    if (data.bookingId) payload.bookingId = data.bookingId;
+    if (data.category) payload.category = data.category;
+    if (data.requestId) payload.requestId = data.requestId;
+    if (data.supporterId) payload.supporterId = data.supporterId;
+    if (data.status) payload.status = data.status;
+    if (data.customerName) payload.customerName = data.customerName;
+    if (data.createdAt) payload.createdAt = data.createdAt;
     return apiFetch('/support-requests', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
   },
   getMine: async (customerId) => {

@@ -42,15 +42,17 @@ export class RefundService {
     if (refund.refundStatus === RefundStatus.COMPLETED)
       throw new BadRequestException('Refund already completed');
 
+    // If COMPLETED, mark payment as refunded BEFORE updating refund status.
+    // If markRefunded throws (e.g. missing payment record), the error propagates
+    // and the refund status in repository remains uncompleted.
+    if (dto.refundStatus === RefundStatus.COMPLETED) {
+      this.paymentService.markRefunded(bookingId);
+    }
+
     const updated = this.refundRepo.update(bookingId, {
       adminId: dto.adminId,
       refundStatus: dto.refundStatus,
     });
-
-    // If COMPLETED, mark payment as refunded
-    if (dto.refundStatus === RefundStatus.COMPLETED) {
-      this.paymentService.markRefunded(bookingId);
-    }
 
     return successResponse(`Refund ${dto.refundStatus}`, updated);
   }

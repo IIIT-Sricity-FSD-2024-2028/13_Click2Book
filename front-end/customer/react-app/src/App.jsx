@@ -77,8 +77,11 @@ export default function App() {
     if (options?.redirectAfterLogin) {
       sessionStorage.setItem('c2b_redirectAfterLogin', options.redirectAfterLogin);
     }
-    const target = options?.initialPanel === 'signup' ? '/login.html?panel=signup' : '/login.html';
-    window.location.href = target;
+    setLoginModal({
+      isOpen: true,
+      initialPanel: options?.initialPanel || 'login',
+      promptMessage: options?.promptMessage || '',
+    });
   }, []);
 
   const handleOpenSignup = useCallback(() => {
@@ -241,6 +244,7 @@ export default function App() {
   const handleLoginSuccess = (loggedInUser) => {
     const fullUser = { ...loggedInUser, isLoggedIn: true };
     setUser(fullUser);
+    setLoginModal({ isOpen: false, initialPanel: 'login', promptMessage: '' });
     showToast(`👋 Welcome back, ${loggedInUser.name.split(' ')[0]}!`, 'success');
   };
 

@@ -617,6 +617,7 @@
         if (idx >= 0) {
           raw[idx].refundStatus = refStatus;
           raw[idx].refund_status = refStatus;
+          raw[idx].status = refStatus;
           localStorage.setItem('c2b_refunds', JSON.stringify(raw));
         }
       } catch (err) {}
@@ -629,6 +630,7 @@
       const cfg = {
         confirmed: { cls: 'badge-confirmed', label: 'Confirmed' },
         pending: { cls: 'badge-pending', label: 'Pending' },
+        requested: { cls: 'badge-refund', label: 'Requested' },
         cancelled: { cls: 'badge-cancelled', label: 'Cancelled' },
         refund_pending: { cls: 'badge-refund', label: 'Refund Pending' },
         completed: { cls: 'badge-confirmed', label: 'Completed' },
@@ -849,7 +851,7 @@
     function renderRefunds() {
       const tbody = document.getElementById('refundsTbody');
       const data = getRefunds();
-      const pending = data.filter(r => r.status === 'pending').length;
+      const pending = data.filter(r => r.status === 'pending' || r.status === 'requested').length;
       document.getElementById('pendingRefundCount').textContent = `${pending} Pending`;
       if (!data.length) { renderEmptyState(tbody, 'No refund requests.', '💸'); return; }
       tbody.innerHTML = data.map(r => `
@@ -862,7 +864,7 @@
         <td>${r.date}</td>
         <td>${statusBadge(r.status)}</td>
         <td>
-          ${r.status === 'pending' ? `
+          ${(r.status === 'pending' || r.status === 'requested') ? `
             <button class="action-btn btn-success" onclick="processRefund('${r.id}','approved',this)">Approve</button>
             <button class="action-btn btn-danger"  onclick="processRefund('${r.id}','rejected',this)" style="margin-top:4px">Reject</button>
           ` : '<span style="color:#9ca3af;font-size:.78rem">Processed</span>'}
@@ -1123,7 +1125,7 @@
         row.cells[6].innerHTML = statusBadge(decision);
         row.cells[7].innerHTML = '<span style="color:#9ca3af;font-size:.78rem">Processed</span>';
         // Update pending badge
-        const pending = getRefunds().filter(r => r.status === 'pending').length;
+        const pending = getRefunds().filter(r => r.status === 'pending' || r.status === 'requested').length;
         document.getElementById('pendingRefundCount').textContent = `${pending} Pending`;
       } else {
         showToast('Failed to process refund.', 'error');

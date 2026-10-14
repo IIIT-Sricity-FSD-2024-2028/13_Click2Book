@@ -3,4 +3,5 @@ export interface Route {
   source: string;
   destination: string;
   distance: number;
+  via?: string;
 }

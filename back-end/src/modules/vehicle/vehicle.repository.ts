@@ -59,8 +59,12 @@ export class VehicleRepository {
       busName: 'Ganesh Travels AC Seater', amenities: ['AC', 'Charging Point'], boardingPoint: 'Satellite Bus Stand', droppingPoint: 'Mysore Bus Stand', rating: 4.1 } as any,
   ];
 
-  create(data: Omit<Vehicle, 'vehicleId' | 'remainingSeats'>): Vehicle {
-    const vehicle: Vehicle = { vehicleId: generateId('V'), ...data, remainingSeats: data.totalSeats };
+  create(data: Omit<Vehicle, 'vehicleId' | 'remainingSeats'> & { remainingSeats?: number }): Vehicle {
+    const vehicle: Vehicle = {
+      vehicleId: generateId('V'),
+      ...data,
+      remainingSeats: data.remainingSeats !== undefined ? data.remainingSeats : data.totalSeats,
+    };
     this.vehicles.push(vehicle);
     return vehicle;
   }

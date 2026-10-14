@@ -9,6 +9,7 @@ export default function PaymentModal({
   onConfirmPayment,
   onBack,
   isProcessing,
+  paymentError,
 }) {
   const [couponCode, setCouponCode] = useState('');
   const [appliedOffer, setAppliedOffer] = useState(null);
@@ -256,6 +257,13 @@ export default function PaymentModal({
         </div>
       </div>
 
+      {/* Error / Retry Banner */}
+      {paymentError && (
+        <div style={{ background: '#fff1f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 16px', fontSize: '0.82rem', color: '#ef4444', fontWeight: 600, marginBottom: '16px' }}>
+          ⚠️ {paymentError}
+        </div>
+      )}
+
       {/* Pay Now Button */}
       <button
         type="button"
@@ -265,7 +273,7 @@ export default function PaymentModal({
         onClick={handlePay}
       >
         <ShieldCheck size={18} />
-        {isProcessing ? 'Processing Payment…' : `Pay ₹${netTotal} & Confirm Booking`}
+        {isProcessing ? 'Processing Payment…' : (paymentError ? `Retry Payment (₹${netTotal})` : `Pay ₹${netTotal} & Confirm Booking`)}
       </button>
     </div>
   );

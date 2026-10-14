@@ -92,7 +92,8 @@ export default function MyProfile({ user, onUpdateUser, onNavigate, showToast })
         await api.customers.updateProfile(user.id, {
           name: editName,
           email: editEmail,
-          phone: editPhone
+          phone: editPhone,
+          phoneNumber: editPhone,
         });
       }
     } catch {

@@ -8,6 +8,10 @@ import CityAutocomplete from './CityAutocomplete';
 import { API } from '../services/api';
 import { MOCK_BUSES } from '../services/mockData';
 import busHeroImg from '../assets/bus_hero.png';
+import { calculateSeatDistributions, validateSeatBookings, executeSeatPayments } from '../utils/paymentRetry';
+
+export { calculateSeatDistributions, validateSeatBookings, executeSeatPayments };
+
 
 const DEFAULT_CITIES = [
   'Agra',
@@ -107,6 +111,22 @@ export default function SearchTrips({
   const [passengers, setPassengers] = useState([]);
   const [confirmedBooking, setConfirmedBooking] = useState(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [pendingBackendBookings, setPendingBackendBookings] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('c2b_pendingBookingRecord');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.seatBookings && Array.isArray(parsed.seatBookings)) {
+          return {
+            primaryBackendId: parsed.primaryBackendId || parsed.bookingId || null,
+            seatBookings: parsed.seatBookings,
+          };
+        }
+      }
+    } catch {}
+    return null;
+  });
 
   const handleSwapCities = () => {
     const tmp = fromCity;
@@ -369,7 +389,14 @@ export default function SearchTrips({
       );
 
       sessionStorage.setItem('c2b_loginPrompt', 'Please sign in to continue with your booking.');
-      window.location.href = '/login.html';
+      if (onOpenLogin) {
+        onOpenLogin({
+          promptMessage: 'Please sign in to continue with your booking.',
+          redirectAfterLogin: '#search-trips',
+        });
+      } else {
+        window.location.href = '/login.html';
+      }
       return;
     }
 
@@ -428,35 +455,145 @@ export default function SearchTrips({
   const handleConfirmPayment = async (paymentDetails) => {
     if (isProcessingPayment) return;
     setIsProcessingPayment(true);
-    const bookingId = 'BUS' + Date.now();
+    setPaymentError('');
+
     const customerId = customer?.id || 'C001';
+    const isLiveBus = selectedBus.tripId && !selectedBus.tripId.startsWith('MOCK_') && !selectedBus.tripId.startsWith('LOCAL_');
+
+    // Retrieve or initialize per-seat booking state
+    let seatBookings = pendingBackendBookings?.seatBookings
+      ? pendingBackendBookings.seatBookings.map((sb) => ({ ...sb }))
+      : [];
+    let primaryBackendId = pendingBackendBookings?.primaryBackendId || null;
 
     try {
-      // 1. Loop through selected seats and create real backend bookings if live
-      if (selectedBus.tripId && !selectedBus.tripId.startsWith('MOCK_') && !selectedBus.tripId.startsWith('LOCAL_')) {
-        for (let sIdx = 0; sIdx < selectedSeats.length; sIdx++) {
-          const seatLabel = selectedSeats[sIdx];
-          const row = seatLabel.charCodeAt(0) - 65;
-          const col = parseInt(seatLabel.slice(1), 10) || 1;
-          const numericSeat = ((row * 4 + col - 1) % (selectedBus.totalSeats || 40)) + 1;
+      if (isLiveBus) {
+        // 1. Initialize seatBookings for all selected seats if not already created
+        if (seatBookings.length !== selectedSeats.length) {
+          seatBookings = selectedSeats.map((seatLabel) => {
+            const row = seatLabel.charCodeAt(0) - 65;
+            const col = parseInt(seatLabel.slice(1), 10) || 1;
+            const numericSeat = ((row * 4 + col - 1) % (selectedBus.totalSeats || 40)) + 1;
+            return {
+              seatLabel,
+              numericSeat,
+              bookingId: null,
+              paid: false,
+            };
+          });
+        }
 
-          try {
-            const bRes = await API.bookings.create(selectedBus.tripId, numericSeat, paymentDetails.offerCode);
+        // 2. Reserve / create backend bookings for any seat that lacks a bookingId
+        for (let sIdx = 0; sIdx < seatBookings.length; sIdx++) {
+          const sb = seatBookings[sIdx];
+          if (!sb.bookingId) {
+            const bRes = await API.bookings.create(selectedBus.tripId, sb.numericSeat, paymentDetails.offerCode);
             const backendId = bRes?.bookingId;
-            if (backendId) {
-              await API.bookings.confirm(backendId).catch(() => {});
-              await API.payments.pay(backendId, selectedBus.price, paymentDetails.method, paymentDetails.discount).catch(() => {});
+            if (!backendId) {
+              throw new Error(`Failed to create booking reservation for seat ${sb.seatLabel}`);
             }
-          } catch (apiErr) {
-            console.warn('Backend booking request note:', apiErr.message);
+            sb.bookingId = backendId;
+            if (!primaryBackendId) {
+              primaryBackendId = backendId;
+            }
           }
+        }
+
+        // 3. Validate that every selected seat has a valid backend booking ID
+        const preVal = validateSeatBookings(seatBookings, selectedSeats.length);
+        if (!preVal.valid) {
+          throw new Error(`Cannot proceed with payment: ${preVal.error}`);
+        }
+
+        const currentPrimary = primaryBackendId || seatBookings[0]?.bookingId;
+        setPendingBackendBookings({
+          primaryBackendId: currentPrimary,
+          seatBookings: seatBookings.map((sb) => ({ ...sb })),
+        });
+
+        // 4. Execute payments with retry logic:
+        // Skips already paid seats, marks each seat as paid immediately after pay() succeeds,
+        // and retains successful payment statuses if partway payment fails.
+        await executeSeatPayments({
+          seatBookings,
+          totalAmount: paymentDetails.total,
+          totalDiscount: paymentDetails.discount,
+          paymentMethod: paymentDetails.method,
+          payFn: (bId, amt, method, disc) => API.payments.pay(bId, amt, method, disc),
+          onSeatPaid: (sIdx, paidSeat, allSeats) => {
+            // Update state and session storage immediately upon each seat payment success
+            setPendingBackendBookings({
+              primaryBackendId: currentPrimary,
+              seatBookings: allSeats.map((sb) => ({ ...sb })),
+            });
+            try {
+              const inProgressRecord = {
+                bookingId: currentPrimary,
+                booking_id: currentPrimary,
+                primaryBackendId: currentPrimary,
+                backendBookingIds: allSeats.map((s) => s.bookingId).filter(Boolean),
+                seatBookings: allSeats.map((sb) => ({ ...sb })),
+                customerId,
+                customer_id: customerId,
+                customerName: passengers[0]?.name || customer?.name || 'Customer',
+                tripId: selectedBus.tripId,
+                busName: selectedBus.busName,
+                busType: selectedBus.vehicleType,
+                from: fromCity.trim(),
+                to: toCity.trim(),
+                date: travelDate,
+                seats: selectedSeats.join(', '),
+                seat_list: selectedSeats,
+                passengerCount: selectedSeats.length,
+                paymentMethod: paymentDetails.method,
+                discount: paymentDetails.discount,
+                total: paymentDetails.total,
+                status: 'PENDING',
+                booking_status: 'PENDING',
+                createdAt: new Date().toISOString(),
+                passengers,
+              };
+              sessionStorage.setItem('c2b_pendingBookingRecord', JSON.stringify(inProgressRecord));
+            } catch {}
+          },
+        });
+      } else {
+        // Non-live (mock) bus handling: generate mock booking IDs for each seat
+        if (seatBookings.length !== selectedSeats.length) {
+          const mockPrefix = 'MOCK_BK_' + Date.now();
+          seatBookings = selectedSeats.map((seatLabel, idx) => ({
+            seatLabel,
+            numericSeat: idx + 1,
+            bookingId: `${mockPrefix}_${idx + 1}`,
+            paid: true,
+          }));
+        } else {
+          seatBookings.forEach((sb) => {
+            sb.paid = true;
+          });
         }
       }
 
-      // 2. Create unified booking object
+      // 5. Final validation before claiming booking is confirmed:
+      // Validate that every selected seat has a valid backend booking ID and is paid
+      const finalVal = validateSeatBookings(seatBookings, selectedSeats.length);
+      if (!finalVal.valid) {
+        throw new Error(`Cannot confirm booking: ${finalVal.error}`);
+      }
+      const unpaidSeats = seatBookings.filter((sb) => !sb.paid);
+      if (unpaidSeats.length > 0) {
+        throw new Error(`Cannot confirm booking: seats ${unpaidSeats.map((u) => u.seatLabel).join(', ')} remain unpaid.`);
+      }
+
+      const bookingId = primaryBackendId || seatBookings[0]?.bookingId || ('BUS' + Date.now());
+      const backendBookingIds = seatBookings.map((sb) => sb.bookingId).filter(Boolean);
+
+      // 6. Create confirmed booking object
       const newBooking = {
         bookingId,
         booking_id: bookingId,
+        backendBookingIds: backendBookingIds.length > 0 ? backendBookingIds : undefined,
+        seatBookings: seatBookings.map((sb) => ({ ...sb })),
         customerId,
         customer_id: customerId,
         customerName: passengers[0]?.name || customer?.name || 'Customer',
@@ -478,12 +615,12 @@ export default function SearchTrips({
         passengers,
       };
 
-      // 3. Save to localStorage for instant cross-tab and offline persistence
+      // 7. Save confirmed booking to localStorage
       const existing = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
       existing.unshift(newBooking);
       localStorage.setItem('c2b_bookings', JSON.stringify(existing));
 
-      // 4. Update session storage for confirmation page and legacy parity
+      // 8. Update sessionStorage for confirmation page and legacy parity
       sessionStorage.setItem('lastBookingId', bookingId);
       sessionStorage.setItem('lastBusName', selectedBus.busName);
       sessionStorage.setItem('lastSeats', selectedSeats.join(', '));
@@ -497,8 +634,9 @@ export default function SearchTrips({
       sessionStorage.setItem('lastPassengerCount', selectedSeats.length.toString());
       sessionStorage.setItem('lastPassengers', JSON.stringify(passengers));
 
-      // 5. Clear pending booking state and any stale redirect targets
+      // 9. Clear pending booking state and any stale redirect targets
       sessionStorage.removeItem('c2b_pendingBooking');
+      sessionStorage.removeItem('c2b_pendingBookingRecord');
       sessionStorage.removeItem('c2b_pendingSeats');
       sessionStorage.removeItem('c2b_pendingBus');
       sessionStorage.removeItem('c2b_pendingType');
@@ -508,11 +646,53 @@ export default function SearchTrips({
       sessionStorage.removeItem('c2b_proceedToPassenger');
       sessionStorage.removeItem('c2b_redirectAfterLogin');
 
+      setPendingBackendBookings(null);
       showToast(`Booking ${bookingId} confirmed successfully!`, 'success');
       setConfirmedBooking(newBooking);
       setStep('confirmed');
     } catch (err) {
-      showToast(err.message || 'Payment processing failed.', 'error');
+      console.warn('Payment failed:', err.message);
+      const errText = err.message || 'Payment processing failed. Please check your payment details and retry.';
+      setPaymentError(errText);
+      showToast(`⚠️ Payment failed: ${errText} Booking remains in PENDING status.`, 'error');
+
+      const pendingId = primaryBackendId || seatBookings[0]?.bookingId || ('PENDING_' + Date.now());
+      const pendingRecord = {
+        bookingId: pendingId,
+        booking_id: pendingId,
+        primaryBackendId: pendingId,
+        backendBookingIds: seatBookings.map((s) => s.bookingId).filter(Boolean),
+        seatBookings: seatBookings.map((sb) => ({ ...sb })),
+        customerId,
+        customer_id: customerId,
+        customerName: passengers[0]?.name || customer?.name || 'Customer',
+        tripId: selectedBus.tripId,
+        busName: selectedBus.busName,
+        busType: selectedBus.vehicleType,
+        from: fromCity.trim(),
+        to: toCity.trim(),
+        date: travelDate,
+        seats: selectedSeats.join(', '),
+        seat_list: selectedSeats,
+        passengerCount: selectedSeats.length,
+        paymentMethod: paymentDetails.method,
+        discount: paymentDetails.discount,
+        total: paymentDetails.total,
+        status: 'PENDING',
+        booking_status: 'PENDING',
+        createdAt: new Date().toISOString(),
+        passengers,
+      };
+
+      try {
+        sessionStorage.setItem('c2b_pendingBookingRecord', JSON.stringify(pendingRecord));
+      } catch {}
+
+      // Retain the seatBookings state in React so retry immediately has access to already paid seats
+      setPendingBackendBookings({
+        primaryBackendId: pendingId,
+        seatBookings: seatBookings.map((sb) => ({ ...sb })),
+      });
     } finally {
       setIsProcessingPayment(false);
     }
@@ -807,6 +987,7 @@ export default function SearchTrips({
           onConfirmPayment={handleConfirmPayment}
           onBack={() => setStep('passenger')}
           isProcessing={isProcessingPayment}
+          paymentError={paymentError}
         />
       )}
 

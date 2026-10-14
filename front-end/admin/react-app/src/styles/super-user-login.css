@@ -1,0 +1,112 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #0B2447; --navyd: #071a38; --navyl: rgba(255,255,255,.06);
+      --orange: #f97316; --oranged: #ea580c; --border: rgba(255,255,255,.1);
+      --tw: rgba(255,255,255,.9); --tm: rgba(255,255,255,.5);
+    }
+    html, body { height: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: var(--navyd); overflow: hidden; }
+
+    /* LAYOUT */
+    .page { display: flex; height: 100vh; }
+
+    /* LEFT */
+    .left {
+      flex: 1; position: relative; overflow: hidden;
+      background: linear-gradient(135deg, #071a38 0%, #0B2447 50%, #19376D 100%);
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 60px 80px;
+    }
+    .left::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(circle at 20% 80%, rgba(249,115,22,.12) 0%, transparent 60%);
+    }
+
+    /* Floating icon watermark */
+    .bg-icon {
+      position: absolute; bottom: 10%; left: 5%;
+      opacity: .05; font-size: 280px; pointer-events: none;
+      filter: blur(2px);
+    }
+
+    .left-content { position: relative; z-index: 2; max-width: 500px; }
+    .super-features { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; color: #fff; font-size: .85rem; font-weight: 600; }
+    .super-features span::first-letter { color: var(--orange); }
+    .version-note { position: absolute; bottom: 20px; color: #94a3b8; font-size: .7rem; font-weight: 600; }
+
+    .portal-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 18px; border-radius: 50px; margin-bottom: 32px;
+      background: rgba(249,115,22,.15); border: 1px solid rgba(249,115,22,.4);
+      font-size: .78rem; font-weight: 800; color: var(--orange); letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .left-h { font-size: clamp(2.5rem,5vw,4rem); font-weight: 900; color: #fff; line-height: 1.1; margin-bottom: 24px; }
+    .left-sub { font-size: 1rem; color: var(--tm); line-height: 1.8; margin-bottom: 48px; }
+
+    /* RIGHT */
+    .right {
+      width: 520px; flex-shrink: 0;
+      background: #fff; display: flex; align-items: center; justify-content: center;
+      padding: 48px 60px; position: relative;
+    }
+    .form-box { width: 100%; max-width: 400px; }
+
+    /* Logo */
+    .form-logo {
+      display: flex; align-items: center; gap: 14px; margin-bottom: 40px;
+    }
+    .form-logo-icon {
+      width: 50px; height: 50px; border-radius: 14px;
+      background: var(--navy); display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 10px 20px rgba(11,36,71,.25);
+    }
+    .form-logo-name { font-size: 1.3rem; font-weight: 950; color: var(--navy); letter-spacing: -1px; }
+    .form-logo-tag { font-size: .7rem; font-weight: 900; color: var(--orange); letter-spacing: 2.5px; text-transform: uppercase; display: block; }
+
+    .form-title { font-size: 1.75rem; font-weight: 900; color: #0f172a; margin-bottom: 8px; }
+    .form-sub { font-size: .9rem; color: #64748b; margin-bottom: 32px; }
+
+    /* FIELD */
+    .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; }
+    .field label { font-size: .8rem; font-weight: 750; color: #1e293b; letter-spacing: .2px; }
+    .inp-wrap { position: relative; }
+    .inp-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
+    .finput {
+      width: 100%; padding: 14px 48px;
+      border: 1.5px solid #e2e8f0; border-radius: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: .9rem; color: #0f172a;
+      outline: none; transition: all .2s; background: #f8fafc;
+    }
+    .finput::placeholder { color: #94a3b8; }
+    .finput:focus { border-color: var(--navy); box-shadow: 0 0 0 4px rgba(11,36,71,.08); background: #fff; }
+
+    /* BUTTON */
+    .btn-login {
+      width: 100%; padding: 15px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--navy) 0%, #1e40af 100%);
+      color: #fff; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: .98rem; font-weight: 800;
+      border: none; cursor: pointer;
+      box-shadow: 0 8px 24px rgba(11,36,71,.3);
+      transition: all .25s;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      margin-top: 10px;
+    }
+    .btn-login:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(11,36,71,.4); filter: brightness(1.1); }
+    .btn-login:active { transform: translateY(-1px); }
+
+    /* ERROR */
+    .err-msg { display: none; background: #fff1f2; border: 1px solid #fecaca; border-radius: 10px; padding: 12px 16px; font-size: .82rem; color: #ef4444; font-weight: 700; margin-bottom: 20px; }
+    .err-msg.show { display: flex; align-items: center; gap: 8px; }
+
+    /* SECURE FOOTER */
+    .secure-note { text-align: center; margin-top: 32px; font-size: .75rem; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .secure-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; display: inline-block; box-shadow: 0 0 8px rgba(34,197,94,.6); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    @media(max-width:992px) {
+      .left { display: none; }
+      .right { width: 100%; }
+      .version-note { right: 20px; bottom: 12px; }
+    }

@@ -8,7 +8,7 @@ import SuperAdminConsole from './superadmin/Console';
 /**
  * Click2Book — Super Admin portal (standalone copy).
  *
- * Same pages and URLs as the main app. Links to the admin, customer, provider
+ * Same pages and URLs as the main app. Links to the admin, customer , provider
  * and support portals (which are not part of this copy) land back on Staff Access.
  */
 export default function App() {

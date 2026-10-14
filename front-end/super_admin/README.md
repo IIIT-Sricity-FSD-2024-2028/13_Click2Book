@@ -16,8 +16,9 @@ npm run dev                    # → http://localhost:5180
 ```
 
 The Super Admin console works on demo data stored in the browser, so no backend
-is needed. If the team backend is running (http://localhost:3000/api), the
-platform banner also shows the live platform settings.
+is needed. The **Revenue** page reads live money data, so it needs the team backend
+running (http://localhost:3000/api); the platform banner also shows the live
+platform settings when the backend is up.
 
 It runs on port **5180**, so it can run alongside the main app (5173/5174).
 
@@ -25,6 +26,7 @@ It runs on port **5180**, so it can run alongside the main app (5173/5174).
 |---|---|---|
 | Staff Access | http://localhost:5180/staff-access | — |
 | Super Admin portal | http://localhost:5180/super-admin/login | `superuser@click2book.com` / `super123` |
+| Revenue | http://localhost:5180/super-admin/revenue | (after Super Admin login; needs the backend) |
 
 Links to the admin, customer, provider and support portals (not part of this copy) return to Staff Access.
 
@@ -33,6 +35,8 @@ Links to the admin, customer, provider and support portals (not part of this cop
 | Path | Purpose |
 |---|---|
 | `superadmin/Login.jsx`, `Login.css` | Super Admin login |
+| `superadmin/Revenue.jsx`, `Revenue.css` | Revenue page: gross revenue & trend, revenue-split config, checkout fees & refund rules, operator payouts, ledger, payments, refunds, support costs |
+| `superadmin/RefundsCard.jsx`, `PricingRulesCard.jsx`, `CanvasChart.jsx`, `revenueUtils.jsx` | Parts of the Revenue page |
 | `superadmin/Console.jsx` | Super Admin portal — full-page data console |
 | `components/SuperUserPanel/` | The data console (all tables, add / edit / delete, reset DB) |
 | `lib/crudSchemas/` | Table & field definitions for the console |

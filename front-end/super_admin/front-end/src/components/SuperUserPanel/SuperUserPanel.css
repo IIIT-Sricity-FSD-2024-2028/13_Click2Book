@@ -815,3 +815,14 @@
     width: 100%;
   }
 }
+
+/* Links to other Super Admin pages, above the tables */
+#c2b-sidebar .c2b-nav-item.c2b-nav-link {
+  margin-bottom: 10px;
+  border: 1px solid rgba(249, 115, 22, 0.45);
+  color: #fdba74;
+}
+#c2b-sidebar .c2b-nav-item.c2b-nav-link:hover {
+  color: #fff;
+  background: rgba(249, 115, 22, 0.18);
+}

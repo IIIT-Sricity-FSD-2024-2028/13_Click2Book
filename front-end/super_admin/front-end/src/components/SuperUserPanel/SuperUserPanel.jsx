@@ -10,7 +10,13 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import DB from '../../lib/db';
-import SearchSuggest from '../SearchSuggest/SearchSuggest';
+import Sidebar from './Sidebar';
+import PageHeader from './PageHeader';
+import SearchBar from './SearchBar';
+import RecordCount from './RecordCount';
+import HeaderActions from './HeaderActions';
+import StatsRow from './StatsRow';
+import DataTable from './DataTable';
 import './SuperUserPanel.css';
 
 const isAuthorised = () => sessionStorage.getItem('superUserAuth') === 'true';
@@ -32,19 +38,6 @@ function getRecord(dbKey, pk) {
   let result = DB[dbKey].getById(pk);
   if (!result.success && !isNaN(Number(pk))) result = DB[dbKey].getById(Number(pk));
   return result;
-}
-
-function CellValue({ col, value, isPk }) {
-  if (col.includes('status') || col === 'gender' || col === 'verification_status') {
-    const cls = (value ?? 'none').replace(/\s/g, '_');
-    return <span className={`c2b-badge c2b-badge-${cls}`}>{value ?? '—'}</span>;
-  }
-  if (col.endsWith('_amount') || col === 'amount') {
-    return value != null ? '₹' + Number(value).toFixed(2) : '—';
-  }
-  if (col === 'rating') return value ? '★'.repeat(Number(value)) : '—';
-  if (isPk) return <span style={{ fontWeight: 700, color: '#0B2447' }}>{value ?? '—'}</span>;
-  return value ?? '—';
 }
 
 function RecordForm({ schema, record, formRef }) {
@@ -136,7 +129,6 @@ export default function SuperUserPanel({
   // Tables are tiny, so re-read localStorage on every render; `version`
   // changes after each mutation to trigger one.
   const allRecords = schema ? (schema.getData ? schema.getData() : DB[schema.dbKey].getAll()) : [];
-  const stats = schema?.stats ? schema.stats() : [];
 
   const lc = filter.trim().toLowerCase();
   const filtered = lc
@@ -148,21 +140,6 @@ export default function SuperUserPanel({
         ),
       )
     : allRecords;
-
-  // Suggestions match the record's name only; tables without a name column use their ID.
-  const searchItems = schema
-    ? allRecords.map((r, i) => {
-        const pk = r[schema.pkField] ?? r[schema.columns[0]];
-        const name = schema.columns.includes('name') ? r.name : null;
-        return {
-          key: `${pk}-${i}`,
-          label: name || pk,
-          sub: name ? pk : '',
-          tag: name ? 'Name' : (schema.pkField || schema.columns[0]).replace(/_/g, ' '),
-          fields: [name || pk],
-        };
-      })
-    : [];
 
   const refresh = () => setVersion((v) => v + 1);
 
@@ -280,66 +257,32 @@ export default function SuperUserPanel({
         onClick={(e) => !alwaysOpen && e.target === e.currentTarget && setOpen(false)}
       >
         <div id="c2b-panel">
-          {/* Sidebar */}
-          <div id="c2b-sidebar">
-            <div className="c2b-brand">
-              <h3>📈 {alwaysOpen ? 'Super Admin' : 'Super User'}</h3>
-              <p>{actorLabel}</p>
-            </div>
-            <nav className="c2b-nav">
-              {Object.entries(schemas).map(([key, s]) => (
-                <div key={key} className={'c2b-nav-item' + (key === currentTable ? ' active' : '')} onClick={() => selectTable(key)}>
-                  {s.label}
-                </div>
-              ))}
-            </nav>
-          </div>
+          <Sidebar
+            title={alwaysOpen ? 'Super Admin' : 'Super User'}
+            subtitle={actorLabel}
+            schemas={schemas}
+            currentTable={currentTable}
+            onSelect={selectTable}
+          />
 
           {/* Main */}
           <div id="c2b-main">
             <div className="c2b-topbar">
-              <div className="c2b-topbar-left">
-                <h2 id="c2b-tableTitle">{schema?.label ?? '—'}</h2>
-                <p id="c2b-tableSubtitle">{schema?.subtitle || ''}</p>
-              </div>
+              <PageHeader title={schema?.label ?? '—'} subtitle={schema?.subtitle || ''} />
               <div className="c2b-topbar-right">
-                <SearchSuggest
-                  className="c2b-search"
-                  value={filter}
-                  onChange={setFilter}
-                  items={searchItems}
-                  placeholder={`Search ${schema?.label?.toLowerCase() ?? ''}…`}
+                <SearchBar schema={schema} records={allRecords} value={filter} onChange={setFilter} />
+                <RecordCount count={filtered.length} />
+                <HeaderActions
+                  onAdd={openAdd}
+                  onReset={resetDb}
+                  alwaysOpen={alwaysOpen}
+                  onLogout={onClose}
+                  onClosePanel={() => setOpen(false)}
                 />
-                <span id="c2b-recordCount">
-                  {filtered.length} record{filtered.length !== 1 ? 's' : ''}
-                </span>
-                <button className="c2b-btn c2b-btn-primary" onClick={openAdd}>
-                  + Add Record
-                </button>
-                <button className="c2b-btn c2b-btn-danger" onClick={resetDb}>
-                  ⚠ Reset DB
-                </button>
-                {alwaysOpen ? (
-                  <button className="c2b-btn c2b-btn-ghost" id="c2b-logout" onClick={onClose}>
-                    ⎋ Logout
-                  </button>
-                ) : (
-                  <button className="c2b-btn-close" title="Close Panel" onClick={() => setOpen(false)}>
-                    ✕
-                  </button>
-                )}
               </div>
             </div>
 
-            {/* Stats Bar */}
-            <div id="c2b-statsBar">
-              {stats.map((stat) => (
-                <div key={stat.label} className="c2b-stat-card">
-                  <span className="c2b-stat-label">{stat.label}</span>
-                  <span className={`c2b-stat-value ${stat.cls || ''}`}>{stat.value}</span>
-                </div>
-              ))}
-            </div>
+            <StatsRow schema={schema} />
 
             {/* Table Content */}
             <div id="c2b-content">
@@ -354,48 +297,7 @@ export default function SuperUserPanel({
                   )}
                 </div>
               ) : (
-                <div className="c2b-table-wrap">
-                  <table id="c2b-dataTable">
-                    <thead>
-                      <tr>
-                        {schema.columns.map((col) => (
-                          <th key={col}>{col.replace(/_/g, ' ')}</th>
-                        ))}
-                        <th />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.map((record, i) => {
-                        const pk = record[schema.pkField];
-                        return (
-                          <tr key={`${pk}-${i}`}>
-                            {schema.columns.map((col) => (
-                              <td key={col}>
-                                <CellValue col={col} value={record[col]} isPk={col === schema.pkField} />
-                              </td>
-                            ))}
-                            <td>
-                              <div className="c2b-td-actions">
-                                {schema.readOnly ? (
-                                  <span className="c2b-ro-badge">read-only</span>
-                                ) : (
-                                  <>
-                                    <button className="c2b-btn-icon edit" title="Edit" onClick={() => openEdit(pk)}>
-                                      ✏️
-                                    </button>
-                                    <button className="c2b-btn-icon trash" title="Delete" onClick={() => openDelete(pk)}>
-                                      🗑️
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <DataTable schema={schema} records={filtered} onEdit={openEdit} onDelete={openDelete} />
               )}
             </div>
           </div>

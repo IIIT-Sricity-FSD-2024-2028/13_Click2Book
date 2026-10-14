@@ -8,5 +8,4 @@ export interface Booking {
   seatNumber: number;
   bookingDate: string;
   bookingStatus: BookingStatus;
-  irctcId?: string;
 }

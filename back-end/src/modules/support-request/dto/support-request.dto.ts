@@ -12,8 +12,23 @@ export class CreateSupportRequestDto {
   @ApiPropertyOptional({ example: 'B001', description: 'Booking this request relates to, if any' })
   @IsOptional() @IsString() bookingId?: string;
 
-  @ApiPropertyOptional({ example: 'complaint', enum: ['complaint', 'dispute'] })
-  @IsOptional() @IsIn(['complaint', 'dispute']) category?: 'complaint' | 'dispute';
+  @ApiPropertyOptional({ example: 'complaint' })
+  @IsOptional() @IsString() category?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() requestId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() supporterId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() status?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() customerName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() createdAt?: string;
 }
 
 export class UpdateSupportRequestDto {

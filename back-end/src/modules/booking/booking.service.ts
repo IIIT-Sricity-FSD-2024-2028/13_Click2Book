@@ -62,7 +62,6 @@ export class BookingService {
       tripId: dto.tripId,
       seatNumber: dto.seatNumber,
       offerId,
-      irctcId: dto.irctcId,
     });
 
     // 7. Mark seat as BOOKED & decrement vehicle remaining seats

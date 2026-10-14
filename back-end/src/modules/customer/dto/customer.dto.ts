@@ -60,4 +60,14 @@ export class UpdateCustomerDto {
   @IsString()
   @Length(10, 10)
   phoneNumber?: string;
+
+  @ApiPropertyOptional({ example: 'santosh@example.com' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({ example: '9876543211' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
 }

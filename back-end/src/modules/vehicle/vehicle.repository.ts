@@ -26,15 +26,15 @@ export class VehicleRepository {
       busName: 'KPN Tours Superfast AC', amenities: ['WiFi', 'AC', 'Charging Point', 'Water Bottle'], boardingPoint: 'Electronic City', droppingPoint: 'Madurai Bus Stand', rating: 4.4 } as any,
     { vehicleId: 'V008', providerId: 'P002', vehicleNumber: 'KPN Tours Pune Volvo',    vehicleType: VehicleType.VOLVO,  totalSeats: 41, remainingSeats: 35,
       busName: 'KPN Tours Volvo (Mumbai-Pune)', amenities: ['WiFi', 'AC', 'Charging Point', 'Blanket', 'Pillow'], boardingPoint: 'Dadar', droppingPoint: 'Shivaji Nagar', rating: 4.7 } as any,
-    // Trains (P001)
-    { vehicleId: 'V009', providerId: 'P001', vehicleNumber: 'Rajdhani Express 12951',  vehicleType: VehicleType.TRAIN,  totalSeats: 120, remainingSeats: 85,
-      busName: 'Rajdhani Express', amenities: ['AC', 'Meals', 'Bedding', 'Charging Point'], boardingPoint: 'Delhi H.Nizamuddin', droppingPoint: 'Mumbai Central', rating: 4.8 } as any,
-    { vehicleId: 'V010', providerId: 'P001', vehicleNumber: 'Shatabdi Express 12001',  vehicleType: VehicleType.TRAIN,  totalSeats: 100, remainingSeats: 60,
-      busName: 'Shatabdi Express', amenities: ['AC Chair Car', 'Meals', 'Charging Point'], boardingPoint: 'Bangalore City', droppingPoint: 'Chennai Central', rating: 4.7 } as any,
-    { vehicleId: 'V011', providerId: 'P001', vehicleNumber: 'Vande Bharat 20901',      vehicleType: VehicleType.TRAIN,  totalSeats: 90,  remainingSeats: 72,
-      busName: 'Vande Bharat Express', amenities: ['AC', 'Meals', 'WiFi', 'Charging Point', 'Panoramic Windows'], boardingPoint: 'Hyderabad', droppingPoint: 'Vijayawada', rating: 4.9 } as any,
-    { vehicleId: 'V012', providerId: 'P001', vehicleNumber: 'Duronto Express 12213',   vehicleType: VehicleType.TRAIN,  totalSeats: 110, remainingSeats: 90,
-      busName: 'Duronto Express', amenities: ['AC', 'Meals', 'Bedding', 'Charging Point'], boardingPoint: 'Delhi', droppingPoint: 'Jaipur', rating: 4.6 } as any,
+    // APSRTC Express Buses (P001)
+    { vehicleId: 'V009', providerId: 'P001', vehicleNumber: 'APSRTC Rajdhani Bus',     vehicleType: VehicleType.VOLVO,  totalSeats: 45, remainingSeats: 35,
+      busName: 'APSRTC Rajdhani Volvo AC', amenities: ['AC', 'WiFi', 'Blanket', 'Charging Point'], boardingPoint: 'Delhi H.Nizamuddin', droppingPoint: 'Mumbai Central', rating: 4.8 } as any,
+    { vehicleId: 'V010', providerId: 'P001', vehicleNumber: 'APSRTC Shatabdi Bus',     vehicleType: VehicleType.AC,     totalSeats: 40, remainingSeats: 30,
+      busName: 'APSRTC Shatabdi AC Seater', amenities: ['AC', 'Water Bottle', 'Charging Point'], boardingPoint: 'Bangalore City', droppingPoint: 'Chennai Central', rating: 4.7 } as any,
+    { vehicleId: 'V011', providerId: 'P001', vehicleNumber: 'APSRTC Garuda Plus',      vehicleType: VehicleType.VOLVO,  totalSeats: 42, remainingSeats: 36,
+      busName: 'APSRTC Garuda Plus Volvo', amenities: ['AC', 'WiFi', 'Charging Point', 'Blanket', 'Water Bottle'], boardingPoint: 'Hyderabad', droppingPoint: 'Vijayawada', rating: 4.9 } as any,
+    { vehicleId: 'V012', providerId: 'P001', vehicleNumber: 'APSRTC Amaravathi Bus',   vehicleType: VehicleType.SLEEPER,totalSeats: 36, remainingSeats: 28,
+      busName: 'APSRTC Amaravathi AC Sleeper', amenities: ['AC', 'Bedding', 'Charging Point'], boardingPoint: 'Delhi', droppingPoint: 'Jaipur', rating: 4.6 } as any,
     // Orange Travels (P003, unapproved) — gets a real fleet so its unapproved-exclusion
     // from search is a genuine filter, not just an absence of data.
     { vehicleId: 'V013', providerId: 'P003', vehicleNumber: 'Orange Travels Sleeper',  vehicleType: VehicleType.SLEEPER,totalSeats: 40, remainingSeats: 32,
@@ -59,8 +59,12 @@ export class VehicleRepository {
       busName: 'Ganesh Travels AC Seater', amenities: ['AC', 'Charging Point'], boardingPoint: 'Satellite Bus Stand', droppingPoint: 'Mysore Bus Stand', rating: 4.1 } as any,
   ];
 
-  create(data: Omit<Vehicle, 'vehicleId' | 'remainingSeats'>): Vehicle {
-    const vehicle: Vehicle = { vehicleId: generateId('V'), ...data, remainingSeats: data.totalSeats };
+  create(data: Omit<Vehicle, 'vehicleId' | 'remainingSeats'> & { remainingSeats?: number }): Vehicle {
+    const vehicle: Vehicle = {
+      vehicleId: generateId('V'),
+      ...data,
+      remainingSeats: data.remainingSeats !== undefined ? data.remainingSeats : data.totalSeats,
+    };
     this.vehicles.push(vehicle);
     return vehicle;
   }

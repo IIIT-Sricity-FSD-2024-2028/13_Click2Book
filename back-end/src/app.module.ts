@@ -18,7 +18,6 @@ import { RouteModule } from './modules/route/route.module';
 import { ScheduleModule } from './modules/schedule/schedule.module';
 import { TripModule } from './modules/trip/trip.module';
 import { OfferModule } from './modules/offer/offer.module';
-import { IrctcModule } from './modules/irctc/irctc.module';
 import { BookingModule } from './modules/booking/booking.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { CancellationModule } from './modules/cancellation/cancellation.module';
@@ -77,7 +76,6 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     RefundModule,
 
     // Supplementary
-    IrctcModule,
     ReviewModule,
     SupportRequestModule,
     ReportModule,

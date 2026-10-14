@@ -7,7 +7,7 @@
  * `value` (default: `label`) into the search box, narrowing the table to it.
  *
  * Keyboard: ↑/↓ move, Enter picks (or just closes when nothing is highlighted),
- * Esc closes, Esc again clears.
+ * Esc closes, Esc again clears. 
  */
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import './SearchSuggest.css';

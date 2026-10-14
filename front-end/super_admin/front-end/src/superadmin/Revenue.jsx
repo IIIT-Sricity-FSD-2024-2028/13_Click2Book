@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import usePageTitle from '../hooks/usePageTitle';
-import { apiRequest } from '../lib/http';
+import { revenueRequest, useRevenueDemo } from './revenueMock';
 import CanvasChart from './CanvasChart';
 import { downloadCsv, lastDays, lastMonths } from './revenueUtils';
 import PricingRulesCard from './PricingRulesCard';
 import RefundsCard from './RefundsCard';
 import './Revenue.css';
 
-/** The revenue endpoints are ADMIN-role routes on the backend. */
-const adminFetch = (path, opts) => apiRequest(path, { role: 'ADMIN', ...opts });
+/** The revenue endpoints are ADMIN-role routes on the backend (demo data when it is offline). */
+const adminFetch = (path, opts) => revenueRequest(path, { role: 'ADMIN', ...opts });
 
 /** Backend money values are paise. */
 const rupees = (paise) => (paise / 100).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
@@ -67,6 +67,7 @@ export default function Revenue() {
 
 function RevenueDashboard() {
   const [connected, setConnected] = useState(null); // null = connecting
+  const demo = useRevenueDemo();
   const [config, setConfig] = useState(EMPTY_CONFIG);
   const [warning, setWarning] = useState('');
   const [stats, setStats] = useState([]);
@@ -193,8 +194,12 @@ function RevenueDashboard() {
             <div className="page-sub">Gross revenue, commission, fees, payouts, payments, refunds and support costs</div>
           </div>
         </div>
-        <span id="connBadge" style={connected === null ? undefined : { background: connected ? '#22c55e' : '#ef4444', color: '#fff' }}>
-          {connected === null ? 'Connecting…' : connected ? '● API Connected' : '● API Offline'}
+        <span
+          id="connBadge"
+          title={demo ? 'The backend (port 3000) is not running, so this page shows demo data. Changes last until you reload.' : undefined}
+          style={connected === null ? undefined : { background: demo ? '#f59e0b' : connected ? '#22c55e' : '#ef4444', color: '#fff' }}
+        >
+          {connected === null ? 'Connecting…' : demo ? '● Demo data (backend offline)' : connected ? '● API Connected' : '● API Offline'}
         </span>
       </div>
 

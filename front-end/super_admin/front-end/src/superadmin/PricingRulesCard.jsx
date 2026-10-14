@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { apiRequest } from '../lib/http';
+import { revenueRequest } from './revenueMock';
 import { DEFAULT_PLATFORM_SETTINGS, loadPlatformSettings } from '../lib/platformSettings';
 
 const inr = (r) => (Number(r) || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
@@ -32,7 +32,7 @@ export default function PricingRulesCard() {
 
   const load = useCallback(async () => {
     try {
-      const s = await apiRequest('/platform/settings', { role: null });
+      const s = await revenueRequest('/platform/settings', { role: null });
       setSaved(s);
       setF(fromSettings(s));
     } catch (err) {
@@ -52,7 +52,7 @@ export default function PricingRulesCard() {
     }
     setBusy(true);
     try {
-      const s = await apiRequest('/platform/settings', {
+      const s = await revenueRequest('/platform/settings', {
         role: 'ADMIN',
         method: 'PUT',
         body: toPatch(values),

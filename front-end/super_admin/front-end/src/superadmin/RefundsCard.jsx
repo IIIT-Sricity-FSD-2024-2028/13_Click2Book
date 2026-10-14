@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { apiRequest } from '../lib/http';
+import { revenueRequest } from './revenueMock';
 
-const adminFetch = (path, opts) => apiRequest(path, { role: 'ADMIN', ...opts });
+const adminFetch = (path, opts) => revenueRequest(path, { role: 'ADMIN', ...opts });
 const inr = (r) => (Number(r) || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
 
 /** Recorded on the refund as the person who processed it. */

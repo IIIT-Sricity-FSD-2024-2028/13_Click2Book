@@ -22,23 +22,6 @@ export default function StaffAccess() {
         className="dot"
         style={{ width: '55px', height: '55px', bottom: '25%', right: '28%', animationDuration: '20s', animationDelay: '6s' }}
       />
-      {/* HOME BTN */}
-      <Link to="/" className="home-btn">
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="white"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-          <polyline points="9 22 9 12 15 12 15 22" />
-        </svg>{' '}
-        Home
-      </Link>
       {/* MAIN CARD */}
       <div className="card">
         {/* Card Header */}
@@ -61,113 +44,6 @@ export default function StaffAccess() {
           <h1 className="body-title">Welcome to Staff Portal</h1>
           <p className="body-sub">Select your role to access your dedicated dashboard</p>
           <div className="roles-grid">
-            {/* Admin portal */}
-            <Link to="/admin/login" className="role-card admin">
-              <div className="role-icon-wrap">
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#3b82f6"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
-              </div>
-              <div className="role-name">Admin</div>
-              <p className="role-desc">System administration & full control over users, bookings and platform settings</p>
-              <span className="role-link">
-                Access Portal{' '}
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M5 12h14m-6-7 7 7-7 7" />
-                </svg>
-              </span>
-            </Link>
-            {/* Customer Support portal */}
-            <Link to="/support/login" className="role-card support">
-              <div className="role-icon-wrap">
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#8b5cf6"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
-                  <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z" />
-                  <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
-                </svg>
-              </div>
-              <div className="role-name">Customer Support</div>
-              <p className="role-desc">Handle queries, manage tickets & assist travelers with their bookings and issues</p>
-              <span className="role-link">
-                Access Portal{' '}
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M5 12h14m-6-7 7 7-7 7" />
-                </svg>
-              </span>
-            </Link>
-            {/* Service Provider portal */}
-            <Link to="/provider/login" className="role-card provider">
-              <div className="role-icon-wrap">
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#f97316"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="2" y="8" width="20" height="12" rx="3" />
-                  <rect x="5" y="5" width="14" height="5" rx="2" />
-                  <circle cx="6.5" cy="20" r="1.5" />
-                  <circle cx="17.5" cy="20" r="1.5" />
-                </svg>
-              </div>
-              <div className="role-name">Service Provider</div>
-              <p className="role-desc">Manage trips, schedules, seat maps & fleet performance for your bus services</p>
-              <span className="role-link">
-                Access Portal{' '}
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M5 12h14m-6-7 7 7-7 7" />
-                </svg>
-              </span>
-            </Link>
             {/* Super Admin portal */}
             <Link to="/super-admin/login" className="role-card superadmin" id="superAdminCard">
               <div className="role-icon-wrap">

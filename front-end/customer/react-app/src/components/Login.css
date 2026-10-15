@@ -1,0 +1,499 @@
+/* =====================================================
+   CLICK2BOOK – Customer Login Styles
+   Exact Visual Preservation of login.html
+   ===================================================== */
+
+:root {
+  --c2b-p: #f97316;
+  --c2b-pd: #ea580c;
+  --c2b-pl: rgba(249, 115, 22, .15);
+  --c2b-navy: #0f1f3d;
+  --c2b-dark: #0a1628;
+  --c2b-border: #e2e8f0;
+  --c2b-text: #0f172a;
+  --c2b-muted: #64748b;
+  --c2b-light: #94a3b8;
+}
+
+/* LAYOUT */
+.c2b-login-page {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #0a1628;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* LEFT PANEL */
+.c2b-login-page .left {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(145deg, #0a1628 0%, #0f1f3d 50%, #162a4a 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 48px;
+  box-sizing: border-box;
+}
+
+.c2b-login-page .left::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 35% 55%, rgba(249, 115, 22, .12) 0%, transparent 60%),
+    radial-gradient(circle at 75% 25%, rgba(249, 115, 22, .06) 0%, transparent 40%);
+}
+
+/* Watermark bus */
+.c2b-login-page .bus-watermark {
+  position: absolute;
+  bottom: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: .07;
+  font-size: 260px;
+  pointer-events: none;
+  user-select: none;
+  animation: c2b-float 6s ease-in-out infinite;
+}
+
+@keyframes c2b-float {
+  0%, 100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-12px);
+  }
+}
+
+.c2b-login-page .left-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  max-width: 360px;
+}
+
+.c2b-login-page .left-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 36px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.c2b-login-page .left-logo-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #f97316;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(249, 115, 22, .4);
+}
+
+.c2b-login-page .left-logo-text {
+  text-align: left;
+}
+
+.c2b-login-page .left-logo-name {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -.5px;
+}
+
+.c2b-login-page .left-logo-sub {
+  font-size: .7rem;
+  color: rgba(255, 255, 255, .5);
+  font-weight: 500;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.c2b-login-page .left-h {
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.25;
+  margin-bottom: 14px;
+}
+
+.c2b-login-page .left-sub {
+  font-size: .88rem;
+  color: rgba(255, 255, 255, .6);
+  line-height: 1.7;
+  margin-bottom: 36px;
+}
+
+.c2b-login-page .left-features {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.c2b-login-page .feat-pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .08);
+  font-size: .83rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, .8);
+}
+
+.c2b-login-page .feat-pill-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(249, 115, 22, .18);
+  border: 1px solid rgba(249, 115, 22, .25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* RIGHT PANEL */
+.c2b-login-page .right {
+  width: 440px;
+  flex-shrink: 0;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 44px;
+  overflow-y: auto;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.c2b-login-page .form-box {
+  width: 100%;
+  max-width: 360px;
+}
+
+.c2b-login-page .form-title {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #0f172a;
+  margin-bottom: 5px;
+}
+
+.c2b-login-page .form-sub {
+  font-size: .83rem;
+  color: #64748b;
+  margin-bottom: 28px;
+}
+
+/* FIELD */
+.c2b-login-page .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.c2b-login-page .field label {
+  font-size: .78rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.c2b-login-page .input-wrap {
+  position: relative;
+}
+
+.c2b-login-page .input-icon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.c2b-login-page .finput {
+  width: 100%;
+  padding: 12px 42px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: .88rem;
+  color: #0f172a;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.c2b-login-page .finput::placeholder {
+  color: #94a3b8;
+}
+
+.c2b-login-page .finput:focus {
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, .1);
+}
+
+.c2b-login-page .eye-btn {
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color .2s;
+}
+
+.c2b-login-page .eye-btn:hover {
+  color: #0f172a;
+}
+
+/* ROW */
+.c2b-login-page .row2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.c2b-login-page .chk-wrap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: .8rem;
+  color: #64748b;
+  cursor: pointer;
+  user-select: none;
+}
+
+.c2b-login-page .chk-wrap input {
+  accent-color: #f97316;
+  width: 15px;
+  height: 15px;
+}
+
+.c2b-login-page .link-sm {
+  font-size: .8rem;
+  font-weight: 700;
+  color: #f97316;
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.c2b-login-page .link-sm:hover {
+  color: #ea580c;
+}
+
+/* BUTTONS */
+.c2b-login-page .btn-primary {
+  width: 100%;
+  padding: 13px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: .92rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(249, 115, 22, .35);
+  transition: transform .2s, box-shadow .2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.c2b-login-page .btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(249, 115, 22, .45);
+}
+
+.c2b-login-page .btn-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.c2b-login-page .create-link {
+  text-align: center;
+  margin: 14px 0;
+  font-size: .82rem;
+  color: #64748b;
+}
+
+.c2b-login-page .create-link a,
+.c2b-login-page .create-link button {
+  color: #f97316;
+  font-weight: 700;
+  text-decoration: none;
+  background: none;
+  border: none;
+  font-size: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.c2b-login-page .create-link a:hover,
+.c2b-login-page .create-link button:hover {
+  color: #ea580c;
+}
+
+.c2b-login-page .divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 12px;
+  color: #94a3b8;
+  font-size: .75rem;
+}
+
+.c2b-login-page .divider::before,
+.c2b-login-page .divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.c2b-login-page .staff-label {
+  text-align: center;
+  font-size: .8rem;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.c2b-login-page .btn-staff {
+  width: 100%;
+  padding: 11px;
+  border-radius: 10px;
+  border: 1.5px solid #1e293b;
+  background: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: .88rem;
+  font-weight: 700;
+  color: #1e293b;
+  cursor: pointer;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all .2s;
+  box-sizing: border-box;
+}
+
+.c2b-login-page .btn-staff:hover {
+  background: #f8fafc;
+  border-color: #f97316;
+  color: #f97316;
+}
+
+.c2b-login-page .terms-note {
+  text-align: center;
+  font-size: .72rem;
+  color: #94a3b8;
+  margin-top: 18px;
+  line-height: 1.6;
+}
+
+.c2b-login-page .terms-note a,
+.c2b-login-page .terms-note button {
+  color: #f97316;
+  text-decoration: none;
+  background: none;
+  border: none;
+  font-size: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* ERROR & SUCCESS MESSAGES */
+.c2b-login-page .err-msg {
+  background: #fff1f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: .79rem;
+  color: #ef4444;
+  font-weight: 600;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.c2b-login-page .success-msg {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: .79rem;
+  color: #16a34a;
+  font-weight: 600;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+/* CLOSE / HOME BUTTON */
+.c2b-login-page .close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .2s;
+  z-index: 10;
+}
+
+.c2b-login-page .close-btn:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+/* RESPONSIVE */
+@media(max-width:768px) {
+  .c2b-login-page {
+    overflow: auto;
+  }
+  .c2b-login-page .left {
+    display: none;
+  }
+  .c2b-login-page .right {
+    width: 100%;
+    min-height: 100vh;
+    padding: 32px 20px;
+  }
+}

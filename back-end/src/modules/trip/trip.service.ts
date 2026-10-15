@@ -34,8 +34,35 @@ export class TripService {
   }
 
   findAll(status?: TripStatus) {
-    if (status) return successResponse('Trips by status', this.tripRepo.findByStatus(status));
-    return successResponse('All trips', this.tripRepo.findAll());
+    const rawTrips = status ? this.tripRepo.findByStatus(status) : this.tripRepo.findAll();
+    const enriched = rawTrips.map((t) => {
+      const schedule = this.scheduleRepo.findById(t.scheduleId);
+      const vehicle = this.vehicleRepo.findById(t.vehicleId);
+      const route = schedule ? this.routeRepo.findById(schedule.routeId) : null;
+      const provider = schedule ? this.providerRepo.findById(schedule.providerId) : null;
+      return {
+        ...t,
+        source: route?.source || 'Origin',
+        destination: route?.destination || 'Destination',
+        route: route ? `${route.source} → ${route.destination}` : 'Route',
+        via: (schedule as any)?.via || (route as any)?.via || '',
+        departureTime: schedule?.departureTime || '08:00',
+        arrivalTime: schedule?.arrivalTime || '12:00',
+        duration: schedule?.departureTime && schedule?.arrivalTime ? this.calcDuration(schedule.departureTime, schedule.arrivalTime) : '4h 00m',
+        journeyDate: schedule?.journeyDate || new Date().toISOString().split('T')[0],
+        busName: vehicle?.busName || 'Express Bus',
+        vehicleType: vehicle?.vehicleType || 'AC',
+        totalSeats: vehicle?.totalSeats || 40,
+        availableSeats: vehicle?.remainingSeats ?? 40,
+        remainingSeats: vehicle?.remainingSeats ?? 40,
+        fare: schedule?.fare || 500,
+        price: schedule?.fare || 500,
+        providerId: schedule?.providerId || 'P001',
+        providerName: provider?.name || 'Bus Operator',
+        rating: vehicle?.rating || 4.5,
+      };
+    });
+    return successResponse(status ? 'Trips by status' : 'All trips', enriched);
   }
 
   // Calculate duration string from departure and arrival time (HH:MM format)

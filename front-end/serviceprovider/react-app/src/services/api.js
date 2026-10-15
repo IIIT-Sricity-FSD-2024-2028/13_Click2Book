@@ -3,6 +3,8 @@
    Mirrors the approach used in the support agent services/api.js
    ────────────────────────────────────────────────────────── */
 
+import { liveSync } from './liveSync';
+
 const getHost = () =>
   (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
     ? 'localhost'
@@ -331,6 +333,7 @@ function _saveToLocalStorage({ tripId, vehicleId, scheduleId, providerId, journe
   }
   localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
   try { window.dispatchEvent(new Event('storage')); } catch {}
+  try { liveSync.syncSchedule(item); } catch {}
 }
 
 /* ── Edit / Update a locally-stored schedule ── */
@@ -369,6 +372,7 @@ export function updateLocalSchedule(tripId, { from, to, via, dep, arr, busName, 
   }
   localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
   try { window.dispatchEvent(new Event('storage')); } catch {}
+  try { liveSync.syncSchedule(schedules[idx === -1 ? schedules.length - 1 : idx]); } catch {}
   return true;
 }
 
@@ -462,6 +466,9 @@ export function autoStartDueTrips(additionalTrips = []) {
     localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
     localStorage.setItem('c2b_bus_schedules', JSON.stringify(localSchedules));
     try { window.dispatchEvent(new Event('storage')); } catch {}
+    autoStarted.forEach((item) => {
+      try { liveSync.syncTripStatus(item.tripId, 'IN_PROGRESS'); } catch {}
+    });
   }
 
   return autoStarted;

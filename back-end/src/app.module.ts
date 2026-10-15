@@ -32,6 +32,7 @@ import { RevenueSplitModule } from './modules/revenue-split/revenue-split.module
 import { LedgerModule } from './modules/ledger/ledger.module';
 import { SupportTicketModule } from './modules/support-ticket/support-ticket.module';
 import { PayoutsModule } from './modules/payouts/payouts.module';
+import { SyncModule } from './modules/sync/sync.module';
 
 @Module({
   imports: [
@@ -84,6 +85,9 @@ import { PayoutsModule } from './modules/payouts/payouts.module';
     TrackingModule,
     EmergencyModule,
     LostFoundModule,
+
+    // Real-time synchronization across all portals/actors
+    SyncModule,
   ],
   providers: [
     // Phase 4C: Global rate limiting — 100 requests per 60 seconds per IP.

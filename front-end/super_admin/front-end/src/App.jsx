@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import PlatformBanner from './components/PlatformBanner';
+import { liveSync } from './lib/liveSync';
 
 import StaffAccess from './landing/StaffAccess';
 import SuperAdminLogin from './superadmin/Login';
@@ -13,6 +15,10 @@ import SuperAdminRevenue from './superadmin/Revenue';
  * and support portals (which are not part of this copy) land back on Staff Access.
  */
 export default function App() {
+  useEffect(() => {
+    liveSync.init();
+  }, []);
+
   return (
     <>
       <PlatformBanner />

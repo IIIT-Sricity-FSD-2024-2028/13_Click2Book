@@ -16,6 +16,7 @@ import Revenue            from './components/Revenue';
 import Settings           from './components/Settings';
 
 import { getNotifications, autoStartDueTrips } from './services/api';
+import { liveSync } from './services/liveSync';
 
 /* ── Valid tabs (sync with hash URL, same approach as support agent) ── */
 const VALID_TABS = [
@@ -89,6 +90,26 @@ export default function App() {
     runAutoStart();
     const interval = setInterval(runAutoStart, 4000);
     return () => clearInterval(interval);
+  }, [showToast]);
+
+  /* ── Real-Time Cross-Actor Live Sync (Customer bookings, Trip status, Admin updates) ── */
+  useEffect(() => {
+    liveSync.init();
+    const unsubscribe = liveSync.subscribe((event) => {
+      if (event.type === 'BOOKING_CREATED') {
+        const p = event.payload || {};
+        const pax = p.passengerName || p.customerName || 'Passenger';
+        const bus = p.busName || 'Bus';
+        const seats = p.seats || (p.seat_list ? p.seat_list.join(', ') : '1 seat');
+        showToast(`🎫 New Booking! ${pax} booked seat ${seats} on ${bus}.`, 'success');
+      } else if (event.type === 'TRIP_STATUS_UPDATED') {
+        const { tripId, status } = event.payload || {};
+        if (status === 'IN_PROGRESS') {
+          showToast(`🚌 Trip ${tripId} status is now IN PROGRESS.`, 'info');
+        }
+      }
+    });
+    return () => unsubscribe();
   }, [showToast]);
 
   /* ── Login / Logout ── */

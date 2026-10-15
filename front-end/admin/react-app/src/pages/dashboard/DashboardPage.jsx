@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, loadAdminDashboardData } from '../../lib/api.js';
+import { liveSync } from '../../lib/liveSync.js';
 import { getBookings, getRefunds, getUsers } from '../../lib/db.js';
 import { getAdminName, initialsOf } from '../../lib/session.js';
 import '../../styles/admin_dashboard.css';
@@ -60,14 +61,29 @@ export default function DashboardPage() {
 
   useEffect(() => {
     refresh();
+    liveSync.init();
+    const unsubscribe = liveSync.subscribe((event) => {
+      refresh();
+      if (event.type === 'BOOKING_CREATED') {
+        const p = event.payload || {};
+        notify(`🎫 New booking: ${p.passengerName || p.customerName || 'Passenger'} (${p.seats || 'Seats'})`);
+      } else if (event.type === 'SCHEDULE_UPDATED') {
+        notify(`🚌 Schedule updated: ${event.payload?.from || ''} → ${event.payload?.to || ''}`);
+      }
+    });
+
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') refresh();
-    }, 15000);
+    }, 10000);
     const onFocus = () => refresh();
+    const onStorage = () => refresh();
     window.addEventListener('focus', onFocus);
+    window.addEventListener('storage', onStorage);
     return () => {
+      unsubscribe();
       clearInterval(timer);
       window.removeEventListener('focus', onFocus);
+      window.removeEventListener('storage', onStorage);
     };
   }, [refresh]);
 

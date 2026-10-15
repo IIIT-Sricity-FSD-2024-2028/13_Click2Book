@@ -9,6 +9,7 @@ import { API } from '../services/api';
 import { MOCK_BUSES } from '../services/mockData';
 import busHeroImg from '../assets/bus_hero.png';
 import { calculateSeatDistributions, validateSeatBookings, executeSeatPayments } from '../utils/paymentRetry';
+import { liveSync } from '../services/liveSync';
 
 export { calculateSeatDistributions, validateSeatBookings, executeSeatPayments };
 
@@ -747,6 +748,7 @@ export default function SearchTrips({
         console.warn('Could not update schedule booking stats:', err);
       }
       try { window.dispatchEvent(new Event('storage')); } catch {}
+      try { liveSync.syncBooking(newBooking); } catch (e) { console.warn('Sync booking error:', e); }
 
       // 8. Update sessionStorage for confirmation page and legacy parity
       sessionStorage.setItem('lastBookingId', bookingId);

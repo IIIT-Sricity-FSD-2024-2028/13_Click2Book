@@ -15,6 +15,7 @@ import GetSupport from './components/GetSupport';
 import LostFound from './components/LostFound';
 import TrackBus from './components/TrackBus';
 import { INITIAL_NOTIFICATIONS } from './services/mockData';
+import { liveSync } from './services/liveSync';
 
 const PROTECTED_TABS = ['my-bookings', 'cancel-ticket', 'my-profile', 'get-support'];
 
@@ -248,6 +249,26 @@ export default function App() {
       clearInterval(interval);
       window.removeEventListener('storage', handleStorage);
     };
+  }, [showToast]);
+
+  // Real-time cross-actor synchronization (Service Provider, Admin, Super Admin)
+  useEffect(() => {
+    liveSync.init();
+    const unsubscribe = liveSync.subscribe((event) => {
+      if (event.type === 'TRIP_STATUS_UPDATED') {
+        const { tripId, status } = event.payload || {};
+        if (status === 'IN_PROGRESS' && tripId && !notifiedTripsRef.current.has(tripId)) {
+          notifiedTripsRef.current.add(tripId);
+          showToast(`🚌 Your bus (Trip ${tripId}) has departed! Live tracking active.`, 'success');
+        }
+      } else if (event.type === 'SCHEDULE_UPDATED') {
+        const p = event.payload || {};
+        if (p.from && p.to) {
+          showToast(`🚌 New bus schedule available: ${p.busName || 'Bus'} (${p.from} → ${p.to})`, 'info');
+        }
+      }
+    });
+    return () => unsubscribe();
   }, [showToast]);
 
   // Hash Routing Synchronization with Route Guards

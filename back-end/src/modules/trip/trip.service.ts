@@ -97,8 +97,10 @@ export class TripService {
         if (src && !route.source.toLowerCase().includes(src)) return null;
         if (dst && !route.destination.toLowerCase().includes(dst)) return null;
 
-        // If journeyDate is specified on schedule, match against requested date
-        if (schedule.journeyDate && date && schedule.journeyDate !== date) {
+        // If journeyDate is specified on schedule, match against requested date.
+        // Seed schedules (SCH001-SCH025) serve as daily recurring templates for any searched date.
+        const isSeedSchedule = /^SCH0(0[1-9]|1[0-9]|2[0-5])$/.test(schedule.scheduleId);
+        if (!isSeedSchedule && schedule.journeyDate && date && schedule.journeyDate !== date) {
           return null;
         }
 

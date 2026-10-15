@@ -87,9 +87,38 @@ export default function CancelTicket({
     const fee = 50;
     const refundAmt = Math.max(0, selectedTicket.total - fee);
 
-    const idsToProcess = (selectedTicket.backendBookingIds && selectedTicket.backendBookingIds.length > 0)
+    // Resolve canonical backend booking IDs expected by the backend cancellation API
+    const rawIds = (selectedTicket.backendBookingIds && selectedTicket.backendBookingIds.length > 0)
       ? selectedTicket.backendBookingIds
       : [bId];
+
+    let canonicalIds = rawIds.filter((id) => id && !String(id).startsWith('MOCK_BK_') && !String(id).startsWith('LOCAL_'));
+
+    if (canonicalIds.length === 0 && selectedTicket.primaryBackendId && !String(selectedTicket.primaryBackendId).startsWith('MOCK_BK_')) {
+      canonicalIds = [selectedTicket.primaryBackendId];
+    }
+
+    if (canonicalIds.length === 0 && bId && !String(bId).startsWith('MOCK_BK_') && !String(bId).startsWith('LOCAL_')) {
+      canonicalIds = [bId];
+    }
+
+    // If still no canonical ID found (e.g. legacy/mock booking record),
+    // resolve against backend authoritative bookings for this customer
+    if (canonicalIds.length === 0) {
+      try {
+        const mine = await API.bookings.getMine();
+        if (Array.isArray(mine) && mine.length > 0) {
+          const match = mine.find((mb) => mb.bookingStatus === 'CONFIRMED' || mb.bookingStatus === 'PENDING');
+          if (match && match.bookingId) {
+            canonicalIds = [match.bookingId];
+          }
+        }
+      } catch (err) {
+        console.warn('Could not query authoritative bookings for canonical mapping:', err);
+      }
+    }
+
+    const idsToProcess = canonicalIds.length > 0 ? canonicalIds : rawIds;
     const perSeatRefund = Math.round(refundAmt / idsToProcess.length);
 
     try {

@@ -56,19 +56,21 @@ function isDepartureTimeReached(journeyDate, departureTime) {
 export default function App() {
   // Authenticated customer state — guest by default if not logged in
   const [user, setUser] = useState(() => {
-    const isLoggedIn =
-      sessionStorage.getItem('c2b_loggedIn') === 'true' ||
-      localStorage.getItem('c2b_loggedIn') === 'true';
-    if (!isLoggedIn) return null;
+    const hasSessionLogin = sessionStorage.getItem('c2b_loggedIn') === 'true';
+    const hasLocalLogin = localStorage.getItem('c2b_loggedIn') === 'true';
+    if (!hasSessionLogin && !hasLocalLogin) return null;
 
-    const id = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'C001';
-    const name = sessionStorage.getItem('c2b_userName') || localStorage.getItem('c2b_userName') || 'Rahul Sharma';
-    const email = sessionStorage.getItem('c2b_userEmail') || localStorage.getItem('c2b_userEmail') || 'rahul.sharma@email.com';
-    const phone = sessionStorage.getItem('c2b_userPhone') || localStorage.getItem('c2b_userPhone') || '+91 9876543210';
+    // Only restore user if a legitimate customer identity was saved from explicit login/signup
+    const name = sessionStorage.getItem('c2b_userName') || localStorage.getItem('c2b_userName');
+    const email = sessionStorage.getItem('c2b_userEmail') || localStorage.getItem('c2b_userEmail');
+    if (!name && !email) return null;
+
+    const id = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || sessionStorage.getItem('c2b_userId') || localStorage.getItem('c2b_userId') || 'C001';
+    const phone = sessionStorage.getItem('c2b_userPhone') || localStorage.getItem('c2b_userPhone') || '';
     const avatar = sessionStorage.getItem('c2b_user_avatar') || localStorage.getItem('c2b_user_avatar') || '';
-    const role = sessionStorage.getItem('c2b_userRole') || localStorage.getItem('c2b_userRole') || 'CUSTOMER';
+    const role = sessionStorage.getItem('c2b_role') || localStorage.getItem('c2b_role') || sessionStorage.getItem('c2b_userRole') || localStorage.getItem('c2b_userRole') || 'CUSTOMER';
 
-    return { id, name, email, phone, avatar, role, isLoggedIn: true };
+    return { id, name, email: email || '', phone, avatar, role, isLoggedIn: true };
   });
 
   // Navigation / Tabs: root defaults to landing page
@@ -102,6 +104,7 @@ export default function App() {
     const tabName = hash.split('?')[0];
     const isLogin = tabName === 'login';
     const isSignup = tabName === 'signup';
+
     return {
       isOpen: isLogin || isSignup,
       initialPanel: isSignup ? 'signup' : 'login',

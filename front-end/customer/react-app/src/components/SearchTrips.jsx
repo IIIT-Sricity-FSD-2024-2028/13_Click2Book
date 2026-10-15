@@ -552,7 +552,14 @@ export default function SearchTrips({
     setPaymentError('');
 
     const customerId = customer?.id || 'C001';
-    const isLiveBus = selectedBus.tripId && !selectedBus.tripId.startsWith('MOCK_') && !selectedBus.tripId.startsWith('LOCAL_');
+    const TRIP_MAP = {
+      'MOCK_T001': 'T018',
+      'MOCK_T002': 'T020',
+      'MOCK_T003': 'T025',
+      'MOCK_T004': 'T001',
+    };
+    const effectiveTripId = TRIP_MAP[selectedBus.tripId] || (selectedBus.tripId && selectedBus.tripId.startsWith('MOCK_') ? selectedBus.tripId.replace('MOCK_', '') : selectedBus.tripId);
+    const isLiveBus = effectiveTripId && !effectiveTripId.startsWith('LOCAL_');
 
     // Retrieve or initialize per-seat booking state
     let seatBookings = pendingBackendBookings?.seatBookings
@@ -581,7 +588,7 @@ export default function SearchTrips({
         for (let sIdx = 0; sIdx < seatBookings.length; sIdx++) {
           const sb = seatBookings[sIdx];
           if (!sb.bookingId) {
-            const bRes = await API.bookings.create(selectedBus.tripId, sb.numericSeat, paymentDetails.offerCode);
+            const bRes = await API.bookings.create(effectiveTripId, sb.numericSeat, paymentDetails.offerCode);
             const backendId = bRes?.bookingId;
             if (!backendId) {
               throw new Error(`Failed to create booking reservation for seat ${sb.seatLabel}`);

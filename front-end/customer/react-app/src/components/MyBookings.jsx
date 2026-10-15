@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Calendar, Download, XCircle, RotateCcw, MapPin, Search } from 'lucide-react';
+import { Calendar, Download, XCircle, RotateCcw, Search } from 'lucide-react';
 import { API } from '../services/api';
 
 export default function MyBookings({
@@ -9,7 +9,6 @@ export default function MyBookings({
   onNavigate,
   onNavigateToCancel,
   onNavigateToTrackRefund,
-  onNavigateToTrackBus,
   onNavigateToSearch,
 }) {
   const [filter, setFilter] = useState('all'); // 'all' | 'confirmed' | 'completed' | 'cancelled'
@@ -26,58 +25,85 @@ export default function MyBookings({
     else if (onNavigate) onNavigate('track-refunds', { bookingId: bId });
   };
 
-  const handleTrackBusClick = (tripId, bId) => {
-    if (onNavigateToTrackBus) onNavigateToTrackBus(tripId, bId);
-    else if (onNavigate) onNavigate('track-bus', { tripId, bookingId: bId });
-  };
-
   const handleSearchClick = () => {
     if (onNavigateToSearch) onNavigateToSearch();
     else if (onNavigate) onNavigate('search-trips');
   };
 
+  const handleDownloadTicket = (b) => {
+    try {
+      const ticketContent = [
+        '====================================================',
+        '              CLICK2BOOK E-TICKET                   ',
+        '====================================================',
+        `PNR / Booking ID : ${b.bookingId}`,
+        `Route            : ${b.from} → ${b.to}`,
+        `Travel Date      : ${b.date}`,
+        `Bus Operator     : ${b.busName} (${b.busType})`,
+        `Seat(s)          : ${b.seats}`,
+        `Fare Paid        : ₹${b.total}`,
+        `Status           : ${b.status}`,
+        '----------------------------------------------------',
+        'Thank you for booking with Click2Book!',
+        'Helpdesk: support@click2book.com | 1800-CLICK2BK',
+        '====================================================',
+      ].join('\n');
+
+      const blob = new Blob([ticketContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Click2Book_Ticket_${b.bookingId}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      if (showToast) {
+        showToast('Ticket downloaded successfully!', 'success');
+      }
+    } catch (err) {
+      console.error('Failed to download ticket:', err);
+      if (showToast) {
+        showToast('Failed to download ticket. Please try again.', 'error');
+      }
+    }
+  };
+
   const loadBookings = useCallback(async () => {
     setLoading(true);
-    const raw = [];
 
-    // 1. Live Backend bookings
+    // 1. Fetch live backend bookings
+    let apiData = [];
     try {
-      const apiData = await API.bookings.getMine();
-      if (Array.isArray(apiData)) {
-        apiData.forEach((b) => raw.push({
-          bookingId: b.bookingId || b.id,
-          tripId: b.tripId,
-          from: b.from || 'Hyderabad',
-          to: b.to || 'Chennai',
-          busName: b.busName || 'Express Bus',
-          busType: b.busType || 'AC Sleeper',
-          date: b.bookingDate || b.journeyDate || new Date().toISOString().split('T')[0],
-          seats: b.seatNumber ? `Seat ${b.seatNumber}` : 'Seat 1',
-          total: b.totalAmount || b.fare || 650,
-          status: (b.bookingStatus || 'CONFIRMED').toUpperCase(),
-          _fromApi: true,
-        }));
+      const res = await API.bookings.getMine();
+      if (Array.isArray(res)) {
+        apiData = res;
       }
-    } catch {}
+    } catch (e) {
+      console.warn('API getMine bookings note:', e);
+    }
 
-    // 2. Browser local storage bookings
+    // 2. Fetch local storage bookings
+    let localData = [];
     try {
       const local = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
       if (Array.isArray(local)) {
-        local.forEach((b) => raw.push(b));
+        localData = local;
       }
-    } catch {}
+    } catch (e) {
+      console.warn('localStorage c2b_bookings note:', e);
+    }
 
-    // Deduplicate by bookingId / booking_id
-    const seen = new Set();
-    const unified = [];
+    // 3. Unify and merge bookings by bookingId
+    const bookingMap = new Map();
 
-    raw.forEach((b) => {
+    // First, seed with local storage bookings (contains rich display metadata)
+    localData.forEach((b) => {
       const id = b.bookingId || b.booking_id;
-      if (!id || seen.has(id)) return;
-      seen.add(id);
-
-      unified.push({
+      if (!id) return;
+      const st = String(b.status || b.booking_status || 'CONFIRMED').toUpperCase();
+      bookingMap.set(id, {
         bookingId: id,
         tripId: b.tripId || b.trip_id || 'T001',
         from: b.from || b._from || 'Hyderabad',
@@ -85,18 +111,66 @@ export default function MyBookings({
         busName: b.busName || b._busName || 'Click2Book Partner',
         busType: b.busType || b._busType || 'AC Sleeper',
         date: b.date || b.journeyDate || b._journeyDate || b.bookingDate || new Date().toISOString().split('T')[0],
-        seats: b.seats || b._seats || (Array.isArray(b.seat_list) ? b.seat_list.join(', ') : 'Seat 1'),
-        total: b.total || b._total || b.amount || 650,
-        status: (b.status || b.booking_status || 'CONFIRMED').toUpperCase(),
+        seats: b.seats || b._seats || (Array.isArray(b.seat_list) ? b.seat_list.join(', ') : (b.seatNumber ? `Seat ${b.seatNumber}` : 'Seat 1')),
+        total: Number(b.total || b._total || b.amount || b.fare || 650),
+        status: st,
+        backendBookingIds: b.backendBookingIds,
+        raw: b,
       });
     });
 
+    // Next, merge backend API data
+    apiData.forEach((b) => {
+      const id = b.bookingId || b.id;
+      if (!id) return;
+      const apiStatus = String(b.bookingStatus || b.status || 'CONFIRMED').toUpperCase();
+
+      if (bookingMap.has(id)) {
+        const existing = bookingMap.get(id);
+        // If either source has cancelled status, reflect CANCELLED
+        if (apiStatus === 'CANCELLED' || existing.status === 'CANCELLED') {
+          existing.status = 'CANCELLED';
+        } else {
+          existing.status = apiStatus;
+        }
+      } else {
+        bookingMap.set(id, {
+          bookingId: id,
+          tripId: b.tripId,
+          from: b.from || 'Hyderabad',
+          to: b.to || 'Chennai',
+          busName: b.busName || 'Express Bus',
+          busType: b.busType || 'AC Sleeper',
+          date: b.bookingDate || b.journeyDate || new Date().toISOString().split('T')[0],
+          seats: b.seatNumber ? `Seat ${b.seatNumber}` : 'Seat 1',
+          total: Number(b.totalAmount || b.fare || 650),
+          status: apiStatus,
+          _fromApi: true,
+          raw: b,
+        });
+      }
+    });
+
+    const unified = Array.from(bookingMap.values());
     setBookings(unified);
     setLoading(false);
   }, []);
 
   useEffect(() => {
     loadBookings();
+
+    const handleStorageChange = (e) => {
+      if (e.key === 'c2b_bookings' || e.key === 'c2b_refunds' || !e.key) {
+        loadBookings();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', loadBookings);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', loadBookings);
+    };
   }, [loadBookings]);
 
   const filteredBookings = bookings.filter((b) => {
@@ -207,9 +281,20 @@ export default function MyBookings({
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 900, color: isCancelled ? '#94a3b8' : '#0f172a', textDecoration: isCancelled ? 'line-through' : 'none' }}>
-                    ₹{b.total}
-                  </div>
+                  {isCancelled ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                      <span style={{ fontSize: '0.95rem', fontWeight: 900, color: '#94a3b8', textDecoration: 'line-through' }}>
+                        ₹{b.total}
+                      </span>
+                      <span style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 800, whiteSpace: 'nowrap', marginTop: '2px' }}>
+                        Refund: ₹{Math.max(0, b.total - 50)}
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#0f172a' }}>
+                      ₹{b.total}
+                    </div>
+                  )}
 
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     {!isCancelled && (
@@ -217,20 +302,9 @@ export default function MyBookings({
                         type="button"
                         className="btn-ghost"
                         style={{ padding: '6px 14px', fontSize: '0.75rem' }}
-                        onClick={() => showToast(`🎫 E-Ticket for ${b.bookingId} downloaded!`, 'success')}
+                        onClick={() => handleDownloadTicket(b)}
                       >
                         <Download size={13} /> Ticket
-                      </button>
-                    )}
-
-                    {!isCancelled && (
-                      <button
-                        type="button"
-                        className="btn-ghost"
-                        style={{ padding: '6px 14px', fontSize: '0.75rem', color: '#059669', borderColor: '#86efac' }}
-                        onClick={() => handleTrackBusClick(b.tripId, b.bookingId)}
-                      >
-                        <MapPin size={13} /> Track Bus
                       </button>
                     )}
 

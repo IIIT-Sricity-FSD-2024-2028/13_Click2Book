@@ -27,9 +27,9 @@
   .card-sub{font-size:.78rem;color:#64748b;margin-bottom:18px}
 
   .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:16px}
-  .field label{display:block;font-size:.72rem;font-weight:700;color:#475569;margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}
-  .field input{width:100%;padding:9px 11px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:.86rem}
-  .field input:focus{outline:none;border-color:#F97316}
+  .revenue-dashboard .field label{display:block;font-size:.72rem;font-weight:700;color:#475569;margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}
+  .revenue-dashboard .field input{width:100%;padding:9px 11px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:.86rem}
+  .revenue-dashboard .field input:focus{outline:none;border-color:#F97316}
   .weights-title{font-size:.78rem;font-weight:700;color:#475569;margin:6px 0 10px;text-transform:uppercase;letter-spacing:.3px}
 
   .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;border:none;font-size:.84rem;font-weight:700;cursor:pointer;transition:.15s}

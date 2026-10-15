@@ -1,15 +1,28 @@
+import React from 'react';
 import { clearAdminSession } from '../../lib/session.js';
 import { SECTIONS } from './sections.js';
 
-function logout() {
-  if (!window.confirm('Are you sure you want to logout?')) return;
-  clearAdminSession();
-  location.href = '/landing-page/index.html';
-}
+export default function Sidebar({
+  section,
+  collapsed,
+  adminName,
+  initials,
+  onNavigate,
+  onToggle,
+  onLogout,
+  onViewRevenue,
+}) {
+  const handleLogout = () => {
+    clearAdminSession();
+    if (onLogout) {
+      onLogout();
+    } else {
+      window.location.hash = '#login';
+    }
+  };
 
-export default function Sidebar({ section, collapsed, adminName, initials, onNavigate, onToggle }) {
   return (
-    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} style={{ overflowY: 'auto' }}>
       <div className="sidebar-brand">
         <div className="brand-icon">▦</div>
         <div className="brand-text">
@@ -31,13 +44,21 @@ export default function Sidebar({ section, collapsed, adminName, initials, onNav
             <span className="nav-icon">{icon}</span><span>{label}</span>
           </button>
         ))}
-        <a href="/admin/revenue-dashboard.html" className="nav-item">
+        <button
+          type="button"
+          className="nav-item"
+          onClick={() => {
+            if (onViewRevenue) onViewRevenue();
+            else window.location.hash = '#revenue';
+          }}
+          title="Total Revenue"
+        >
           <span className="nav-icon">₹</span><span>Total Revenue</span>
-        </a>
+        </button>
       </nav>
-      <div className="sidebar-spacer" />
+      <div className="sidebar-spacer" style={{ minHeight: '20px' }} />
       <nav className="sidebar-nav sidebar-nav-bottom">
-        <button className="nav-item nav-logout" onClick={logout}>
+        <button className="nav-item nav-logout" onClick={handleLogout} title="Logout" style={{ color: '#f87171' }}>
           <span className="nav-icon">↪</span><span>Logout</span>
         </button>
       </nav>

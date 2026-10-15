@@ -14,7 +14,7 @@ const FEATURES = [
 
 const OFFLINE_ADMIN = { id: 'ADMIN001', name: 'Admin', email: 'admin@click2book.com', password: 'Admin@123' };
 
-export default function LoginPage() {
+export default function LoginPage({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -24,7 +24,11 @@ export default function LoginPage() {
 
   const signIn = (user) => {
     saveAdminSession(remember ? localStorage : sessionStorage, user);
-    location.href = 'admin_dashboard.html';
+    if (onLoginSuccess) {
+      onLoginSuccess(user);
+    } else {
+      location.href = '#dashboard';
+    }
   };
 
   const submit = async (event) => {
@@ -65,15 +69,8 @@ export default function LoginPage() {
   };
 
   return (
-    <>
-      <a href="/landing-page/index.html" className="home-btn">
-        <span aria-hidden="true">⌂</span> Home
-      </a>
-      <a href="/landing-page/staff-access.html" className="home-btn portal-back-link">
-        <span aria-hidden="true">‹</span> Back to Portal
-      </a>
-      <div className="page">
-        <section className="left">
+    <div className="page">
+      <section className="left">
           <div className="bg-icon" aria-hidden="true">🛡️</div>
           <div className="left-content">
             <div className="portal-badge">Administrator Portal</div>
@@ -96,7 +93,7 @@ export default function LoginPage() {
               <label htmlFor="email">Admin Email</label>
               <div className="inp-wrap">
                 <span className="inp-icon" aria-hidden="true">✉</span>
-                <input id="email" className="finput" type="email" autoComplete="email" placeholder="admin@click2book.com" value={email} onChange={(event) => setEmail(event.target.value)} />
+                <input id="email" className="finput" type="email" autoComplete="email" placeholder="Enter your email address" value={email} onChange={(event) => setEmail(event.target.value)} />
               </div>
             </div>
             <div className="field">
@@ -116,6 +113,5 @@ export default function LoginPage() {
           </form>
         </section>
       </div>
-    </>
-  );
-}
+    );
+  }

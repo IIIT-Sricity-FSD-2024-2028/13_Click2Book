@@ -2,7 +2,7 @@
   "name": "click2book-admin-react",
   "private": true,
   "version": "1.0.0",
-  "description": "Click2Book Admin Portal — React Implementation",
+  "description": "Click2Book Admin Portal — React App",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,12 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "lucide-react": "^1.16.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^5.1.4",
-    "vite": "^7.3.1"
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11"
   }
 }

@@ -30,3 +30,11 @@ export function getAdminName() {
 export function initialsOf(name) {
   return name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 }
+
+export function isAdminLoggedIn() {
+  return (
+    sessionStorage.getItem('c2b_loggedIn') === 'true' ||
+    localStorage.getItem('c2b_loggedIn') === 'true'
+  );
+}
+

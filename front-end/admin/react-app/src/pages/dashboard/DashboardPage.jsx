@@ -1,20 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, loadAdminDashboardData } from '../../lib/api.js';
-import { liveSync } from '../../lib/liveSync.js';
-import { getBookings, getRefunds, getUsers } from '../../lib/db.js';
+import { getUsers } from '../../lib/db.js';
 import { getAdminName, initialsOf } from '../../lib/session.js';
 import '../../styles/admin_dashboard.css';
 import SuperUserPanel from '../../superuser/SuperUserPanel.jsx';
 import BookingsSection from './BookingsSection.jsx';
 import Overview from './Overview.jsx';
+import ProvidersSection from './ProvidersSection.jsx';
 import RefundsSection from './RefundsSection.jsx';
 import ReportsSection from './ReportsSection.jsx';
+import SupportSection from './SupportSection.jsx';
 import { loadSavedSection, saveSection, SECTIONS } from './sections.js';
 import Sidebar from './Sidebar.jsx';
 import Topbar from './Topbar.jsx';
 import UsersSection from './UsersSection.jsx';
 
-export default function DashboardPage() {
+export default function DashboardPage({ onLogout, onViewRevenue }) {
   const [section, setSection] = useState(loadSavedSection);
   const [collapsed, setCollapsed] = useState(false);
   const [bookingSearch, setBookingSearch] = useState('');
@@ -28,11 +29,11 @@ export default function DashboardPage() {
   const toastTimer = useRef();
   const refreshPromise = useRef(null);
 
-  const bookings = dashboardData.bookings.length > 0 ? dashboardData.bookings : getBookings();
-  const refunds = dashboardData.refunds.length > 0 ? dashboardData.refunds : getRefunds();
+  const bookings = dashboardData.bookings;
+  const refunds = dashboardData.refunds;
   const users = useMemo(() => [
     ...dashboardData.users,
-    ...getUsers().filter((user) => user.role === 'admin' || user.role === 'support'),
+    ...getUsers().filter((user) => user.role === 'admin'),
   ], [dashboardData.users, refreshKey]);
 
   useEffect(() => () => clearTimeout(toastTimer.current), []);
@@ -61,29 +62,19 @@ export default function DashboardPage() {
 
   useEffect(() => {
     refresh();
-    liveSync.init();
-    const unsubscribe = liveSync.subscribe((event) => {
-      refresh();
-      if (event.type === 'BOOKING_CREATED') {
-        const p = event.payload || {};
-        notify(`🎫 New booking: ${p.passengerName || p.customerName || 'Passenger'} (${p.seats || 'Seats'})`);
-      } else if (event.type === 'SCHEDULE_UPDATED') {
-        notify(`🚌 Schedule updated: ${event.payload?.from || ''} → ${event.payload?.to || ''}`);
-      }
-    });
-
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') refresh();
-    }, 10000);
+    }, 15000);
     const onFocus = () => refresh();
-    const onStorage = () => refresh();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
     window.addEventListener('focus', onFocus);
-    window.addEventListener('storage', onStorage);
+    document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
-      unsubscribe();
       clearInterval(timer);
       window.removeEventListener('focus', onFocus);
-      window.removeEventListener('storage', onStorage);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [refresh]);
 
@@ -102,8 +93,10 @@ export default function DashboardPage() {
       await action();
       await refresh();
       notify(successMessage);
+      return true;
     } catch (error) {
       notify(error.message || fallbackError);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -120,16 +113,23 @@ export default function DashboardPage() {
   }, `Booking ${id} updated.`, 'Failed to update booking.');
 
   const toggleUserStatus = (user) => {
+    if (user.status === 'active') {
+      const confirmed = window.confirm(`Are you sure you want to deactivate ${user.name || user.id}? The user will be unable to log in.`);
+      if (!confirmed) return;
+    }
     const status = user.status === 'active' ? 'INACTIVE' : 'ACTIVE';
-    return runAdminAction(() => apiFetch(`/customers/${user.id}/status`, {
+    const path = user.role === 'service_provider' ? `/providers/${user.id}/status` : `/customers/${user.id}/status`;
+    return runAdminAction(() => apiFetch(path, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
-    }), `User ${user.id} status updated.`, 'Failed to update user status.');
+    }), `User ${user.id} status updated to ${status.toLowerCase()}.`, 'Failed to update user status.');
   };
 
   const decideRefund = (refund, status) => runAdminAction(async () => {
     const adminId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'A001';
-    const refundStatus = status === 'approved' ? 'COMPLETED' : 'REJECTED';
+    const refundStatus = status === 'approved'
+      ? 'PROCESSING'
+      : status === 'refunded' ? 'COMPLETED' : 'REJECTED';
     await apiFetch(`/refunds/booking/${refund.bookingId}/process`, {
       method: 'PATCH',
       body: JSON.stringify({ adminId, refundStatus }),
@@ -146,7 +146,11 @@ export default function DashboardPage() {
       case 'bookings':
         return <BookingsSection bookings={bookings} search={bookingSearch} onSearchChange={setBookingSearch} onStatusChange={updateBooking} busy={busy} />;
       case 'users':
-        return <UsersSection users={users} onToggleStatus={toggleUserStatus} />;
+        return <UsersSection users={users} onToggleStatus={toggleUserStatus} busy={busy} />;
+      case 'providers':
+        return <ProvidersSection onAction={runAdminAction} busy={busy} />;
+      case 'support':
+        return <SupportSection onAction={runAdminAction} busy={busy} />;
       case 'refund':
         return <RefundsSection refunds={refunds} onDecision={decideRefund} busy={busy} />;
       case 'reports':
@@ -169,9 +173,21 @@ export default function DashboardPage() {
         initials={initials}
         onNavigate={navigate}
         onToggle={() => setCollapsed((value) => !value)}
+        onLogout={onLogout}
+        onViewRevenue={onViewRevenue}
       />
       <main className={`main-content ${collapsed ? 'expanded' : ''}`}>
-        <Topbar title={title} initials={initials} onSearch={searchBookings} onNotify={notify} onRefresh={refresh} refreshing={refreshing} lastSynced={lastSynced} hasSyncError={Boolean(dataError)} />
+        <Topbar
+          title={title}
+          initials={initials}
+          onSearch={searchBookings}
+          onNotify={notify}
+          onRefresh={refresh}
+          refreshing={refreshing}
+          lastSynced={lastSynced}
+          hasSyncError={Boolean(dataError)}
+          onLogout={onLogout}
+        />
         <div className="dashboard-body">
           {dataError && <p className="admin-notice" role="alert">{dataError}</p>}
           {renderSection()}

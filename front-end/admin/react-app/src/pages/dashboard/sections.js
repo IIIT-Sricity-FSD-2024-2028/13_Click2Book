@@ -1,10 +1,12 @@
 // [id, sidebar label, page title, sidebar icon]
 export const SECTIONS = [
-  ['dashboard', 'Dashboard', 'Dashboard Overview', '▦'],
-  ['bookings', 'Daily Bookings', 'All Bookings', '▤'],
-  ['users', 'Manage Users', 'User Accounts', '♙'],
-  ['refund', 'Refund Management', 'Refund Requests', '↻'],
-  ['reports', 'Reports', 'Reports & Analytics', '▥'],
+  ['dashboard', 'Overview', 'Dashboard Overview', '▦'],
+  ['bookings', 'Bookings', 'All Bookings', '▤'],
+  ['users', 'User Accounts', 'User Accounts Management', '👥'],
+  ['providers', 'Service Providers', 'Service Provider Management', '🚌'],
+  ['support', 'Customer Support', 'Customer Support Management', '💬'],
+  ['refund', 'Refunds', 'Refund Requests & Decisions', '↻'],
+  ['reports', 'Analytics', 'Reports & Route Analytics', '📊'],
 ];
 
 export const BOOKING_STATUSES = ['confirmed', 'pending', 'cancelled', 'completed'];

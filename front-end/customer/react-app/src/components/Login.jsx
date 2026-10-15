@@ -26,8 +26,7 @@ export default function Login({
     return () => window.removeEventListener('hashchange', handleHash);
   }, []);
 
-  const isHashLogin = hashTab.includes('login') || hashTab.includes('signup');
-  const shouldRender = isOpen || isHashLogin;
+  const shouldRender = Boolean(isOpen);
 
   const [panel, setPanel] = useState(initialPanel);
 
@@ -123,17 +122,7 @@ export default function Login({
       // If backend offline, match against known credentials
       if (!user) {
         const registered = JSON.parse(localStorage.getItem('c2b_registered_users') || '[]');
-        const offlineUsers = [
-          { id: 'C001', name: 'Rahul Sharma', email: 'rahul@gmail.com', password: 'Rahul@123', role: 'CUSTOMER' },
-          { id: 'C002', name: 'Priya Sharma', email: 'priya@gmail.com', password: 'Priya@123', role: 'CUSTOMER' },
-          { id: 'C003', name: 'Ravi Kumar', email: 'ravi@gmail.com', password: 'Ravi@123', role: 'CUSTOMER' },
-          { id: 'C004', name: 'Arjun Singh', email: 'arjun@gmail.com', password: 'Arjun@123', role: 'CUSTOMER' },
-          { id: 'ADMIN001', name: 'Admin', email: 'admin@click2book.com', password: 'Admin@123', role: 'ADMIN' },
-          { id: 'P001', name: 'APSRTC', email: 'apsrtc@gmail.com', password: 'Apsrtc@123', role: 'PROVIDER' },
-          { id: 'P002', name: 'KSRTC', email: 'ksrtc@gmail.com', password: 'Ksrtc@123', role: 'PROVIDER' },
-          { id: 'SUPPORT001', name: 'Support', email: 'support@click2book.com', password: 'Support@123', role: 'SUPPORT' },
-          ...DEMO_USERS,
-        ];
+        const offlineUsers = [...DEMO_USERS];
         const allUsers = [...registered, ...offlineUsers];
         const matched = allUsers.find(
           (u) => u.email && u.email.toLowerCase() === email.toLowerCase() && u.password === pass
@@ -182,20 +171,6 @@ export default function Login({
       sessionStorage.setItem('c2b_userEmail', user.email || '');
       sessionStorage.setItem('c2b_loggedInId', user.id || user.customerId || 'C001');
 
-      // Staff redirection (matching landing-page/login.html)
-      if (user.role === 'ADMIN') {
-        window.location.href = '/admin/admin_dashboard.html';
-        return;
-      }
-      if (user.role === 'PROVIDER') {
-        window.location.href = '/serviceprovider/dashboard.html';
-        return;
-      }
-      if (user.role === 'SUPPORT') {
-        window.location.href = '/supportagent/index.html';
-        return;
-      }
-
       if (showToast) {
         showToast(`Welcome back, ${user.name}!`, 'success');
       }
@@ -210,6 +185,11 @@ export default function Login({
       }
       if (onClose) {
         onClose();
+      }
+      if (window.location.hash.includes('login') || window.location.hash.includes('signup')) {
+        const redirect = sessionStorage.getItem('c2b_redirectAfterLogin') || '#search-trips';
+        sessionStorage.removeItem('c2b_redirectAfterLogin');
+        window.location.hash = redirect;
       }
     } catch (err) {
       setErrorMsg(err.message || 'Invalid email or password.');
@@ -311,6 +291,11 @@ export default function Login({
       }
       if (onClose) {
         onClose();
+      }
+      if (window.location.hash.includes('login') || window.location.hash.includes('signup')) {
+        const redirect = sessionStorage.getItem('c2b_redirectAfterLogin') || '#search-trips';
+        sessionStorage.removeItem('c2b_redirectAfterLogin');
+        window.location.hash = redirect;
       }
     } catch (err) {
       setErrorMsg(err.message || 'Account registration failed.');
@@ -669,33 +654,6 @@ export default function Login({
                 Create Account
               </button>
             </div>
-
-            {/* Staff Access Divider */}
-            <div className="divider">or</div>
-            <div className="staff-label">Staff / Admin Portal Access</div>
-            <a href="/admin/login.html" className="btn-staff">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-              Staff / Admin Login
-            </a>
-
-            <p className="terms-note">
-              By signing in, you agree to our{' '}
-              <button
-                type="button"
-                onClick={handleGoHome}
-              >
-                Terms of Service
-              </button>{' '}
-              and{' '}
-              <button
-                type="button"
-                onClick={handleGoHome}
-              >
-                Privacy Policy
-              </button>
-            </p>
           </div>
         )}
 

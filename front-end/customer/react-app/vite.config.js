@@ -13,30 +13,10 @@ export default defineConfig({
           const urlObj = new URL(req.url, 'http://localhost:5176');
           const pathname = urlObj.pathname;
 
-          // 1. Serve original login.html from front-end/landing-page/login.html
+          // 1. Redirect legacy login requests into Customer React login route
           if (pathname === '/login.html' || pathname === '/landing-page/login.html') {
-            const loginFilePath = path.resolve(__dirname, '../../landing-page/login.html');
-            if (fs.existsSync(loginFilePath)) {
-              let html = fs.readFileSync(loginFilePath, 'utf-8');
-              const adapterScript = `
-<script>
-  (function() {
-    try {
-      var p = new URLSearchParams(window.location.search).get('panel');
-      if (p === 'signup' && typeof showPanel === 'function') { showPanel('signup'); }
-      var prompt = sessionStorage.getItem('c2b_loginPrompt');
-      if (prompt && typeof showErr === 'function') {
-        sessionStorage.removeItem('c2b_loginPrompt');
-        showErr('errMsg', prompt);
-      }
-    } catch(e) {}
-  })();
-</script>
-</body>`;
-              html = html.replace('</body>', adapterScript);
-              res.setHeader('Content-Type', 'text/html; charset=utf-8');
-              return res.end(html);
-            }
+            res.writeHead(302, { Location: '/#login' });
+            return res.end();
           }
 
           // 2. Intercept legacy redirect from login.html back to Customer React app

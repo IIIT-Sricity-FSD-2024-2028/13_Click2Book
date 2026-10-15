@@ -100,10 +100,16 @@ export default function App() {
   const [selectedTripForTrack, setSelectedTripForTrack] = useState(null);
 
   // Authentication Modal configuration
-  const [loginModal, setLoginModal] = useState({
-    isOpen: false,
-    initialPanel: 'login',
-    promptMessage: '',
+  const [loginModal, setLoginModal] = useState(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash.replace('#', '').trim() : '';
+    const tabName = hash.split('?')[0];
+    const isLogin = tabName === 'login';
+    const isSignup = tabName === 'signup';
+    return {
+      isOpen: isLogin || isSignup,
+      initialPanel: isSignup ? 'signup' : 'login',
+      promptMessage: '',
+    };
   });
 
   const handleOpenLogin = useCallback((options = {}) => {
@@ -126,7 +132,11 @@ export default function App() {
 
   const handleCloseLogin = useCallback(() => {
     setLoginModal((prev) => ({ ...prev, isOpen: false, promptMessage: '' }));
-  }, []);
+    const curHash = window.location.hash || '';
+    if (curHash.includes('login') || curHash.includes('signup')) {
+      window.location.hash = activeTab === 'landing' ? '' : `#${activeTab}`;
+    }
+  }, [activeTab]);
 
   // Notifications
   const [notifications, setNotifications] = useState(() => {
@@ -282,6 +292,16 @@ export default function App() {
         return;
       }
 
+      if (tabName === 'login') {
+        handleOpenLogin({ initialPanel: 'login' });
+        return;
+      }
+
+      if (tabName === 'signup') {
+        handleOpenLogin({ initialPanel: 'signup' });
+        return;
+      }
+
       if (PROTECTED_TABS.includes(tabName) && (!user || !user.isLoggedIn)) {
         const msg = tabName === 'get-support'
           ? 'Please sign in to access customer support.'
@@ -402,6 +422,15 @@ export default function App() {
     const fullUser = { ...loggedInUser, isLoggedIn: true };
     setUser(fullUser);
     setLoginModal({ isOpen: false, initialPanel: 'login', promptMessage: '' });
+
+    const curHash = window.location.hash || '';
+    if (curHash.includes('login') || curHash.includes('signup') || !curHash || curHash === '#' || curHash === '#landing') {
+      const redirect = sessionStorage.getItem('c2b_redirectAfterLogin') || '#search-trips';
+      sessionStorage.removeItem('c2b_redirectAfterLogin');
+      const targetTab = redirect.replace('#', '').split('?')[0] || 'search-trips';
+      setActiveTab(targetTab);
+      window.location.hash = redirect;
+    }
     showToast(`👋 Welcome back, ${loggedInUser.name.split(' ')[0]}!`, 'success');
   };
 

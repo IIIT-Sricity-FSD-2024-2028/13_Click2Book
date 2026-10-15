@@ -489,7 +489,7 @@ export default function SearchTrips({
           redirectAfterLogin: '#search-trips',
         });
       } else {
-        window.location.href = '/login.html';
+        window.location.hash = '#login';
       }
       return;
     }

@@ -1,0 +1,15 @@
+5d2bd19 | vidyadhar-reddy | connect super admin react panel to backend live sync
+60b9486 | vidyadhar-reddy | updated the customer to service provider work flow
+218a4f4 | sarathchandrap24-bit | Revenue page: show demo data when the backend is offline
+a65fa42 | vidyadhar-reddy | updated the flows correctly and synchronized all actor workflows end-to-end
+5a314da | vidyadhar-reddy | checked all the functionalities and flows and working of backend
+9d95007 | sarathchandrap24-bit | add superadmin reactapp
+c453052 | sarathchandrap24-bit | Update Revenue.jsx
+516681c | sarathchandrap24-bit | Merge pull request #4 from IIIT-Sricity-FSD-2024-2028/superadmin
+f0628a0 | M TARUN SRI KRISHNA | Merge pull request #3 from IIIT-Sricity-FSD-2024-2028/admin
+656c342 | sarathchandrap24-bit | Super Admin: add Revenue page with all money features
+7f4e8cd | sarathchandrap24-bit | Split SuperUserPanel into smaller components
+9fee397 | Tarun | Add admin React app
+452f5fa | sarathchandrap24-bit | Update README.md of superadmin
+68941d7 | sarathchandrap24-bit | Add Sidebar and PageHeader components
+0ff229e | sarathchandrap24-bit | show live search suggestions in dropdown as user types in super-admin dashboard

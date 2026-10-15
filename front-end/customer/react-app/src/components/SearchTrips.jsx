@@ -51,6 +51,41 @@ export function calculateJourneyDuration(depTime, arrTime, providedDuration) {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
+export function isDepartureTimeReached(journeyDate, departureTime) {
+  try {
+    if (!departureTime || departureTime === '—') return false;
+    const cleanTime = String(departureTime).split('→')[0].trim();
+    const timeMatch = cleanTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+    if (!timeMatch) return false;
+    let hh = parseInt(timeMatch[1], 10);
+    const mm = parseInt(timeMatch[2], 10);
+    const meridiem = (timeMatch[3] || '').toUpperCase();
+    if (meridiem === 'PM' && hh < 12) hh += 12;
+    if (meridiem === 'AM' && hh === 12) hh = 0;
+
+    const now = new Date();
+    let y = now.getFullYear();
+    let m = now.getMonth();
+    let d = now.getDate();
+
+    if (journeyDate) {
+      const dateStr = String(journeyDate).split('T')[0];
+      const dateParts = dateStr.split('-').map(Number);
+      if (dateParts.length >= 3) {
+        y = dateParts[0];
+        m = dateParts[1] - 1;
+        d = dateParts[2];
+      }
+    }
+
+    const depDate = new Date(y, m, d, hh, mm, 0, 0);
+    if (isNaN(depDate.getTime())) return false;
+    return now >= depDate;
+  } catch {
+    return false;
+  }
+}
+
 export default function SearchTrips({
   customer: propCustomer,
   user: propUser,
@@ -82,26 +117,44 @@ export default function SearchTrips({
   const [matchingBuses, setMatchingBuses] = useState([]);
   const [availableCities, setAvailableCities] = useState(DEFAULT_CITIES);
 
-  // Fetch unique routes dynamically from backend to derive city list
+  // Fetch unique routes dynamically from backend + local provider schedules to derive city list
   useEffect(() => {
     let mounted = true;
-    if (API.routes && typeof API.routes.getAll === 'function') {
-      API.routes.getAll()
-        .then((routes) => {
-          if (mounted && Array.isArray(routes) && routes.length > 0) {
-            const cities = new Set();
+    const updateCities = async () => {
+      const cities = new Set(DEFAULT_CITIES);
+      // Backend routes
+      try {
+        if (API.routes && typeof API.routes.getAll === 'function') {
+          const routes = await API.routes.getAll();
+          if (Array.isArray(routes) && routes.length > 0) {
             routes.forEach((r) => {
               if (r.source) cities.add(r.source.trim());
               if (r.destination) cities.add(r.destination.trim());
             });
-            if (cities.size > 0) {
-              setAvailableCities(Array.from(cities).sort());
-            }
           }
-        })
-        .catch(() => {});
-    }
-    return () => { mounted = false; };
+        }
+      } catch {}
+
+      // Local provider schedules
+      try {
+        const localScheds = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+        localScheds.forEach((s) => {
+          if (s.from) cities.add(s.from.trim());
+          if (s.to) cities.add(s.to.trim());
+        });
+      } catch {}
+
+      if (mounted && cities.size > 0) {
+        setAvailableCities(Array.from(cities).sort());
+      }
+    };
+
+    updateCities();
+    window.addEventListener('storage', updateCities);
+    return () => {
+      mounted = false;
+      window.removeEventListener('storage', updateCities);
+    };
   }, []);
 
   // Selected Booking Flow States
@@ -178,36 +231,51 @@ export default function SearchTrips({
 
     setIsSearching(true);
     let results = [];
+    const localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
 
     // 1. Live Backend Search
     try {
       const apiData = await API.trips.search(targetFrom, targetTo, targetDate);
       if (Array.isArray(apiData) && apiData.length > 0) {
-        results = apiData.map((r) => ({
-          tripId: r.tripId || r.id,
-          busName: r.busName || r.vehicleName || 'Express Bus',
-          vehicleType: r.vehicleType || 'AC Sleeper',
-          providerName: r.providerName || 'Click2Book Partner',
-          departureTime: r.departureTime || '21:00',
-          arrivalTime: r.arrivalTime || '06:00',
-          duration: r.duration || calculateJourneyDuration(r.departureTime, r.arrivalTime, '9h 00m'),
-          price: Number(r.price || r.fare || 650),
-          totalSeats: r.totalSeats || 40,
-          availableSeats: r.availableSeats !== undefined ? r.availableSeats : 20,
-          rating: r.rating || 4.5,
-          amenities: r.amenities || ['AC', 'Charging Point', 'WiFi'],
-          vehicleId: r.vehicleId || '',
-          providerId: r.providerId || 'P001',
-          typeColor: r.vehicleType === 'Volvo AC' ? '#2563eb' : '#9333ea',
-        }));
+        results = apiData.map((r) => {
+          const tid = r.tripId || r.id;
+          const tripBookings = localBookings.filter((bk) =>
+            bk.status !== 'CANCELLED' && bk.booking_status !== 'CANCELLED' &&
+            (bk.tripId === tid || (bk.busName && r.busName && bk.busName.toLowerCase() === r.busName.toLowerCase()))
+          );
+          const bookedCount = tripBookings.reduce((sum, b) => sum + (Array.isArray(b.seat_list) ? b.seat_list.length : (b.seats ? b.seats.split(',').length : 1)), 0);
+          const totalSeats = r.totalSeats || 40;
+          const availableSeats = Math.max(0, (r.availableSeats != null ? r.availableSeats : totalSeats) - bookedCount);
+          const hasStarted = statuses[tid] === 'IN_PROGRESS' || isDepartureTimeReached(targetDate, r.departureTime);
+
+          return {
+            tripId: tid,
+            busName: r.busName || r.vehicleName || 'Express Bus',
+            vehicleType: r.vehicleType || 'AC Sleeper',
+            providerName: r.providerName || 'Click2Book Partner',
+            departureTime: r.departureTime || '21:00',
+            arrivalTime: r.arrivalTime || '06:00',
+            duration: r.duration || calculateJourneyDuration(r.departureTime, r.arrivalTime, '9h 00m'),
+            price: Number(r.price || r.fare || 650),
+            totalSeats,
+            availableSeats,
+            rating: r.rating || 4.5,
+            amenities: r.amenities || ['AC', 'Charging Point', 'WiFi'],
+            vehicleId: r.vehicleId || '',
+            providerId: r.providerId || 'P001',
+            typeColor: r.vehicleType === 'Volvo AC' ? '#2563eb' : '#9333ea',
+            status: hasStarted ? 'IN_PROGRESS' : (statuses[tid] || r.tripStatus || 'SCHEDULED'),
+          };
+        });
       }
     } catch (err) {
       console.warn('Live API search error:', err.message);
     }
 
-    // 2. Local schedules created by Provider
+    // 2. Local schedules created or updated by Provider
     try {
-      const localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
       const localMatches = localSchedules.filter((b) => {
         if (!b.from || !b.to) return false;
         if (b.from.toLowerCase() !== targetFrom.toLowerCase() || b.to.toLowerCase() !== targetTo.toLowerCase()) return false;
@@ -216,25 +284,50 @@ export default function SearchTrips({
       });
 
       localMatches.forEach((b, idx) => {
-        results.push({
-          tripId: b.tripId || b.id || `LOCAL_${idx}`,
+        const tid = b.tripId || b.id || `LOCAL_${idx}`;
+        const totalSeats = parseInt(b.totalSeats, 10) || 40;
+
+        // Compute actual booked seats for this local bus
+        const tripBookings = localBookings.filter((bk) =>
+          bk.status !== 'CANCELLED' && bk.booking_status !== 'CANCELLED' &&
+          (bk.tripId === tid || (bk.busName && b.busName && bk.busName.toLowerCase() === b.busName.toLowerCase()))
+        );
+        const bookedCount = tripBookings.reduce((sum, bk) => sum + (Array.isArray(bk.seat_list) ? bk.seat_list.length : (bk.seats ? bk.seats.split(',').length : 1)), 0);
+        const effectiveBooked = Math.max(b.bookedSeats || 0, bookedCount);
+        const availableSeats = Math.max(0, totalSeats - effectiveBooked);
+
+        const hasStarted = statuses[tid] === 'IN_PROGRESS' || isDepartureTimeReached(b.journeyDate || targetDate, b.departureTime);
+
+        const localBusItem = {
+          tripId: tid,
           busName: b.busName || b.vehicleName || 'New Schedule Bus',
-          vehicleType: b.busType || 'AC',
+          vehicleType: b.busType || b.vehicleType || 'AC',
           providerName: 'Verified Provider',
           departureTime: b.departureTime || '08:00',
           arrivalTime: b.arrivalTime || '16:00',
           duration: b.duration || calculateJourneyDuration(b.departureTime, b.arrivalTime, '8h 00m'),
-          price: parseInt(b.fare) || 550,
-          totalSeats: b.totalSeats || 40,
-          availableSeats: b.availableSeats !== undefined ? b.availableSeats : 25,
+          price: parseInt(b.fare, 10) || 550,
+          totalSeats,
+          availableSeats,
           rating: 4.5,
           amenities: ['AC', 'WiFi'],
           vehicleId: b.vehicleId || '',
           providerId: b.providerId || 'P001',
           typeColor: '#ea580c',
-        });
+          status: hasStarted ? 'IN_PROGRESS' : (statuses[tid] || b.status || 'SCHEDULED'),
+        };
+
+        // If this trip was already returned from backend/mock, override it with provider's updated schedule
+        const existingIdx = results.findIndex((r) => r.tripId === tid);
+        if (existingIdx >= 0) {
+          results[existingIdx] = localBusItem;
+        } else {
+          results.push(localBusItem);
+        }
       });
-    } catch {}
+    } catch (err) {
+      console.warn('Local schedule merge notice:', err);
+    }
 
     // 3. Fallback demo buses for standard routes if no live results found
     const standardRoutes = [
@@ -589,6 +682,7 @@ export default function SearchTrips({
       const backendBookingIds = seatBookings.map((sb) => sb.bookingId).filter(Boolean);
 
       // 6. Create confirmed booking object
+      const leadPax = passengers[0] || {};
       const newBooking = {
         bookingId,
         booking_id: bookingId,
@@ -596,19 +690,28 @@ export default function SearchTrips({
         seatBookings: seatBookings.map((sb) => ({ ...sb })),
         customerId,
         customer_id: customerId,
-        customerName: passengers[0]?.name || customer?.name || 'Customer',
+        customerName: leadPax.name || customer?.name || 'Customer',
+        passengerName: leadPax.name || customer?.name || 'Passenger',
+        phone: leadPax.phone || customer?.phone || '—',
+        email: leadPax.email || customer?.email || '—',
         tripId: selectedBus.tripId,
         busName: selectedBus.busName,
         busType: selectedBus.vehicleType,
         from: fromCity.trim(),
         to: toCity.trim(),
         date: travelDate,
+        journeyDate: travelDate,
+        departureTime: selectedBus.departureTime || '08:00',
+        arrivalTime: selectedBus.arrivalTime || '12:00',
         seats: selectedSeats.join(', '),
         seat_list: selectedSeats,
         passengerCount: selectedSeats.length,
         paymentMethod: paymentDetails.method,
         discount: paymentDetails.discount,
         total: paymentDetails.total,
+        subtotal: paymentDetails.total,
+        amount: paymentDetails.total,
+        fare: selectedBus.price,
         status: 'CONFIRMED',
         booking_status: 'CONFIRMED',
         createdAt: new Date().toISOString(),
@@ -619,6 +722,31 @@ export default function SearchTrips({
       const existing = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
       existing.unshift(newBooking);
       localStorage.setItem('c2b_bookings', JSON.stringify(existing));
+
+      // 7b. Update schedule in c2b_bus_schedules so provider immediately sees booked count & revenue
+      try {
+        const localScheds = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+        let updatedSched = false;
+        localScheds.forEach((s) => {
+          const tid = s.id || s.tripId;
+          const matchId = tid && selectedBus.tripId && tid === selectedBus.tripId;
+          const matchRoute = s.from?.toLowerCase() === fromCity.trim().toLowerCase() &&
+                             s.to?.toLowerCase() === toCity.trim().toLowerCase() &&
+                             (!s.journeyDate || s.journeyDate === travelDate);
+          if (matchId || matchRoute) {
+            s.bookedSeats = (s.bookedSeats || 0) + selectedSeats.length;
+            s.availableSeats = Math.max(0, (s.totalSeats || 40) - s.bookedSeats);
+            s.revenue = (s.revenue || 0) + paymentDetails.total;
+            updatedSched = true;
+          }
+        });
+        if (updatedSched) {
+          localStorage.setItem('c2b_bus_schedules', JSON.stringify(localScheds));
+        }
+      } catch (err) {
+        console.warn('Could not update schedule booking stats:', err);
+      }
+      try { window.dispatchEvent(new Event('storage')); } catch {}
 
       // 8. Update sessionStorage for confirmation page and legacy parity
       sessionStorage.setItem('lastBookingId', bookingId);
@@ -912,6 +1040,11 @@ export default function SearchTrips({
                         <div className="bus-name-row">
                           <span className="bus-name">{bus.busName}</span>
                           <span className={`bus-type-badge ${colorClass}`}>{bus.vehicleType}</span>
+                          {bus.status === 'IN_PROGRESS' && (
+                            <span style={{ background: '#dcfce7', color: '#15803d', fontSize: '.68rem', fontWeight: 800, padding: '2px 8px', borderRadius: '50px', border: '1px solid #86efac' }}>
+                              🟢 Trip Started / In Progress
+                            </span>
+                          )}
                         </div>
                         <div style={{ fontSize: '.72rem', color: '#94a3b8', marginBottom: '6px' }}>
                           Date: <strong>{travelDate}</strong> &nbsp;·&nbsp; {fromCity} → {toCity}

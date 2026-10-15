@@ -1,10 +1,46 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 
+function isDepartureTimeReached(journeyDate, departureTime) {
+  try {
+    if (!departureTime || departureTime === '—') return false;
+    const cleanTime = String(departureTime).split('→')[0].trim();
+    const timeMatch = cleanTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+    if (!timeMatch) return false;
+    let hh = parseInt(timeMatch[1], 10);
+    const mm = parseInt(timeMatch[2], 10);
+    const meridiem = (timeMatch[3] || '').toUpperCase();
+    if (meridiem === 'PM' && hh < 12) hh += 12;
+    if (meridiem === 'AM' && hh === 12) hh = 0;
+
+    const now = new Date();
+    let y = now.getFullYear();
+    let m = now.getMonth();
+    let d = now.getDate();
+
+    if (journeyDate) {
+      const dateStr = String(journeyDate).split('T')[0];
+      const dateParts = dateStr.split('-').map(Number);
+      if (dateParts.length >= 3) {
+        y = dateParts[0];
+        m = dateParts[1] - 1;
+        d = dateParts[2];
+      }
+    }
+
+    const depDate = new Date(y, m, d, hh, mm, 0, 0);
+    if (isNaN(depDate.getTime())) return false;
+    return now >= depDate;
+  } catch {
+    return false;
+  }
+}
+
 export default function TrackBus({ tripId: propTripId, onNavigate, showToast }) {
   // Query param fallback or prop
   const [tripId, setTripId] = useState(propTripId || 'TRIP-101');
   const [tripRoute, setTripRoute] = useState('Mumbai → Pune (Royal Express)');
+  const [depTime, setDepTime] = useState('08:00');
   const [isLive, setIsLive] = useState(true);
   const [statusText, setStatusText] = useState('IN PROGRESS');
   const [nextStop, setNextStop] = useState('Lonavala Food Mall');
@@ -31,6 +67,60 @@ export default function TrackBus({ tripId: propTripId, onNavigate, showToast }) 
       if (tid) setTripId(tid);
     }
   }, []);
+
+  // Resolve dynamic route and trip status from storage
+  useEffect(() => {
+    let resolvedRoute = '';
+    let resolvedDep = '08:00';
+    let resolvedDate = new Date().toISOString().split('T')[0];
+
+    try {
+      const bks = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+      const matchB = bks.find((b) => b.tripId === tripId || b.trip_id === tripId || b.bookingId === tripId);
+      if (matchB) {
+        resolvedRoute = `${matchB.from} → ${matchB.to} (${matchB.busName || 'Express'})`;
+        if (matchB.departureTime) resolvedDep = matchB.departureTime;
+        if (matchB.date) resolvedDate = matchB.date;
+      }
+    } catch {}
+
+    if (!resolvedRoute) {
+      try {
+        const scheds = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+        const matchS = scheds.find((s) => s.id === tripId || s.tripId === tripId);
+        if (matchS) {
+          resolvedRoute = `${matchS.from} → ${matchS.to} (${matchS.busName || 'Express'})`;
+          if (matchS.departureTime) resolvedDep = matchS.departureTime;
+          if (matchS.journeyDate) resolvedDate = matchS.journeyDate;
+        }
+      } catch {}
+    }
+
+    if (resolvedRoute) {
+      setTripRoute(resolvedRoute);
+    }
+    setDepTime(resolvedDep);
+
+    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    const tStatus = statuses[tripId];
+    const timePassed = isDepartureTimeReached(resolvedDate, resolvedDep);
+    const hasStarted = tStatus === 'IN_PROGRESS' || (timePassed && tStatus !== 'COMPLETED');
+    const isCompleted = tStatus === 'COMPLETED';
+
+    if (isCompleted) {
+      setIsLive(true);
+      setStatusText('COMPLETED');
+      setPercentComplete(100);
+      setEtaMinutes(0);
+      setNextStop('Final Destination Reached');
+    } else if (hasStarted) {
+      setIsLive(true);
+      setStatusText('BUS HAS STARTED · IN TRANSIT');
+    } else {
+      setIsLive(false);
+      setStatusText('SCHEDULED (WAITING TO DEPART)');
+    }
+  }, [tripId]);
 
   // Initialize or update Leaflet Map
   const setupMap = (lat = 18.75, lng = 73.4) => {
@@ -183,10 +273,20 @@ export default function TrackBus({ tripId: propTripId, onNavigate, showToast }) 
         {/* Header */}
         <div className="tb-header">
           <div className="tb-route">{tripRoute}</div>
-          <div className="tb-sub">Trip ID: {tripId} · Live GPS Telemetry Polling</div>
-          <span className="tb-status-pill tb-status-live" style={{ display: 'inline-flex', marginTop: '10px' }}>
-            ● Live GPS Tracking Active
-          </span>
+          <div className="tb-sub">Trip ID: {tripId} · Scheduled Departure: {depTime}</div>
+          {statusText.includes('COMPLETED') ? (
+            <span className="tb-status-pill tb-status-live" style={{ display: 'inline-flex', marginTop: '10px', background: '#dcfce7', color: '#15803d', border: '1px solid #86efac' }}>
+              🏁 Trip Completed · Destination Reached
+            </span>
+          ) : isLive ? (
+            <span className="tb-status-pill tb-status-live" style={{ display: 'inline-flex', marginTop: '10px', background: '#dcfce7', color: '#15803d', border: '1px solid #86efac' }}>
+              🟢 Live GPS Tracking Active · Bus Has Started
+            </span>
+          ) : (
+            <span className="tb-status-pill tb-status-live" style={{ display: 'inline-flex', marginTop: '10px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe' }}>
+              🕒 Scheduled · Departs at {depTime}
+            </span>
+          )}
         </div>
 
         {/* Live Section */}
@@ -224,7 +324,10 @@ export default function TrackBus({ tripId: propTripId, onNavigate, showToast }) 
           <div className="tb-waiting">
             <div className="tb-waiting-icon">🚌</div>
             <div className="tb-waiting-text">
-              This trip hasn't departed yet. Tracking will appear here once the driver starts the journey.
+              This bus is scheduled to depart at <strong>{depTime}</strong>.
+              <div style={{ marginTop: '8px', fontSize: '0.85rem', color: '#64748b' }}>
+                The trip will automatically start and live GPS telemetry will activate as soon as departure time is reached.
+              </div>
             </div>
           </div>
         )}

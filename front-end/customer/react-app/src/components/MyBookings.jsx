@@ -2,6 +2,41 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Calendar, Download, XCircle, RotateCcw, MapPin, Search } from 'lucide-react';
 import { API } from '../services/api';
 
+function isDepartureTimeReached(journeyDate, departureTime) {
+  try {
+    if (!departureTime || departureTime === '—') return false;
+    const cleanTime = String(departureTime).split('→')[0].trim();
+    const timeMatch = cleanTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+    if (!timeMatch) return false;
+    let hh = parseInt(timeMatch[1], 10);
+    const mm = parseInt(timeMatch[2], 10);
+    const meridiem = (timeMatch[3] || '').toUpperCase();
+    if (meridiem === 'PM' && hh < 12) hh += 12;
+    if (meridiem === 'AM' && hh === 12) hh = 0;
+
+    const now = new Date();
+    let y = now.getFullYear();
+    let m = now.getMonth();
+    let d = now.getDate();
+
+    if (journeyDate) {
+      const dateStr = String(journeyDate).split('T')[0];
+      const dateParts = dateStr.split('-').map(Number);
+      if (dateParts.length >= 3) {
+        y = dateParts[0];
+        m = dateParts[1] - 1;
+        d = dateParts[2];
+      }
+    }
+
+    const depDate = new Date(y, m, d, hh, mm, 0, 0);
+    if (isNaN(depDate.getTime())) return false;
+    return now >= depDate;
+  } catch {
+    return false;
+  }
+}
+
 export default function MyBookings({
   customer,
   user,
@@ -85,6 +120,8 @@ export default function MyBookings({
         busName: b.busName || b._busName || 'Click2Book Partner',
         busType: b.busType || b._busType || 'AC Sleeper',
         date: b.date || b.journeyDate || b._journeyDate || b.bookingDate || new Date().toISOString().split('T')[0],
+        departureTime: b.departureTime || b._departureTime || '',
+        arrivalTime: b.arrivalTime || b._arrivalTime || '',
         seats: b.seats || b._seats || (Array.isArray(b.seat_list) ? b.seat_list.join(', ') : 'Seat 1'),
         total: b.total || b._total || b.amount || 650,
         status: (b.status || b.booking_status || 'CONFIRMED').toUpperCase(),
@@ -97,6 +134,12 @@ export default function MyBookings({
 
   useEffect(() => {
     loadBookings();
+    window.addEventListener('storage', loadBookings);
+    const interval = setInterval(loadBookings, 3000);
+    return () => {
+      window.removeEventListener('storage', loadBookings);
+      clearInterval(interval);
+    };
   }, [loadBookings]);
 
   const filteredBookings = bookings.filter((b) => {
@@ -171,6 +214,13 @@ export default function MyBookings({
             const isCancelled = b.status === 'CANCELLED';
             const isCancellable = b.status === 'CONFIRMED' || b.status === 'PENDING';
 
+            // Check live trip status from c2b_trip_statuses or departure time passed
+            const tripStatuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+            const tStatus = tripStatuses[b.tripId];
+            const timePassed = isDepartureTimeReached(b.date, b.departureTime);
+            const hasStarted = tStatus === 'IN_PROGRESS' || (timePassed && tStatus !== 'COMPLETED');
+            const isCompleted = tStatus === 'COMPLETED';
+
             return (
               <div
                 key={b.bookingId}
@@ -187,7 +237,7 @@ export default function MyBookings({
                   </div>
 
                   <div style={{ fontSize: '0.78rem', color: '#64748b', margin: '4px 0' }}>
-                    📅 {b.date} &nbsp;·&nbsp; {b.busName} ({b.busType}) &nbsp;·&nbsp; Seat(s): <strong>{b.seats}</strong>
+                    📅 {b.date} {b.departureTime ? `(${b.departureTime})` : ''} &nbsp;·&nbsp; {b.busName} ({b.busType}) &nbsp;·&nbsp; Seat(s): <strong>{b.seats}</strong>
                   </div>
 
                   <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontFamily: 'monospace', fontWeight: 700 }}>
@@ -199,9 +249,17 @@ export default function MyBookings({
                       <span className="cip-dot" />
                       <span>Ticket Cancelled · Refund Initiated</span>
                     </div>
+                  ) : isCompleted ? (
+                    <div className="trip-live-pill" style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', fontWeight: 700 }}>
+                      <span>🏁 Destination Reached · Trip Completed</span>
+                    </div>
+                  ) : hasStarted ? (
+                    <div className="trip-live-pill in-progress" style={{ background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', fontWeight: 800 }}>
+                      <span>🟢 Bus Has Started · In Progress / En Route</span>
+                    </div>
                   ) : (
-                    <div className="trip-live-pill in-progress">
-                      <span>🚌 Service Active · Journey Scheduled</span>
+                    <div className="trip-live-pill" style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe' }}>
+                      <span>🕒 Journey Scheduled {b.departureTime ? `· Departs at ${b.departureTime}` : ''}</span>
                     </div>
                   )}
                 </div>
@@ -227,10 +285,17 @@ export default function MyBookings({
                       <button
                         type="button"
                         className="btn-ghost"
-                        style={{ padding: '6px 14px', fontSize: '0.75rem', color: '#059669', borderColor: '#86efac' }}
+                        style={{
+                          padding: '6px 14px',
+                          fontSize: '0.75rem',
+                          color: hasStarted ? '#15803d' : '#059669',
+                          borderColor: hasStarted ? '#86efac' : '#86efac',
+                          background: hasStarted ? '#f0fdf4' : 'transparent',
+                          fontWeight: hasStarted ? 800 : 600,
+                        }}
                         onClick={() => handleTrackBusClick(b.tripId, b.bookingId)}
                       >
-                        <MapPin size={13} /> Track Bus
+                        <MapPin size={13} /> {hasStarted ? 'Live Track (Bus Started)' : 'Track Bus'}
                       </button>
                     )}
 

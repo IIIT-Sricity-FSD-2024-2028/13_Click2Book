@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "click2book-customer-react": "file:../../.."
+  }
+}

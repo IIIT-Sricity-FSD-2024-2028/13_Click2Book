@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, loadAdminDashboardData } from '../../lib/api.js';
-import { getUsers } from '../../lib/db.js';
+import { getBookings, getRefunds, getUsers } from '../../lib/db.js';
 import { getAdminName, initialsOf } from '../../lib/session.js';
 import '../../styles/admin_dashboard.css';
 import SuperUserPanel from '../../superuser/SuperUserPanel.jsx';
@@ -27,8 +27,8 @@ export default function DashboardPage() {
   const toastTimer = useRef();
   const refreshPromise = useRef(null);
 
-  const bookings = dashboardData.bookings;
-  const refunds = dashboardData.refunds;
+  const bookings = dashboardData.bookings.length > 0 ? dashboardData.bookings : getBookings();
+  const refunds = dashboardData.refunds.length > 0 ? dashboardData.refunds : getRefunds();
   const users = useMemo(() => [
     ...dashboardData.users,
     ...getUsers().filter((user) => user.role === 'admin' || user.role === 'support'),

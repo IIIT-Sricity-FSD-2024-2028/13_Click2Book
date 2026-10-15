@@ -5,7 +5,14 @@ export default function Dashboard({ onNavigate }) {
   const [data, setData] = useState({ buses: [], totalPax: 0, totalRev: 0 });
 
   useEffect(() => {
-    setData(getDashboardData());
+    const refresh = () => setData(getDashboardData());
+    refresh();
+    window.addEventListener('storage', refresh);
+    const interval = setInterval(refresh, 3000);
+    return () => {
+      window.removeEventListener('storage', refresh);
+      clearInterval(interval);
+    };
   }, []);
 
   const { buses, totalPax, totalRev } = data;

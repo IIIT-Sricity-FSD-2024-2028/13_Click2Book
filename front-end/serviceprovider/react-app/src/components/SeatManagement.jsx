@@ -258,7 +258,14 @@ export default function SeatManagement({ provider }) {
   const [selectedBus, setSelectedBus] = useState(null);
 
   useEffect(() => {
-    setBuses(getSeatData());
+    const refresh = () => setBuses(getSeatData());
+    refresh();
+    window.addEventListener('storage', refresh);
+    const interval = setInterval(refresh, 3000);
+    return () => {
+      window.removeEventListener('storage', refresh);
+      clearInterval(interval);
+    };
   }, []);
 
   return (

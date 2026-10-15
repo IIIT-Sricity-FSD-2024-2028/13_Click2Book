@@ -263,14 +263,17 @@ export default function ManageSchedules({ onNavigate, showToast }) {
     loadTrips();
   }, []);
 
-  // Sync when window refocuses or storage updates
+  // Sync when window refocuses or storage updates, plus polling for auto-start and bookings
   useEffect(() => {
+    loadTrips();
     const handleSync = () => { loadTrips(); };
     window.addEventListener('storage', handleSync);
     window.addEventListener('focus', handleSync);
+    const interval = setInterval(handleSync, 4000);
     return () => {
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('focus', handleSync);
+      clearInterval(interval);
     };
   }, []);
 

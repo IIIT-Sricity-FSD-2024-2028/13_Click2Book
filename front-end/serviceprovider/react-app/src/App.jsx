@@ -15,7 +15,7 @@ import LostFound          from './components/LostFound';
 import Revenue            from './components/Revenue';
 import Settings           from './components/Settings';
 
-import { getNotifications } from './services/api';
+import { getNotifications, autoStartDueTrips } from './services/api';
 
 /* ── Valid tabs (sync with hash URL, same approach as support agent) ── */
 const VALID_TABS = [
@@ -74,6 +74,22 @@ export default function App() {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000);
   }, []);
   const dismissToast = useCallback((id) => setToasts((t) => t.filter((x) => x.id !== id)), []);
+
+  /* ── Background Trip Auto-Starter: auto-starts trip when starting time is reached ── */
+  useEffect(() => {
+    const runAutoStart = () => {
+      const newlyStarted = autoStartDueTrips();
+      if (newlyStarted && newlyStarted.length > 0) {
+        newlyStarted.forEach((t) => {
+          const routeLabel = t.from && t.to ? `${t.from} → ${t.to}` : t.busName || t.tripId;
+          showToast(`⏰ Trip Auto-Started: ${routeLabel} (Departure time ${t.time || ''} reached!)`, 'info');
+        });
+      }
+    };
+    runAutoStart();
+    const interval = setInterval(runAutoStart, 4000);
+    return () => clearInterval(interval);
+  }, [showToast]);
 
   /* ── Login / Logout ── */
   const handleLogin = useCallback((user) => {

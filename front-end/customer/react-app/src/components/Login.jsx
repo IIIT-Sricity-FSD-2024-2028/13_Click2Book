@@ -75,12 +75,6 @@ export default function Login({
     }
   };
 
-  const handleQuickDemo = (demo) => {
-    setLoginEmail(demo.email);
-    setLoginPassword(demo.password);
-    setErrorMsg('');
-  };
-
   const handleLogin = async (e) => {
     if (e) e.preventDefault();
     setErrorMsg('');
@@ -416,6 +410,27 @@ export default function Login({
       <div className="right">
         <button
           type="button"
+          className="home-btn"
+          onClick={handleGoHome}
+          aria-label="Return to home page"
+          title="Return to Home"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
+        </button>
+        <button
+          type="button"
           className="close-btn"
           onClick={handleGoHome}
           aria-label="Close and return to home page"
@@ -595,52 +610,6 @@ export default function Login({
                 </svg>
               </button>
             </form>
-
-            {/* Quick Demo Customer Logins Helper */}
-            <div
-              style={{
-                marginTop: '16px',
-                padding: '10px 12px',
-                background: '#f8fafc',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0',
-                textAlign: 'left',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '0.7rem',
-                  fontWeight: 700,
-                  color: '#64748b',
-                  marginBottom: '6px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                }}
-              >
-                Quick Demo Customer Logins:
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {DEMO_USERS.map((demo) => (
-                  <button
-                    key={demo.id}
-                    type="button"
-                    onClick={() => handleQuickDemo(demo)}
-                    style={{
-                      padding: '3px 9px',
-                      borderRadius: '6px',
-                      border: '1px solid #cbd5e1',
-                      background: '#fff',
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      color: '#1e293b',
-                    }}
-                  >
-                    {demo.name.split(' ')[0]} ({demo.id})
-                  </button>
-                ))}
-              </div>
-            </div>
 
             <div className="create-link">
               New to Click2Book?{' '}

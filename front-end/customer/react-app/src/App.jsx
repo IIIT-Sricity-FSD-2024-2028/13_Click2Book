@@ -13,7 +13,6 @@ import MyProfile from './components/MyProfile';
 import Offers from './components/Offers';
 import GetSupport from './components/GetSupport';
 import LostFound from './components/LostFound';
-import TrackBus from './components/TrackBus';
 import { INITIAL_NOTIFICATIONS } from './services/mockData';
 import { liveSync } from './services/liveSync';
 
@@ -86,7 +85,6 @@ export default function App() {
       'get-support',
       'lost-found',
       'my-profile',
-      'track-bus',
     ];
 
     if (tabName && validTabs.includes(tabName)) {
@@ -97,7 +95,6 @@ export default function App() {
 
   const [selectedBookingForCancel, setSelectedBookingForCancel] = useState(null);
   const [selectedBookingForRefund, setSelectedBookingForRefund] = useState('');
-  const [selectedTripForTrack, setSelectedTripForTrack] = useState(null);
 
   // Authentication Modal configuration
   const [loginModal, setLoginModal] = useState(() => {
@@ -212,12 +209,12 @@ export default function App() {
             const busTitle = b.busName || sched?.busName || 'Your bus';
             const routeText = `${b.from || sched?.from || 'Origin'} → ${b.to || sched?.to || 'Destination'}`;
 
-            showToast(`🚌 ${busTitle} (${routeText}) has started its journey! Live tracking active.`, 'success');
+            showToast(`🚌 ${busTitle} (${routeText}) has started its journey!`, 'success');
 
             const newNotif = {
               id: `trip_start_${tid}_${Date.now()}`,
               title: '🚌 Bus Has Started!',
-              desc: `${busTitle} (${routeText}) has departed at ${depTime || 'scheduled time'}. You can now track it live!`,
+              desc: `${busTitle} (${routeText}) has departed at ${depTime || 'scheduled time'}.`,
               time: 'Just now',
               type: 'success',
               read: false,
@@ -269,7 +266,7 @@ export default function App() {
         const { tripId, status } = event.payload || {};
         if (status === 'IN_PROGRESS' && tripId && !notifiedTripsRef.current.has(tripId)) {
           notifiedTripsRef.current.add(tripId);
-          showToast(`🚌 Your bus (Trip ${tripId}) has departed! Live tracking active.`, 'success');
+          showToast(`🚌 Your bus (Trip ${tripId}) has departed!`, 'success');
         }
       } else if (event.type === 'SCHEDULE_UPDATED') {
         const p = event.payload || {};
@@ -325,7 +322,6 @@ export default function App() {
         'get-support',
         'lost-found',
         'my-profile',
-        'track-bus',
       ];
 
       if (validTabs.includes(tabName)) {
@@ -386,12 +382,8 @@ export default function App() {
     if (params.bookingId) {
       setSelectedBookingForRefund(params.bookingId);
     }
-    if (params.tripId) {
-      setSelectedTripForTrack(params.tripId);
-    }
-
     setActiveTab(tab);
-    window.location.hash = tab === 'landing' ? '' : `#${tab}${params.tripId ? `?tripId=${params.tripId}` : ''}`;
+    window.location.hash = tab === 'landing' ? '' : `#${tab}`;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -518,12 +510,6 @@ export default function App() {
           onNavigate={handleNavigate}
           onLogout={handleLogout}
         />
-      ) : activeTab === 'track-bus' ? (
-        <TrackBus
-          tripId={selectedTripForTrack}
-          onNavigate={handleNavigate}
-          showToast={showToast}
-        />
       ) : (
         <>
           {/* Sidebar */}
@@ -569,7 +555,6 @@ export default function App() {
                 onNavigate={handleNavigate}
                 onNavigateToCancel={(b) => handleNavigate('cancel-ticket', { booking: b })}
                 onNavigateToTrackRefund={(bId) => handleNavigate('track-refunds', { bookingId: bId })}
-                onNavigateToTrackBus={(tripId) => handleNavigate('track-bus', { tripId })}
                 onNavigateToSearch={() => handleNavigate('search-trips')}
                 showToast={showToast}
               />

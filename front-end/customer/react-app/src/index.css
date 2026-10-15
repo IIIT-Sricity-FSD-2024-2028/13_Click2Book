@@ -1304,6 +1304,38 @@ body {
   background: #fffcfc;
 }
 
+.btn-track-refund {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  background: var(--white);
+  color: #ea580c;
+  border: 1.5px solid #fdba74;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+.btn-track-refund:hover {
+  background: #fff7ed;
+  border-color: #ea580c;
+  color: #c2410c;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.15);
+}
+.btn-track-refund:focus-visible {
+  outline: 2px solid #ea580c;
+  outline-offset: 2px;
+}
+.btn-track-refund:active {
+  transform: translateY(0);
+}
+
 .trip-live-pill {
   display: inline-flex;
   align-items: center;
@@ -1317,6 +1349,27 @@ body {
 .trip-live-pill.in-progress { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
 .trip-live-pill.completed   { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
 .trip-live-pill.scheduled   { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+
+.cancelled-info-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 50px;
+  font-size: .72rem;
+  font-weight: 700;
+  margin-top: 6px;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+}
+.cancelled-info-pill .cip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #dc2626;
+  display: inline-block;
+}
 
 /* ═══════════════ TIMELINE & TRACK REFUNDS ═══════════════ */
 .refund-kpis {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Calendar, Download, XCircle, RotateCcw, MapPin, Search } from 'lucide-react';
+import { Calendar, Download, XCircle, RotateCcw } from 'lucide-react';
 import { API } from '../services/api';
 
 function isDepartureTimeReached(journeyDate, departureTime) {
@@ -44,7 +44,6 @@ export default function MyBookings({
   onNavigate,
   onNavigateToCancel,
   onNavigateToTrackRefund,
-  onNavigateToTrackBus,
   onNavigateToSearch,
 }) {
   const [filter, setFilter] = useState('all'); // 'all' | 'confirmed' | 'completed' | 'cancelled'
@@ -61,84 +60,166 @@ export default function MyBookings({
     else if (onNavigate) onNavigate('track-refunds', { bookingId: bId });
   };
 
-  const handleTrackBusClick = (tripId, bId) => {
-    if (onNavigateToTrackBus) onNavigateToTrackBus(tripId, bId);
-    else if (onNavigate) onNavigate('track-bus', { tripId, bookingId: bId });
-  };
-
   const handleSearchClick = () => {
     if (onNavigateToSearch) onNavigateToSearch();
     else if (onNavigate) onNavigate('search-trips');
   };
 
+  const handleDownloadTicket = (b) => {
+    try {
+      const ticketContent = [
+        '====================================================',
+        '              CLICK2BOOK E-TICKET                   ',
+        '====================================================',
+        `PNR / Booking ID : ${b.bookingId}`,
+        `Route            : ${b.from} → ${b.to}`,
+        `Travel Date      : ${b.date}`,
+        `Bus Operator     : ${b.busName} (${b.busType})`,
+        `Seat(s)          : ${b.seats}`,
+        `Fare Paid        : ₹${b.total}`,
+        `Status           : ${b.status}`,
+        '----------------------------------------------------',
+        'Thank you for booking with Click2Book!',
+        'Helpdesk: support@click2book.com | 1800-CLICK2BK',
+        '====================================================',
+      ].join('\n');
+
+      const blob = new Blob([ticketContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Click2Book_Ticket_${b.bookingId}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      if (showToast) {
+        showToast('Ticket downloaded successfully!', 'success');
+      }
+    } catch (err) {
+      console.error('Failed to download ticket:', err);
+      if (showToast) {
+        showToast('Failed to download ticket. Please try again.', 'error');
+      }
+    }
+  };
+
   const loadBookings = useCallback(async () => {
     setLoading(true);
-    const raw = [];
 
-    // 1. Live Backend bookings
+    // 1. Fetch live backend bookings
+    let apiData = [];
     try {
-      const apiData = await API.bookings.getMine();
-      if (Array.isArray(apiData)) {
-        apiData.forEach((b) => raw.push({
-          bookingId: b.bookingId || b.id,
-          tripId: b.tripId,
+      const res = await API.bookings.getMine();
+      if (Array.isArray(res)) {
+        apiData = res;
+      }
+    } catch (e) {
+      console.warn('API getMine bookings note:', e);
+    }
+
+    // 2. Fetch local storage bookings and refunds
+    let localData = [];
+    let refundData = [];
+    try {
+      const local = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+      if (Array.isArray(local)) localData = local;
+      const refunds = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
+      if (Array.isArray(refunds)) refundData = refunds;
+    } catch (e) {
+      console.warn('localStorage reading note:', e);
+    }
+
+    // 3. Unify and merge bookings by bookingId without duplicates
+    const bookingMap = new Map();
+
+    // Populate local storage bookings first (rich display metadata)
+    localData.forEach((b) => {
+      const id = b.bookingId || b.booking_id;
+      if (!id) return;
+      const status = String(b.status || b.booking_status || 'CONFIRMED').toUpperCase();
+      const refundRecord = refundData.find((r) => (r.booking_id || r.bookingId) === id);
+      const confirmedRefund = refundRecord?.refund_amount ?? b.refundAmount ?? b.refund_amount ?? null;
+      const totalFare = Number(b.total ?? b.amount ?? b.fare ?? 650);
+
+      bookingMap.set(id, {
+        bookingId: id,
+        tripId: b.tripId || b.trip_id || 'T001',
+        from: b.from || 'Hyderabad',
+        to: b.to || 'Chennai',
+        busName: b.busName || 'Click2Book Partner',
+        busType: b.busType || 'AC Sleeper',
+        date: b.date || b.journeyDate || b.bookingDate || new Date().toISOString().split('T')[0],
+        departureTime: b.departureTime || '',
+        arrivalTime: b.arrivalTime || '',
+        seats: b.seats || (Array.isArray(b.seat_list) ? b.seat_list.join(', ') : (b.seatNumber ? `Seat ${b.seatNumber}` : 'Seat 1')),
+        total: totalFare,
+        refundAmount: confirmedRefund,
+        status,
+        backendBookingIds: b.backendBookingIds,
+        raw: b,
+      });
+    });
+
+    // Merge backend API bookings
+    apiData.forEach((b) => {
+      const id = b.bookingId || b.id;
+      if (!id) return;
+      const apiStatus = String(b.bookingStatus || b.status || 'CONFIRMED').toUpperCase();
+      const refundRecord = refundData.find((r) => (r.booking_id || r.bookingId) === id);
+
+      if (bookingMap.has(id)) {
+        const existing = bookingMap.get(id);
+        if (apiStatus === 'CANCELLED' || existing.status === 'CANCELLED') {
+          existing.status = 'CANCELLED';
+        } else {
+          existing.status = apiStatus;
+        }
+        if (existing.refundAmount == null && (refundRecord?.refund_amount != null || b.refundAmount != null || b.refund_amount != null)) {
+          existing.refundAmount = refundRecord?.refund_amount ?? b.refundAmount ?? b.refund_amount;
+        }
+      } else {
+        const totalFare = Number(b.totalAmount ?? b.fare ?? 650);
+        const confirmedRefund = refundRecord?.refund_amount ?? b.refundAmount ?? b.refund_amount ?? null;
+        bookingMap.set(id, {
+          bookingId: id,
+          tripId: b.tripId || 'T001',
           from: b.from || 'Hyderabad',
           to: b.to || 'Chennai',
           busName: b.busName || 'Express Bus',
           busType: b.busType || 'AC Sleeper',
           date: b.bookingDate || b.journeyDate || new Date().toISOString().split('T')[0],
+          departureTime: b.departureTime || '',
+          arrivalTime: b.arrivalTime || '',
           seats: b.seatNumber ? `Seat ${b.seatNumber}` : 'Seat 1',
-          total: b.totalAmount || b.fare || 650,
-          status: (b.bookingStatus || 'CONFIRMED').toUpperCase(),
+          total: totalFare,
+          refundAmount: confirmedRefund,
+          status: apiStatus,
           _fromApi: true,
-        }));
+          raw: b,
+        });
       }
-    } catch {}
-
-    // 2. Browser local storage bookings
-    try {
-      const local = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-      if (Array.isArray(local)) {
-        local.forEach((b) => raw.push(b));
-      }
-    } catch {}
-
-    // Deduplicate by bookingId / booking_id
-    const seen = new Set();
-    const unified = [];
-
-    raw.forEach((b) => {
-      const id = b.bookingId || b.booking_id;
-      if (!id || seen.has(id)) return;
-      seen.add(id);
-
-      unified.push({
-        bookingId: id,
-        tripId: b.tripId || b.trip_id || 'T001',
-        from: b.from || b._from || 'Hyderabad',
-        to: b.to || b._to || 'Chennai',
-        busName: b.busName || b._busName || 'Click2Book Partner',
-        busType: b.busType || b._busType || 'AC Sleeper',
-        date: b.date || b.journeyDate || b._journeyDate || b.bookingDate || new Date().toISOString().split('T')[0],
-        departureTime: b.departureTime || b._departureTime || '',
-        arrivalTime: b.arrivalTime || b._arrivalTime || '',
-        seats: b.seats || b._seats || (Array.isArray(b.seat_list) ? b.seat_list.join(', ') : 'Seat 1'),
-        total: b.total || b._total || b.amount || 650,
-        status: (b.status || b.booking_status || 'CONFIRMED').toUpperCase(),
-      });
     });
 
-    setBookings(unified);
+    setBookings(Array.from(bookingMap.values()));
     setLoading(false);
   }, []);
 
   useEffect(() => {
     loadBookings();
-    window.addEventListener('storage', loadBookings);
-    const interval = setInterval(loadBookings, 3000);
+
+    const handleStorageChange = (e) => {
+      if (e.key === 'c2b_bookings' || e.key === 'c2b_refunds' || !e.key) {
+        loadBookings();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', loadBookings);
+
     return () => {
-      window.removeEventListener('storage', loadBookings);
-      clearInterval(interval);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', loadBookings);
     };
   }, [loadBookings]);
 
@@ -265,9 +346,26 @@ export default function MyBookings({
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 900, color: isCancelled ? '#94a3b8' : '#0f172a', textDecoration: isCancelled ? 'line-through' : 'none' }}>
-                    ₹{b.total}
-                  </div>
+                  {isCancelled ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                      <span style={{ fontSize: '0.95rem', fontWeight: 900, color: '#94a3b8', textDecoration: 'line-through' }}>
+                        ₹{b.total}
+                      </span>
+                      {b.refundAmount != null ? (
+                        <span style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 800, whiteSpace: 'nowrap', marginTop: '2px' }}>
+                          Refund: ₹{b.refundAmount}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#f59e0b', fontSize: '0.8rem', fontWeight: 700, whiteSpace: 'nowrap', marginTop: '2px' }}>
+                          Refund: Processing
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#0f172a' }}>
+                      ₹{b.total}
+                    </div>
+                  )}
 
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     {!isCancelled && (
@@ -275,27 +373,9 @@ export default function MyBookings({
                         type="button"
                         className="btn-ghost"
                         style={{ padding: '6px 14px', fontSize: '0.75rem' }}
-                        onClick={() => showToast(`🎫 E-Ticket for ${b.bookingId} downloaded!`, 'success')}
+                        onClick={() => handleDownloadTicket(b)}
                       >
                         <Download size={13} /> Ticket
-                      </button>
-                    )}
-
-                    {!isCancelled && (
-                      <button
-                        type="button"
-                        className="btn-ghost"
-                        style={{
-                          padding: '6px 14px',
-                          fontSize: '0.75rem',
-                          color: hasStarted ? '#15803d' : '#059669',
-                          borderColor: hasStarted ? '#86efac' : '#86efac',
-                          background: hasStarted ? '#f0fdf4' : 'transparent',
-                          fontWeight: hasStarted ? 800 : 600,
-                        }}
-                        onClick={() => handleTrackBusClick(b.tripId, b.bookingId)}
-                      >
-                        <MapPin size={13} /> {hasStarted ? 'Live Track (Bus Started)' : 'Track Bus'}
                       </button>
                     )}
 

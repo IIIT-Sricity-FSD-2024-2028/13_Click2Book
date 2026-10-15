@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Calendar, Download, XCircle, RotateCcw, Search } from 'lucide-react';
+import { Download, XCircle, RotateCcw } from 'lucide-react';
 import { API } from '../services/api';
 
 export default function MyBookings({
@@ -84,46 +84,52 @@ export default function MyBookings({
       console.warn('API getMine bookings note:', e);
     }
 
-    // 2. Fetch local storage bookings
+    // 2. Fetch local storage bookings and refunds
     let localData = [];
+    let refundData = [];
     try {
       const local = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-      if (Array.isArray(local)) {
-        localData = local;
-      }
+      if (Array.isArray(local)) localData = local;
+      const refunds = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
+      if (Array.isArray(refunds)) refundData = refunds;
     } catch (e) {
-      console.warn('localStorage c2b_bookings note:', e);
+      console.warn('localStorage reading note:', e);
     }
 
     // 3. Unify and merge bookings by bookingId
     const bookingMap = new Map();
 
-    // First, seed with local storage bookings (contains rich display metadata)
+    // Populate with local storage bookings (rich display metadata)
     localData.forEach((b) => {
       const id = b.bookingId || b.booking_id;
       if (!id) return;
-      const st = String(b.status || b.booking_status || 'CONFIRMED').toUpperCase();
+      const status = String(b.status || b.booking_status || 'CONFIRMED').toUpperCase();
+      const refundRecord = refundData.find((r) => r.booking_id === id || r.bookingId === id);
+      const totalFare = Number(b.total ?? b.amount ?? b.fare ?? 650);
+
       bookingMap.set(id, {
         bookingId: id,
         tripId: b.tripId || b.trip_id || 'T001',
-        from: b.from || b._from || 'Hyderabad',
-        to: b.to || b._to || 'Chennai',
-        busName: b.busName || b._busName || 'Click2Book Partner',
-        busType: b.busType || b._busType || 'AC Sleeper',
-        date: b.date || b.journeyDate || b._journeyDate || b.bookingDate || new Date().toISOString().split('T')[0],
-        seats: b.seats || b._seats || (Array.isArray(b.seat_list) ? b.seat_list.join(', ') : (b.seatNumber ? `Seat ${b.seatNumber}` : 'Seat 1')),
-        total: Number(b.total || b._total || b.amount || b.fare || 650),
-        status: st,
+        from: b.from || 'Hyderabad',
+        to: b.to || 'Chennai',
+        busName: b.busName || 'Click2Book Partner',
+        busType: b.busType || 'AC Sleeper',
+        date: b.date || b.journeyDate || b.bookingDate || new Date().toISOString().split('T')[0],
+        seats: b.seats || (Array.isArray(b.seat_list) ? b.seat_list.join(', ') : (b.seatNumber ? `Seat ${b.seatNumber}` : 'Seat 1')),
+        total: totalFare,
+        refundAmount: refundRecord ? refundRecord.refund_amount : Math.max(0, totalFare - 50),
+        status,
         backendBookingIds: b.backendBookingIds,
         raw: b,
       });
     });
 
-    // Next, merge backend API data
+    // Merge backend API data
     apiData.forEach((b) => {
       const id = b.bookingId || b.id;
       if (!id) return;
       const apiStatus = String(b.bookingStatus || b.status || 'CONFIRMED').toUpperCase();
+      const refundRecord = refundData.find((r) => r.booking_id === id || r.bookingId === id);
 
       if (bookingMap.has(id)) {
         const existing = bookingMap.get(id);
@@ -134,6 +140,7 @@ export default function MyBookings({
           existing.status = apiStatus;
         }
       } else {
+        const totalFare = Number(b.totalAmount ?? b.fare ?? 650);
         bookingMap.set(id, {
           bookingId: id,
           tripId: b.tripId,
@@ -143,7 +150,8 @@ export default function MyBookings({
           busType: b.busType || 'AC Sleeper',
           date: b.bookingDate || b.journeyDate || new Date().toISOString().split('T')[0],
           seats: b.seatNumber ? `Seat ${b.seatNumber}` : 'Seat 1',
-          total: Number(b.totalAmount || b.fare || 650),
+          total: totalFare,
+          refundAmount: refundRecord ? refundRecord.refund_amount : Math.max(0, totalFare - 50),
           status: apiStatus,
           _fromApi: true,
           raw: b,
@@ -151,8 +159,7 @@ export default function MyBookings({
       }
     });
 
-    const unified = Array.from(bookingMap.values());
-    setBookings(unified);
+    setBookings(Array.from(bookingMap.values()));
     setLoading(false);
   }, []);
 
@@ -287,7 +294,7 @@ export default function MyBookings({
                         ₹{b.total}
                       </span>
                       <span style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 800, whiteSpace: 'nowrap', marginTop: '2px' }}>
-                        Refund: ₹{Math.max(0, b.total - 50)}
+                        Refund: ₹{b.refundAmount != null ? b.refundAmount : Math.max(0, b.total - 50)}
                       </span>
                     </div>
                   ) : (

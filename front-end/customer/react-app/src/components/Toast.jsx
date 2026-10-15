@@ -1,18 +1,19 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
 export default function Toast({ toasts, onDismiss, toast, onClose }) {
   const list = toasts || (toast ? [toast] : []);
+
   const handleDismiss = (id) => {
-    if (onDismiss) onDismiss(id);
-    if (onClose) onClose();
+    if (typeof onDismiss === 'function') onDismiss(id);
+    if (typeof onClose === 'function') onClose(id);
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (list.length > 0) {
       const timer = setTimeout(() => {
         handleDismiss(list[0]?.id);
-      }, 4500);
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [list]);
@@ -36,8 +37,10 @@ export default function Toast({ toasts, onDismiss, toast, onClose }) {
             {t.type === 'info' && <Info size={18} color="#3b82f6" />}
             <span style={{ flex: 1 }}>{t.message}</span>
             <button
+              type="button"
               onClick={() => handleDismiss(t.id)}
               style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+              aria-label="Dismiss notification"
             >
               <X size={14} />
             </button>

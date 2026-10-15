@@ -61,12 +61,15 @@ export default function CancelTicket({
         if (!id || seen.has(id)) return;
         seen.add(id);
         unique.push({
+          ...b,
           bookingId: id,
+          booking_id: id,
           from: b.from || 'Hyderabad',
           to: b.to || 'Chennai',
           busName: b.busName || 'Click2Book Express',
           total: Number(b.total || b.fare || 650),
           date: b.date || b.journeyDate || new Date().toISOString().split('T')[0],
+          backendBookingIds: b.backendBookingIds,
         });
       });
 
@@ -147,8 +150,10 @@ export default function CancelTicket({
       // 3. Update localStorage bookings based on actual backend results
       try {
         const allBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+        let found = false;
         allBookings.forEach((b) => {
           if (b.bookingId === bId || b.booking_id === bId) {
+            found = true;
             if (isPartial) {
               b.status = 'PARTIALLY_CANCELLED';
               b.booking_status = 'PARTIALLY_CANCELLED';
@@ -161,6 +166,16 @@ export default function CancelTicket({
             }
           }
         });
+        if (!found) {
+          allBookings.unshift({
+            ...selectedTicket,
+            bookingId: bId,
+            booking_id: bId,
+            status: isPartial ? 'PARTIALLY_CANCELLED' : 'CANCELLED',
+            booking_status: isPartial ? 'PARTIALLY_CANCELLED' : 'CANCELLED',
+            cancelled_at: new Date().toISOString(),
+          });
+        }
         localStorage.setItem('c2b_bookings', JSON.stringify(allBookings));
       } catch {}
 
@@ -199,7 +214,7 @@ export default function CancelTicket({
           'warning'
         );
       } else {
-        showToast(`Booking ${bId} cancelled. Refund request submitted for processing.`, 'success');
+        showToast(`Ticket ${bId} cancelled successfully! Refund initiated.`, 'success');
       }
 
       setCancelledResult({
@@ -213,6 +228,15 @@ export default function CancelTicket({
         cancelledIds: successfulCancels.map((c) => c.id),
         failedIds: failedCancels.map((f) => `${f.id} (${f.error})`),
       });
+
+      // Update My Bookings data immediately by returning to My Bookings
+      setTimeout(() => {
+        if (onBackToBookings) {
+          onBackToBookings();
+        } else if (onNavigate) {
+          onNavigate('my-bookings');
+        }
+      }, 600);
     } catch (err) {
       showToast(err.message || 'Cancellation failed.', 'error');
     } finally {

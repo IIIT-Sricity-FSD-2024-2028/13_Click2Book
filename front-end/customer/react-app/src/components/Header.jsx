@@ -34,10 +34,6 @@ const TAB_METADATA = {
     title: 'Lost & Found',
     subtitle: 'Report forgotten luggage or personal items',
   },
-  'track-bus': {
-    title: 'Live Bus Tracking & SOS',
-    subtitle: 'GPS real-time bus location and alerts',
-  },
 };
 
 export default function Header({

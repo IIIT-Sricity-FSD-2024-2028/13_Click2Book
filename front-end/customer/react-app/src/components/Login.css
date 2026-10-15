@@ -461,10 +461,10 @@
 }
 
 /* CLOSE / HOME BUTTON */
-.c2b-login-page .close-btn {
+.c2b-login-page .close-btn,
+.c2b-login-page .home-btn {
   position: absolute;
   top: 16px;
-  right: 16px;
   background: none;
   border: none;
   color: #94a3b8;
@@ -478,7 +478,16 @@
   z-index: 10;
 }
 
-.c2b-login-page .close-btn:hover {
+.c2b-login-page .close-btn {
+  right: 16px;
+}
+
+.c2b-login-page .home-btn {
+  right: 52px;
+}
+
+.c2b-login-page .close-btn:hover,
+.c2b-login-page .home-btn:hover {
   color: #0f172a;
   background: #f1f5f9;
 }

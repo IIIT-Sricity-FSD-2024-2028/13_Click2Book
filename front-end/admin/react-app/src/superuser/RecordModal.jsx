@@ -19,8 +19,10 @@ function toRecord(fields, values) {
   }));
 }
 
-export default function RecordModal({ schema, record, onClose, onSave, onInvalid }) {
+export default function RecordModal({ schema, record, onClose, onSave, onInvalid, remote = false, saving = false }) {
   const isEdit = record !== null;
+  // The backend assigns IDs to new records.
+  const autoId = (key) => remote && !isEdit && key === schema.pkField;
   const [values, setValues] = useState(() => initialValues(schema.fields, record));
 
   const setValue = (key, value) => setValues((current) => ({ ...current, [key]: value }));
@@ -29,7 +31,7 @@ export default function RecordModal({ schema, record, onClose, onSave, onInvalid
     event.preventDefault();
     const data = toRecord(schema.fields, values);
     const missing = schema.fields.find((field) => (
-      field.required && !(isEdit && field.key === schema.pkField) && data[field.key] == null
+      field.required && !((isEdit || autoId(field.key)) && field.key === schema.pkField) && data[field.key] == null
     ));
     if (missing) {
       onInvalid(`"${missing.label}" is required.`);
@@ -54,8 +56,9 @@ export default function RecordModal({ schema, record, onClose, onSave, onInvalid
                 id,
                 name: field.key,
                 value: values[field.key],
-                required: field.required,
-                disabled: isEdit && field.key === schema.pkField,
+                required: field.required && !autoId(field.key),
+                disabled: (isEdit || autoId(field.key)) && field.key === schema.pkField,
+                ...(autoId(field.key) ? { placeholder: 'Assigned by backend' } : {}),
                 onChange: (event) => setValue(field.key, event.target.value),
               };
               return (
@@ -81,7 +84,7 @@ export default function RecordModal({ schema, record, onClose, onSave, onInvalid
         </div>
         <div className="c2b-modal-footer">
           <button type="button" className="c2b-btn c2b-btn-ghost" onClick={onClose}>Cancel</button>
-          <button type="submit" className="c2b-btn c2b-btn-primary">Save Record</button>
+          <button type="submit" className="c2b-btn c2b-btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save Record'}</button>
         </div>
       </form>
     </div>

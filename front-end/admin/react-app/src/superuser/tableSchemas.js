@@ -92,7 +92,7 @@ export const TABLE_SCHEMAS = {
       { key: 'vehicle_id', label: 'Vehicle ID', type: 'text', required: true },
       { key: 'provider_id', label: 'Provider ID', type: 'text', required: true },
       { key: 'vehicle_number', label: 'Reg. Number', type: 'text', required: true },
-      { key: 'vehicle_type', label: 'Type', type: 'select', required: true, options: ['AC', 'Non-AC', 'No preference'] },
+      { key: 'vehicle_type', label: 'Type', type: 'select', required: true, options: ['AC', 'Non-AC', 'AC Sleeper', 'Sleeper AC', 'Semi-Sleeper', 'AC Seater', 'Volvo AC', 'Luxury', 'No preference'] },
       { key: 'total_seats', label: 'Total Seats', type: 'number', required: true },
       { key: 'remaining_seats', label: 'Remaining', type: 'number', required: true },
     ],
@@ -122,7 +122,7 @@ export const TABLE_SCHEMAS = {
   schedules: {
     label: 'Schedules', subtitle: 'Manage SCHEDULE records',
     dbKey: 'schedules', pkField: 'schedule_id',
-    columns: ['schedule_id', 'route_id', 'provider_id', 'departure_time', 'arrival_time', 'journey_date'],
+    columns: ['schedule_id', 'route_id', 'provider_id', 'departure_time', 'arrival_time', 'journey_date', 'fare'],
     fields: [
       { key: 'schedule_id', label: 'Schedule ID', type: 'text', required: true },
       { key: 'route_id', label: 'Route ID', type: 'text', required: true },
@@ -131,6 +131,7 @@ export const TABLE_SCHEMAS = {
       { key: 'arrival_time', label: 'Arrival', type: 'time', required: true },
       { key: 'journey_date', label: 'Journey Date', type: 'date', required: true },
       { key: 'arrival_time_to_destination', label: 'Dest. Arrival', type: 'time', required: true },
+      { key: 'fare', label: 'Fare (₹)', type: 'number', required: true },
     ],
     stats: (rows) => [{ label: 'Schedules', value: rows.length, cls: 'accent' }],
   },
@@ -272,7 +273,7 @@ export const TABLE_SCHEMAS = {
       { key: 'customer_id', label: 'Customer ID', type: 'text', required: true },
       { key: 'supporter_id', label: 'Supporter ID', type: 'text', required: false },
       { key: 'description', label: 'Description', type: 'text', required: false },
-      { key: 'status', label: 'Status', type: 'select', required: true, options: ['OPEN', 'RESOLVED'] },
+      { key: 'status', label: 'Status', type: 'select', required: true, options: ['OPEN', 'IN_PROGRESS', 'RESOLVED'] },
       { key: 'created_date', label: 'Created Date', type: 'date', required: true },
     ],
     stats: (rows) => [

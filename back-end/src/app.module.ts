@@ -33,6 +33,7 @@ import { LedgerModule } from './modules/ledger/ledger.module';
 import { SupportTicketModule } from './modules/support-ticket/support-ticket.module';
 import { PayoutsModule } from './modules/payouts/payouts.module';
 import { SyncModule } from './modules/sync/sync.module';
+import { PlatformModule } from './modules/platform/platform.module';
 
 @Module({
   imports: [
@@ -88,6 +89,7 @@ import { SyncModule } from './modules/sync/sync.module';
 
     // Real-time synchronization across all portals/actors
     SyncModule,
+    PlatformModule,
   ],
   providers: [
     // Phase 4C: Global rate limiting — 100 requests per 60 seconds per IP.

@@ -826,3 +826,15 @@
   color: #fff;
   background: rgba(249, 115, 22, 0.18);
 }
+
+/* Backend sync status (Super Admin console) */
+#c2b-wrapper .c2b-sync-note {
+  margin: 0 24px 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+#c2b-wrapper .c2b-sync-loading { background: #eff6ff; color: #1d4ed8; }
+#c2b-wrapper .c2b-sync-partial { background: #fffbeb; color: #b45309; }
+#c2b-wrapper .c2b-sync-offline { background: #fef2f2; color: #b91c1c; }

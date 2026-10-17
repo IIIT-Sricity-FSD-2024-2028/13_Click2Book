@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch, loadAdminDashboardData } from '../../lib/api.js';
-import { getUsers } from '../../lib/db.js';
 import { getAdminName, initialsOf } from '../../lib/session.js';
 import '../../styles/admin_dashboard.css';
 import SuperUserPanel from '../../superuser/SuperUserPanel.jsx';
@@ -19,7 +18,6 @@ export default function DashboardPage({ onLogout, onViewRevenue }) {
   const [section, setSection] = useState(loadSavedSection);
   const [collapsed, setCollapsed] = useState(false);
   const [bookingSearch, setBookingSearch] = useState('');
-  const [refreshKey, setRefreshKey] = useState(0);
   const [dashboardData, setDashboardData] = useState({ bookings: [], refunds: [], users: [], routes: [], revenueByDay: [], totalRevenue: 0, activeBuses: 0 });
   const [dataError, setDataError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -31,10 +29,7 @@ export default function DashboardPage({ onLogout, onViewRevenue }) {
 
   const bookings = dashboardData.bookings;
   const refunds = dashboardData.refunds;
-  const users = useMemo(() => [
-    ...dashboardData.users,
-    ...getUsers().filter((user) => user.role === 'admin'),
-  ], [dashboardData.users, refreshKey]);
+  const users = dashboardData.users;
 
   useEffect(() => () => clearTimeout(toastTimer.current), []);
 
@@ -46,7 +41,6 @@ export default function DashboardPage({ onLogout, onViewRevenue }) {
         setDashboardData(data);
         setDataError('');
         setLastSynced(new Date());
-        setRefreshKey((current) => current + 1);
         return true;
       })
       .catch((error) => {

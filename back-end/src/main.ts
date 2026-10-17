@@ -53,6 +53,7 @@ async function bootstrap() {
       'Accept',
       'x-role',        // Click2Book RBAC header (required by RolesGuard)
       'x-request-id',  // request correlation header (Phase 3B)
+      'x-admin-email', // who changed platform settings (Super Admin)
     ],
     exposedHeaders: ['x-request-id'],  // allow client to read correlation ID
   });

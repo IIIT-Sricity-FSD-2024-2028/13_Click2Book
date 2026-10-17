@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { DB } from '../lib/db.js';
+import { isRemoteTable, pullAll, remoteDelete, remoteSave } from '../lib/remote.js';
 import { SUPER_USER_AUTH_KEY, SUPER_USER_LOGIN_PATH } from '../lib/session.js';
 import '../styles/super-user-panel.css';
 import ConfirmDelete from './ConfirmDelete.jsx';
@@ -52,7 +53,30 @@ export default function SuperUserPanel({ actorLabel = 'Super User Portal', onDat
 
   useEffect(() => () => clearTimeout(toastTimer.current), []);
 
+  const [saving, setSaving] = useState(false);
+  const [syncNote, setSyncNote] = useState('');
+
+  // While open, keep the cached tables in step with the backend.
+  useEffect(() => {
+    if (!open) return undefined;
+    let cancelled = false;
+    const pull = () => pullAll().then((r) => {
+      if (cancelled) return;
+      setSyncNote(r.offline
+        ? 'Backend offline — showing cached data. Changes cannot be saved.'
+        : r.ok ? '' : `Could not load from backend: ${r.failed.join(', ')}`);
+      setVersion((value) => value + 1);
+    });
+    pull();
+    const timer = setInterval(() => document.visibilityState === 'visible' && pull(), 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [open]);
+
   const schema = TABLE_SCHEMAS[tableKey];
+  const remote = isRemoteTable(schema.dbKey);
   const table = DB[schema.dbKey];
   const rows = table.getAll();
   const query = filter.toLowerCase();
@@ -87,20 +111,35 @@ export default function SuperUserPanel({ actorLabel = 'Super User Portal', onDat
     setFilter('');
   };
 
-  const saveRecord = (data) => {
-    const result = editing.record
-      ? table.update(editing.record[schema.pkField], data)
-      : table.create(data);
+  const saveRecord = async (data) => {
+    if (saving) return;
+    let result;
+    if (remote) {
+      setSaving(true);
+      result = await remoteSave(schema.dbKey, editing.record?.[schema.pkField] ?? null, data, editing.record);
+      setSaving(false);
+    } else {
+      result = editing.record
+        ? table.update(editing.record[schema.pkField], data)
+        : table.create(data);
+    }
     afterMutation(result, () => setEditing(null));
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     const { dbKey, pkValue } = pendingDelete;
     setPendingDelete(null);
-    afterMutation(DB[dbKey].delete(pkValue));
+    afterMutation(isRemoteTable(dbKey) ? await remoteDelete(dbKey, pkValue) : DB[dbKey].delete(pkValue));
   };
 
-  const resetDatabase = () => {
+  const resetDatabase = async () => {
+    // Backend-connected tables can't be reset to mock data — reload them instead.
+    if (remote) {
+      const r = await pullAll();
+      setVersion((value) => value + 1);
+      showToast(r.offline ? 'Backend offline — showing cached data.' : 'Reloaded all tables from the backend.', r.offline ? 'error' : 'success');
+      return;
+    }
     if (!window.confirm('⚠️ Reset ALL tables back to original mock data?\nEvery change will be lost.')) return;
     afterMutation(DB.resetAll());
   };
@@ -162,6 +201,11 @@ export default function SuperUserPanel({ actorLabel = 'Super User Portal', onDat
               </div>
             </div>
 
+            {remote && syncNote && (
+              <div role="status" style={{ margin: '0 24px 12px', padding: '10px 14px', borderRadius: 8, fontSize: 13, background: '#fef2f2', color: '#b91c1c' }}>
+                {syncNote}
+              </div>
+            )}
             <div id="c2b-statsBar">
               {schema.stats(rows).map((stat) => (
                 <div className="c2b-stat-card" key={stat.label}>
@@ -220,6 +264,8 @@ export default function SuperUserPanel({ actorLabel = 'Super User Portal', onDat
           onClose={() => setEditing(null)}
           onSave={saveRecord}
           onInvalid={(message) => showToast(message, 'error')}
+          remote={remote}
+          saving={saving}
         />
       )}
 

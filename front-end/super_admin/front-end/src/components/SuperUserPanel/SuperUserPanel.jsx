@@ -10,6 +10,8 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import DB from '../../lib/db';
+import { isRemoteTable, pullAll, remoteDelete, remoteSave } from '../../lib/db/remote';
+import { liveSync } from '../../lib/liveSync';
 import Sidebar from './Sidebar';
 import PageHeader from './PageHeader';
 import SearchBar from './SearchBar';
@@ -40,7 +42,7 @@ function getRecord(dbKey, pk) {
   return result;
 }
 
-function RecordForm({ schema, record, formRef }) {
+function RecordForm({ schema, record, formRef, remote }) {
   const isEdit = record !== null;
   if (!schema.fields || schema.fields.length === 0) {
     return <p style={{ color: '#6b7280', fontSize: 14, gridColumn: '1/-1' }}>This table is read-only — no fields to edit.</p>;
@@ -49,12 +51,14 @@ function RecordForm({ schema, record, formRef }) {
     <form className="c2b-form" id="c2b-recordForm" ref={formRef} onSubmit={(e) => e.preventDefault()}>
       {schema.fields.map((field) => {
         const id = 'c2bf_' + field.key;
+        // The backend assigns IDs to new records.
+        const autoId = remote && !isEdit && field.key === schema.pkField;
         const common = {
           id,
           name: field.key,
-          placeholder: field.label,
-          required: field.required,
-          disabled: isEdit && field.key === schema.pkField,
+          placeholder: autoId ? 'Assigned by backend' : field.label,
+          required: field.required && !autoId,
+          disabled: (isEdit || autoId) && field.key === schema.pkField,
           defaultValue: record ? (record[field.key] ?? '') : field.type === 'select' ? field.options[0] : '',
         };
         const full = field.key === 'comment' || field.key === 'description';
@@ -109,9 +113,34 @@ export default function SuperUserPanel({
   const [pendingDelete, setPendingDelete] = useState(null);
   const [, setVersion] = useState(0); // bump to re-read the DB
   const [toast, showToast] = useToast();
+  const [sync, setSync] = useState({ state: 'loading', at: null, failed: [] });
+  const [saving, setSaving] = useState(false);
   const formRef = useRef(null);
 
   const schema = schemas[currentTable];
+  const remote = schema ? isRemoteTable(schema.dbKey) : false;
+
+  /* ── Keep the cache in step with the backend ── */
+  useEffect(() => {
+    if (!open) return undefined;
+    let cancelled = false;
+    const pull = () =>
+      pullAll().then((r) => {
+        if (cancelled) return;
+        setSync({ state: r.offline ? 'offline' : r.ok ? 'live' : 'partial', at: new Date(), failed: r.failed });
+        setVersion((v) => v + 1);
+      });
+    pull();
+    const timer = setInterval(() => document.visibilityState === 'visible' && pull(), 10000);
+    const unsubscribe = liveSync.subscribe(pull);
+    window.addEventListener('focus', pull);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      unsubscribe();
+      window.removeEventListener('focus', pull);
+    };
+  }, [open]);
 
   /* ── Auto-open for Super User (?superUser=open) ── */
   useEffect(() => {
@@ -158,9 +187,9 @@ export default function SuperUserPanel({
     setModal({ record: result.data });
   };
 
-  const save = () => {
+  const save = async () => {
     const form = formRef.current;
-    if (!form) return;
+    if (!form || saving) return;
     const isEdit = modal.record !== null;
     const formData = {};
     for (const field of schema.fields) {
@@ -180,8 +209,12 @@ export default function SuperUserPanel({
     }
 
     let result;
-    if (isEdit) {
-      const pk = form.elements[schema.pkField]?.value ?? formData[schema.pkField];
+    const pk = isEdit ? (form.elements[schema.pkField]?.value ?? formData[schema.pkField]) : null;
+    if (remote) {
+      setSaving(true);
+      result = await remoteSave(schema.dbKey, pk, formData, isEdit ? modal.record : null);
+      setSaving(false);
+    } else if (isEdit) {
       result = DB[schema.dbKey].update(pk, formData);
       if (!result.success && !isNaN(Number(pk))) result = DB[schema.dbKey].update(Number(pk), formData);
     } else {
@@ -212,9 +245,16 @@ export default function SuperUserPanel({
     setPendingDelete({ pkField: schema.pkField, pkValue, dbKey: schema.dbKey });
   };
 
-  const confirmDelete = () => {
-    if (!pendingDelete) return;
-    const result = DB[pendingDelete.dbKey].delete(pendingDelete.pkValue);
+  const confirmDelete = async () => {
+    if (!pendingDelete || saving) return;
+    let result;
+    if (isRemoteTable(pendingDelete.dbKey)) {
+      setSaving(true);
+      result = await remoteDelete(pendingDelete.dbKey, pendingDelete.pkValue);
+      setSaving(false);
+    } else {
+      result = DB[pendingDelete.dbKey].delete(pendingDelete.pkValue);
+    }
     setPendingDelete(null);
     if (result.success) {
       refresh();
@@ -224,7 +264,16 @@ export default function SuperUserPanel({
     }
   };
 
-  const resetDb = () => {
+  const resetDb = async () => {
+    // Backend-connected tables are the source of truth: re-sync instead of
+    // overwriting them with mock data that no other portal would see.
+    if (remote) {
+      const r = await pullAll();
+      setSync({ state: r.offline ? 'offline' : r.ok ? 'live' : 'partial', at: new Date(), failed: r.failed });
+      refresh();
+      showToast(r.offline ? 'Backend offline — showing cached data.' : 'Reloaded all tables from the backend.', r.offline ? 'error' : 'success');
+      return;
+    }
     if (window.confirm('⚠️ Reset ALL tables back to original mock data?\nEvery change will be lost.')) {
       const r = DB.resetAll();
       refresh();
@@ -285,6 +334,14 @@ export default function SuperUserPanel({
               </div>
             </div>
 
+            {remote && sync.state !== 'live' && (
+              <div className={`c2b-sync-note c2b-sync-${sync.state}`} role="status">
+                {sync.state === 'loading' && 'Loading live data from the backend…'}
+                {sync.state === 'offline' && 'Backend offline (http://localhost:3000) — showing cached data. Changes cannot be saved.'}
+                {sync.state === 'partial' && `Could not load from backend: ${sync.failed.join(', ')} — those tables show cached data.`}
+              </div>
+            )}
+
             <StatsRow schema={schema} />
 
             {/* Table Content */}
@@ -325,14 +382,15 @@ export default function SuperUserPanel({
                 schema={schema}
                 record={modal.record}
                 formRef={formRef}
+                remote={remote}
               />
             </div>
             <div className="c2b-modal-footer">
               <button className="c2b-btn c2b-btn-ghost" onClick={() => setModal(null)}>
                 Cancel
               </button>
-              <button className="c2b-btn c2b-btn-primary" onClick={save}>
-                Save Record
+              <button className="c2b-btn c2b-btn-primary" onClick={save} disabled={saving}>
+                {saving ? 'Saving…' : 'Save Record'}
               </button>
             </div>
           </div>
@@ -352,8 +410,8 @@ export default function SuperUserPanel({
               <button className="c2b-btn c2b-btn-ghost" onClick={() => setPendingDelete(null)}>
                 Cancel
               </button>
-              <button className="c2b-btn c2b-btn-danger" onClick={confirmDelete}>
-                Yes, Delete
+              <button className="c2b-btn c2b-btn-danger" onClick={confirmDelete} disabled={saving}>
+                {saving ? 'Deleting…' : 'Yes, Delete'}
               </button>
             </div>
           </div>

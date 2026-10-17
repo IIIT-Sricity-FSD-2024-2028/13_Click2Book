@@ -18,7 +18,7 @@ export async function apiFetch(path, options = {}) {
 }
 
 export async function loadAdminDashboardData() {
-  const [bookings, payments, refunds, customers, trips, schedules, routes, providers, supportStaff] = await Promise.all([
+  const [bookings, payments, refunds, customers, trips, schedules, routes, providers, supportStaff, admins] = await Promise.all([
     apiFetch('/bookings'),
     apiFetch('/payments'),
     apiFetch('/refunds'),
@@ -28,6 +28,7 @@ export async function loadAdminDashboardData() {
     apiFetch('/routes'),
     apiFetch('/providers'),
     apiFetch('/support-staff'),
+    apiFetch('/admin').catch(() => []),
   ]);
 
   const paymentByBooking = new Map(payments.map((payment) => [payment.bookingId, payment]));
@@ -162,6 +163,7 @@ export async function loadAdminDashboardData() {
     ...customers.map((user) => ({ id: user.customerId, name: user.name, email: user.email, role: 'customer', phone: user.phoneNumber || '—', status: String(user.status || 'ACTIVE').toLowerCase(), joined: user.createdAt || '—', canToggle: true })),
     ...providers.map((user) => ({ id: user.providerId, name: user.name, email: user.email, role: 'service_provider', phone: user.phoneNumber || '—', status: String(user.status || (user.approved ? 'ACTIVE' : 'INACTIVE')).toLowerCase(), joined: user.createdAt || '—', canToggle: true })),
     ...supportStaff.map((user) => ({ id: user.supporterId, name: user.name, email: user.email, role: 'support', phone: user.phoneNumber || '—', status: String(user.status || 'ACTIVE').toLowerCase(), joined: user.createdAt || '—', canToggle: true })),
+    ...admins.map((user) => ({ id: user.adminId, name: user.name, email: user.email, role: 'admin', phone: '—', status: 'active', joined: '—', canToggle: false })),
   ];
 
   const today = new Date();

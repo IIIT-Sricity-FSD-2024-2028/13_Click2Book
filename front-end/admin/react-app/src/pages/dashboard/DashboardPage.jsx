@@ -118,7 +118,11 @@ export default function DashboardPage({ onLogout, onViewRevenue }) {
       if (!confirmed) return;
     }
     const status = user.status === 'active' ? 'INACTIVE' : 'ACTIVE';
-    const path = user.role === 'service_provider' ? `/providers/${user.id}/status` : `/customers/${user.id}/status`;
+    const path = user.role === 'service_provider'
+      ? `/providers/${user.id}/status`
+      : user.role === 'support'
+      ? `/support-staff/${user.id}/status`
+      : `/customers/${user.id}/status`;
     return runAdminAction(() => apiFetch(path, {
       method: 'PATCH',
       body: JSON.stringify({ status }),

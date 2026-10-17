@@ -59,6 +59,18 @@ export class ProviderController {
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
   approve(@Param('id') id: string) { return this.providerService.approve(id); }
 
+  @Patch(':id/status')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Update provider status (Admin only)' })
+  @ApiParam({ name: 'id', example: 'P001' })
+  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
+  updateStatus(
+    @Param('id') id: string,
+    @Body() body: { status: 'ACTIVE' | 'INACTIVE' },
+  ) {
+    return this.providerService.updateStatus(id, body.status);
+  }
+
   @Delete(':id')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Remove a provider (Admin only)' })

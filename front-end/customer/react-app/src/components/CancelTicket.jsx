@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, CheckCircle, RotateCcw, ArrowRight, ArrowLeft } from 'lucide-react';
 import { API } from '../services/api';
+import { liveSync } from '../services/liveSync';
 
 export default function CancelTicket({
   preselectedBooking,
@@ -43,11 +44,21 @@ export default function CancelTicket({
             if (b.bookingStatus === 'CONFIRMED' || b.bookingStatus === 'PENDING') {
               raw.push({
                 bookingId: b.bookingId,
+                booking_id: b.bookingId,
+                customerId: b.customerId,
+                tripId: b.tripId,
+                backendTripId: b.tripId,
                 from: b.from || 'Hyderabad',
                 to: b.to || 'Chennai',
                 busName: b.busName || 'Express Bus',
+                vehicleType: b.vehicleType || 'AC',
                 total: b.totalAmount || b.fare || 650,
-                date: b.bookingDate || new Date().toISOString().split('T')[0],
+                date: b.journeyDate || b.bookingDate || new Date().toISOString().split('T')[0],
+                seatNumber: b.seatNumber,
+                seats: b.seatNumber ? `Seat ${b.seatNumber}` : 'Seat 1',
+                seat_list: b.seatNumber ? [b.seatNumber] : [1],
+                backendBookingIds: [b.bookingId],
+                primaryBackendId: b.bookingId,
               });
             }
           });
@@ -70,6 +81,11 @@ export default function CancelTicket({
           total: Number(b.total || b.fare || 650),
           date: b.date || b.journeyDate || new Date().toISOString().split('T')[0],
           backendBookingIds: b.backendBookingIds,
+          primaryBackendId: b.primaryBackendId,
+          tripId: b.tripId || b.backendTripId,
+          seatNumber: b.seatNumber,
+          seats: b.seats || (b.seatNumber ? `Seat ${b.seatNumber}` : 'Seat 1'),
+          seat_list: b.seat_list || (b.seatNumber ? [b.seatNumber] : [1]),
         });
       });
 
@@ -84,41 +100,250 @@ export default function CancelTicket({
     setLoading(true);
 
     const bId = selectedTicket.bookingId || selectedTicket.booking_id;
+    const customerId = selectedTicket.customerId || selectedTicket.customer_id || customer?.id || user?.id || 'C001';
     const fee = 50;
     const refundAmt = Math.max(0, selectedTicket.total - fee);
 
-    // Resolve canonical backend booking IDs expected by the backend cancellation API
-    const rawIds = (selectedTicket.backendBookingIds && selectedTicket.backendBookingIds.length > 0)
-      ? selectedTicket.backendBookingIds
-      : [bId];
-
-    let canonicalIds = rawIds.filter((id) => id && !String(id).startsWith('MOCK_BK_') && !String(id).startsWith('LOCAL_'));
-
-    if (canonicalIds.length === 0 && selectedTicket.primaryBackendId && !String(selectedTicket.primaryBackendId).startsWith('MOCK_BK_')) {
-      canonicalIds = [selectedTicket.primaryBackendId];
+    if (selectedTicket.status === 'CANCELLED' || selectedTicket.booking_status === 'CANCELLED') {
+      showToast('This ticket is already cancelled.', 'error');
+      setLoading(false);
+      return;
     }
 
-    if (canonicalIds.length === 0 && bId && !String(bId).startsWith('MOCK_BK_') && !String(bId).startsWith('LOCAL_')) {
-      canonicalIds = [bId];
-    }
-
-    // If still no canonical ID found (e.g. legacy/mock booking record),
-    // resolve against backend authoritative bookings for this customer
-    if (canonicalIds.length === 0) {
+    const safeFetch = async (endpoint, opts = {}) => {
       try {
-        const mine = await API.bookings.getMine();
+        const r = await fetch(endpoint.startsWith('/api') ? endpoint : `/api${endpoint}`, opts);
+        return await r.json().catch(() => ({}));
+      } catch {
+        const direct = endpoint.startsWith('/api') ? `http://localhost:3000${endpoint}` : `http://localhost:3000/api${endpoint}`;
+        const r = await fetch(direct, opts);
+        return await r.json().catch(() => ({}));
+      }
+    };
+
+    // 1. Gather all potential backend booking IDs from the ticket
+    let candidateIds = [];
+    if (Array.isArray(selectedTicket.backendBookingIds) && selectedTicket.backendBookingIds.length > 0) {
+      candidateIds = selectedTicket.backendBookingIds.filter(
+        (id) => id && !String(id).startsWith('MOCK_BK_') && !String(id).startsWith('LOCAL_')
+      );
+    }
+    if (candidateIds.length === 0 && selectedTicket.primaryBackendId && !String(selectedTicket.primaryBackendId).startsWith('MOCK_BK_') && !String(selectedTicket.primaryBackendId).startsWith('LOCAL_')) {
+      candidateIds = [selectedTicket.primaryBackendId];
+    }
+    if (candidateIds.length === 0 && bId && !String(bId).startsWith('MOCK_BK_') && !String(bId).startsWith('LOCAL_')) {
+      candidateIds = [bId];
+    }
+
+    // 2. Authoritative Verification: check which candidate IDs actually exist on the backend right now
+    let verifiedCanonicalIds = [];
+    for (const cId of candidateIds) {
+      try {
+        const bRes = await API.bookings.getById(cId).catch(() => null);
+        if (bRes && (bRes.bookingId || bRes.id)) {
+          const canonical = bRes.bookingId || bRes.id;
+          if (!verifiedCanonicalIds.includes(canonical)) {
+            verifiedCanonicalIds.push(canonical);
+          }
+        }
+      } catch {}
+    }
+
+    // 3. If not found by direct lookup, query customer's active bookings on backend
+    if (verifiedCanonicalIds.length === 0) {
+      try {
+        const mine = await API.bookings.getMine().catch(() => []);
         if (Array.isArray(mine) && mine.length > 0) {
-          const match = mine.find((mb) => mb.bookingStatus === 'CONFIRMED' || mb.bookingStatus === 'PENDING');
-          if (match && match.bookingId) {
-            canonicalIds = [match.bookingId];
+          // A. Exact match by candidate ID
+          for (const cId of candidateIds) {
+            const idMatch = mine.find((mb) => mb.bookingId === cId || mb.id === cId);
+            if (idMatch && idMatch.bookingId && !verifiedCanonicalIds.includes(idMatch.bookingId)) {
+              verifiedCanonicalIds.push(idMatch.bookingId);
+            }
+          }
+
+          // B. Exact match by authoritative persisted relationships:
+          // Same customer + same trip + same seat
+          if (verifiedCanonicalIds.length === 0) {
+            const ticketTripId = selectedTicket.tripId || selectedTicket.backendTripId;
+            const ticketSeatNum = Number(selectedTicket.seatNumber || (Array.isArray(selectedTicket.seat_list) ? selectedTicket.seat_list[0] : null));
+
+            const relMatch = mine.find((mb) => {
+              if (mb.bookingStatus === 'CANCELLED') return false;
+              if (mb.customerId && mb.customerId !== customerId) return false;
+              const tripMatches = ticketTripId && mb.tripId === ticketTripId;
+              const seatMatches = ticketSeatNum && Number(mb.seatNumber) === ticketSeatNum;
+              return tripMatches && seatMatches;
+            });
+
+            if (relMatch && relMatch.bookingId) {
+              verifiedCanonicalIds.push(relMatch.bookingId);
+            }
           }
         }
       } catch (err) {
-        console.warn('Could not query authoritative bookings for canonical mapping:', err);
+        console.warn('Backend bookings query note:', err);
       }
     }
 
-    const idsToProcess = canonicalIds.length > 0 ? canonicalIds : rawIds;
+    // 4. If booking is missing from backend memory (e.g. server restart), reconcile it
+    // only when trustworthy existing data identifies the original booking unambiguously.
+    if (verifiedCanonicalIds.length === 0) {
+      const from = (selectedTicket.from || '').trim();
+      const to = (selectedTicket.to || '').trim();
+      const ticketSeatNum = Number(selectedTicket.seatNumber || (Array.isArray(selectedTicket.seat_list) ? selectedTicket.seat_list[0] : 1)) || 1;
+      const journeyDate = selectedTicket.date || selectedTicket.journeyDate || new Date().toISOString().split('T')[0];
+
+      if (!bId || !from || !to) {
+        showToast(`Cannot cancel ticket: Booking details for ${bId || 'ticket'} are incomplete or cannot be verified reliably.`, 'error');
+        setLoading(false);
+        return;
+      }
+
+      // Resolve the authoritative trip for this route
+      let resolvedTripId = null;
+      const candidateTripId = selectedTicket.tripId || selectedTicket.backendTripId;
+
+      // Check if candidateTripId exists on the backend and matches this route
+      if (candidateTripId && /^T\d+$/.test(candidateTripId)) {
+        try {
+          const tRes = await safeFetch(`/trips/${candidateTripId}`);
+          if (tRes && (tRes.data || tRes.tripId)) {
+            const tData = tRes.data || tRes;
+            const src = (tData.source || tData.route || '').toLowerCase();
+            const dst = (tData.destination || tData.route || '').toLowerCase();
+            if (!src || !dst || (src.includes(from.toLowerCase()) && dst.includes(to.toLowerCase()))) {
+              resolvedTripId = tData.tripId || candidateTripId;
+            }
+          }
+        } catch {}
+      }
+
+      // If not, lookup existing trip on backend for this route
+      if (!resolvedTripId) {
+        try {
+          const tripsRes = await safeFetch(`/trips?source=${encodeURIComponent(from)}&destination=${encodeURIComponent(to)}`);
+          const tripsList = Array.isArray(tripsRes?.data) ? tripsRes.data : (Array.isArray(tripsRes) ? tripsRes : []);
+          if (tripsList.length > 0) {
+            const match = tripsList.find((t) =>
+              (t.busName && selectedTicket.busName && t.busName.toLowerCase() === selectedTicket.busName.toLowerCase()) ||
+              (selectedTicket.departureTime && t.departureTime === selectedTicket.departureTime)
+            ) || tripsList[0];
+            if (match?.tripId && /^T\d+$/.test(match.tripId)) {
+              resolvedTripId = match.tripId;
+            }
+          }
+        } catch {}
+      }
+
+      // If still not resolved on backend, provision the canonical route, vehicle, schedule, and trip
+      // on the backend using the exact route so the booking references real, authoritative entities
+      if (!resolvedTripId) {
+        try {
+          const providerId = selectedTicket.providerId || selectedTicket.provider_id || 'P001';
+
+          // Step 1: Route
+          const rRes = await safeFetch('/routes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-role': 'PROVIDER' },
+            body: JSON.stringify({ source: from, destination: to, distance: 300 }),
+          });
+          const routeId = rRes?.data?.routeId || rRes?.routeId || 'R001';
+
+          // Step 2: Vehicle
+          const cleanVNum = (((selectedTicket.busName || 'BUS').replace(/[^A-Za-z0-9]/g, '').toUpperCase()) + '0000').slice(0, 10);
+          let vehicleId = null;
+          try {
+            const vehListRes = await safeFetch('/vehicles', { headers: { 'x-role': 'PROVIDER' } });
+            const vehList = Array.isArray(vehListRes?.data) ? vehListRes.data : (Array.isArray(vehListRes) ? vehListRes : []);
+            const exVeh = vehList.find((v) =>
+              v.vehicleNumber?.toUpperCase() === cleanVNum.toUpperCase() ||
+              (v.busName && selectedTicket.busName && v.busName.toLowerCase() === selectedTicket.busName.toLowerCase())
+            );
+            if (exVeh?.vehicleId) vehicleId = exVeh.vehicleId;
+          } catch {}
+
+          if (!vehicleId) {
+            const vRes = await safeFetch('/vehicles', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-role': 'PROVIDER' },
+              body: JSON.stringify({
+                providerId,
+                vehicleNumber: cleanVNum,
+                vehicleType: selectedTicket.vehicleType || selectedTicket.busType || 'AC',
+                totalSeats: 40,
+                remainingSeats: 40,
+                busName: selectedTicket.busName || 'Express Bus',
+                amenities: ['AC', 'WiFi'],
+                rating: 4.5,
+                boardingPoint: from,
+                droppingPoint: to,
+              }),
+            });
+            vehicleId = vRes?.data?.vehicleId || vRes?.vehicleId || 'V001';
+          }
+
+          // Step 3: Schedule
+          const sRes = await safeFetch('/schedules', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-role': 'PROVIDER' },
+            body: JSON.stringify({
+              routeId,
+              providerId,
+              departureTime: selectedTicket.departureTime || '08:00',
+              arrivalTime: selectedTicket.arrivalTime || '12:00',
+              journeyDate,
+              arrivalTimeToDestination: selectedTicket.arrivalTime || '12:00',
+              fare: Number(selectedTicket.total || selectedTicket.fare) || 650,
+            }),
+          });
+          const scheduleId = sRes?.data?.scheduleId || sRes?.scheduleId || 'SCH001';
+
+          // Step 4: Trip
+          const tRes = await safeFetch('/trips', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-role': 'PROVIDER' },
+            body: JSON.stringify({ vehicleId, scheduleId }),
+          });
+          const canonicalTrip = tRes?.data?.tripId || tRes?.tripId;
+          if (canonicalTrip && /^T\d+$/.test(canonicalTrip)) {
+            resolvedTripId = canonicalTrip;
+          }
+        } catch (e) {
+          console.warn('Trip provisioning for reconciliation note:', e);
+        }
+      }
+
+      if (!resolvedTripId) {
+        showToast(`Cannot cancel ticket: The trip for route ${from} → ${to} could not be resolved on the backend.`, 'error');
+        setLoading(false);
+        return;
+      }
+
+      // Reconcile the booking authoritatively on the backend
+      try {
+        const regRes = await API.bookings.registerHistorical({
+          bookingId: bId,
+          aliasId: bId,
+          customerId,
+          tripId: resolvedTripId,
+          seatNumber: ticketSeatNum,
+          date: journeyDate,
+          fare: Number(selectedTicket.total || selectedTicket.fare) || 650,
+          from,
+          to,
+        });
+        const regId = regRes?.data?.bookingId || regRes?.bookingId || bId;
+        verifiedCanonicalIds = [regId];
+      } catch (regErr) {
+        console.warn('Historical registration error:', regErr);
+        showToast(`Cannot cancel ticket: Failed to reconcile booking ${bId} with backend: ${regErr.message}`, 'error');
+        setLoading(false);
+        return;
+      }
+    }
+
+    const idsToProcess = verifiedCanonicalIds;
     const perSeatRefund = Math.round(refundAmt / idsToProcess.length);
 
     try {
@@ -146,6 +371,7 @@ export default function CancelTicket({
       if (successfulCancels.length === 0) {
         const errorDetail = failedCancels.map((f) => `${f.id}: ${f.error}`).join('; ');
         showToast(`Cancellation failed: ${errorDetail}`, 'error');
+        setLoading(false);
         return;
       }
 
@@ -155,10 +381,15 @@ export default function CancelTicket({
         let refundStatusForSeat = 'REQUESTED';
         let refundErrorMsg = '';
         try {
-          const refRes = await API.refunds.request(s.id, perSeatRefund);
+          const refRes = await API.refunds.request(s.id, perSeatRefund, {
+            refundId: `REF-${s.id}`,
+            customerId,
+            passengerName: customer?.name || user?.name || 'Customer',
+            reason: 'Customer initiated cancellation',
+          });
           refundSuccess = true;
-          if (refRes && refRes.refundStatus) {
-            refundStatusForSeat = refRes.refundStatus;
+          if (refRes && (refRes.refundStatus || refRes.status)) {
+            refundStatusForSeat = refRes.refundStatus || refRes.status;
           }
         } catch (e) {
           refundErrorMsg = e.message || 'Refund request rejected';
@@ -215,15 +446,20 @@ export default function CancelTicket({
           const existingIdx = allRefunds.findIndex((r) => r.booking_id === bId || r.bookingId === bId);
           const refItem = {
             refund_id: `REF-${bId}`,
+            refundId: `REF-${bId}`,
             booking_id: bId,
             bookingId: bId,
-            customer_id: customer?.id || user?.id || 'C001',
+            customer_id: customerId,
+            customerId,
+            passenger_name: customer?.name || user?.name || 'Customer',
+            passengerName: customer?.name || user?.name || 'Customer',
             route: `${selectedTicket.from} → ${selectedTicket.to}`,
             bus_name: selectedTicket.busName,
             original_fare: selectedTicket.total,
             fee,
             refund_amount: actualRefundAmt,
-            status: isPartial ? 'PARTIALLY_REFUNDED' : 'PROCESSING',
+            amount: actualRefundAmt,
+            status: isPartial ? 'PARTIALLY_REFUNDED' : (successfulRefunds[0]?.status || 'REQUESTED'),
             request_date: new Date().toISOString().split('T')[0],
             payment_method: 'UPI / Bank Source',
             arn: `ARN${Date.now().toString().slice(-9)}`,
@@ -236,6 +472,39 @@ export default function CancelTicket({
           localStorage.setItem('c2b_refunds', JSON.stringify(allRefunds));
         } catch {}
       }
+
+      // 5. Update schedule in c2b_bus_schedules so provider immediately sees released seat & deducted revenue
+      try {
+        const localScheds = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+        let updatedSched = false;
+        const seatCount = successfulCancels.length;
+        localScheds.forEach((s) => {
+          const tid = s.id || s.tripId || s.trip_id;
+          const matchId = tid && (tid === selectedTicket.tripId || tid === selectedTicket.backendTripId);
+          const matchRoute = s.from?.toLowerCase() === selectedTicket.from?.toLowerCase() &&
+                             s.to?.toLowerCase() === selectedTicket.to?.toLowerCase();
+          if (matchId || matchRoute) {
+            s.bookedSeats = Math.max(0, (s.bookedSeats || s.booked_seats || 0) - seatCount);
+            s.booked_seats = Math.max(0, (s.booked_seats || 0) - seatCount);
+            s.availableSeats = Math.min((s.totalSeats || s.total_seats || 40), (s.availableSeats || 0) + seatCount);
+            s.available_seats = Math.min((s.totalSeats || s.total_seats || 40), (s.available_seats || 0) + seatCount);
+            s.revenue = Math.max(0, (s.revenue || 0) - (selectedTicket.total || 0));
+            updatedSched = true;
+          }
+        });
+        if (updatedSched) {
+          localStorage.setItem('c2b_bus_schedules', JSON.stringify(localScheds));
+        }
+      } catch (e) {
+        console.warn('Could not update provider schedule stats on cancellation:', e);
+      }
+
+      window.dispatchEvent(new Event('storage'));
+      try {
+        if (typeof liveSync !== 'undefined' && liveSync.syncBooking) {
+          liveSync.syncBooking({ ...selectedTicket, status: 'CANCELLED', booking_status: 'CANCELLED' });
+        }
+      } catch {}
 
       if (isPartial) {
         showToast(
@@ -258,14 +527,6 @@ export default function CancelTicket({
         failedIds: failedCancels.map((f) => `${f.id} (${f.error})`),
       });
 
-      // Update My Bookings data immediately by returning to My Bookings
-      setTimeout(() => {
-        if (onBackToBookings) {
-          onBackToBookings();
-        } else if (onNavigate) {
-          onNavigate('my-bookings');
-        }
-      }, 600);
     } catch (err) {
       showToast(err.message || 'Cancellation failed.', 'error');
     } finally {

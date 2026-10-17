@@ -14,3 +14,4 @@ export class CreateBookingDto {
   @ApiPropertyOptional({ example: 'SUMMER20', description: 'Optional offer code' })
   @IsOptional() @IsString() offerCode?: string;
 }
+

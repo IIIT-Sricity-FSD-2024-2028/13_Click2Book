@@ -20,4 +20,11 @@ export class SupportService {
     if (!s) throw new NotFoundException(`Support staff ${id} not found`);
     return successResponse('Support staff retrieved', s);
   }
+
+  updateStatus(id: string, status: 'ACTIVE' | 'INACTIVE') {
+    const s = this.supportRepo.findById(id);
+    if (!s) throw new NotFoundException(`Support staff ${id} not found`);
+    const updated = this.supportRepo.update(id, { status });
+    return successResponse(`Support staff status updated to ${status}`, updated);
+  }
 }

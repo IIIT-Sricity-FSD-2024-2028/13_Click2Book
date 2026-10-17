@@ -20,26 +20,26 @@ export class RefundController {
   request(@Body() dto: CreateRefundDto) { return this.refundService.request(dto); }
 
   @Get()
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Get all refunds (Admin)' })
+  @Roles(Role.ADMIN, Role.SUPPORT)
+  @ApiOperation({ summary: 'Get all refunds (Admin/Support)' })
   @ApiQuery({ name: 'status', required: false, enum: RefundStatus })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
+  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'SUPPORT' } })
   findAll(@Query('status') status?: RefundStatus) { return this.refundService.findAll(status); }
 
   @Get('booking/:bookingId')
-  @Roles(Role.CUSTOMER, Role.ADMIN)
+  @Roles(Role.CUSTOMER, Role.ADMIN, Role.SUPPORT)
   @ApiOperation({ summary: 'Get refund for a specific booking' })
   @ApiParam({ name: 'bookingId', example: 'B001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
+  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'SUPPORT' } })
   findByBooking(@Param('bookingId') bookingId: string) {
     return this.refundService.findByBooking(bookingId);
   }
 
   @Patch('booking/:bookingId/process')
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Process a refund — Admin only' })
+  @Roles(Role.ADMIN, Role.SUPPORT)
+  @ApiOperation({ summary: 'Process a refund — Admin/Support' })
   @ApiParam({ name: 'bookingId', example: 'B001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
+  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'SUPPORT' } })
   process(@Param('bookingId') bookingId: string, @Body() dto: ProcessRefundDto) {
     return this.refundService.process(bookingId, dto);
   }

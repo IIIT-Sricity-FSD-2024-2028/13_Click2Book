@@ -4,7 +4,9 @@ export interface Offer {
   offerId: string;
   providerId: string;
   offerCode: string;
-  discountPercentage: number;
+  discountPercentage?: number;
+  flatDiscount?: number;
+  minFare?: number;
   startDate: string;
   endDate: string;
   status: OfferStatus;

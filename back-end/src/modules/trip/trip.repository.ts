@@ -60,7 +60,14 @@ export class TripRepository {
   }
 
   findAll(): Trip[] { return this.trips; }
-  findById(tripId: string): Trip | undefined { return this.trips.find(t => t.tripId === tripId); }
+  findById(tripId: string): Trip | undefined {
+    let t = this.trips.find(t => t.tripId === tripId);
+    if (!t && tripId) {
+      const bySched = this.trips.find(x => x.scheduleId === tripId);
+      if (bySched) return bySched;
+    }
+    return t;
+  }
   findBySchedule(scheduleId: string): Trip[] { return this.trips.filter(t => t.scheduleId === scheduleId); }
   findByVehicle(vehicleId: string): Trip[] { return this.trips.filter(t => t.vehicleId === vehicleId); }
   findByStatus(status: TripStatus): Trip[] { return this.trips.filter(t => t.tripStatus === status); }

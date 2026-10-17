@@ -37,7 +37,14 @@ export class ProviderService {
 
   approve(id: string) {
     if (!this.providerRepo.findById(id)) throw new NotFoundException(`Provider ${id} not found`);
-    return successResponse('Provider approved', this.providerRepo.update(id, { approved: true }));
+    return successResponse('Provider approved', this.providerRepo.update(id, { approved: true, status: 'ACTIVE' }));
+  }
+
+  updateStatus(id: string, status: 'ACTIVE' | 'INACTIVE') {
+    const provider = this.providerRepo.findById(id);
+    if (!provider) throw new NotFoundException(`Provider ${id} not found`);
+    const updated = this.providerRepo.update(id, { status });
+    return successResponse(`Provider status updated to ${status}`, updated);
   }
 
   remove(id: string) {

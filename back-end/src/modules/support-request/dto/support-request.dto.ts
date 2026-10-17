@@ -21,14 +21,26 @@ export class CreateSupportRequestDto {
   @ApiPropertyOptional()
   @IsOptional() @IsString() supporterId?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional() @IsString() status?: string;
+  @ApiPropertyOptional({ enum: SupportStatus, example: SupportStatus.OPEN })
+  @IsOptional() @IsEnum(SupportStatus) status?: SupportStatus;
 
   @ApiPropertyOptional()
   @IsOptional() @IsString() customerName?: string;
 
   @ApiPropertyOptional()
   @IsOptional() @IsString() createdAt?: string;
+
+  @ApiPropertyOptional({ example: 'Medium' })
+  @IsOptional() @IsString() priority?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() resolution?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() resolvedBy?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() resolvedAt?: string;
 }
 
 export class UpdateSupportRequestDto {
@@ -37,4 +49,14 @@ export class UpdateSupportRequestDto {
 
   @ApiPropertyOptional({ enum: SupportStatus, example: SupportStatus.RESOLVED })
   @IsOptional() @IsEnum(SupportStatus) status?: SupportStatus;
+
+  @ApiPropertyOptional({ example: 'Issue investigated and resolved.' })
+  @IsOptional() @IsString() resolution?: string;
+
+  @ApiPropertyOptional({ example: 'Support Agent' })
+  @IsOptional() @IsString() resolvedBy?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() resolvedAt?: string;
 }
+

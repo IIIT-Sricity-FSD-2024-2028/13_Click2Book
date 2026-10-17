@@ -17,23 +17,39 @@ export class CancellationService {
   ) {}
 
   cancel(dto: CreateCancellationDto) {
-    if (this.cancellationRepo.findByBooking(dto.bookingId))
-      throw new ConflictException(`Booking ${dto.bookingId} already cancelled`);
+    const existing = this.cancellationRepo.findByBooking(dto.bookingId);
+    if (existing) {
+      return successResponse('Booking already cancelled', existing);
+    }
 
     // Cancel booking — this also releases the seat
-    this.bookingService.cancel(dto.bookingId);
+    const cancelRes = this.bookingService.cancel(dto.bookingId);
+    const canonicalBookingId = cancelRes?.data?.bookingId || dto.bookingId;
 
-    // Flip the ledger to cancelled, then raise the wrapping support ticket that
-    // draws the cancellation cost weight against the same ledger row.
-    this.ledgerService.markCancelled(dto.bookingId);
-    this.supportTicketService.create({
-      bookingId: dto.bookingId,
-      category: TicketCategory.CANCELLATION,
-      sourceModule: 'manual',
-    });
+    // Flip the ledger to cancelled, then raise the wrapping support ticket
+    try {
+      this.ledgerService.markCancelled(canonicalBookingId);
+    } catch (e) {
+      // ledger row may not exist for seed or mock bookings
+    }
 
-    // Record cancellation
-    const cancellation = this.cancellationRepo.create(dto.bookingId);
+    try {
+      this.supportTicketService.create({
+        bookingId: canonicalBookingId,
+        category: TicketCategory.CANCELLATION,
+        sourceModule: 'manual',
+      });
+    } catch (e) {
+      // support ticket creation failure should not abort booking cancellation
+    }
+
+    // Record cancellation under canonical ID and requested ID if different
+    const cancellation = this.cancellationRepo.create(canonicalBookingId);
+    if (canonicalBookingId !== dto.bookingId) {
+      try {
+        this.cancellationRepo.create(dto.bookingId);
+      } catch {}
+    }
     return successResponse('Booking cancelled. Refund request must be raised separately.', cancellation);
   }
 

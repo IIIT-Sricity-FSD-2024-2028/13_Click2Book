@@ -7,14 +7,19 @@ import { VehicleModule } from '../vehicle/vehicle.module';
 import { SeatModule } from '../seat/seat.module';
 import { OfferModule } from '../offer/offer.module';
 import { LedgerModule } from '../ledger/ledger.module';
+import { ScheduleModule } from '../schedule/schedule.module';
+import { RouteModule } from '../route/route.module';
 
 @Module({
-  // forwardRef: LedgerModule -> AdminModule -> BookingModule -> LedgerModule is a
-  // real cycle (AdminModule needs BookingModule; LedgerModule needs AdminRepository
-  // for adminId attribution). Previously invisible because nothing eagerly walked
-  // into it early enough to matter — AuthModule importing ProviderModule (which
-  // chains into LedgerModule/AdminModule) now does, right at app bootstrap.
-  imports: [TripModule, VehicleModule, SeatModule, OfferModule, forwardRef(() => LedgerModule)],
+  imports: [
+    TripModule,
+    VehicleModule,
+    SeatModule,
+    OfferModule,
+    ScheduleModule,
+    RouteModule,
+    forwardRef(() => LedgerModule),
+  ],
   controllers: [BookingController],
   providers: [BookingService, BookingRepository],
   exports: [BookingService, BookingRepository],

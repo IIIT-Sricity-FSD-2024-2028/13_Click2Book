@@ -8,6 +8,10 @@ export class RouteService {
   constructor(private readonly routeRepo: RouteRepository) {}
 
   create(dto: CreateRouteDto) {
+    const existing = this.routeRepo.findBySourceAndDestination(dto.source, dto.destination);
+    if (existing && existing.length > 0) {
+      return successResponse('Route already exists', existing[0]);
+    }
     const route = this.routeRepo.create(dto);
     return successResponse('Route created successfully', route);
   }

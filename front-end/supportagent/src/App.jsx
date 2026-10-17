@@ -4,7 +4,6 @@ import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import Tickets from './components/Tickets';
 import EscalatedIssues from './components/EscalatedIssues';
-import CostImpact from './components/CostImpact';
 import CustomerLookup from './components/CustomerLookup';
 import Refunds from './components/Refunds';
 import NotificationDrawer from './components/NotificationDrawer';
@@ -16,9 +15,6 @@ import {
   getTickets,
   resolveTicket,
   deescalateTicket,
-  getCostTickets,
-  createManualCostTicket,
-  resolveCostTicket,
   getCustomers,
   getRefunds,
   updateRefundStatus,
@@ -28,18 +24,22 @@ import {
 import { INITIAL_AGENTS, INITIAL_ESCALATIONS_RESOLVED } from './services/mockData';
 
 export default function App() {
-  // Determine initial tab from hash or page URL
+  // Determine initial tab from hash or page URL (redirect #cost-impact to #dashboard)
   const getInitialTab = () => {
     if (typeof window === 'undefined') return 'dashboard';
     const hash = window.location.hash.replace('#', '');
-    if (['dashboard', 'tickets', 'escalated', 'cost-impact', 'customers', 'refunds', 'login'].includes(hash)) {
+    if (hash === 'cost-impact') {
+      window.location.hash = 'dashboard';
+      return 'dashboard';
+    }
+    if (['dashboard', 'tickets', 'escalated', 'customers', 'refunds', 'login'].includes(hash)) {
       return hash;
     }
     const path = window.location.pathname.toLowerCase();
     if (path.includes('login.html')) return 'login';
     if (path.includes('tickets.html')) return 'tickets';
     if (path.includes('escalated.html')) return 'escalated';
-    if (path.includes('revenue-impact.html')) return 'cost-impact';
+    if (path.includes('revenue-impact.html')) return 'dashboard';
     return 'dashboard';
   };
 
@@ -59,7 +59,6 @@ export default function App() {
   });
 
   const [tickets, setTickets] = useState([]);
-  const [costTickets, setCostTickets] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [refunds, setRefunds] = useState([]);
   const [resolvedEscalations, setResolvedEscalations] = useState(INITIAL_ESCALATIONS_RESOLVED);
@@ -93,37 +92,56 @@ export default function App() {
     }
   }, []);
 
-  // Load Cost Tickets
-  const reloadCostTickets = useCallback(async () => {
+  // Load Refunds
+  const reloadRefunds = useCallback(async () => {
     try {
-      const res = await getCostTickets();
-      setCostTickets(res.data);
+      const res = await getRefunds();
+      setRefunds(res);
     } catch (e) {
-      console.warn('Failed to load cost tickets', e);
+      console.warn('Failed to load refunds', e);
     }
   }, []);
 
-  // Load Initial Data
+  // Load Initial Data & Sync
   useEffect(() => {
     reloadTickets();
-    reloadCostTickets();
+    reloadRefunds();
     setCustomers(getCustomers());
-    setRefunds(getRefunds());
     setNotifications(getNotifications());
 
-    // Auto-refresh queue every 15s
+    // Listen for cross-tab storage changes (e.g. customer submits support ticket or cancels ticket)
+    const handleStorageChange = (e) => {
+      if (
+        !e.key ||
+        e.key.includes('refund') ||
+        e.key.includes('ticket') ||
+        e.key.includes('support') ||
+        e.key.includes('booking')
+      ) {
+        reloadTickets();
+        reloadRefunds();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    // Auto-refresh queue every 10s
     const timer = setInterval(() => {
       reloadTickets();
-    }, 15000);
+      reloadRefunds();
+    }, 10000);
 
-    return () => clearInterval(timer);
-  }, [reloadTickets, reloadCostTickets]);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [reloadTickets, reloadRefunds]);
 
-  // Sync hash on tab change
+  // Sync hash on tab change (redirecting cost-impact if accessed)
   const handleTabChange = (tabId) => {
-    setActiveTab(tabId);
+    const valid = tabId === 'cost-impact' ? 'dashboard' : tabId;
+    setActiveTab(valid);
     if (typeof window !== 'undefined') {
-      window.location.hash = tabId;
+      window.location.hash = valid;
     }
   };
 
@@ -197,27 +215,15 @@ export default function App() {
     showToast(`Escalation #${ticketId} de-escalated and resolved.`, 'success');
   };
 
-  // Handle Cost Ticket creation
-  const handleCreateCostTicket = async (payload) => {
-    const res = await createManualCostTicket(payload);
-    setCostTickets((prev) => [res.ticket, ...prev]);
-    showToast(`Manual support ticket created for booking ${payload.bookingId}.`, 'success');
-  };
-
-  // Handle Cost Ticket resolve
-  const handleResolveCostTicket = async (ticketId) => {
-    await resolveCostTicket(ticketId);
-    setCostTickets((prev) =>
-      prev.map((t) => (t.ticketId === ticketId ? { ...t, status: 'resolved' } : t))
-    );
-    showToast(`Cost liability for ticket ${ticketId} resolved.`, 'success');
-  };
-
   // Handle Refund update
-  const handleUpdateRefundStatus = (refundId, status) => {
-    const updated = updateRefundStatus(refundId, status);
-    setRefunds(updated);
-    showToast(`Refund ${refundId} marked as ${status}.`, 'success');
+  const handleUpdateRefundStatus = async (refundId, status) => {
+    try {
+      const updated = await updateRefundStatus(refundId, status);
+      setRefunds(updated);
+      showToast(`Refund ${refundId} marked as ${status}.`, 'success');
+    } catch (e) {
+      showToast(`Failed to update refund: ${e.message}`, 'error');
+    }
   };
 
   // Mark all notifications read
@@ -293,15 +299,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'cost-impact' && (
-            <CostImpact
-              costTickets={costTickets}
-              onCreateCostTicket={handleCreateCostTicket}
-              onResolveCostTicket={handleResolveCostTicket}
-              onRefresh={reloadCostTickets}
-              isLive={isLive}
-            />
-          )}
+
 
           {activeTab === 'customers' && (
             <CustomerLookup

@@ -20,24 +20,69 @@ export class PaymentService {
     const booking = this.bookingRepo.findById(dto.bookingId);
     if (!booking) throw new NotFoundException(`Booking ${dto.bookingId} not found`);
 
-    // 2. Booking must be PENDING
+    // If already confirmed, handle retries idempotently without charging or recording payment twice
+    if (booking.bookingStatus === BookingStatus.CONFIRMED) {
+      const existing = this.paymentRepo.findByBooking(booking.bookingId);
+      if (existing) {
+        if (existing.paymentStatus !== PaymentStatus.SUCCESS) {
+          const updated = this.paymentRepo.update(existing.paymentId, {
+            amount: dto.amount,
+            discountAmount: dto.discountAmount ?? 0,
+            paymentMethod: dto.paymentMethod,
+            paymentStatus: PaymentStatus.SUCCESS,
+          }) || existing;
+          return successResponse('Payment already successful. Booking confirmed.', updated);
+        }
+        return successResponse('Payment already successful. Booking confirmed.', existing);
+      }
+      const payment = this.paymentRepo.create({
+        ...dto,
+        bookingId: booking.bookingId,
+        discountAmount: dto.discountAmount ?? 0,
+      });
+      const updated = this.paymentRepo.update(payment.paymentId, { paymentStatus: PaymentStatus.SUCCESS }) || payment;
+      return successResponse('Payment already successful. Booking confirmed.', updated);
+    }
+
+    // 2. Cannot pay for cancelled bookings
+    if (booking.bookingStatus === BookingStatus.CANCELLED) {
+      throw new BadRequestException('Cannot process payment for a cancelled booking');
+    }
+
+    // 3. Booking must be PENDING
     if (booking.bookingStatus !== BookingStatus.PENDING)
       throw new BadRequestException('Payment can only be made for PENDING bookings');
 
-    // 3. One payment per booking
-    if (this.paymentRepo.findByBooking(dto.bookingId))
-      throw new ConflictException(`Payment already exists for booking ${dto.bookingId}`);
+    // 4. One payment per booking (idempotent retry)
+    const existingPayment = this.paymentRepo.findByBooking(booking.bookingId);
+    let payment = existingPayment;
+    if (payment) {
+      if (payment.paymentStatus === PaymentStatus.SUCCESS) {
+        this.bookingService.confirm(booking.bookingId);
+        return successResponse('Payment already successful. Booking confirmed.', payment);
+      }
+      payment = this.paymentRepo.update(payment.paymentId, {
+        amount: dto.amount,
+        discountAmount: dto.discountAmount ?? 0,
+        paymentMethod: dto.paymentMethod,
+        paymentStatus: PaymentStatus.PENDING,
+      }) || payment;
+    } else {
+      payment = this.paymentRepo.create({ ...dto, bookingId: booking.bookingId, discountAmount: dto.discountAmount ?? 0 });
+    }
 
-    // 4. Create payment record
-    const payment = this.paymentRepo.create({ ...dto, discountAmount: dto.discountAmount ?? 0 });
+    try {
+      // 5. Mark payment as SUCCESS
+      const updated = this.paymentRepo.update(payment.paymentId, { paymentStatus: PaymentStatus.SUCCESS }) || payment;
 
-    // 5. Simulate payment success (in real system: call payment gateway)
-    const updated = this.paymentRepo.update(payment.paymentId, { paymentStatus: PaymentStatus.SUCCESS });
+      // 6. Confirm the booking after payment succeeds
+      this.bookingService.confirm(booking.bookingId);
 
-    // 6. Confirm the booking after payment success
-    this.bookingService.confirm(dto.bookingId);
-
-    return successResponse('Payment successful. Booking confirmed.', updated);
+      return successResponse('Payment successful. Booking confirmed.', updated);
+    } catch (err) {
+      this.paymentRepo.update(payment.paymentId, { paymentStatus: PaymentStatus.FAILED });
+      throw err;
+    }
   }
 
   findAll() { return successResponse('All payments', this.paymentRepo.findAll()); }

@@ -19,6 +19,14 @@ export class BookingController {
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
   create(@Body() dto: CreateBookingDto) { return this.bookingService.create(dto); }
 
+  @Post('historical')
+  @Roles(Role.CUSTOMER, Role.ADMIN)
+  @ApiOperation({ summary: 'Register a historical or legacy booking' })
+  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
+  registerHistorical(@Body() body: any) {
+    return this.bookingService.registerHistorical(body);
+  }
+
   @Get()
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Get all bookings (Admin)' })

@@ -6,7 +6,7 @@ import {
   AlertTriangle,
   ArrowRight,
   ShieldAlert,
-  Coins,
+  RotateCcw,
   Users,
 } from 'lucide-react';
 
@@ -152,18 +152,18 @@ export default function Dashboard({
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#EA580C', fontWeight: 700, fontSize: '0.82rem', marginBottom: '6px' }}>
-              <Coins size={16} /> Financial Cost Ledger
+              <RotateCcw size={16} /> Customer Refunds Desk
             </div>
             <p style={{ fontSize: '0.78rem', color: '#64748B', lineHeight: 1.4 }}>
-              Track support deductions tied directly to booking revenues & NestJS ledgers.
+              Process passenger cancellation claims, verify calculations, and complete disbursements.
             </p>
           </div>
           <button
             className="btn btn-outline btn-sm"
             style={{ marginTop: '14px', alignSelf: 'flex-start', borderColor: '#EA580C', color: '#EA580C' }}
-            onClick={() => onNavigate('cost-impact')}
+            onClick={() => onNavigate('refunds')}
           >
-            Check Cost Impact <ArrowRight size={13} />
+            Review Refunds <ArrowRight size={13} />
           </button>
         </div>
 

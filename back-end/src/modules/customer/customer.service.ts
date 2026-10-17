@@ -46,6 +46,13 @@ export class CustomerService {
     return successResponse('Customer deleted successfully');
   }
 
+  updateStatus(id: string, status: 'ACTIVE' | 'INACTIVE') {
+    const customer = this.customerRepo.findById(id);
+    if (!customer) throw new NotFoundException(`Customer ${id} not found`);
+    const updated = this.customerRepo.update(id, { status } as any);
+    return successResponse(`Customer status updated to ${status}`, updated);
+  }
+
   /** Phase 5B — store the uploaded profile picture URL path on the customer record */
   uploadProfilePicture(id: string, filename: string) {
     const customer = this.customerRepo.findById(id);

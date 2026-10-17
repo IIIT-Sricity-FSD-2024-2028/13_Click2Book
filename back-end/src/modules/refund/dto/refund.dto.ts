@@ -8,12 +8,25 @@ export class CreateRefundDto {
 
   @ApiProperty({ example: 480 })
   @IsNumber() @Min(0) refundAmount: number;
+
+  @ApiPropertyOptional({ example: 'REF-B001' })
+  @IsOptional() @IsString() refundId?: string;
+
+  @ApiPropertyOptional({ example: 'C001' })
+  @IsOptional() @IsString() customerId?: string;
+
+  @ApiPropertyOptional({ example: 'Rahul Verma' })
+  @IsOptional() @IsString() passengerName?: string;
+
+  @ApiPropertyOptional({ example: 'Customer requested cancellation' })
+  @IsOptional() @IsString() reason?: string;
 }
 
 export class ProcessRefundDto {
-  @ApiProperty({ example: 'A001' })
-  @IsString() adminId: string;
+  @ApiPropertyOptional({ example: 'SUP001' })
+  @IsOptional() @IsString() adminId?: string;
 
   @ApiProperty({ enum: RefundStatus, example: RefundStatus.COMPLETED })
   @IsEnum(RefundStatus) refundStatus: RefundStatus;
 }
+

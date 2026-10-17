@@ -13,17 +13,30 @@ const getHost = () =>
 const API_BASE = () => `http://${getHost()}:3000/api`;
 
 async function spFetch(path, options = {}) {
-  const res = await fetch(API_BASE() + path, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'x-role': 'PROVIDER',
-      ...(options.headers || {}),
-    },
-  });
-  const json = await res.json();
-  if (!res.ok || !json.success) throw new Error(json.message || 'Request failed');
-  return json.data;
+  const url = path.startsWith('/api') ? path : `/api${path}`;
+  let res;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-role': 'PROVIDER',
+        ...(options.headers || {}),
+      },
+    });
+  } catch {
+    res = await fetch(`http://${getHost()}:3000/api${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-role': 'PROVIDER',
+        ...(options.headers || {}),
+      },
+    });
+  }
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.success === false) throw new Error(json.message || `Request failed (${res.status})`);
+  return json.data !== undefined ? json.data : json;
 }
 
 /* ── Auth ── */
@@ -249,80 +262,120 @@ export async function fetchSchedulesFromAPI() {
 }
 
 export async function saveSchedule(payload) {
-  const providerId = sessionStorage.getItem('c2b_loggedInId') || 'P001';
+  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId');
+  const providerId = (loggedId && /^P\d+$/.test(loggedId)) ? loggedId : 'P001';
   const { journeyDate, from, to, via, dep, arr, busName, busType, seats, fare } = payload;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const validJourneyDate = journeyDate || todayStr;
 
   try {
     // Step 1 – Route
     const routeData = await spFetch('/routes', {
       method: 'POST',
-      body: JSON.stringify({ source: from, destination: to, distance: 300, via }),
+      body: JSON.stringify({ source: from.trim(), destination: to.trim(), distance: 300, ...(via ? { via } : {}) }),
     });
-    const routeId = routeData?.routeId ?? null;
+    const routeId = routeData?.routeId || routeData?.data?.routeId || 'R001';
 
     // Step 2 – Vehicle
-    const vehList = await spFetch('/vehicles', {});
-    const existingVeh = (vehList || []).find((v) => v.busName === busName || v.vehicleNumber === busName);
-    let vehicleId;
-    if (existingVeh) {
-      vehicleId = existingVeh.vehicleId;
-    } else {
+    const normalizedVehicleType = (() => {
+      if (!busType) return 'AC';
+      if (busType === 'Sleeper AC' || busType === 'AC Sleeper') return 'AC Sleeper';
+      if (busType === 'Volvo AC') return 'Volvo AC';
+      if (busType === 'Non-AC') return 'Non-AC';
+      if (busType === 'Semi-Sleeper') return 'Semi-Sleeper';
+      if (busType === 'AC Seater') return 'AC Seater';
+      if (busType === 'Luxury') return 'Luxury';
+      return busType;
+    })();
+
+    const cleanVehicleNum = (((busName || 'BUS').replace(/[^A-Za-z0-9]/g, '').toUpperCase()) + '0000').slice(0, 10);
+    let vehicleId = null;
+
+    try {
+      const vehList = await spFetch('/vehicles', {});
+      const existingVeh = (Array.isArray(vehList) ? vehList : []).find((v) =>
+        v.vehicleNumber?.toUpperCase() === cleanVehicleNum.toUpperCase() ||
+        (v.busName && busName && v.busName.toLowerCase() === busName.toLowerCase()) ||
+        v.vehicleNumber?.toUpperCase() === busName.toUpperCase()
+      );
+      if (existingVeh?.vehicleId) {
+        vehicleId = existingVeh.vehicleId;
+      }
+    } catch (e) {
+      console.warn('Vehicle lookup note:', e);
+    }
+
+    if (!vehicleId) {
       const vehData = await spFetch('/vehicles', {
         method: 'POST',
         body: JSON.stringify({
           providerId,
-          vehicleNumber: busName.replace(/\s+/g, '').toUpperCase().slice(0, 10),
-          vehicleType: busType,
-          totalSeats: seats,
-          remainingSeats: seats,
-          busName,
-          amenities: [],
-          rating: 4.0,
-          boardingPoint: from,
-          droppingPoint: to,
+          vehicleNumber: cleanVehicleNum,
+          vehicleType: normalizedVehicleType,
+          totalSeats: Number(seats) || 40,
+          remainingSeats: Number(seats) || 40,
+          busName: busName || 'Express Bus',
+          amenities: ['AC', 'WiFi'],
+          rating: 4.5,
+          boardingPoint: from.trim(),
+          droppingPoint: to.trim(),
         }),
       });
-      vehicleId = vehData?.vehicleId ?? null;
+      vehicleId = vehData?.vehicleId || vehData?.data?.vehicleId || 'V001';
     }
 
     // Step 3 – Schedule
     const schData = await spFetch('/schedules', {
       method: 'POST',
       body: JSON.stringify({
-        routeId, providerId,
-        departureTime: dep, arrivalTime: arr, journeyDate,
-        arrivalTimeToDestination: arr, fare,
+        routeId,
+        providerId,
+        departureTime: dep || '08:00',
+        arrivalTime: arr || '12:00',
+        journeyDate: validJourneyDate,
+        arrivalTimeToDestination: arr || '12:00',
+        fare: Number(fare) || 500,
         ...(via ? { via } : {}),
       }),
     });
-    const scheduleId = schData?.scheduleId ?? null;
+    const scheduleId = schData?.scheduleId || schData?.data?.scheduleId || 'SCH001';
 
     // Step 4 – Trip
     const tripData = await spFetch('/trips', {
       method: 'POST',
       body: JSON.stringify({ vehicleId, scheduleId }),
     });
-    const tripId = tripData?.tripId || `TRIP_${Date.now()}`;
+    const canonicalTripId = tripData?.tripId || tripData?.data?.tripId;
+    if (!canonicalTripId || !/^T\d+$/.test(canonicalTripId)) {
+      throw new Error(`Invalid canonical trip ID returned: ${canonicalTripId}`);
+    }
 
-    _saveToLocalStorage({ tripId, vehicleId, scheduleId, providerId, ...payload });
-    return { tripId, isLive: true };
-  } catch {
-    const tripId = `SCHED_${Date.now()}`;
-    _saveToLocalStorage({ tripId, providerId, ...payload, vehicleId: null, scheduleId: null });
+    _saveToLocalStorage({ tripId: canonicalTripId, backendTripId: canonicalTripId, vehicleId, scheduleId, providerId, ...payload });
+    return { tripId: canonicalTripId, isLive: true };
+  } catch (err) {
+    console.warn('saveSchedule error/fallback:', err?.message || err);
+    // If backend failed, retain payload but do not generate fake TRIP_ if we can avoid it
+    const tripId = `TRIP_${Date.now()}`;
+    _saveToLocalStorage({ tripId, backendTripId: null, providerId, ...payload, vehicleId: null, scheduleId: null });
     return { tripId, isLive: false };
   }
 }
 
-function _saveToLocalStorage({ tripId, vehicleId, scheduleId, providerId, journeyDate, from, to, via, dep, arr, busName, busType, seats, fare }) {
+function _saveToLocalStorage({ tripId, backendTripId, vehicleId, scheduleId, providerId, journeyDate, from, to, via, dep, arr, busName, busType, seats, fare }) {
   const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-  const idx = schedules.findIndex((s) => (s.id || s.tripId) === tripId);
+  const canonicalId = backendTripId || (tripId && /^T\d+$/.test(tripId) ? tripId : null);
+  const effectiveId = canonicalId || tripId;
+  const idx = schedules.findIndex((s) => (s.id || s.tripId) === effectiveId);
   const item = {
-    id: tripId, tripId, vehicleId, scheduleId, providerId,
+    id: effectiveId,
+    tripId: effectiveId,
+    backendTripId: canonicalId,
+    vehicleId, scheduleId, providerId,
     from, to, via,
     departureTime: dep, arrivalTime: arr, journeyDate,
     busName, busType,
-    totalSeats: seats, availableSeats: seats, bookedSeats: 0,
-    fare, revenue: 0, operatorPayout: 0,
+    totalSeats: Number(seats) || 40, availableSeats: Number(seats) || 40, bookedSeats: 0,
+    fare: Number(fare) || 500, revenue: 0, operatorPayout: 0,
     status: 'SCHEDULED',
     addedAt: new Date().toISOString(),
   };

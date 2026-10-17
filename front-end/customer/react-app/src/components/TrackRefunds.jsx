@@ -144,6 +144,19 @@ export default function TrackRefunds({ initialBookingId = '', customer, user, sh
 
   useEffect(() => {
     loadRefunds();
+
+    const handleStorage = (e) => {
+      if (!e.key || e.key.includes('refund') || e.key.includes('booking')) {
+        loadRefunds();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    const interval = setInterval(loadRefunds, 8000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      clearInterval(interval);
+    };
   }, [loadRefunds]);
 
   // Query single booking refund directly from API if searched

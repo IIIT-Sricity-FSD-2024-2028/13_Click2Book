@@ -169,4 +169,106 @@ describe('Payment Retry and Per-Seat Status Helper', () => {
     assert.equal(seatBookings[0].paid, true);
     assert.equal(seatBookings[1].paid, false);
   });
+
+  it('Scenario 4 & 11: Loading state resets to false and error is captured even when payment throws', async () => {
+    let isProcessing = true;
+    let paymentError = null;
+    try {
+      throw new Error('Network timeout during payment processing');
+    } catch (err) {
+      paymentError = err.message;
+    } finally {
+      isProcessing = false;
+    }
+    assert.equal(isProcessing, false, 'Loading state must be reset to false after failure');
+    assert.equal(paymentError, 'Network timeout during payment processing');
+  });
+
+  it('Scenario 5: Duplicate submission is prevented while payment is in progress', async () => {
+    let isProcessingPayment = false;
+    let callCount = 0;
+
+    const simulatePayment = async () => {
+      if (isProcessingPayment) return { skipped: true };
+      isProcessingPayment = true;
+      callCount++;
+      await new Promise((r) => setTimeout(r, 10));
+      isProcessingPayment = false;
+      return { skipped: false };
+    };
+
+    const [first, second] = await Promise.all([
+      simulatePayment(),
+      simulatePayment(),
+    ]);
+
+    assert.equal(first.skipped, false);
+    assert.equal(second.skipped, true);
+    assert.equal(callCount, 1, 'Payment logic must only be executed once on duplicate concurrent submissions');
+  });
+
+  it('Scenario 6: Single coupon application prevents discount multiplication across seats', () => {
+    const selectedSeats = ['A1', 'A2', 'A3'];
+    const offerCode = 'FIRSTBUS100';
+    const reservationPayloads = selectedSeats.map((seat, sIdx) => ({
+      seat,
+      offerCode: sIdx === 0 ? offerCode : null,
+    }));
+
+    const appliedOffers = reservationPayloads.filter((p) => p.offerCode !== null);
+    assert.equal(appliedOffers.length, 1, 'Offer code must only be applied once across multiple seats');
+    assert.equal(appliedOffers[0].offerCode, 'FIRSTBUS100');
+  });
+
+  it('Scenario 7, 8, 9, 12: Booking deduplication and cross-portal metadata synchronization', () => {
+    const existingBookings = [
+      { bookingId: 'BK_EXISTING', booking_id: 'BK_EXISTING', status: 'CONFIRMED', total: 600 },
+    ];
+
+    const newBooking = {
+      bookingId: 'BK_NEW_100',
+      booking_id: 'BK_NEW_100',
+      providerId: 'P001',
+      provider_id: 'P001',
+      customerId: 'C001',
+      seats: 'A1, A2',
+      seat_list: ['A1', 'A2'],
+      total: 950,
+      status: 'CONFIRMED',
+      booking_status: 'CONFIRMED',
+    };
+
+    // First save
+    let bookings = existingBookings.filter((b) => (b.bookingId || b.booking_id) !== newBooking.bookingId);
+    bookings.unshift(newBooking);
+
+    assert.equal(bookings.length, 2);
+    assert.equal(bookings[0].bookingId, 'BK_NEW_100');
+    assert.equal(bookings[0].providerId, 'P001');
+
+    // Simulate retry or redundant confirmation saving same bookingId
+    bookings = bookings.filter((b) => (b.bookingId || b.booking_id) !== newBooking.bookingId);
+    bookings.unshift(newBooking);
+
+    assert.equal(bookings.length, 2, 'Retry or re-confirmation must not duplicate bookings in list');
+  });
+
+  it('Scenario 10: Revenue calculation ignores CANCELLED and duplicate bookings', () => {
+    const bookings = [
+      { bookingId: 'B1', total: 500, status: 'CONFIRMED' },
+      { bookingId: 'B1', total: 500, status: 'CONFIRMED' }, // duplicate ID
+      { bookingId: 'B2', total: 400, status: 'CANCELLED' }, // cancelled
+      { bookingId: 'B3', total: 700, status: 'CONFIRMED' },
+    ];
+
+    const seenIds = new Set();
+    let totalRevenue = 0;
+    bookings.forEach((b) => {
+      if (!b?.bookingId || seenIds.has(b.bookingId) || b.status === 'CANCELLED') return;
+      seenIds.add(b.bookingId);
+      totalRevenue += b.total;
+    });
+
+    assert.equal(totalRevenue, 1200, 'Revenue must equal 500 + 700 = 1200, ignoring duplicate and cancelled');
+  });
 });

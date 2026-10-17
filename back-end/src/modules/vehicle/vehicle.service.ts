@@ -8,8 +8,11 @@ export class VehicleService {
   constructor(private readonly vehicleRepo: VehicleRepository) {}
 
   create(dto: CreateVehicleDto) {
-    const existing = this.vehicleRepo.findAll().find(v => v.vehicleNumber === dto.vehicleNumber);
-    if (existing) throw new ConflictException(`Vehicle number ${dto.vehicleNumber} already exists`);
+    const existing = this.vehicleRepo.findAll().find(
+      (v) => v.vehicleNumber.toLowerCase() === dto.vehicleNumber.toLowerCase() ||
+             (dto.busName && v.busName && v.busName.toLowerCase() === dto.busName.toLowerCase())
+    );
+    if (existing) return successResponse('Vehicle already exists', existing);
     return successResponse('Vehicle added', this.vehicleRepo.create(dto));
   }
 

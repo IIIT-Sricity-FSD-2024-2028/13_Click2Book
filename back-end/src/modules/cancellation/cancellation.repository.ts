@@ -13,6 +13,6 @@ export class CancellationRepository {
 
   findAll(): Cancellation[] { return this.cancellations; }
   findByBooking(bookingId: string): Cancellation | undefined {
-    return this.cancellations.find(c => c.bookingId === bookingId || (bookingId && bookingId.startsWith('MOCK_BK_') && c.bookingId));
+    return this.cancellations.find(c => c.bookingId === bookingId);
   }
 }

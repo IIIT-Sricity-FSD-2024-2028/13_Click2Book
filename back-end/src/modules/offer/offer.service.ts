@@ -34,8 +34,16 @@ export class OfferService {
     const today = new Date().toISOString().split('T')[0];
     if (today < offer.startDate || today > offer.endDate)
       throw new BadRequestException(`Offer ${offerCode} has expired or not yet started`);
-    const discountAmount = (fare * offer.discountPercentage) / 100;
-    return { offerId: offer.offerId, discountAmount, finalFare: fare - discountAmount };
+    if (offer.minFare && fare > 0 && fare < offer.minFare)
+      throw new BadRequestException(`Minimum fare of ₹${offer.minFare} required for this offer`);
+
+    let discountAmount = 0;
+    if (offer.flatDiscount != null) {
+      discountAmount = fare > 0 ? Math.min(fare, offer.flatDiscount) : offer.flatDiscount;
+    } else if (offer.discountPercentage != null) {
+      discountAmount = (fare * offer.discountPercentage) / 100;
+    }
+    return { offerId: offer.offerId, discountAmount, finalFare: Math.max(0, fare - discountAmount) };
   }
 
   update(id: string, dto: UpdateOfferDto) {

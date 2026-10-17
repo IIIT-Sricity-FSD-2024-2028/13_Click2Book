@@ -2,27 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ticket Cost Impact – Click2Book Support (React)</title>
-  <link rel="stylesheet" href="dist/bundle.css" />
-  <link rel="stylesheet" href="src/index.css" />
+  <meta http-equiv="refresh" content="0; url=index.html#dashboard" />
+  <title>Click2Book Support</title>
 </head>
 <body>
-  <div id="root"></div>
-
   <script>
-    if (!window.location.hash || window.location.hash !== '#cost-impact') {
-      window.location.hash = 'cost-impact';
-    }
-  </script>
-
-  <!-- React 19 Bundle -->
-  <script src="dist/bundle.js"></script>
-
-  <script type="module">
-    if (!window.__REACT_BUNDLE_LOADED__ && window.location.port === '5173') {
-      import('/src/main.jsx');
-    }
+    window.location.replace('index.html#dashboard');
   </script>
 </body>
 </html>

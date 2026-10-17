@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Put, Delete, Body, Param,
+  Controller, Get, Post, Put, Patch, Delete, Body, Param,
   UseGuards, UseInterceptors, UploadedFile, BadRequestException,
 } from '@nestjs/common';
 import {
@@ -52,6 +52,18 @@ export class CustomerController {
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
   update(@Param('id') id: string, @Body() dto: UpdateCustomerDto) {
     return this.customerService.update(id, dto);
+  }
+
+  @Patch(':id/status')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Update customer status (Admin only)' })
+  @ApiParam({ name: 'id', example: 'C001' })
+  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
+  updateStatus(
+    @Param('id') id: string,
+    @Body() body: { status: 'ACTIVE' | 'INACTIVE' },
+  ) {
+    return this.customerService.updateStatus(id, body.status);
   }
 
   @Delete(':id')

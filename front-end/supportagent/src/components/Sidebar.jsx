@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   Ticket,
   AlertTriangle,
-  Receipt,
   Users,
   RotateCcw,
   ExternalLink,
@@ -38,11 +37,6 @@ export default function Sidebar({
       icon: AlertTriangle,
       badge: escalationsCount > 0 ? escalationsCount : null,
       badgeColor: '#EF4444',
-    },
-    {
-      id: 'cost-impact',
-      label: 'Ticket Cost Impact',
-      icon: Receipt,
     },
     {
       id: 'customers',

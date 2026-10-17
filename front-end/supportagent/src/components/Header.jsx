@@ -14,10 +14,6 @@ const TAB_TITLES = {
     title: 'Escalated Issues Desk',
     sub: 'Critical customer escalations requiring supervisor intervention',
   },
-  'cost-impact': {
-    title: 'Ticket Cost Impact Ledger',
-    sub: 'Real-time financial deductions mapped to Click2Book NestJS ledger',
-  },
   customers: {
     title: 'Customer Directory & History',
     sub: 'Passenger profiles, contact credentials & booking lookup',

@@ -304,25 +304,36 @@
                 // Step 2: Find or use existing vehicle, else create one
                 var vehListRes = await fetch(API + '/vehicles', { headers: { 'x-role': 'PROVIDER' } });
                 var vehList = await vehListRes.json();
+                var cleanVehicleNum = (busName.replace(/[^A-Za-z0-9]/g,'').toUpperCase() + '0000').slice(0, 10);
                 var existingVeh = (vehList.data || []).find(function(v) {
-                    return v.busName === busName || v.vehicleNumber === busName;
+                    return v.vehicleNumber === cleanVehicleNum || (v.busName && v.busName.toLowerCase() === busName.toLowerCase()) || v.vehicleNumber === busName;
                 });
                 var vehicleId;
                 if (existingVeh) {
                     vehicleId = existingVeh.vehicleId;
                 } else {
+                    var normalizedVehicleType = (function() {
+                        if (!busType) return 'AC';
+                        if (busType === 'Sleeper AC' || busType === 'AC Sleeper') return 'AC Sleeper';
+                        if (busType === 'Volvo AC' || busType === 'Luxury') return 'Volvo AC';
+                        if (busType === 'Non-AC') return 'Non-AC';
+                        if (busType === 'Semi-Sleeper') return 'Semi-Sleeper';
+                        if (busType === 'AC Seater') return 'AC Seater';
+                        return busType;
+                    })();
+
                     var vehRes = await fetch(API + '/vehicles', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'x-role': 'PROVIDER' },
                         body: JSON.stringify({
                             providerId: providerId,
-                            vehicleNumber: busName.replace(/\s+/g,'').toUpperCase().slice(0,10),
-                            vehicleType: busType,
+                            vehicleNumber: cleanVehicleNum,
+                            vehicleType: normalizedVehicleType,
                             totalSeats: seats,
                             remainingSeats: seats,
                             busName: busName,
-                            amenities: [],
-                            rating: 4.0,
+                            amenities: ['AC', 'WiFi'],
+                            rating: 4.5,
                             boardingPoint: from,
                             droppingPoint: to
                         })
@@ -357,13 +368,18 @@
                     body: JSON.stringify({ vehicleId: vehicleId, scheduleId: scheduleId })
                 });
                 var tripData = await tripRes.json();
-                var tripId = tripData.data ? tripData.data.tripId : ('TRIP_' + Date.now());
+                var canonicalTripId = tripData && tripData.data && tripData.data.tripId;
+                if (!canonicalTripId) {
+                    throw new Error((tripData && tripData.message) || 'Failed to create trip record on backend');
+                }
+                var tripId = canonicalTripId;
 
                 // Success! Also save to localStorage so customer search works immediately
                 var schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
                 schedules.push({
                     id: tripId,
                     tripId: tripId,
+                    backendTripId: tripId,
                     vehicleId: vehicleId,
                     scheduleId: scheduleId,
                     providerId: providerId,
@@ -400,11 +416,12 @@
                 // Fallback: save to localStorage
                 console.warn('Backend unavailable, saving to localStorage:', err.message);
                 var providerId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || sessionStorage.getItem('c2b_userId') || 'P001';
-                var tripId = 'SCHED_' + Date.now();
+                var tripId = 'TRIP_' + Date.now();
                 var schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
                 schedules.push({
                     id: tripId,
                     tripId: tripId,
+                    backendTripId: null,
                     providerId: providerId,
                     from: from,
                     to: to,

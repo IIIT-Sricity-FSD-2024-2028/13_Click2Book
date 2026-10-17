@@ -54,8 +54,15 @@ function isDepartureTimeReached(journeyDate, departureTime) {
 }
 
 export default function App() {
-  // Authenticated customer state — guest by default if not logged in
+  // Authenticated customer state — guest by default if not logged in or at root landing page
   const [user, setUser] = useState(() => {
+    // When opening or refreshing root URL, always display the public guest landing page
+    const hash = typeof window !== 'undefined' ? window.location.hash.replace(/^#[/]?/, '').trim() : '';
+    const tabName = hash.split('?')[0];
+    if (!tabName || tabName === 'landing' || tabName === 'home') {
+      return null;
+    }
+
     const hasSessionLogin = sessionStorage.getItem('c2b_loggedIn') === 'true';
     const hasLocalLogin = localStorage.getItem('c2b_loggedIn') === 'true';
     if (!hasSessionLogin && !hasLocalLogin) return null;
@@ -75,7 +82,7 @@ export default function App() {
 
   // Navigation / Tabs: root defaults to landing page
   const [activeTab, setActiveTab] = useState(() => {
-    const hash = window.location.hash.replace('#', '').trim();
+    const hash = window.location.hash.replace(/^#[/]?/, '').trim();
     const tabName = hash.split('?')[0];
 
     const validTabs = [
@@ -100,7 +107,7 @@ export default function App() {
 
   // Authentication Modal configuration
   const [loginModal, setLoginModal] = useState(() => {
-    const hash = typeof window !== 'undefined' ? window.location.hash.replace('#', '').trim() : '';
+    const hash = typeof window !== 'undefined' ? window.location.hash.replace(/^#[/]?/, '').trim() : '';
     const tabName = hash.split('?')[0];
     const isLogin = tabName === 'login';
     const isSignup = tabName === 'signup';
@@ -284,7 +291,7 @@ export default function App() {
   // Hash Routing Synchronization with Route Guards
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.replace('#', '').trim();
+      const hash = window.location.hash.replace(/^#[/]?/, '').trim();
       const tabName = hash.split('?')[0];
 
       if (!tabName || tabName === 'landing' || tabName === 'home') {

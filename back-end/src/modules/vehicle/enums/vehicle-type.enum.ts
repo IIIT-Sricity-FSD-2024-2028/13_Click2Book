@@ -4,4 +4,8 @@ export enum VehicleType {
   SLEEPER      = 'AC Sleeper',
   VOLVO        = 'Volvo AC',
   NO_PREFERENCE = 'No preference',
+  SLEEPER_AC   = 'Sleeper AC',
+  SEMI_SLEEPER = 'Semi-Sleeper',
+  AC_SEATER    = 'AC Seater',
+  LUXURY       = 'Luxury',
 }

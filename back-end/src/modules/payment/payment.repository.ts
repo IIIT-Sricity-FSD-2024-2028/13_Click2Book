@@ -12,8 +12,12 @@ export class PaymentRepository {
   ];
 
   create(data: Omit<Payment, 'paymentId' | 'paymentDate' | 'paymentStatus'>): Payment {
+    let nextId = generateId('PAY');
+    while (this.payments.some(p => p.paymentId === nextId)) {
+      nextId = generateId('PAY');
+    }
     const payment: Payment = {
-      paymentId: generateId('PAY'),
+      paymentId: nextId,
       ...data,
       discountAmount: data.discountAmount ?? 0,
       paymentStatus: PaymentStatus.PENDING,

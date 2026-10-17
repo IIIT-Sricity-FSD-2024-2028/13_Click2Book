@@ -21,6 +21,16 @@ export class ScheduleService {
         throw new BadRequestException(`Schedule can only be added up to 2 months in advance (maximum: ${maxDateStr})`);
       }
     }
+    const existing = this.scheduleRepo.findAll().find(
+      (s) =>
+        s.routeId === dto.routeId &&
+        s.providerId === dto.providerId &&
+        s.departureTime === dto.departureTime &&
+        (!dto.journeyDate || s.journeyDate === dto.journeyDate)
+    );
+    if (existing) {
+      return successResponse('Schedule already exists', existing);
+    }
     return successResponse('Schedule created', this.scheduleRepo.create(dto));
   }
 

@@ -27,6 +27,14 @@ export class TripService {
     if (!schedule) throw new NotFoundException(`Schedule ${dto.scheduleId} not found`);
     const vehicle = this.vehicleRepo.findById(dto.vehicleId);
     if (!vehicle) throw new NotFoundException(`Vehicle ${dto.vehicleId} not found`);
+    const existing = this.tripRepo.findAll().find(
+      (t) => t.scheduleId === dto.scheduleId && t.vehicleId === dto.vehicleId
+    );
+    if (existing) {
+      this.seatRepo.initSeats(dto.vehicleId, vehicle.totalSeats);
+      return successResponse('Trip already exists and seats initialized', existing);
+    }
+
     // Initialize seats for this vehicle
     this.seatRepo.initSeats(dto.vehicleId, vehicle.totalSeats);
     const trip = this.tripRepo.create({ ...dto, tripStatus: TripStatus.SCHEDULED });

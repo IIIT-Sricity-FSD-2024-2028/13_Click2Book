@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiHeader } from '@nestjs/swagger';
 import { SupportService } from './support.service';
 import { CreateSupportStaffDto } from './dto/support-staff.dto';
@@ -30,4 +30,16 @@ export class SupportController {
   @ApiParam({ name: 'id', example: 'SUP001' })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
   findOne(@Param('id') id: string) { return this.supportService.findById(id); }
+
+  @Patch(':id/status')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Update support staff status (Admin only)' })
+  @ApiParam({ name: 'id', example: 'SUP001' })
+  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
+  updateStatus(
+    @Param('id') id: string,
+    @Body() body: { status: 'ACTIVE' | 'INACTIVE' },
+  ) {
+    return this.supportService.updateStatus(id, body.status);
+  }
 }

@@ -169,8 +169,29 @@ export default function MyBookings({
       const apiStatus = String(b.bookingStatus || b.status || 'CONFIRMED').toUpperCase();
       const refundRecord = refundData.find((r) => (r.booking_id || r.bookingId) === id);
 
-      if (bookingMap.has(id)) {
-        const existing = bookingMap.get(id);
+      // Check if this backend booking ID matches an existing booking or alias
+      let existingKey = bookingMap.has(id) ? id : null;
+      if (!existingKey) {
+        for (const [key, val] of bookingMap.entries()) {
+          const ids = val.backendBookingIds || val.raw?.backendBookingIds;
+          if (Array.isArray(ids) && ids.includes(id)) {
+            existingKey = key;
+            break;
+          }
+          if (val.primaryBackendId === id || val.raw?.primaryBackendId === id) {
+            existingKey = key;
+            break;
+          }
+          // Exact persisted relationship match (trip + seat)
+          if (val.tripId === b.tripId && (val.raw?.seatNumber === b.seatNumber || (Array.isArray(val.raw?.seat_list) && val.raw.seat_list.includes(b.seatNumber)))) {
+            existingKey = key;
+            break;
+          }
+        }
+      }
+
+      if (existingKey) {
+        const existing = bookingMap.get(existingKey);
         if (apiStatus === 'CANCELLED' || existing.status === 'CANCELLED') {
           existing.status = 'CANCELLED';
         } else {
@@ -178,6 +199,9 @@ export default function MyBookings({
         }
         if (existing.refundAmount == null && (refundRecord?.refund_amount != null || b.refundAmount != null || b.refund_amount != null)) {
           existing.refundAmount = refundRecord?.refund_amount ?? b.refundAmount ?? b.refund_amount;
+        }
+        if (!existing.backendBookingIds || existing.backendBookingIds.length === 0) {
+          existing.backendBookingIds = [id];
         }
       } else {
         const totalFare = Number(b.totalAmount ?? b.fare ?? 650);
@@ -188,14 +212,16 @@ export default function MyBookings({
           from: b.from || 'Hyderabad',
           to: b.to || 'Chennai',
           busName: b.busName || 'Express Bus',
-          busType: b.busType || 'AC Sleeper',
-          date: b.bookingDate || b.journeyDate || new Date().toISOString().split('T')[0],
+          busType: b.vehicleType || b.busType || 'AC Sleeper',
+          date: b.journeyDate || b.bookingDate || new Date().toISOString().split('T')[0],
           departureTime: b.departureTime || '',
           arrivalTime: b.arrivalTime || '',
           seats: b.seatNumber ? `Seat ${b.seatNumber}` : 'Seat 1',
           total: totalFare,
           refundAmount: confirmedRefund,
           status: apiStatus,
+          backendBookingIds: [id],
+          primaryBackendId: id,
           _fromApi: true,
           raw: b,
         });

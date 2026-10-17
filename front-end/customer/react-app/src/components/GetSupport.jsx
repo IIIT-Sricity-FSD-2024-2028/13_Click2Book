@@ -21,62 +21,74 @@ export default function GetSupport({ user, showToast }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const customerId = user?.id || localStorage.getItem('c2b_loggedInId') || 'C001';
-  const customerName = user?.name || 'Customer';
+  const customerId = user?.id || localStorage.getItem('c2b_loggedInId') || sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_userId') || sessionStorage.getItem('c2b_userId') || 'C001';
+  const customerName = user?.name || sessionStorage.getItem('c2b_userName') || localStorage.getItem('c2b_userName') || 'Customer';
 
   // Load existing requests
   const loadRequests = async () => {
-    let combined = [];
+    const map = new Map();
 
-    // 1. Try API
-    try {
-      const live = await api.supportRequests.getMine(customerId);
-      if (Array.isArray(live) && live.length > 0) {
-        combined.push(...live);
-      }
-    } catch {
-      // Backend offline fallback
-    }
-
-    // 2. Read from localStorage
+    // 1. Read from localStorage
     try {
       const local = JSON.parse(localStorage.getItem('c2b_support_requests') || '[]');
       if (Array.isArray(local)) {
-        combined.push(...local);
+        local.forEach((item) => {
+          const id = item.requestId || item.request_id || item.id;
+          if (id) map.set(id, item);
+        });
       }
     } catch {
       // Ignore parse error
     }
 
+    // 2. Try API (authoritative backend)
+    try {
+      const live = await api.supportRequests.getMine(customerId);
+      if (Array.isArray(live) && live.length > 0) {
+        live.forEach((item) => {
+          const id = item.requestId || item.request_id || item.id;
+          if (id) {
+            const existing = map.get(id) || {};
+            map.set(id, { ...existing, ...item });
+          }
+        });
+      }
+    } catch {
+      // Backend offline fallback
+    }
+
     // Default mock ticket if completely empty
-    if (combined.length === 0) {
-      combined.push({
+    if (map.size === 0) {
+      map.set('REQ-DEMO101', {
         requestId: 'REQ-DEMO101',
         category: 'Booking Issue',
         bookingId: 'BK1002',
         description: 'Seat assignment preference was modified unexpectedly during boarding.',
         status: 'RESOLVED',
         createdAt: '2026-03-28',
-        response: 'Support Agent checked with the operator and restored your seat.'
+        resolution: 'Support Agent checked with the operator and restored your seat.',
+        response: 'Support Agent checked with the operator and restored your seat.',
       });
     }
 
-    // Deduplicate by ID
-    const seen = new Set();
-    const deduped = [];
-    for (const item of combined) {
-      const id = item.requestId || item.request_id || item.id;
-      if (id && !seen.has(id)) {
-        seen.add(id);
-        deduped.push(item);
-      }
-    }
-
-    setRequestsList(deduped);
+    setRequestsList(Array.from(map.values()));
   };
 
   useEffect(() => {
     loadRequests();
+
+    const handleStorageChange = (e) => {
+      if (!e.key || e.key.includes('support') || e.key.includes('ticket')) {
+        loadRequests();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    const interval = setInterval(loadRequests, 8000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
   }, [customerId]);
 
   const handleSubmit = async (e) => {
@@ -98,41 +110,47 @@ export default function GetSupport({ user, showToast }) {
     }
 
     setIsSubmitting(true);
-    const ticketId = 'TKT-' + Math.floor(10000 + Math.random() * 90000);
+    let ticketId = 'TKT-' + Math.floor(10000 + Math.random() * 90000);
     const today = new Date().toISOString().split('T')[0];
 
-    const newTicket = {
+    let newTicket = {
       requestId: ticketId,
       customerId,
-      supporterId: 'S001',
+      supporterId: 'SUP001',
       category: selectedIssue,
-      bookingId: bookingId.trim() || null,
+      bookingId: bookingId.trim() || undefined,
       description: desc,
       status: 'OPEN',
       customerName,
       createdAt: today,
     };
 
-    // 1. Save to localStorage
+    // 1. Call API first
     try {
-      const existing = JSON.parse(localStorage.getItem('c2b_support_requests') || '[]');
-      existing.unshift(newTicket);
-      localStorage.setItem('c2b_support_requests', JSON.stringify(existing));
-    } catch {}
-
-    // 2. Call API
-    try {
-      await api.supportRequests.create(newTicket);
+      const liveRes = await api.supportRequests.create(newTicket);
+      if (liveRes && (liveRes.requestId || liveRes.id)) {
+        ticketId = liveRes.requestId || liveRes.id;
+        newTicket = { ...newTicket, ...liveRes, requestId: ticketId };
+      }
     } catch (err) {
       console.warn('[GetSupport] API submission fallback:', err.message);
     }
+
+    // 2. Persist in localStorage
+    try {
+      const existing = JSON.parse(localStorage.getItem('c2b_support_requests') || '[]');
+      const filtered = Array.isArray(existing) ? existing.filter((t) => (t.requestId || t.id) !== ticketId) : [];
+      filtered.unshift(newTicket);
+      localStorage.setItem('c2b_support_requests', JSON.stringify(filtered));
+      window.dispatchEvent(new Event('storage'));
+    } catch {}
 
     setIsSubmitting(false);
     setGeneratedTicketId(ticketId);
     setActiveTab('success');
     setDescription('');
     setBookingId('');
-    loadRequests();
+    await loadRequests();
     showToast('✅ Ticket submitted successfully!', 'success');
   };
 
@@ -344,12 +362,17 @@ export default function GetSupport({ user, showToast }) {
                       <span className="req-date">Created on: {req.createdAt || req.created_date || 'Today'}</span>
                     </div>
 
-                    {(req.response || req.reply) && (
+                    {(req.resolution || req.response || req.reply || req.resolutionNote) && (
                       <div className="req-response">
                         <div className="req-response-title">
-                          <span>💬 Support Agent Response:</span>
+                          <span>💬 Support Agent Resolution / Response:</span>
+                          {req.resolvedBy && (
+                            <span style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-muted, #64748B)', marginLeft: '6px' }}>
+                              (by {req.resolvedBy})
+                            </span>
+                          )}
                         </div>
-                        <p style={{ margin: 0 }}>{req.response || req.reply}</p>
+                        <p style={{ margin: 0 }}>{req.resolution || req.response || req.reply || req.resolutionNote}</p>
                       </div>
                     )}
                   </div>

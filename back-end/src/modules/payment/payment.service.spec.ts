@@ -30,6 +30,7 @@ describe('PaymentService', () => {
     const tripRepo = new TripRepository();
     const vehicleRepo = new VehicleRepository();
     const seatRepo = new SeatRepository();
+    seatRepo.initSeats('V001', 45);
     const offerService = new OfferService(new OfferRepository());
     const revenueSplitService = new RevenueSplitService(new RevenueSplitRepository());
     const ledgerService = new LedgerService(
@@ -122,5 +123,81 @@ describe('PaymentService', () => {
 
     const updatedBooking = bookingRepo.findById(pendingBooking.bookingId);
     expect(updatedBooking?.bookingStatus).toBe(BookingStatus.CONFIRMED);
+  });
+
+  it('marks payment as FAILED if booking confirmation throws an error, avoiding false revenue', () => {
+    const pendingBooking = bookingRepo.create({
+      customerId: 'C001',
+      tripId: 'T001',
+      seatNumber: 22,
+    });
+
+    // Spy on bookingService.confirm to simulate an unexpected error during confirmation
+    jest.spyOn(bookingService, 'confirm').mockImplementationOnce(() => {
+      throw new Error('Database write error during booking confirmation');
+    });
+
+    expect(() =>
+      paymentService.processPayment({
+        bookingId: pendingBooking.bookingId,
+        amount: 500,
+        paymentMethod: 'CARD',
+      }),
+    ).toThrow('Database write error during booking confirmation');
+
+    // Verify payment record was updated to FAILED
+    const payment = paymentRepo.findByBooking(pendingBooking.bookingId);
+    expect(payment).toBeDefined();
+    expect(payment?.paymentStatus).toBe(PaymentStatus.FAILED);
+
+    // Verify booking was not confirmed
+    const booking = bookingRepo.findById(pendingBooking.bookingId);
+    expect(booking?.bookingStatus).toBe(BookingStatus.PENDING);
+  });
+
+  it('supports booking creation with FIRSTBUS100 coupon and transitions to CONFIRMED on payment', () => {
+    const res = bookingService.create({
+      customerId: 'C001',
+      tripId: 'T001',
+      seatNumber: 25,
+      offerCode: 'FIRSTBUS100',
+    });
+
+    expect(res.success).toBe(true);
+    const bookingId = res.data.bookingId;
+    expect(res.data.offerId).toBeDefined();
+    expect(res.data.bookingStatus).toBe(BookingStatus.PENDING);
+
+    const payRes = paymentService.processPayment({
+      bookingId,
+      amount: 400,
+      discountAmount: 100,
+      paymentMethod: 'UPI',
+    });
+
+    expect(payRes.success).toBe(true);
+    expect(payRes.data.paymentStatus).toBe(PaymentStatus.SUCCESS);
+    expect(payRes.data.discountAmount).toBe(100);
+
+    const confirmed = bookingRepo.findById(bookingId);
+    expect(confirmed?.bookingStatus).toBe(BookingStatus.CONFIRMED);
+  });
+
+  it('marks payment as REFUNDED when requested for a processed booking', () => {
+    const pendingBooking = bookingRepo.create({
+      customerId: 'C001',
+      tripId: 'T001',
+      seatNumber: 28,
+    });
+
+    paymentService.processPayment({
+      bookingId: pendingBooking.bookingId,
+      amount: 500,
+      paymentMethod: 'UPI',
+    });
+
+    const refundRes = paymentService.markRefunded(pendingBooking.bookingId);
+    expect(refundRes.success).toBe(true);
+    expect(refundRes.data.paymentStatus).toBe(PaymentStatus.REFUNDED);
   });
 });

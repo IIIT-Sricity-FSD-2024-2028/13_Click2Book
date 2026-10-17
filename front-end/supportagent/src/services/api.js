@@ -74,7 +74,6 @@ export const formatPaiseToRupees = (paise) => {
 /* ── LocalStorage Helpers ── */
 const STORAGE_KEYS = {
   TICKETS: 'c2b_support_tickets_v2',
-  COST_TICKETS: 'c2b_support_cost_tickets_v2',
   REFUNDS: 'c2b_support_refunds_v2',
   CUSTOMERS: 'c2b_support_customers_v2',
   NOTIFICATIONS: 'c2b_support_notifications_v2',
@@ -109,7 +108,7 @@ export async function getTickets() {
   try {
     const res = await fetch(`${API_BASE}/support-requests`, {
       headers: { 'x-role': 'SUPPORT' },
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(4000),
     });
     if (res.ok) {
       const json = await res.json();
@@ -117,129 +116,234 @@ export async function getTickets() {
       isLive = true;
     }
   } catch (e) {
-    // API offline or error; fallback smoothly
     isLive = false;
   }
 
-  // Local storage tickets
+  // 1. Local storage tickets from Support Portal
   let localTickets = getLocal(STORAGE_KEYS.TICKETS, null);
   if (!localTickets) {
     localTickets = INITIAL_TICKETS;
     setLocal(STORAGE_KEYS.TICKETS, localTickets);
   }
 
-  // Also read from legacy window.DB if present
+  // 2. Read from customer portal requests (c2b_support_requests)
+  let customerRequests = [];
+  try {
+    customerRequests = JSON.parse(localStorage.getItem('c2b_support_requests') || '[]');
+  } catch (_) {}
+
+  // 3. Read from legacy window.DB if present
   let dbTickets = [];
   try {
     if (typeof window !== 'undefined' && window.DB && window.DB.supportRequests) {
       const rawDb = window.DB.supportRequests.getAll() || [];
       dbTickets = rawDb.map((r) => ({
-        id: r.request_id || `REQ${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
-        customer: r.customer_id || 'Customer',
+        id: r.request_id || r.requestId || r.id,
+        customer: r.customerName || r.customer_name || r.customer_id || 'Customer',
+        customerId: r.customer_id || r.customerId || 'C001',
         subject: r.description || r.issue || r.subject || 'Support request',
+        description: r.description || r.issue || r.subject || '',
         priority: r.priority || 'Medium',
         status: r.status === 'OPEN' ? 'Open' : (r.status === 'RESOLVED' ? 'Resolved' : (r.status === 'IN_PROGRESS' ? 'In Progress' : 'Open')),
-        bookingId: r.booking_id || '',
-        category: 'SUPPORT',
+        bookingId: r.booking_id || r.bookingId || '',
+        category: r.category || 'Booking Issue',
         sourceModule: 'support-request',
-        createdAt: r.created_date || new Date().toISOString(),
-      }));
+        createdAt: r.created_date || r.createdAt || new Date().toISOString(),
+        resolution: r.resolution || r.response || '',
+      })).filter((t) => Boolean(t.id));
     }
-  } catch (e) {
-    // legacy DB ignore
-  }
+  } catch (e) {}
 
-  // Merge and deduplicate by ID
+  // Merge and deduplicate by canonical ticket ID
   const map = new Map();
-  // 1. mock / local
-  localTickets.forEach((t) => map.set(t.id, t));
-  // 2. legacy DB
-  dbTickets.forEach((t) => map.set(t.id, { ...map.get(t.id), ...t }));
-  // 3. API tickets
-  apiData.forEach((a) => {
-    const id = a.request_id || a.requestId || a.id;
+
+  // A. Local tickets
+  localTickets.forEach((t) => {
+    if (t.id) map.set(t.id, t);
+  });
+
+  // B. Customer portal submissions
+  customerRequests.forEach((cr) => {
+    const id = cr.requestId || cr.request_id || cr.id;
     if (id) {
+      const existing = map.get(id) || {};
       map.set(id, {
         id,
-        customer: a._customerName || a.customerName || a.customerId || 'Customer',
-        subject: a.subject || a.issue || a.description || 'Support request',
-        priority: (a.priority || 'Medium').charAt(0).toUpperCase() + (a.priority || 'Medium').slice(1).toLowerCase(),
-        status: a.status === 'OPEN' ? 'Open' : (a.status === 'RESOLVED' ? 'Resolved' : (a.status || 'Open')),
-        category: a._category || a.category || 'SUPPORT',
+        customer: cr.customerName || cr.customer_name || existing.customer || cr.customerId || 'Customer',
+        customerId: cr.customerId || cr.customer_id || existing.customerId || 'C001',
+        subject: cr.description || cr.subject || existing.subject || 'Support request',
+        description: cr.description || existing.description || '',
+        priority: cr.priority || existing.priority || 'Medium',
+        status: cr.status === 'RESOLVED' ? 'Resolved' : (cr.status === 'IN_PROGRESS' ? 'In Progress' : (existing.status || 'Open')),
+        category: cr.category || existing.category || 'Booking Issue',
+        sourceModule: 'support-request',
+        bookingId: cr.bookingId || cr.booking_id || existing.bookingId || '',
+        createdAt: cr.createdAt || cr.createdDate || existing.createdAt || new Date().toISOString(),
+        resolution: cr.resolution || cr.response || existing.resolution || '',
+        resolvedAt: cr.resolvedAt || existing.resolvedAt || '',
+        resolvedBy: cr.resolvedBy || existing.resolvedBy || '',
+      });
+    }
+  });
+
+  // C. Legacy DB
+  dbTickets.forEach((t) => {
+    if (t.id) {
+      map.set(t.id, { ...map.get(t.id), ...t });
+    }
+  });
+
+  // D. Backend Authoritative API Tickets
+  apiData.forEach((a) => {
+    const id = a.requestId || a.request_id || a.id;
+    if (id) {
+      const existing = map.get(id) || {};
+      const normStatus = a.status === 'RESOLVED' ? 'Resolved' : (a.status === 'IN_PROGRESS' ? 'In Progress' : (a.status === 'ESCALATED' ? 'Escalated' : (a.status === 'OPEN' ? 'Open' : (existing.status || 'Open'))));
+      // Never revert a known resolved ticket to open if locally resolved
+      const finalStatus = (existing.status === 'Resolved' && normStatus === 'Open') ? 'Resolved' : normStatus;
+
+      map.set(id, {
+        id,
+        customer: a.customerName || a._customerName || existing.customer || a.customerId || 'Customer',
+        customerId: a.customerId || existing.customerId || 'C001',
+        subject: a.description || a.subject || a.issue || existing.subject || 'Support request',
+        description: a.description || existing.description || '',
+        priority: a.priority || existing.priority || 'Medium',
+        status: finalStatus,
+        category: a.category || a._category || existing.category || 'Booking Issue',
         sourceModule: a.sourceModule || 'support-request',
-        bookingId: a._bookingId || a.bookingId || '',
-        createdAt: a.createdAt || a.created_date || new Date().toISOString(),
+        bookingId: a.bookingId || a._bookingId || existing.bookingId || '',
+        createdAt: a.createdDate || a.createdAt || existing.createdAt || new Date().toISOString(),
+        resolution: a.resolution || existing.resolution || a.resolutionNote || '',
+        resolvedAt: a.resolvedAt || existing.resolvedAt || '',
+        resolvedBy: a.resolvedBy || existing.resolvedBy || '',
       });
     }
   });
 
   const merged = Array.from(map.values());
+  setLocal(STORAGE_KEYS.TICKETS, merged);
   return { tickets: merged, isLive };
 }
 
-export async function resolveTicket(ticketId) {
-  // Try API first
+export async function resolveTicket(ticketId, note = 'Issue investigated and resolved.') {
+  const resolutionNote = note || 'Resolved by Support Agent';
   let apiSuccess = false;
+
+  // 1. Authoritative PATCH /support-requests/:id
   try {
     const res = await fetch(`${API_BASE}/support-requests/${ticketId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'x-role': 'SUPPORT' },
-      body: JSON.stringify({ status: 'RESOLVED' }),
+      body: JSON.stringify({
+        status: 'RESOLVED',
+        supporterId: 'SUP001',
+        resolution: resolutionNote,
+        resolvedBy: 'Support Agent',
+        resolvedAt: new Date().toISOString(),
+      }),
     });
-    if (res.ok) apiSuccess = true;
+    if (res.ok) {
+      apiSuccess = true;
+    } else {
+      // Fallback check for support-ticket ledger endpoint
+      const altRes = await fetch(`${API_BASE}/support-ticket/${ticketId}/resolve`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-role': 'SUPPORT' },
+      });
+      if (altRes.ok) apiSuccess = true;
+    }
   } catch (e) {
     // API offline
   }
 
-  // Update local storage
+  // 2. Update local storage in Support Portal
   const localTickets = getLocal(STORAGE_KEYS.TICKETS, INITIAL_TICKETS);
-  const updated = localTickets.map((t) =>
-    t.id === ticketId
-      ? { ...t, status: 'Resolved', resolvedAt: new Date().toISOString(), resolvedBy: 'Support Agent' }
-      : t
-  );
+  let foundLocal = false;
+  const updated = localTickets.map((t) => {
+    if (t.id === ticketId) {
+      foundLocal = true;
+      return {
+        ...t,
+        status: 'Resolved',
+        resolution: resolutionNote,
+        resolvedAt: new Date().toISOString(),
+        resolvedBy: 'Support Agent',
+      };
+    }
+    return t;
+  });
+  if (!foundLocal) {
+    updated.unshift({
+      id: ticketId,
+      customer: 'Customer',
+      subject: 'Support query',
+      priority: 'Medium',
+      status: 'Resolved',
+      resolution: resolutionNote,
+      resolvedAt: new Date().toISOString(),
+      resolvedBy: 'Support Agent',
+      createdAt: new Date().toISOString(),
+    });
+  }
   setLocal(STORAGE_KEYS.TICKETS, updated);
 
-  // Update legacy DB if available
+  // 3. Update customer portal shared storage (c2b_support_requests)
+  try {
+    const custReqs = JSON.parse(localStorage.getItem('c2b_support_requests') || '[]');
+    if (Array.isArray(custReqs)) {
+      let custFound = false;
+      const updatedCust = custReqs.map((r) => {
+        const id = r.requestId || r.request_id || r.id;
+        if (id === ticketId) {
+          custFound = true;
+          return {
+            ...r,
+            status: 'RESOLVED',
+            resolution: resolutionNote,
+            response: resolutionNote,
+            resolvedAt: new Date().toISOString(),
+            resolvedBy: 'Support Agent',
+          };
+        }
+        return r;
+      });
+      if (custFound) {
+        localStorage.setItem('c2b_support_requests', JSON.stringify(updatedCust));
+        window.dispatchEvent(new Event('storage'));
+      }
+    }
+  } catch (e) {}
+
+  // 4. Update legacy DB if available
   try {
     if (typeof window !== 'undefined' && window.DB && window.DB.supportRequests) {
-      window.DB.supportRequests.update(ticketId, { status: 'RESOLVED' });
+      window.DB.supportRequests.update(ticketId, {
+        status: 'RESOLVED',
+        resolution: resolutionNote,
+      });
     }
-  } catch (e) {
-    // ignore
-  }
+  } catch (e) {}
 
   return { success: true, apiSuccess };
 }
 
 export async function deescalateTicket(ticketId, note = 'De-escalated and resolved by support supervisor.') {
+  await resolveTicket(ticketId, note);
+
   const localTickets = getLocal(STORAGE_KEYS.TICKETS, INITIAL_TICKETS);
-  let resolvedTicket = null;
-  const updated = localTickets.map((t) => {
-    if (t.id === ticketId) {
-      resolvedTicket = {
-        ...t,
-        status: 'Resolved',
-        resolvedAt: new Date().toISOString(),
-        resolvedBy: 'Support Agent',
-        resolutionNote: note,
-      };
-      return resolvedTicket;
-    }
-    return t;
-  });
-  setLocal(STORAGE_KEYS.TICKETS, updated);
+  const target = localTickets.find((t) => t.id === ticketId);
 
   // Add to resolved escalations history
-  if (resolvedTicket) {
+  if (target) {
     const resolvedList = getLocal(STORAGE_KEYS.ESCALATIONS_RESOLVED, INITIAL_ESCALATIONS_RESOLVED);
     const updatedResolved = [
       {
-        id: resolvedTicket.id,
-        customer: resolvedTicket.customer,
-        bookingId: resolvedTicket.bookingId || 'B001',
-        subject: resolvedTicket.subject,
-        priority: resolvedTicket.priority,
+        id: target.id,
+        customer: target.customer,
+        bookingId: target.bookingId || 'B001',
+        subject: target.subject,
+        priority: target.priority,
         status: 'Resolved',
         resolvedBy: 'Support Agent',
         resolutionNote: note,
@@ -253,115 +357,6 @@ export async function deescalateTicket(ticketId, note = 'De-escalated and resolv
   return { success: true };
 }
 
-/* ── Financial Cost Ledger API (/api/support-ticket) ── */
-export async function getCostTickets(filters = {}) {
-  let isLive = false;
-  let data = [];
-
-  const params = new URLSearchParams();
-  if (filters.status) params.set('status', filters.status);
-  if (filters.category) params.set('category', filters.category);
-  const qs = params.toString() ? `?${params.toString()}` : '';
-
-  try {
-    const res = await fetch(`${API_BASE}/support-ticket${qs}`, {
-      headers: { 'Content-Type': 'application/json', 'x-role': 'SUPPORT' },
-      signal: AbortSignal.timeout(3000),
-    });
-    if (res.ok) {
-      const json = await res.json();
-      data = json.data || [];
-      isLive = true;
-    }
-  } catch (e) {
-    isLive = false;
-  }
-
-  if (!isLive) {
-    // Generate/read local cost tickets
-    let local = getLocal(STORAGE_KEYS.COST_TICKETS, null);
-    if (!local) {
-      local = [
-        { ticketId: 'ST-101', bookingId: 'B004', category: 'complaint', sourceModule: 'manual', costApplied: 350000, createdAt: '2026-10-13T09:30:00.000Z', status: 'open' },
-        { ticketId: 'ST-102', bookingId: 'B012', category: 'cancellation', sourceModule: 'support-request', costApplied: 80000, createdAt: '2026-10-12T14:15:00.000Z', status: 'resolved' },
-        { ticketId: 'ST-103', bookingId: 'B025', category: 'complaint', sourceModule: 'support-request', costApplied: 350000, createdAt: '2026-10-13T07:45:00.000Z', status: 'open' },
-        { ticketId: 'ST-104', bookingId: 'B060', category: 'sos', sourceModule: 'emergency', costApplied: 0, createdAt: '2026-10-13T10:15:00.000Z', status: 'open' },
-        { ticketId: 'ST-105', bookingId: 'B052', category: 'dispute', sourceModule: 'manual', costApplied: 500000, createdAt: '2026-10-12T18:30:00.000Z', status: 'resolved' },
-      ];
-      setLocal(STORAGE_KEYS.COST_TICKETS, local);
-    }
-    data = local.filter((t) => {
-      if (filters.status && t.status !== filters.status) return false;
-      if (filters.category && t.category !== filters.category) return false;
-      return true;
-    });
-  }
-
-  return { data, isLive };
-}
-
-export async function createManualCostTicket(payload) {
-  let isLive = false;
-  let newTicket = null;
-
-  try {
-    const res = await fetch(`${API_BASE}/support-ticket`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-role': 'SUPPORT' },
-      body: JSON.stringify(payload),
-    });
-    if (res.ok) {
-      const json = await res.json();
-      newTicket = json.data;
-      isLive = true;
-    }
-  } catch (e) {
-    isLive = false;
-  }
-
-  // Cost weights fallback
-  const costMap = {
-    complaint: 350000,
-    dispute: 500000,
-    cancellation: 80000,
-    lost_and_found: 100000,
-    sos: 0,
-  };
-
-  const localCost = getLocal(STORAGE_KEYS.COST_TICKETS, []);
-  const created = newTicket || {
-    ticketId: `ST-${Math.floor(100 + Math.random() * 900)}`,
-    bookingId: payload.bookingId,
-    category: payload.category,
-    sourceModule: payload.sourceModule || 'manual',
-    costApplied: costMap[payload.category] || 350000,
-    createdAt: new Date().toISOString(),
-    status: 'open',
-  };
-
-  setLocal(STORAGE_KEYS.COST_TICKETS, [created, ...localCost]);
-  return { success: true, ticket: created, isLive };
-}
-
-export async function resolveCostTicket(ticketId) {
-  let isLive = false;
-  try {
-    const res = await fetch(`${API_BASE}/support-ticket/${ticketId}/resolve`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'x-role': 'SUPPORT' },
-    });
-    if (res.ok) isLive = true;
-  } catch (e) {
-    isLive = false;
-  }
-
-  const local = getLocal(STORAGE_KEYS.COST_TICKETS, []);
-  const updated = local.map((t) => (t.ticketId === ticketId ? { ...t, status: 'resolved' } : t));
-  setLocal(STORAGE_KEYS.COST_TICKETS, updated);
-
-  return { success: true, isLive };
-}
-
 /* ── Customer Lookup ── */
 export function getCustomers() {
   let customers = getLocal(STORAGE_KEYS.CUSTOMERS, null);
@@ -373,23 +368,186 @@ export function getCustomers() {
 }
 
 /* ── Refunds Management ── */
-export function getRefunds() {
-  let refunds = getLocal(STORAGE_KEYS.REFUNDS, null);
-  if (!refunds) {
-    refunds = INITIAL_REFUNDS;
-    setLocal(STORAGE_KEYS.REFUNDS, refunds);
+export async function getRefunds() {
+  let apiRefunds = [];
+
+  // 1. Fetch from backend API
+  try {
+    const res = await fetch(`${API_BASE}/refunds`, {
+      headers: { 'x-role': 'SUPPORT' },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      apiRefunds = json.data || [];
+    }
+  } catch (e) {}
+
+  // 2. Read from customer portal local refunds (c2b_refunds)
+  let customerLocalRefunds = [];
+  try {
+    customerLocalRefunds = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
+  } catch (_) {}
+
+  // 3. Read cancelled bookings from c2b_bookings
+  let cancelledBookings = [];
+  try {
+    const bookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+    cancelledBookings = bookings.filter((b) => b.status === 'CANCELLED' || b.booking_status === 'CANCELLED');
+  } catch (_) {}
+
+  // 4. Read support portal local refunds
+  let supportLocalRefunds = getLocal(STORAGE_KEYS.REFUNDS, null);
+  if (!supportLocalRefunds) {
+    supportLocalRefunds = INITIAL_REFUNDS;
+    setLocal(STORAGE_KEYS.REFUNDS, supportLocalRefunds);
   }
-  return refunds;
+
+  // Unify and deduplicate by canonical bookingId / refundId
+  const map = new Map();
+
+  // A. Initial / support local
+  supportLocalRefunds.forEach((r) => {
+    const key = r.bookingId || r.booking_id || r.refundId;
+    if (key) {
+      map.set(key, {
+        refundId: r.refundId || `REF-${key}`,
+        bookingId: key,
+        customer: r.customer || r.passengerName || 'Customer',
+        amount: Number(r.amount || r.refundAmount || 0),
+        status: (r.status || 'REQUESTED').toUpperCase(),
+        date: r.date || r.refundDate || new Date().toISOString().split('T')[0],
+        reason: r.reason || 'Ticket cancellation',
+      });
+    }
+  });
+
+  // B. Cancelled bookings
+  cancelledBookings.forEach((b) => {
+    const bId = b.bookingId || b.booking_id;
+    if (bId) {
+      const existing = map.get(bId) || {};
+      const fare = Number(b.total || b.fare || 650);
+      const amt = Math.max(0, fare - 50);
+      map.set(bId, {
+        refundId: existing.refundId || `REF-${bId}`,
+        bookingId: bId,
+        customer: existing.customer || b.passengerName || b.customerName || 'Customer',
+        amount: existing.amount || amt,
+        status: existing.status || 'REQUESTED',
+        date: existing.date || (b.cancelled_at ? b.cancelled_at.split('T')[0] : new Date().toISOString().split('T')[0]),
+        reason: existing.reason || `Cancelled: ${b.from || 'Source'} → ${b.to || 'Destination'}`,
+      });
+    }
+  });
+
+  // C. Customer portal c2b_refunds
+  if (Array.isArray(customerLocalRefunds)) {
+    customerLocalRefunds.forEach((r) => {
+      const key = r.bookingId || r.booking_id || (r.refund_id ? r.refund_id.replace(/^REF-/, '') : null);
+      if (key) {
+        const existing = map.get(key) || {};
+        map.set(key, {
+          refundId: r.refund_id || r.refundId || `REF-${key}`,
+          bookingId: key,
+          customer: r.customer_name || r.customer || existing.customer || 'Customer',
+          amount: Number(r.refund_amount !== undefined ? r.refund_amount : (r.amount !== undefined ? r.amount : existing.amount || 0)),
+          status: (r.status || existing.status || 'REQUESTED').toUpperCase(),
+          date: r.request_date || r.date || existing.date || new Date().toISOString().split('T')[0],
+          reason: r.reason || existing.reason || (r.route ? `Cancellation: ${r.route}` : 'Customer requested cancellation'),
+        });
+      }
+    });
+  }
+
+  // D. Backend authoritative API refunds
+  if (Array.isArray(apiRefunds)) {
+    apiRefunds.forEach((a) => {
+      const key = a.bookingId || (a.refundId ? a.refundId.replace(/^REF-/, '') : null);
+      if (key) {
+        const existing = map.get(key) || {};
+        map.set(key, {
+          refundId: a.refundId || `REF-${key}`,
+          bookingId: key,
+          customer: a.passengerName || existing.customer || a.customerId || 'Customer',
+          amount: Number(a.refundAmount !== undefined ? a.refundAmount : existing.amount || 0),
+          status: (a.refundStatus || existing.status || 'REQUESTED').toUpperCase(),
+          date: a.refundDate || existing.date || new Date().toISOString().split('T')[0],
+          reason: a.reason || existing.reason || 'Ticket cancelled by customer',
+        });
+      }
+    });
+  }
+
+  const unified = Array.from(map.values());
+  setLocal(STORAGE_KEYS.REFUNDS, unified);
+  return unified;
 }
 
-export function updateRefundStatus(refundId, newStatus) {
-  const refunds = getRefunds();
-  const updated = refunds.map((r) =>
-    r.refundId === refundId
-      ? { ...r, status: newStatus, date: new Date().toISOString().split('T')[0] }
-      : r
-  );
+export async function updateRefundStatus(refundId, newStatus) {
+  // 1. Resolve canonical booking ID
+  let targetBookingId = refundId;
+  if (String(targetBookingId).startsWith('REF-')) {
+    targetBookingId = targetBookingId.replace(/^REF-/, '');
+  }
+
+  // 2. Authoritative backend PATCH call
+  let apiSuccess = false;
+  try {
+    const res = await fetch(`${API_BASE}/refunds/booking/${targetBookingId}/process`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-role': 'SUPPORT',
+      },
+      body: JSON.stringify({
+        adminId: 'SUP001',
+        refundStatus: newStatus,
+      }),
+    });
+    if (res.ok) {
+      apiSuccess = true;
+    }
+  } catch (e) {
+    console.warn('[Refunds API] process note:', e.message);
+  }
+
+  // 3. Update STORAGE_KEYS.REFUNDS
+  const current = getLocal(STORAGE_KEYS.REFUNDS, []);
+  const today = new Date().toISOString().split('T')[0];
+  const updated = current.map((r) => {
+    if (r.refundId === refundId || r.bookingId === targetBookingId) {
+      return { ...r, status: newStatus, date: today };
+    }
+    return r;
+  });
   setLocal(STORAGE_KEYS.REFUNDS, updated);
+
+  // 4. Synchronize with c2b_refunds (Customer Portal)
+  try {
+    const custRefunds = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
+    if (Array.isArray(custRefunds)) {
+      let found = false;
+      const updatedCust = custRefunds.map((cr) => {
+        const cKey = cr.booking_id || cr.bookingId || (cr.refund_id ? cr.refund_id.replace(/^REF-/, '') : '');
+        if (cKey === targetBookingId || cr.refund_id === refundId || cr.refundId === refundId) {
+          found = true;
+          return {
+            ...cr,
+            status: newStatus,
+            refund_status: newStatus,
+            processed_date: today,
+          };
+        }
+        return cr;
+      });
+      if (found) {
+        localStorage.setItem('c2b_refunds', JSON.stringify(updatedCust));
+        window.dispatchEvent(new Event('storage'));
+      }
+    }
+  } catch (_) {}
+
   return updated;
 }
 

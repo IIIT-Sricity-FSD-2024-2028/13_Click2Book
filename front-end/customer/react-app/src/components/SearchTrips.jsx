@@ -171,10 +171,15 @@ export default function SearchTrips({
       const saved = sessionStorage.getItem('c2b_pendingBookingRecord');
       if (saved) {
         const parsed = JSON.parse(saved);
+        if (parsed.status === 'CANCELLED' || parsed.booking_status === 'CANCELLED') {
+          sessionStorage.removeItem('c2b_pendingBookingRecord');
+          return null;
+        }
         if (parsed.seatBookings && Array.isArray(parsed.seatBookings)) {
           return {
             primaryBackendId: parsed.primaryBackendId || parsed.bookingId || null,
             seatBookings: parsed.seatBookings,
+            tripId: parsed.tripId || parsed.backendTripId || null,
           };
         }
       }
@@ -225,6 +230,10 @@ export default function SearchTrips({
     setFromCity(targetFrom);
     setToCity(targetTo);
     setTravelDate(targetDate);
+    setSelectedBus(null);
+    setSelectedSeats([]);
+    setPendingBackendBookings(null);
+    try { sessionStorage.removeItem('c2b_pendingBookingRecord'); } catch {}
 
     sessionStorage.setItem('searchFrom', targetFrom);
     sessionStorage.setItem('searchTo', targetTo);
@@ -285,22 +294,23 @@ export default function SearchTrips({
       });
 
       localMatches.forEach((b, idx) => {
-        const tid = b.tripId || b.id || `LOCAL_${idx}`;
+        const tid = b.backendTripId || b.tripId || b.id || `LOCAL_${idx}`;
         const totalSeats = parseInt(b.totalSeats, 10) || 40;
 
         // Compute actual booked seats for this local bus
         const tripBookings = localBookings.filter((bk) =>
           bk.status !== 'CANCELLED' && bk.booking_status !== 'CANCELLED' &&
-          (bk.tripId === tid || (bk.busName && b.busName && bk.busName.toLowerCase() === b.busName.toLowerCase()))
+          (bk.tripId === tid || bk.tripId === b.tripId || (b.backendTripId && bk.tripId === b.backendTripId) || (bk.busName && b.busName && bk.busName.toLowerCase() === b.busName.toLowerCase()))
         );
         const bookedCount = tripBookings.reduce((sum, bk) => sum + (Array.isArray(bk.seat_list) ? bk.seat_list.length : (bk.seats ? bk.seats.split(',').length : 1)), 0);
         const effectiveBooked = Math.max(b.bookedSeats || 0, bookedCount);
         const availableSeats = Math.max(0, totalSeats - effectiveBooked);
 
-        const hasStarted = statuses[tid] === 'IN_PROGRESS' || isDepartureTimeReached(b.journeyDate || targetDate, b.departureTime);
+        const hasStarted = statuses[tid] === 'IN_PROGRESS' || (b.tripId && statuses[b.tripId] === 'IN_PROGRESS') || isDepartureTimeReached(b.journeyDate || targetDate, b.departureTime);
 
         const localBusItem = {
           tripId: tid,
+          backendTripId: b.backendTripId || (/^T\d+$/.test(b.tripId) ? b.tripId : null),
           busName: b.busName || b.vehicleName || 'New Schedule Bus',
           vehicleType: b.busType || b.vehicleType || 'AC',
           providerName: 'Verified Provider',
@@ -315,11 +325,11 @@ export default function SearchTrips({
           vehicleId: b.vehicleId || '',
           providerId: b.providerId || 'P001',
           typeColor: '#ea580c',
-          status: hasStarted ? 'IN_PROGRESS' : (statuses[tid] || b.status || 'SCHEDULED'),
+          status: hasStarted ? 'IN_PROGRESS' : (statuses[tid] || (b.tripId && statuses[b.tripId]) || b.status || 'SCHEDULED'),
         };
 
         // If this trip was already returned from backend/mock, override it with provider's updated schedule
-        const existingIdx = results.findIndex((r) => r.tripId === tid);
+        const existingIdx = results.findIndex((r) => r.tripId === tid || (b.backendTripId && r.tripId === b.backendTripId));
         if (existingIdx >= 0) {
           results[existingIdx] = localBusItem;
         } else {
@@ -330,28 +340,8 @@ export default function SearchTrips({
       console.warn('Local schedule merge notice:', err);
     }
 
-    // 3. Fallback demo buses for standard routes if no live results found
-    const standardRoutes = [
-      { from: 'mumbai', to: 'pune' },
-      { from: 'pune', to: 'mumbai' },
-      { from: 'bangalore', to: 'mysore' },
-      { from: 'mysore', to: 'bangalore' },
-      { from: 'delhi', to: 'agra' },
-      { from: 'agra', to: 'delhi' },
-      { from: 'hyderabad', to: 'chennai' },
-      { from: 'chennai', to: 'hyderabad' },
-      { from: 'hyderabad', to: 'bangalore' },
-      { from: 'bangalore', to: 'hyderabad' },
-      { from: 'delhi', to: 'jaipur' },
-      { from: 'jaipur', to: 'delhi' },
-      { from: 'hyderabad', to: 'vijayawada' },
-      { from: 'vijayawada', to: 'tirupati' },
-    ];
-    const isStandardRoute = standardRoutes.some(
-      (r) => r.from === targetFrom.toLowerCase() && r.to === targetTo.toLowerCase()
-    );
-
-    if (results.length === 0 && isStandardRoute) {
+    // 3. Fallback demo buses if no live results found
+    if (results.length === 0) {
       results = MOCK_BUSES.map((b) => ({
         ...b,
         from: targetFrom,
@@ -423,6 +413,10 @@ export default function SearchTrips({
   const handleSelectBus = async (bus) => {
     setSelectedBus(bus);
     setSelectedSeats([]);
+    setPendingBackendBookings(null);
+    try {
+      sessionStorage.removeItem('c2b_pendingBookingRecord');
+    } catch {}
     const occupied = await fetchOccupiedSeats(bus);
     setBookedSeats(occupied);
     setStep('seats');
@@ -552,128 +546,338 @@ export default function SearchTrips({
     setPaymentError('');
 
     const customerId = customer?.id || 'C001';
-    const TRIP_MAP = {
-      'MOCK_T001': 'T018',
-      'MOCK_T002': 'T020',
-      'MOCK_T003': 'T025',
-      'MOCK_T004': 'T001',
-    };
-    const effectiveTripId = TRIP_MAP[selectedBus.tripId] || (selectedBus.tripId && selectedBus.tripId.startsWith('MOCK_') ? selectedBus.tripId.replace('MOCK_', '') : selectedBus.tripId);
-    const isLiveBus = effectiveTripId && !effectiveTripId.startsWith('LOCAL_');
-
-    // Retrieve or initialize per-seat booking state
+    let primaryBackendId = pendingBackendBookings?.primaryBackendId || null;
     let seatBookings = pendingBackendBookings?.seatBookings
       ? pendingBackendBookings.seatBookings.map((sb) => ({ ...sb }))
       : [];
-    let primaryBackendId = pendingBackendBookings?.primaryBackendId || null;
 
     try {
-      if (isLiveBus) {
-        // 1. Initialize seatBookings for all selected seats if not already created
-        if (seatBookings.length !== selectedSeats.length) {
-          seatBookings = selectedSeats.map((seatLabel) => {
-            const row = seatLabel.charCodeAt(0) - 65;
-            const col = parseInt(seatLabel.slice(1), 10) || 1;
-            const numericSeat = ((row * 4 + col - 1) % (selectedBus.totalSeats || 40)) + 1;
-            return {
-              seatLabel,
-              numericSeat,
-              bookingId: null,
-              paid: false,
-            };
-          });
+      // Check if selectedBus has an authoritative backend trip ID
+      let effectiveTripId = (selectedBus?.backendTripId && /^T\d+$/.test(selectedBus.backendTripId))
+        ? selectedBus.backendTripId
+        : (selectedBus?.tripId && /^T\d+$/.test(selectedBus.tripId) ? selectedBus.tripId : null);
+
+      const safeFetch = async (endpoint, opts = {}) => {
+        try {
+          const r = await fetch(endpoint.startsWith('/api') ? endpoint : `/api${endpoint}`, opts);
+          return await r.json().catch(() => ({}));
+        } catch {
+          const direct = endpoint.startsWith('/api') ? `http://localhost:3000${endpoint}` : `http://localhost:3000/api${endpoint}`;
+          const r = await fetch(direct, opts);
+          return await r.json().catch(() => ({}));
+        }
+      };
+
+      // If effectiveTripId is provided, verify it actually matches this route on the backend
+      if (effectiveTripId) {
+        try {
+          const tripCheck = await safeFetch(`/trips/${effectiveTripId}`);
+          if (!tripCheck || tripCheck.success === false || !tripCheck.data) {
+            effectiveTripId = null; // Trip does not exist on backend, must resolve/create
+          } else {
+            const td = tripCheck.data;
+            const s = (td?.source || td?.route || td?.trip?.source || '').toLowerCase();
+            const d = (td?.destination || td?.route || td?.trip?.destination || '').toLowerCase();
+            const targetS = fromCity.trim().toLowerCase();
+            const targetD = toCity.trim().toLowerCase();
+            if (s && d && (!s.includes(targetS) || !d.includes(targetD))) {
+              effectiveTripId = null; // Mismatched route trip ID, must resolve/create for this route
+            }
+          }
+        } catch {
+          effectiveTripId = null;
+        }
+      }
+
+      // If the selected bus does not have a canonical backend trip ID for this route,
+      // resolve or create the backend trip record before creating the booking.
+      if (!effectiveTripId) {
+        try {
+          // First, check if backend already has an authoritative trip for this route and bus
+          const src = encodeURIComponent(fromCity.trim());
+          const dst = encodeURIComponent(toCity.trim());
+          const tripsRes = await safeFetch(`/trips?source=${src}&destination=${dst}`);
+          const tripsList = Array.isArray(tripsRes?.data) ? tripsRes.data : (Array.isArray(tripsRes) ? tripsRes : []);
+          const matchedTrip = tripsList.find((t) =>
+            (t.busName && selectedBus?.busName && t.busName.toLowerCase() === selectedBus.busName.toLowerCase()) ||
+            (selectedBus?.departureTime && t.departureTime === selectedBus.departureTime)
+          ) || (tripsList.length > 0 ? tripsList[0] : null);
+
+          if (matchedTrip?.tripId && /^T\d+$/.test(matchedTrip.tripId)) {
+            effectiveTripId = matchedTrip.tripId;
+            selectedBus.tripId = effectiveTripId;
+            selectedBus.backendTripId = effectiveTripId;
+          }
+        } catch (e) {
+          console.warn('Backend trip lookup notice:', e);
         }
 
-        // 2. Reserve / create backend bookings for any seat that lacks a bookingId
-        for (let sIdx = 0; sIdx < seatBookings.length; sIdx++) {
-          const sb = seatBookings[sIdx];
-          if (!sb.bookingId) {
-            const bRes = await API.bookings.create(effectiveTripId, sb.numericSeat, paymentDetails.offerCode);
-            const backendId = bRes?.bookingId;
-            if (!backendId) {
-              throw new Error(`Failed to create booking reservation for seat ${sb.seatLabel}`);
+        // If still not a canonical trip ID, create the route, vehicle, schedule, and trip on backend
+        if (!effectiveTripId || !/^T\d+$/.test(effectiveTripId)) {
+          try {
+            const providerId = (selectedBus?.providerId && /^P\d+$/.test(selectedBus.providerId)) ? selectedBus.providerId : 'P001';
+
+            // Step 1: Route
+            const rRes = await safeFetch('/routes', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-role': 'PROVIDER' },
+              body: JSON.stringify({ source: fromCity.trim(), destination: toCity.trim(), distance: 300 }),
+            });
+            const routeId = rRes?.data?.routeId || rRes?.routeId || 'R001';
+
+            // Step 2: Vehicle - lookup existing vehicle or create new
+            const normalizedType = (() => {
+              const bt = selectedBus?.vehicleType || selectedBus?.busType;
+              if (!bt) return 'AC';
+              if (bt === 'Sleeper AC' || bt === 'AC Sleeper') return 'AC Sleeper';
+              if (bt === 'Volvo AC') return 'Volvo AC';
+              if (bt === 'Non-AC') return 'Non-AC';
+              if (bt === 'Semi-Sleeper') return 'Semi-Sleeper';
+              if (bt === 'AC Seater') return 'AC Seater';
+              if (bt === 'Luxury') return 'Luxury';
+              return bt;
+            })();
+
+            const cleanVNum = (((selectedBus?.busName || 'BUS').replace(/[^A-Za-z0-9]/g, '').toUpperCase()) + '0000').slice(0, 10);
+            let vehicleId = null;
+
+            try {
+              const vehListRes = await safeFetch('/vehicles', {
+                headers: { 'x-role': 'PROVIDER' },
+              });
+              const vehList = Array.isArray(vehListRes?.data) ? vehListRes.data : (Array.isArray(vehListRes) ? vehListRes : []);
+              const existingVeh = vehList.find((v) =>
+                v.vehicleNumber?.toUpperCase() === cleanVNum.toUpperCase() ||
+                (v.busName && selectedBus?.busName && v.busName.toLowerCase() === selectedBus.busName.toLowerCase()) ||
+                v.vehicleNumber?.toUpperCase() === selectedBus?.busName?.toUpperCase()
+              );
+              if (existingVeh?.vehicleId) {
+                vehicleId = existingVeh.vehicleId;
+              }
+            } catch (vErr) {
+              console.warn('Vehicle lookup note:', vErr);
             }
-            sb.bookingId = backendId;
-            if (!primaryBackendId) {
-              primaryBackendId = backendId;
+
+            if (!vehicleId) {
+              const vRes = await safeFetch('/vehicles', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-role': 'PROVIDER' },
+                body: JSON.stringify({
+                  providerId,
+                  vehicleNumber: cleanVNum,
+                  vehicleType: normalizedType,
+                  totalSeats: Number(selectedBus?.totalSeats) || 40,
+                  remainingSeats: Number(selectedBus?.totalSeats) || 40,
+                  busName: selectedBus?.busName || 'Express Bus',
+                  amenities: ['AC', 'WiFi'],
+                  rating: 4.5,
+                  boardingPoint: fromCity.trim(),
+                  droppingPoint: toCity.trim(),
+                }),
+              });
+              vehicleId = vRes?.data?.vehicleId || vRes?.vehicleId || 'V001';
             }
+
+            // Step 3: Schedule
+            const validJourneyDate = travelDate || new Date().toISOString().split('T')[0];
+            const sRes = await safeFetch('/schedules', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-role': 'PROVIDER' },
+              body: JSON.stringify({
+                routeId,
+                providerId,
+                departureTime: selectedBus?.departureTime || '08:00',
+                arrivalTime: selectedBus?.arrivalTime || '12:00',
+                journeyDate: validJourneyDate,
+                arrivalTimeToDestination: selectedBus?.arrivalTime || '12:00',
+                fare: Number(selectedBus?.price) || 500,
+              }),
+            });
+            const scheduleId = sRes?.data?.scheduleId || sRes?.scheduleId || 'SCH001';
+
+            // Step 4: Trip
+            const tRes = await safeFetch('/trips', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-role': 'PROVIDER' },
+              body: JSON.stringify({ vehicleId, scheduleId }),
+            });
+            const canonicalTripId = tRes?.data?.tripId || tRes?.tripId;
+            if (canonicalTripId && /^T\d+$/.test(canonicalTripId)) {
+              effectiveTripId = canonicalTripId;
+              selectedBus.tripId = effectiveTripId;
+              selectedBus.backendTripId = effectiveTripId;
+            }
+          } catch (e) {
+            console.warn('Auto-register backend trip error:', e);
           }
         }
 
-        // 3. Validate that every selected seat has a valid backend booking ID
-        const preVal = validateSeatBookings(seatBookings, selectedSeats.length);
-        if (!preVal.valid) {
-          throw new Error(`Cannot proceed with payment: ${preVal.error}`);
+        // Validate that we have a real authoritative backend trip ID before creating bookings
+        if (!effectiveTripId || !/^T\d+$/.test(effectiveTripId)) {
+          throw new Error(`Unable to resolve authoritative backend trip for ${selectedBus?.busName || 'selected bus'}. Please retry or choose a scheduled trip.`);
         }
 
-        const currentPrimary = primaryBackendId || seatBookings[0]?.bookingId;
-        setPendingBackendBookings({
-          primaryBackendId: currentPrimary,
-          seatBookings: seatBookings.map((sb) => ({ ...sb })),
-        });
-
-        // 4. Execute payments with retry logic:
-        // Skips already paid seats, marks each seat as paid immediately after pay() succeeds,
-        // and retains successful payment statuses if partway payment fails.
-        await executeSeatPayments({
-          seatBookings,
-          totalAmount: paymentDetails.total,
-          totalDiscount: paymentDetails.discount,
-          paymentMethod: paymentDetails.method,
-          payFn: (bId, amt, method, disc) => API.payments.pay(bId, amt, method, disc),
-          onSeatPaid: (sIdx, paidSeat, allSeats) => {
-            // Update state and session storage immediately upon each seat payment success
-            setPendingBackendBookings({
-              primaryBackendId: currentPrimary,
-              seatBookings: allSeats.map((sb) => ({ ...sb })),
+        // Synchronize canonical backend trip ID back to localStorage c2b_bus_schedules
+        try {
+          const raw = localStorage.getItem('c2b_bus_schedules');
+          if (raw) {
+            const schedules = JSON.parse(raw);
+            let updated = false;
+            schedules.forEach((s) => {
+              if (
+                s.tripId === selectedBus?.tripId ||
+                s.id === selectedBus?.tripId ||
+                (s.busName && selectedBus?.busName && s.busName.toLowerCase() === selectedBus.busName.toLowerCase())
+              ) {
+                s.tripId = effectiveTripId;
+                s.id = effectiveTripId;
+                s.backendTripId = effectiveTripId;
+                updated = true;
+              }
             });
-            try {
-              const inProgressRecord = {
-                bookingId: currentPrimary,
-                booking_id: currentPrimary,
-                primaryBackendId: currentPrimary,
-                backendBookingIds: allSeats.map((s) => s.bookingId).filter(Boolean),
-                seatBookings: allSeats.map((sb) => ({ ...sb })),
-                customerId,
-                customer_id: customerId,
-                customerName: passengers[0]?.name || customer?.name || 'Customer',
-                tripId: selectedBus.tripId,
-                busName: selectedBus.busName,
-                busType: selectedBus.vehicleType,
-                from: fromCity.trim(),
-                to: toCity.trim(),
-                date: travelDate,
-                seats: selectedSeats.join(', '),
-                seat_list: selectedSeats,
-                passengerCount: selectedSeats.length,
-                paymentMethod: paymentDetails.method,
-                discount: paymentDetails.discount,
-                total: paymentDetails.total,
-                status: 'PENDING',
-                booking_status: 'PENDING',
-                createdAt: new Date().toISOString(),
-                passengers,
-              };
-              sessionStorage.setItem('c2b_pendingBookingRecord', JSON.stringify(inProgressRecord));
-            } catch {}
-          },
-        });
-      } else {
-        // Non-live (mock) bus handling: generate mock booking IDs for each seat
-        if (seatBookings.length !== selectedSeats.length) {
-          const mockPrefix = 'MOCK_BK_' + Date.now();
-          seatBookings = selectedSeats.map((seatLabel, idx) => ({
-            seatLabel,
-            numericSeat: idx + 1,
-            bookingId: `${mockPrefix}_${idx + 1}`,
-            paid: true,
-          }));
-        } else {
-          seatBookings.forEach((sb) => {
-            sb.paid = true;
-          });
+            if (updated) {
+              localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
+            }
+          }
+        } catch (storageErr) {
+          console.warn('Sync canonical trip to local schedules notice:', storageErr);
         }
       }
+
+      // Only consider pendingBackendBookings if it matches the current trip and bus
+      const isMatchingPendingTrip =
+        pendingBackendBookings &&
+        (pendingBackendBookings.tripId === effectiveTripId ||
+         pendingBackendBookings.backendTripId === effectiveTripId ||
+         selectedBus?.tripId === pendingBackendBookings.tripId);
+
+      // 1. Initialize seatBookings for all selected seats
+      seatBookings = selectedSeats.map((seatLabel) => {
+        const row = seatLabel.charCodeAt(0) - 65;
+        const col = parseInt(seatLabel.slice(1), 10) || 1;
+        const numericSeat = ((row * 4 + col - 1) % (selectedBus.totalSeats || 40)) + 1;
+        const matched = isMatchingPendingTrip
+          ? pendingBackendBookings?.seatBookings?.find(
+              (b) => b.seatLabel === seatLabel && b.bookingId
+            )
+          : null;
+        return {
+          seatLabel,
+          numericSeat,
+          bookingId: matched?.bookingId || null,
+          paid: matched?.paid || false,
+        };
+      });
+
+      // 2. Validate any existing bookingId and create backend booking reservations for any seat lacking an active PENDING booking
+      for (let sIdx = 0; sIdx < seatBookings.length; sIdx++) {
+        const sb = seatBookings[sIdx];
+        let needsCreate = !sb.bookingId;
+
+        if (sb.bookingId) {
+          try {
+            const check = await API.bookings.getById(sb.bookingId);
+            const bData = check?.data !== undefined ? check.data : check;
+            if (
+              !bData ||
+              bData.bookingStatus !== 'PENDING' ||
+              (effectiveTripId && bData.tripId !== effectiveTripId) ||
+              bData.seatNumber !== sb.numericSeat
+            ) {
+              needsCreate = true;
+              sb.bookingId = null;
+              sb.paid = false;
+            }
+          } catch {
+            needsCreate = true;
+            sb.bookingId = null;
+            sb.paid = false;
+          }
+        }
+
+        if (needsCreate) {
+          if (sIdx === 0) {
+            primaryBackendId = null;
+          }
+          // Apply offerCode only on primary seat reservation so discount is not multiplied per seat
+          const offerToPass = sIdx === 0 ? paymentDetails.offerCode : null;
+          const bRes = await API.bookings.create(effectiveTripId, sb.numericSeat, offerToPass);
+          const backendId = bRes?.bookingId || bRes?.data?.bookingId;
+          if (!backendId) {
+            throw new Error(`Failed to create booking reservation for seat ${sb.seatLabel}`);
+          }
+          sb.bookingId = backendId;
+          if (!primaryBackendId || sIdx === 0) {
+            primaryBackendId = backendId;
+          }
+        }
+      }
+
+      // 3. Validate that every selected seat has a valid backend booking ID
+      const preVal = validateSeatBookings(seatBookings, selectedSeats.length);
+      if (!preVal.valid) {
+        throw new Error(`Cannot proceed with payment: ${preVal.error}`);
+      }
+
+      const currentPrimary = seatBookings[0]?.bookingId || primaryBackendId;
+      primaryBackendId = currentPrimary;
+      setPendingBackendBookings({
+        primaryBackendId: currentPrimary,
+        seatBookings: seatBookings.map((sb) => ({ ...sb })),
+        tripId: effectiveTripId,
+      });
+
+      // 4. Execute payments with retry logic:
+      // Skips already paid seats, marks each seat as paid immediately after pay() succeeds,
+      // and retains successful payment statuses if partway payment fails.
+      await executeSeatPayments({
+        seatBookings,
+        totalAmount: paymentDetails.total,
+        totalDiscount: paymentDetails.discount,
+        paymentMethod: paymentDetails.method,
+        payFn: (bId, amt, method, disc) => API.payments.pay(bId, amt, method, disc),
+        onSeatPaid: (sIdx, paidSeat, allSeats) => {
+          setPendingBackendBookings({
+            primaryBackendId: currentPrimary,
+            seatBookings: allSeats.map((sb) => ({ ...sb })),
+          });
+          try {
+            const inProgressRecord = {
+              bookingId: currentPrimary,
+              booking_id: currentPrimary,
+              primaryBackendId: currentPrimary,
+              backendBookingIds: allSeats.map((s) => s.bookingId).filter(Boolean),
+              seatBookings: allSeats.map((sb) => ({ ...sb })),
+              customerId,
+              customer_id: customerId,
+              customerName: passengers[0]?.name || customer?.name || 'Customer',
+              passengerName: passengers[0]?.name || customer?.name || 'Passenger',
+              tripId: effectiveTripId,
+              backendTripId: effectiveTripId,
+              busName: selectedBus.busName,
+              busType: selectedBus.vehicleType,
+              from: fromCity.trim(),
+              to: toCity.trim(),
+              date: travelDate,
+              journeyDate: travelDate,
+              seats: selectedSeats.join(', '),
+              seat_list: selectedSeats,
+              passengerCount: selectedSeats.length,
+              paymentMethod: paymentDetails.method,
+              discount: paymentDetails.discount,
+              total: paymentDetails.total,
+              subtotal: paymentDetails.total,
+              status: 'PENDING',
+              booking_status: 'PENDING',
+              createdAt: new Date().toISOString(),
+              passengers,
+              providerId: selectedBus.providerId || 'P001',
+              provider_id: selectedBus.providerId || 'P001',
+            };
+            sessionStorage.setItem('c2b_pendingBookingRecord', JSON.stringify(inProgressRecord));
+          } catch {}
+        },
+      });
 
       // 5. Final validation before claiming booking is confirmed:
       // Validate that every selected seat has a valid backend booking ID and is paid
@@ -686,14 +890,15 @@ export default function SearchTrips({
         throw new Error(`Cannot confirm booking: seats ${unpaidSeats.map((u) => u.seatLabel).join(', ')} remain unpaid.`);
       }
 
-      const bookingId = primaryBackendId || seatBookings[0]?.bookingId || ('BUS' + Date.now());
+      const bookingId = primaryBackendId || seatBookings[0]?.bookingId;
       const backendBookingIds = seatBookings.map((sb) => sb.bookingId).filter(Boolean);
 
-      // 6. Create confirmed booking object
+      // 6. Create confirmed booking object with full multi-portal metadata
       const leadPax = passengers[0] || {};
       const newBooking = {
         bookingId,
         booking_id: bookingId,
+        primaryBackendId: bookingId,
         backendBookingIds: backendBookingIds.length > 0 ? backendBookingIds : undefined,
         seatBookings: seatBookings.map((sb) => ({ ...sb })),
         customerId,
@@ -702,7 +907,8 @@ export default function SearchTrips({
         passengerName: leadPax.name || customer?.name || 'Passenger',
         phone: leadPax.phone || customer?.phone || '—',
         email: leadPax.email || customer?.email || '—',
-        tripId: selectedBus.tripId,
+        tripId: effectiveTripId,
+        backendTripId: effectiveTripId,
         busName: selectedBus.busName,
         busType: selectedBus.vehicleType,
         from: fromCity.trim(),
@@ -724,12 +930,15 @@ export default function SearchTrips({
         booking_status: 'CONFIRMED',
         createdAt: new Date().toISOString(),
         passengers,
+        providerId: selectedBus.providerId || 'P001',
+        provider_id: selectedBus.providerId || 'P001',
       };
 
-      // 7. Save confirmed booking to localStorage
+      // 7. Save confirmed booking to localStorage (prevent duplicates by booking ID)
       const existing = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-      existing.unshift(newBooking);
-      localStorage.setItem('c2b_bookings', JSON.stringify(existing));
+      const filtered = existing.filter((b) => (b.bookingId || b.booking_id) !== bookingId);
+      filtered.unshift(newBooking);
+      localStorage.setItem('c2b_bookings', JSON.stringify(filtered));
 
       // 7b. Update schedule in c2b_bus_schedules so provider immediately sees booked count & revenue
       try {
@@ -737,11 +946,16 @@ export default function SearchTrips({
         let updatedSched = false;
         localScheds.forEach((s) => {
           const tid = s.id || s.tripId;
-          const matchId = tid && selectedBus.tripId && tid === selectedBus.tripId;
+          const matchId = tid && (tid === effectiveTripId || tid === selectedBus.tripId || tid === selectedBus.backendTripId);
           const matchRoute = s.from?.toLowerCase() === fromCity.trim().toLowerCase() &&
                              s.to?.toLowerCase() === toCity.trim().toLowerCase() &&
                              (!s.journeyDate || s.journeyDate === travelDate);
           if (matchId || matchRoute) {
+            if (effectiveTripId && /^T\d+$/.test(effectiveTripId)) {
+              s.id = effectiveTripId;
+              s.tripId = effectiveTripId;
+              s.backendTripId = effectiveTripId;
+            }
             s.bookedSeats = (s.bookedSeats || 0) + selectedSeats.length;
             s.availableSeats = Math.max(0, (s.totalSeats || 40) - s.bookedSeats);
             s.revenue = (s.revenue || 0) + paymentDetails.total;
@@ -793,22 +1007,26 @@ export default function SearchTrips({
       setPaymentError(errText);
       showToast(`⚠️ Payment failed: ${errText} Booking remains in PENDING status.`, 'error');
 
-      const pendingId = primaryBackendId || seatBookings[0]?.bookingId || ('PENDING_' + Date.now());
+      const currentSeatBookings = seatBookings.length > 0 ? seatBookings : (pendingBackendBookings?.seatBookings || []);
+      const pendingId = primaryBackendId || currentSeatBookings[0]?.bookingId || ('PENDING_' + Date.now());
       const pendingRecord = {
         bookingId: pendingId,
         booking_id: pendingId,
         primaryBackendId: pendingId,
-        backendBookingIds: seatBookings.map((s) => s.bookingId).filter(Boolean),
-        seatBookings: seatBookings.map((sb) => ({ ...sb })),
+        backendBookingIds: currentSeatBookings.map((s) => s.bookingId).filter(Boolean),
+        seatBookings: currentSeatBookings.map((sb) => ({ ...sb })),
         customerId,
         customer_id: customerId,
         customerName: passengers[0]?.name || customer?.name || 'Customer',
-        tripId: selectedBus.tripId,
-        busName: selectedBus.busName,
-        busType: selectedBus.vehicleType,
+        passengerName: passengers[0]?.name || customer?.name || 'Passenger',
+        tripId: effectiveTripId || selectedBus?.tripId,
+        backendTripId: effectiveTripId || selectedBus?.backendTripId,
+        busName: selectedBus?.busName,
+        busType: selectedBus?.vehicleType,
         from: fromCity.trim(),
         to: toCity.trim(),
         date: travelDate,
+        journeyDate: travelDate,
         seats: selectedSeats.join(', '),
         seat_list: selectedSeats,
         passengerCount: selectedSeats.length,
@@ -819,6 +1037,8 @@ export default function SearchTrips({
         booking_status: 'PENDING',
         createdAt: new Date().toISOString(),
         passengers,
+        providerId: selectedBus?.providerId || 'P001',
+        provider_id: selectedBus?.providerId || 'P001',
       };
 
       try {
@@ -826,10 +1046,12 @@ export default function SearchTrips({
       } catch {}
 
       // Retain the seatBookings state in React so retry immediately has access to already paid seats
-      setPendingBackendBookings({
-        primaryBackendId: pendingId,
-        seatBookings: seatBookings.map((sb) => ({ ...sb })),
-      });
+      if (currentSeatBookings.length > 0) {
+        setPendingBackendBookings({
+          primaryBackendId: pendingId,
+          seatBookings: currentSeatBookings.map((sb) => ({ ...sb })),
+        });
+      }
     } finally {
       setIsProcessingPayment(false);
     }
@@ -1142,6 +1364,8 @@ export default function SearchTrips({
             setSelectedBus(null);
             setSelectedSeats([]);
             setConfirmedBooking(null);
+            setPendingBackendBookings(null);
+            try { sessionStorage.removeItem('c2b_pendingBookingRecord'); } catch {}
             setStep('search');
           }}
         />

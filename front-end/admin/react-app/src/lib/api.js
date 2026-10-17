@@ -35,22 +35,61 @@ export async function loadAdminDashboardData() {
   const routeById = new Map(routes.map((route) => [route.routeId, route]));
   const scheduleById = new Map(schedules.map((schedule) => [schedule.scheduleId, schedule]));
   const tripById = new Map(trips.map((trip) => [trip.tripId, trip]));
-  const activeTripStatuses = new Set(['IN_PROGRESS']);
+  const activeTripStatuses = new Set(['SCHEDULED', 'IN_PROGRESS']);
   const activeVehicleIds = new Set(trips
     .filter((trip) => activeTripStatuses.has(String(trip.tripStatus || '').toUpperCase()))
     .map((trip) => trip.vehicleId));
   const busesByRoute = new Map();
+  const durationByRoute = new Map();
+
   trips.forEach((trip) => {
-    if (!activeTripStatuses.has(String(trip.tripStatus || '').toUpperCase())) return;
-    const routeId = scheduleById.get(trip.scheduleId)?.routeId;
-    if (!routeId) return;
-    if (!busesByRoute.has(routeId)) busesByRoute.set(routeId, new Set());
-    busesByRoute.get(routeId).add(trip.vehicleId);
+    const schedule = scheduleById.get(trip.scheduleId);
+    const routeId = schedule?.routeId;
+    if (activeTripStatuses.has(String(trip.tripStatus || '').toUpperCase()) && routeId) {
+      if (!busesByRoute.has(routeId)) busesByRoute.set(routeId, new Set());
+      busesByRoute.get(routeId).add(trip.vehicleId);
+    }
+    if (routeId && trip.duration && !durationByRoute.has(routeId)) {
+      durationByRoute.set(routeId, trip.duration);
+    }
   });
-  const dashboardRoutes = routes.map((route) => ({
-    ...route,
-    activeBuses: busesByRoute.get(route.routeId)?.size || 0,
-  }));
+
+  schedules.forEach((sch) => {
+    if (sch.routeId && sch.departureTime && sch.arrivalTime && !durationByRoute.has(sch.routeId)) {
+      const depParts = sch.departureTime.split(':').map(Number);
+      const arrParts = sch.arrivalTime.split(':').map(Number);
+      if (!isNaN(depParts[0]) && !isNaN(arrParts[0])) {
+        let diffMins = (arrParts[0] * 60 + (arrParts[1] || 0)) - (depParts[0] * 60 + (depParts[1] || 0));
+        if (diffMins <= 0) diffMins += 24 * 60;
+        const h = Math.floor(diffMins / 60);
+        const m = diffMins % 60;
+        durationByRoute.set(sch.routeId, `${h}h ${String(m).padStart(2, '0')}m`);
+      }
+    }
+  });
+
+  const dashboardRoutes = routes.map((route) => {
+    let dur = durationByRoute.get(route.routeId);
+    if (!dur && route.distance) {
+      const estHours = Math.floor(route.distance / 60);
+      const estMins = Math.round((route.distance % 60) * 0.8);
+      dur = `${estHours}h ${String(estMins).padStart(2, '0')}m`;
+    }
+    return {
+      ...route,
+      duration: dur || '—',
+      activeBuses: busesByRoute.get(route.routeId)?.size || 0,
+    };
+  });
+
+  const localBookings = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+    } catch (_) {
+      return [];
+    }
+  })();
+  const localByBookingId = new Map(localBookings.map((b) => [b.bookingId || b.booking_id, b]));
 
   const dashboardBookings = bookings.map((booking) => {
     const trip = tripById.get(booking.tripId);
@@ -58,16 +97,27 @@ export async function loadAdminDashboardData() {
     const route = routeById.get(schedule?.routeId);
     const payment = paymentByBooking.get(booking.bookingId);
     const customer = customerById.get(booking.customerId);
+    const local = localByBookingId.get(booking.bookingId);
+
+    const routeStr = local?.from && local?.to
+      ? `${local.from} → ${local.to}`
+      : route
+      ? `${route.source} → ${route.destination}`
+      : trip?.route || (trip?.source && trip?.destination ? `${trip.source} → ${trip.destination}` : 'Unknown Route');
+
+    const customerName = local?.customerName || local?.passengerName || customer?.name || booking.customerId;
+    const amountVal = Number(payment?.amount || local?.total || local?.amount || schedule?.fare || trip?.fare || 0);
+
     return {
       id: booking.bookingId,
-      customer: customer?.name || booking.customerId,
-      route: route ? `${route.source} → ${route.destination}` : 'Unknown Route',
-      date: booking.bookingDate,
-      seats: booking.seatNumber ?? '—',
-      status: String(booking.bookingStatus || 'pending').toLowerCase(),
-      amount: Number(payment?.amount || 0),
-      paymentStatus: payment?.paymentStatus || 'PENDING',
-      paymentId: payment?.paymentId,
+      customer: customerName,
+      route: routeStr,
+      date: booking.bookingDate || local?.journeyDate || local?.date,
+      seats: local?.seats || (Array.isArray(local?.seat_list) ? local.seat_list.join(', ') : booking.seatNumber ?? '—'),
+      status: String(booking.bookingStatus || local?.status || 'pending').toLowerCase(),
+      amount: amountVal,
+      paymentStatus: payment?.paymentStatus || (booking.bookingStatus === 'CONFIRMED' ? 'SUCCESS' : 'PENDING'),
+      paymentId: payment?.paymentId || (local ? `PAY-${booking.bookingId}` : undefined),
       paymentDate: payment?.paymentDate || booking.bookingDate,
     };
   }).reverse();
@@ -77,11 +127,12 @@ export async function loadAdminDashboardData() {
     ...refunds.map((refund) => {
       const booking = bookings.find((item) => item.bookingId === refund.bookingId);
       const customer = booking && customerById.get(booking.customerId);
+      const local = localByBookingId.get(refund.bookingId);
       const status = String(refund.refundStatus || 'REQUESTED').toUpperCase();
       return {
         id: `RF-${refund.bookingId}`,
         bookingId: refund.bookingId,
-        customer: customer?.name || booking?.customerId || refund.bookingId,
+        customer: local?.customerName || customer?.name || booking?.customerId || refund.bookingId,
         amount: Number(refund.refundAmount || 0),
         reason: refund.cancellationReason || refund.reviewReason || 'Customer requested cancellation',
         date: refund.refundDate || refund.createdAt,
@@ -94,10 +145,11 @@ export async function loadAdminDashboardData() {
       .map((payment) => {
         const booking = bookings.find((item) => item.bookingId === payment.bookingId);
         const customer = booking && customerById.get(booking.customerId);
+        const local = localByBookingId.get(payment.bookingId);
         return {
           id: `RF-${payment.bookingId}`,
           bookingId: payment.bookingId,
-          customer: customer?.name || booking?.customerId || payment.bookingId,
+          customer: local?.customerName || customer?.name || booking?.customerId || payment.bookingId,
           amount: Number(payment.amount || 0),
           reason: 'Booking cancelled & payment refunded',
           date: payment.paymentDate,
@@ -109,7 +161,7 @@ export async function loadAdminDashboardData() {
   const dashboardUsers = [
     ...customers.map((user) => ({ id: user.customerId, name: user.name, email: user.email, role: 'customer', phone: user.phoneNumber || '—', status: String(user.status || 'ACTIVE').toLowerCase(), joined: user.createdAt || '—', canToggle: true })),
     ...providers.map((user) => ({ id: user.providerId, name: user.name, email: user.email, role: 'service_provider', phone: user.phoneNumber || '—', status: String(user.status || (user.approved ? 'ACTIVE' : 'INACTIVE')).toLowerCase(), joined: user.createdAt || '—', canToggle: true })),
-    ...supportStaff.map((user) => ({ id: user.supporterId, name: user.name, email: user.email, role: 'support', phone: user.phoneNumber || '—', status: String(user.status || 'ACTIVE').toLowerCase(), joined: user.createdAt || '—', canToggle: false })),
+    ...supportStaff.map((user) => ({ id: user.supporterId, name: user.name, email: user.email, role: 'support', phone: user.phoneNumber || '—', status: String(user.status || 'ACTIVE').toLowerCase(), joined: user.createdAt || '—', canToggle: true })),
   ];
 
   const today = new Date();
@@ -160,11 +212,21 @@ export async function loadAdminRevenueData() {
   const paymentByBooking = new Map(payments.map((payment) => [payment.bookingId, payment]));
   const refundBookingIds = new Set(refunds.map((refund) => refund.bookingId));
   const paidPayments = payments.filter((payment) => ['SUCCESS', 'REFUNDED'].includes(String(payment.paymentStatus).toUpperCase()));
+
+  const localBookings = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+    } catch (_) {
+      return [];
+    }
+  })();
+  const localByBookingId = new Map(localBookings.map((b) => [b.bookingId || b.booking_id, b]));
+
   const completedRefunds = [
     ...refunds.filter((refund) => String(refund.refundStatus).toUpperCase() === 'COMPLETED').map((refund) => ({
       id: `RF-${refund.bookingId}`,
       bookingId: refund.bookingId,
-      customer: customerById.get(bookings.find((booking) => booking.bookingId === refund.bookingId)?.customerId)?.name || refund.bookingId,
+      customer: localByBookingId.get(refund.bookingId)?.customerName || customerById.get(bookings.find((booking) => booking.bookingId === refund.bookingId)?.customerId)?.name || refund.bookingId,
       amount: Number(refund.refundAmount || 0),
       date: refund.refundDate || refund.createdAt,
       completedDate: refund.completedDate || refund.refundDate,
@@ -173,7 +235,7 @@ export async function loadAdminRevenueData() {
     ...payments.filter((payment) => payment.paymentStatus === 'REFUNDED' && !refundBookingIds.has(payment.bookingId)).map((payment) => ({
       id: `RF-${payment.bookingId}`,
       bookingId: payment.bookingId,
-      customer: customerById.get(bookings.find((booking) => booking.bookingId === payment.bookingId)?.customerId)?.name || payment.bookingId,
+      customer: localByBookingId.get(payment.bookingId)?.customerName || customerById.get(bookings.find((booking) => booking.bookingId === payment.bookingId)?.customerId)?.name || payment.bookingId,
       amount: Number(payment.amount || 0),
       date: payment.paymentDate,
       status: 'refunded',
@@ -182,13 +244,14 @@ export async function loadAdminRevenueData() {
   const revenueBookings = bookings.map((booking) => {
     const payment = paymentByBooking.get(booking.bookingId);
     const customer = customerById.get(booking.customerId);
+    const local = localByBookingId.get(booking.bookingId);
     return {
       id: booking.bookingId,
-      customer: customer?.name || booking.customerId,
-      date: booking.bookingDate,
-      amount: Number(payment?.amount || 0),
-      paymentStatus: payment?.paymentStatus || 'PENDING',
-      paymentId: payment?.paymentId,
+      customer: local?.customerName || local?.passengerName || customer?.name || booking.customerId,
+      date: booking.bookingDate || local?.journeyDate || local?.date,
+      amount: Number(payment?.amount || local?.total || local?.amount || 0),
+      paymentStatus: payment?.paymentStatus || (booking.bookingStatus === 'CONFIRMED' ? 'SUCCESS' : 'PENDING'),
+      paymentId: payment?.paymentId || (local ? `PAY-${booking.bookingId}` : undefined),
       paymentDate: payment?.paymentDate || booking.bookingDate,
     };
   });

@@ -4,4 +4,7 @@ export interface Provider {
   email: string;
   password: string;
   approved: boolean;
+  status?: 'ACTIVE' | 'INACTIVE';
+  phoneNumber?: string;
+  createdAt?: string;
 }

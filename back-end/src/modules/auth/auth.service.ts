@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { CustomerRepository } from '../customer/customer.repository';
 import { ProviderRepository } from '../provider/provider.repository';
+import { SupportRepository } from '../support/support.repository';
 import { LoginDto } from './dto/auth.dto';
 import { successResponse } from '../../common/utils/response.util';
 
@@ -15,6 +16,7 @@ export class AuthService {
   constructor(
     private readonly customerRepo: CustomerRepository,
     private readonly providerRepo: ProviderRepository,
+    private readonly supportRepo: SupportRepository,
   ) {}
 
   login(dto: LoginDto) {
@@ -31,27 +33,53 @@ export class AuthService {
       });
     }
 
-    // 2. Check the real provider repository — every seeded/registered provider can
-    // log in with their real providerId/name, not a hardcoded stand-in.
+    // 2. Check support staff repository (supports seeded and admin-created support agents)
+    const supportAgent = this.supportRepo.findByEmail(dto.email);
+    if (supportAgent && supportAgent.password === dto.password) {
+      if (supportAgent.status === 'INACTIVE') {
+        throw new UnauthorizedException('Support agent account is inactive. Please contact administrator.');
+      }
+      return successResponse('Login successful', {
+        id:    supportAgent.supporterId,
+        name:  supportAgent.name,
+        email: supportAgent.email,
+        role:  'SUPPORT',
+        status: supportAgent.status || 'ACTIVE',
+      });
+    }
+
+    // 3. Check the real provider repository
     const provider = this.providerRepo.findByEmail(dto.email);
     if (provider && provider.password === dto.password) {
+      if ((provider as any).status === 'INACTIVE' || !provider.approved) {
+        throw new UnauthorizedException(
+          !provider.approved
+            ? 'Provider account is awaiting admin approval'
+            : 'Provider account is inactive. Please contact administrator.'
+        );
+      }
       return successResponse('Login successful', {
         id:    provider.providerId,
         name:  provider.name,
         email: provider.email,
         role:  'PROVIDER',
         approved: provider.approved,
+        status: (provider as any).status || 'ACTIVE',
       });
     }
 
-    // 3. Check customer repository (supports dynamically registered customers too)
+    // 4. Check customer repository (supports dynamically registered customers too)
     const customer = this.customerRepo.findByEmail(dto.email);
     if (customer && customer.password === dto.password) {
+      if ((customer as any).status === 'INACTIVE') {
+        throw new UnauthorizedException('Customer account is inactive. Please contact administrator.');
+      }
       return successResponse('Login successful', {
         id:    customer.customerId,
         name:  customer.name,
         email: customer.email,
         role:  'CUSTOMER',
+        status: (customer as any).status || 'ACTIVE',
       });
     }
 

@@ -15,6 +15,7 @@ export class CustomerRepository {
       gender: Gender.MALE,
       phoneNumber: '9876543210',
       createdAt: '2026-01-10',
+      status: 'ACTIVE',
     },
     {
       customerId: 'C002',
@@ -25,6 +26,7 @@ export class CustomerRepository {
       gender: Gender.FEMALE,
       phoneNumber: '9876543211',
       createdAt: '2026-01-12',
+      status: 'ACTIVE',
     },
     {
       customerId: 'C003',
@@ -35,6 +37,7 @@ export class CustomerRepository {
       gender: Gender.MALE,
       phoneNumber: '9876543212',
       createdAt: '2026-01-15',
+      status: 'ACTIVE',
     },
     {
       customerId: 'C004',
@@ -45,12 +48,14 @@ export class CustomerRepository {
       gender: Gender.MALE,
       phoneNumber: '9876543213',
       createdAt: '2026-01-20',
+      status: 'ACTIVE',
     },
   ];
 
   create(data: Omit<Customer, 'customerId' | 'createdAt'>): Customer {
     const customer: Customer = {
       customerId: generateId('C'),
+      status: 'ACTIVE',
       ...data,
       createdAt: new Date().toISOString().split('T')[0],
     };

@@ -267,13 +267,14 @@ export default function PaymentModal({
       {/* Pay Now Button */}
       <button
         type="button"
+        id="process-payment-btn"
         className="btn-orange"
         style={{ width: '100%', padding: '14px' }}
         disabled={isProcessing}
         onClick={handlePay}
       >
         <ShieldCheck size={18} />
-        {isProcessing ? 'Processing Payment…' : (paymentError ? `Retry Payment (₹${netTotal})` : `Pay ₹${netTotal} & Confirm Booking`)}
+        {isProcessing ? 'Processing Payment…' : 'Process Payment'}
       </button>
     </div>
   );

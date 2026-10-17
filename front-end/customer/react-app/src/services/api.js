@@ -45,10 +45,22 @@ export async function apiFetch(path, options = {}) {
     delete headers['Content-Type'];
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch (netErr) {
+    try {
+      res = await fetch(`http://localhost:3000${API_BASE}${path}`, {
+        ...options,
+        headers,
+      });
+    } catch {
+      throw netErr;
+    }
+  }
 
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.success === false) {
@@ -131,6 +143,12 @@ export const API = {
     async getById(bookingId) {
       return apiFetch(`/bookings/${bookingId}`);
     },
+    async registerHistorical(bookingData) {
+      return apiFetch('/bookings/historical', {
+        method: 'POST',
+        body: JSON.stringify(bookingData),
+      });
+    },
   },
 
   payments: {
@@ -158,10 +176,14 @@ export const API = {
   },
 
   refunds: {
-    async request(bookingId, refundAmount) {
+    async request(bookingId, refundAmount, extra = {}) {
       return apiFetch('/refunds/request', {
         method: 'POST',
-        body: JSON.stringify({ bookingId, refundAmount: Number(refundAmount) }),
+        body: JSON.stringify({
+          bookingId,
+          refundAmount: Number(refundAmount),
+          ...extra,
+        }),
       });
     },
     async getByBooking(bookingId) {

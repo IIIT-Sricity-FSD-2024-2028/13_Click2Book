@@ -1,5 +1,5 @@
-﻿﻿﻿﻿﻿import React, { useState, useEffect } from 'react';
-import { fetchSchedulesFromAPI, updateLocalSchedule, deleteLocalSchedule, getCancelledSchedules } from '../services/api';
+import React, { useState, useEffect, useMemo } from 'react';
+import { fetchSchedulesFromAPI, updateLocalSchedule, deleteLocalSchedule, getCancelledSchedules, getApprovedCities } from '../services/api';
 
 const STATUS_COLORS = {
   SCHEDULED: '#3b82f6', IN_PROGRESS: '#f59e0b',
@@ -33,16 +33,30 @@ function EditModal({ trip, onClose, onSaved, showToast }) {
   const [error,   setError]   = useState('');
   const [loading, setLoading] = useState(false);
 
+  const approvedCities = useMemo(() => getApprovedCities(), []);
+
+  const citiesForFrom = useMemo(() => {
+    if (form.from && !approvedCities.includes(form.from)) {
+      return [form.from, ...approvedCities];
+    }
+    return approvedCities;
+  }, [approvedCities, form.from]);
+
+  const citiesForTo = useMemo(() => {
+    if (form.to && !approvedCities.includes(form.to)) {
+      return [form.to, ...approvedCities];
+    }
+    return approvedCities;
+  }, [approvedCities, form.to]);
+
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
   const validate = () => {
     if (!form.journeyDate)                           return 'Please select a journey date.';
     if (form.journeyDate < today)                    return 'Journey date cannot be in the past.';
     if (form.journeyDate > maxDate)                  return `Max 2 months ahead (${maxDate}).`;
-    if (!form.from.trim())                           return 'Please enter the departure location.';
-    if (/^\d+$/.test(form.from))                     return 'Departure cannot be only numbers.';
-    if (!form.to.trim())                             return 'Please enter the destination location.';
-    if (/^\d+$/.test(form.to))                       return 'Destination cannot be only numbers.';
+    if (!form.from.trim())                           return 'Please select the departure location.';
+    if (!form.to.trim())                             return 'Please select the destination location.';
     if (form.from.toLowerCase() === form.to.toLowerCase()) return 'Departure and destination cannot be the same.';
     if (!form.dep)                                   return 'Please enter departure time.';
     if (!form.arr)                                   return 'Please enter arrival time.';
@@ -116,24 +130,36 @@ function EditModal({ trip, onClose, onSaved, showToast }) {
           {/* From / To */}
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">From</label>
-              <input
-                type="text"
+              <label className="form-label">From (Departure City)</label>
+              <select
                 className="form-control no-icon"
-                placeholder="e.g. Pune"
                 value={form.from}
                 onChange={set('from')}
-              />
+                style={{ cursor: 'pointer' }}
+              >
+                <option value="">-- Select Departure City --</option>
+                {citiesForFrom.map((c) => (
+                  <option key={`edit-from-${c}`} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="form-group">
-              <label className="form-label">To</label>
-              <input
-                type="text"
+              <label className="form-label">To (Destination City)</label>
+              <select
                 className="form-control no-icon"
-                placeholder="e.g. Mumbai"
                 value={form.to}
                 onChange={set('to')}
-              />
+                style={{ cursor: 'pointer' }}
+              >
+                <option value="">-- Select Destination City --</option>
+                {citiesForTo.map((c) => (
+                  <option key={`edit-to-${c}`} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -250,6 +276,9 @@ export default function ManageSchedules({ onNavigate, showToast }) {
   const [activeTab,       setActiveTab]       = useState('schedules'); // 'schedules' | 'completed' | 'cancelled'
   const [dateFilter,      setDateFilter]      = useState('all'); // 'all' | '1day' | '2days' | '3days' | 'custom'
   const [customDays,      setCustomDays]      = useState('5');
+  const [cityFilter,      setCityFilter]      = useState('all'); // filter active schedules by approved city hub
+
+  const approvedCities = useMemo(() => getApprovedCities(), []);
 
   const loadTrips = () => {
     setLoading(true);
@@ -330,6 +359,16 @@ export default function ManageSchedules({ onNavigate, showToast }) {
   // Split into active schedules vs completed trips
   const activeTrips = trips.filter((t) => t.status !== 'COMPLETED' && t.status !== 'CANCELLED');
   const completedTrips = trips.filter((t) => t.status === 'COMPLETED');
+
+  // Filter active trips by approved city corridor
+  const filteredActive = activeTrips.filter((t) => {
+    if (cityFilter === 'all') return true;
+    const c = cityFilter.toLowerCase();
+    return (
+      (t.source && t.source.toLowerCase() === c) ||
+      (t.destination && t.destination.toLowerCase() === c)
+    );
+  });
 
   // Calculate calendar days difference between today and a trip's completion/journey date
   const getDaysAgo = (dateStr) => {
@@ -445,6 +484,47 @@ export default function ManageSchedules({ onNavigate, showToast }) {
           </button>
         </div>
 
+        {activeTab === 'schedules' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <label htmlFor="activeCityFilter" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>
+              Filter by Hub / City :
+            </label>
+            <select
+              id="activeCityFilter"
+              value={cityFilter}
+              onChange={(e) => setCityFilter(e.target.value)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '7px',
+                border: '1.5px solid #d1d5db',
+                background: '#ffffff',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: '#1f2937',
+                cursor: 'pointer',
+                outline: 'none',
+              }}
+            >
+              <option value="all">All Accessible Hubs ({approvedCities.length} cities)</option>
+              {approvedCities.map((c) => (
+                <option key={`hub-${c}`} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            {cityFilter !== 'all' && (
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setCityFilter('all')}
+                style={{ padding: '4px 8px', fontSize: '0.78rem' }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+
         {activeTab === 'completed' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -506,13 +586,33 @@ export default function ManageSchedules({ onNavigate, showToast }) {
 
       {/* ── Active Schedules View ── */}
       {activeTab === 'schedules' && (
-        activeTrips.length === 0 ? (
+        filteredActive.length === 0 ? (
           <div className="empty-state">
-            <p>No active schedules found. <button className="btn btn-primary" onClick={() => onNavigate('add-schedule')} style={{ display: 'inline-flex', marginLeft: 8 }}>+ Add one</button></p>
+            <p>
+              {cityFilter === 'all'
+                ? 'No active schedules found.'
+                : `No active schedules found connecting "${cityFilter}".`}
+              {cityFilter !== 'all' && (
+                <button
+                  className="btn btn-outline"
+                  onClick={() => setCityFilter('all')}
+                  style={{ display: 'inline-flex', marginLeft: 8 }}
+                >
+                  Show All Cities
+                </button>
+              )}
+              <button
+                className="btn btn-primary"
+                onClick={() => onNavigate('add-schedule')}
+                style={{ display: 'inline-flex', marginLeft: 8 }}
+              >
+                + Add one
+              </button>
+            </p>
           </div>
         ) : (
           <div className="schedule-list">
-            {activeTrips.map((t, i) => {
+            {filteredActive.map((t, i) => {
               const avail     = parseInt(t.availableSeats) || 0;
               const total     = parseInt(t.totalSeats) || 1;
               const pct       = Math.round((avail / total) * 100);

@@ -1,4 +1,4 @@
-﻿/* ──────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────
    Click2Book – Service Provider API Service  (api.js)
    Mirrors the approach used in the support agent services/api.js
    ────────────────────────────────────────────────────────── */
@@ -793,3 +793,134 @@ export function getNotifications() {
     { id: 3, type: 'success', title: 'Trip Confirmed', message: 'Pune → Mumbai (20:00) trip has been confirmed by the system.', time: '1 hour ago', read: false },
   ];
 }
+
+/* ── Destination & Route Requests / Approved Network ── */
+export const APPROVED_MAJOR_CITIES = [
+  'Bangalore',
+  'Chennai',
+  'Coimbatore',
+  'Delhi',
+  'Goa',
+  'Hyderabad',
+  'Jaipur',
+  'Madurai',
+  'Mumbai',
+  'Mysore',
+  'Nellore',
+  'Pune',
+  'SriCity',
+  'Tada',
+  'Tirupati',
+  'Vijayawada',
+  'Visakhapatnam',
+];
+
+export function getApprovedCities() {
+  try {
+    const custom = JSON.parse(localStorage.getItem('c2b_approved_cities') || '[]');
+    const all = Array.from(new Set([...APPROVED_MAJOR_CITIES, ...custom])).sort((a, b) =>
+      a.localeCompare(b)
+    );
+    return all;
+  } catch {
+    return APPROVED_MAJOR_CITIES;
+  }
+}
+
+export function getDestinationRequests() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('c2b_destination_requests') || 'null');
+    if (!stored || !Array.isArray(stored)) {
+      const initial = [
+        {
+          requestId: 'REQ_1710001001',
+          cityName: 'Warangal',
+          state: 'Telangana',
+          hubType: 'Major District Headquarters',
+          connectingRoutes: 'Hyderabad ↔ Warangal',
+          reason: 'High tech & student commuter corridor passenger volume',
+          providerId: 'P001',
+          providerName: 'Kiran Travels',
+          status: 'PENDING',
+          submittedAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+        },
+      ];
+      localStorage.setItem('c2b_destination_requests', JSON.stringify(initial));
+      return initial;
+    }
+    return stored;
+  } catch {
+    return [];
+  }
+}
+
+export function submitDestinationRequest({ cityName, state, hubType, connectingRoutes, reason }) {
+  const cleanCity = (cityName || '').trim();
+  if (!cleanCity) throw new Error('City / Town name is required.');
+  if (cleanCity.length < 2) throw new Error('City name must be at least 2 characters.');
+  if (/^\d+$/.test(cleanCity)) throw new Error('City name cannot be numeric only.');
+
+  const approved = getApprovedCities();
+  if (approved.some((c) => c.toLowerCase() === cleanCity.toLowerCase())) {
+    throw new Error(`"${cleanCity}" is already an approved destination in the platform network.`);
+  }
+
+  const requests = getDestinationRequests();
+  const pending = requests.find(
+    (r) => r.cityName.toLowerCase() === cleanCity.toLowerCase() && r.status === 'PENDING'
+  );
+  if (pending) {
+    throw new Error(`A request for "${cleanCity}" is already pending admin review.`);
+  }
+
+  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
+  const loggedName = localStorage.getItem('c2b_userName') || 'Kiran Travels';
+
+  const newReq = {
+    requestId: `REQ_${Date.now()}`,
+    cityName: cleanCity,
+    state: state || 'Andhra Pradesh',
+    hubType: hubType || 'Major Town / District Hub',
+    connectingRoutes: (connectingRoutes || '').trim(),
+    reason: (reason || '').trim() || 'New operational corridor demand',
+    providerId: loggedId,
+    providerName: loggedName,
+    status: 'PENDING',
+    submittedAt: new Date().toISOString(),
+  };
+
+  requests.unshift(newReq);
+  localStorage.setItem('c2b_destination_requests', JSON.stringify(requests));
+  return newReq;
+}
+
+export function approveDestinationRequest(requestId) {
+  const requests = getDestinationRequests();
+  const idx = requests.findIndex((r) => r.requestId === requestId);
+  if (idx === -1) throw new Error('Request not found');
+
+  const req = requests[idx];
+  req.status = 'APPROVED';
+  req.approvedAt = new Date().toISOString();
+  localStorage.setItem('c2b_destination_requests', JSON.stringify(requests));
+
+  const custom = JSON.parse(localStorage.getItem('c2b_approved_cities') || '[]');
+  if (!custom.some((c) => c.toLowerCase() === req.cityName.toLowerCase())) {
+    custom.push(req.cityName);
+    localStorage.setItem('c2b_approved_cities', JSON.stringify(custom));
+  }
+
+  return req;
+}
+
+export function rejectDestinationRequest(requestId) {
+  const requests = getDestinationRequests();
+  const idx = requests.findIndex((r) => r.requestId === requestId);
+  if (idx === -1) throw new Error('Request not found');
+
+  requests[idx].status = 'REJECTED';
+  requests[idx].rejectedAt = new Date().toISOString();
+  localStorage.setItem('c2b_destination_requests', JSON.stringify(requests));
+  return requests[idx];
+}
+

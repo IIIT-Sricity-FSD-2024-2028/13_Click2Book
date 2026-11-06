@@ -924,3 +924,252 @@ export function rejectDestinationRequest(requestId) {
   return requests[idx];
 }
 
+/* ── Coupons & Promotional Tokens Module ── */
+export function getProviderCoupons() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('c2b_provider_coupons') || 'null');
+    if (!stored || !Array.isArray(stored) || stored.length === 0) {
+      const now = Date.now();
+      const initialCoupons = [
+        {
+          id: 'CPN-101',
+          code: 'GROUPRIDE20',
+          title: 'Bulk Booking Super Saver (3+ Tickets)',
+          providerId: 'P001',
+          providerName: 'Kiran Travels',
+          ruleType: 'TICKET_COUNT',
+          minTicketCount: 3,
+          discountType: 'PERCENTAGE',
+          discountValue: 20,
+          maxDiscountAmount: 300,
+          minBookingFare: 500,
+          maxQuota: 25,
+          usedCount: 18,
+          corridor: 'ALL',
+          status: 'ACTIVE',
+          startDate: new Date(now - 86400000 * 5).toISOString().split('T')[0],
+          expiryDate: new Date(now + 86400000 * 25).toISOString().split('T')[0],
+          createdAt: new Date(now - 86400000 * 5).toISOString(),
+          redemptions: [
+            { redemptionId: 'RED-801', customerName: 'Arjun Swaminathan', customerEmail: 'arjun.s@gmail.com', bookingId: 'BK-9941', tripRoute: 'SriCity → Chennai', ticketsBooked: 3, discountAmount: 240, redeemedAt: new Date(now - 3600000 * 4).toISOString() },
+            { redemptionId: 'RED-802', customerName: 'Deepak Patel', customerEmail: 'deepak.p@gmail.com', bookingId: 'BK-9948', tripRoute: 'Pune → Mumbai', ticketsBooked: 4, discountAmount: 300, redeemedAt: new Date(now - 3600000 * 12).toISOString() },
+            { redemptionId: 'RED-803', customerName: 'Meera Nambiar', customerEmail: 'meera.n@gmail.com', bookingId: 'BK-9962', tripRoute: 'Bangalore → Chennai', ticketsBooked: 3, discountAmount: 225, redeemedAt: new Date(now - 3600000 * 24).toISOString() },
+          ],
+        },
+        {
+          id: 'CPN-102',
+          code: 'LOYALPASS150',
+          title: 'Frequent Commuter Loyalty Token',
+          providerId: 'P001',
+          providerName: 'Kiran Travels',
+          ruleType: 'REGULAR_CUSTOMER',
+          regularCustomerMinTrips: 2,
+          discountType: 'FLAT',
+          discountValue: 150,
+          maxDiscountAmount: 150,
+          minBookingFare: 400,
+          maxQuota: 15,
+          usedCount: 12,
+          corridor: 'SriCity → Chennai',
+          status: 'ACTIVE',
+          startDate: new Date(now - 86400000 * 3).toISOString().split('T')[0],
+          expiryDate: new Date(now + 86400000 * 20).toISOString().split('T')[0],
+          createdAt: new Date(now - 86400000 * 3).toISOString(),
+          redemptions: [
+            { redemptionId: 'RED-811', customerName: 'Vikram Joshi', customerEmail: 'vikram.j@gmail.com', bookingId: 'BK-9802', tripRoute: 'SriCity → Chennai', ticketsBooked: 1, discountAmount: 150, redeemedAt: new Date(now - 3600000 * 6).toISOString() },
+            { redemptionId: 'RED-812', customerName: 'Sneha Rao', customerEmail: 'sneha.r@gmail.com', bookingId: 'BK-9855', tripRoute: 'SriCity → Chennai', ticketsBooked: 2, discountAmount: 150, redeemedAt: new Date(now - 3600000 * 18).toISOString() },
+          ],
+        },
+        {
+          id: 'CPN-103',
+          code: 'EARLYBIRD10',
+          title: 'First 10 Commuters Flash Token',
+          providerId: 'P001',
+          providerName: 'Kiran Travels',
+          ruleType: 'ANY_BOOKING',
+          discountType: 'FLAT',
+          discountValue: 100,
+          maxDiscountAmount: 100,
+          minBookingFare: 300,
+          maxQuota: 10,
+          usedCount: 10,
+          corridor: 'ALL',
+          status: 'EXHAUSTED',
+          startDate: new Date(now - 86400000 * 7).toISOString().split('T')[0],
+          expiryDate: new Date(now + 86400000 * 10).toISOString().split('T')[0],
+          createdAt: new Date(now - 86400000 * 7).toISOString(),
+          redemptions: [
+            { redemptionId: 'RED-821', customerName: 'Rohan Sharma', customerEmail: 'rohan.s@gmail.com', bookingId: 'BK-9611', tripRoute: 'Tada → Hyderabad', ticketsBooked: 2, discountAmount: 100, redeemedAt: new Date(now - 86400000 * 2).toISOString() },
+            { redemptionId: 'RED-822', customerName: 'Ananya Roy', customerEmail: 'ananya.r@gmail.com', bookingId: 'BK-9625', tripRoute: 'Pune → Mumbai', ticketsBooked: 1, discountAmount: 100, redeemedAt: new Date(now - 86400000 * 3).toISOString() },
+          ],
+        },
+      ];
+      localStorage.setItem('c2b_provider_coupons', JSON.stringify(initialCoupons));
+      syncCouponsToCustomerEnd(initialCoupons);
+      return initialCoupons;
+    }
+    return stored;
+  } catch {
+    return [];
+  }
+}
+
+function syncCouponsToCustomerEnd(coupons) {
+  try {
+    const activeForCustomers = (coupons || []).filter(
+      (c) => c.status === 'ACTIVE' && Number(c.usedCount || 0) < Number(c.maxQuota || 9999)
+    );
+    localStorage.setItem('c2b_active_coupons', JSON.stringify(activeForCustomers));
+  } catch {}
+}
+
+export async function createProviderCoupon(payload) {
+  const code = (payload.code || '').trim().toUpperCase();
+  if (!code) throw new Error('Coupon code is required.');
+  if (code.length < 3) throw new Error('Coupon code must be at least 3 characters.');
+
+  const coupons = getProviderCoupons();
+  if (coupons.some((c) => c.code.toUpperCase() === code)) {
+    throw new Error(`Coupon code "${code}" already exists.`);
+  }
+
+  const maxQuota = parseInt(payload.maxQuota, 10);
+  if (!maxQuota || isNaN(maxQuota) || maxQuota < 1) {
+    throw new Error('Please set a valid redemption limit (at least 1 user).');
+  }
+
+  const discountVal = parseInt(payload.discountValue, 10);
+  if (!discountVal || isNaN(discountVal) || discountVal < 1) {
+    throw new Error('Please enter a valid discount value.');
+  }
+
+  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
+  const loggedName = localStorage.getItem('c2b_userName') || 'Kiran Travels';
+
+  const newCoupon = {
+    id: `CPN-${Date.now()}`,
+    code,
+    title: (payload.title || '').trim() || `${code} Promotion`,
+    providerId: loggedId,
+    providerName: loggedName,
+    ruleType: payload.ruleType || 'ANY_BOOKING',
+    minTicketCount: payload.ruleType === 'TICKET_COUNT' ? Math.max(1, parseInt(payload.minTicketCount || 2, 10)) : undefined,
+    regularCustomerMinTrips: payload.ruleType === 'REGULAR_CUSTOMER' ? Math.max(1, parseInt(payload.regularCustomerMinTrips || 2, 10)) : undefined,
+    discountType: payload.discountType || 'PERCENTAGE',
+    discountValue: discountVal,
+    maxDiscountAmount: payload.maxDiscountAmount ? parseInt(payload.maxDiscountAmount, 10) : (payload.discountType === 'PERCENTAGE' ? 250 : discountVal),
+    minBookingFare: payload.minBookingFare ? parseInt(payload.minBookingFare, 10) : 0,
+    maxQuota,
+    usedCount: 0,
+    corridor: payload.corridor || 'ALL',
+    status: 'ACTIVE',
+    startDate: payload.startDate || new Date().toISOString().split('T')[0],
+    expiryDate: payload.expiryDate || (() => { const d = new Date(); d.setMonth(d.getMonth() + 1); return d.toISOString().split('T')[0]; })(),
+    createdAt: new Date().toISOString(),
+    redemptions: [],
+  };
+
+  coupons.unshift(newCoupon);
+  localStorage.setItem('c2b_provider_coupons', JSON.stringify(coupons));
+  syncCouponsToCustomerEnd(coupons);
+
+  try {
+    await spFetch('/offers', {
+      method: 'POST',
+      body: JSON.stringify({
+        providerId: loggedId,
+        offerCode: code,
+        discountPercentage: payload.discountType === 'PERCENTAGE' ? discountVal : 15,
+        flatDiscount: payload.discountType === 'FLAT' ? discountVal : undefined,
+        minFare: newCoupon.minBookingFare,
+        startDate: newCoupon.startDate,
+        endDate: newCoupon.expiryDate,
+      }),
+    });
+  } catch (e) {
+    console.info('Backend /offers sync note (stored locally):', e?.message);
+  }
+
+  return newCoupon;
+}
+
+export function toggleCouponStatus(couponId) {
+  const coupons = getProviderCoupons();
+  const idx = coupons.findIndex((c) => c.id === couponId);
+  if (idx === -1) throw new Error('Coupon not found');
+
+  const cur = coupons[idx];
+  if (cur.status === 'EXHAUSTED') {
+    throw new Error('This coupon has exhausted its customer redemption limit and cannot be re-activated without increasing quota.');
+  }
+
+  cur.status = cur.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+  localStorage.setItem('c2b_provider_coupons', JSON.stringify(coupons));
+  syncCouponsToCustomerEnd(coupons);
+  return cur;
+}
+
+export function deleteProviderCoupon(couponId) {
+  const coupons = getProviderCoupons().filter((c) => c.id !== couponId);
+  localStorage.setItem('c2b_provider_coupons', JSON.stringify(coupons));
+  syncCouponsToCustomerEnd(coupons);
+  return true;
+}
+
+export function simulateCustomerRedemption(couponId) {
+  const coupons = getProviderCoupons();
+  const idx = coupons.findIndex((c) => c.id === couponId);
+  if (idx === -1) throw new Error('Coupon not found');
+
+  const coupon = coupons[idx];
+  if (coupon.status === 'EXHAUSTED' || coupon.usedCount >= coupon.maxQuota) {
+    throw new Error(`Coupon "${coupon.code}" has already reached its limit of ${coupon.maxQuota} people. It is removed from the customer portal.`);
+  }
+
+  if (coupon.status === 'PAUSED') {
+    throw new Error(`Coupon "${coupon.code}" is currently paused.`);
+  }
+
+  const SAMPLE_PASSENGERS = [
+    { name: 'Kavita Sundaram', email: 'kavita.sundaram@gmail.com' },
+    { name: 'Aditya Deshmukh', email: 'aditya.deshmukh@yahoo.com' },
+    { name: 'Pooja Venkatesh', email: 'pooja.v@outlook.com' },
+    { name: 'Manish Chawla', email: 'manish.chawla@gmail.com' },
+    { name: 'Swati Mukherjee', email: 'swati.m@gmail.com' },
+    { name: 'Karthik Narayanan', email: 'karthik.n@gmail.com' },
+  ];
+  const p = SAMPLE_PASSENGERS[Math.floor(Math.random() * SAMPLE_PASSENGERS.length)];
+  const ticketsBooked = coupon.ruleType === 'TICKET_COUNT' ? Math.max(3, coupon.minTicketCount || 3) : Math.floor(Math.random() * 2) + 1;
+  const basePricePerTicket = 600;
+  const totalBase = ticketsBooked * basePricePerTicket;
+  const discountAmt = coupon.discountType === 'PERCENTAGE'
+    ? Math.min(coupon.maxDiscountAmount || 300, Math.round((totalBase * coupon.discountValue) / 100))
+    : coupon.discountValue;
+
+  const newRedemption = {
+    redemptionId: `RED-${Math.floor(1000 + Math.random() * 9000)}`,
+    customerName: p.name,
+    customerEmail: p.email,
+    bookingId: `BK-${Math.floor(10000 + Math.random() * 90000)}`,
+    tripRoute: coupon.corridor === 'ALL' ? 'SriCity → Chennai' : coupon.corridor,
+    ticketsBooked,
+    discountAmount: discountAmt,
+    redeemedAt: new Date().toISOString(),
+  };
+
+  coupon.usedCount = (coupon.usedCount || 0) + 1;
+  coupon.redemptions = [newRedemption, ...(coupon.redemptions || [])];
+
+  let exhausted = false;
+  if (coupon.usedCount >= coupon.maxQuota) {
+    coupon.status = 'EXHAUSTED';
+    exhausted = true;
+  }
+
+  localStorage.setItem('c2b_provider_coupons', JSON.stringify(coupons));
+  syncCouponsToCustomerEnd(coupons);
+
+  return { coupon, redemption: newRedemption, exhausted };
+}
+
+

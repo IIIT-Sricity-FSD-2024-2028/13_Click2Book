@@ -68,14 +68,23 @@ export default function Dashboard({ onNavigate }) {
       <div className="card">
         <div className="card-header">
           <h3>Today's Schedule &amp; Fleet Occupancy</h3>
-          <button
-            className="btn btn-primary"
-            style={{ padding: '0.45rem 1rem', fontSize: '0.82rem' }}
-            onClick={() => onNavigate('add-schedule')}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add Schedule
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn btn-outline"
+              style={{ padding: '0.45rem 0.85rem', fontSize: '0.82rem' }}
+              onClick={() => onNavigate('coupons')}
+            >
+              🏷️ Manage Coupons
+            </button>
+            <button
+              className="btn btn-primary"
+              style={{ padding: '0.45rem 1rem', fontSize: '0.82rem' }}
+              onClick={() => onNavigate('add-schedule')}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Schedule
+            </button>
+          </div>
         </div>
         <div className="table-wrap">
           <table>

@@ -7,6 +7,7 @@ const PAGE_TITLES = {
   'confirm-trips':  { title: 'Confirm Trips',        sub: 'Service Provider Portal' },
   'seat-management':{ title: 'Seat Management',      sub: 'Service Provider Portal' },
   coupons:          { title: 'Coupons & Promo Tokens',sub: 'Configure discount tokens and restrict customer redemption quota' },
+  reviews:          { title: 'Bus Reviews & Ratings', sub: 'Monitor traveler ratings and respond to passenger feedback' },
   'lost-found':     { title: 'Lost & Found',         sub: 'Items reported by customers on your trips' },
   revenue:          { title: 'My Revenue',           sub: 'Provider Revenue & Fleet Performance' },
   settings:         { title: 'Settings',             sub: 'Manage your account preferences' },

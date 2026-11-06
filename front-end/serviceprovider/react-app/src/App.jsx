@@ -14,6 +14,7 @@ import SeatManagement     from './components/SeatManagement';
 import LostFound          from './components/LostFound';
 import Revenue            from './components/Revenue';
 import Coupons            from './components/Coupons';
+import Reviews            from './components/Reviews';
 import Settings           from './components/Settings';
 
 import { getNotifications, autoStartDueTrips } from './services/api';
@@ -22,7 +23,7 @@ import { liveSync } from './services/liveSync';
 /* ── Valid tabs (sync with hash URL, same approach as support agent) ── */
 const VALID_TABS = [
   'dashboard', 'manage-schedules', 'add-schedule',
-  'confirm-trips', 'seat-management', 'coupons', 'lost-found', 'revenue', 'settings',
+  'confirm-trips', 'seat-management', 'coupons', 'reviews', 'lost-found', 'revenue', 'settings',
 ];
 
 function getTabFromHash() {
@@ -108,6 +109,9 @@ export default function App() {
         if (status === 'IN_PROGRESS') {
           showToast(`🚌 Trip ${tripId} status is now IN PROGRESS.`, 'info');
         }
+      } else if (event.type === 'REVIEW_SUBMITTED') {
+        const r = event.payload || {};
+        showToast(`⭐ New Review! ${r.customerName || 'A passenger'} rated ${r.busName || 'bus'} ${r.rating || 5}★`, 'info');
       }
     });
     return () => unsubscribe();
@@ -139,6 +143,7 @@ export default function App() {
       case 'confirm-trips':    return <ConfirmTrips     {...commonProps} />;
       case 'seat-management':  return <SeatManagement   {...commonProps} />;
       case 'coupons':          return <Coupons          {...commonProps} />;
+      case 'reviews':          return <Reviews          {...commonProps} />;
       case 'lost-found':       return <LostFound        {...commonProps} />;
       case 'revenue':          return <Revenue          {...commonProps} />;
       case 'settings':         return <Settings         {...commonProps} />;

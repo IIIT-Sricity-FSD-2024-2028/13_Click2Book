@@ -72,6 +72,13 @@ export default function Dashboard({ provider, onNavigate, showToast }) {
             <button
               className="btn btn-outline"
               style={{ padding: '0.45rem 0.85rem', fontSize: '0.82rem' }}
+              onClick={() => onNavigate('reviews')}
+            >
+              ⭐ Bus Reviews
+            </button>
+            <button
+              className="btn btn-outline"
+              style={{ padding: '0.45rem 0.85rem', fontSize: '0.82rem' }}
               onClick={() => onNavigate('coupons')}
             >
               🏷️ Manage Coupons

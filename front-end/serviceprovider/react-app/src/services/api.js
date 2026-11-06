@@ -1172,4 +1172,476 @@ export function simulateCustomerRedemption(couponId) {
   return { coupon, redemption: newRedemption, exhausted };
 }
 
+/* ──────────────────────────────────────────────────────────
+   Bus Reviews & Ratings Module (Multi-Actor Data Contract)
+   Stored in 'c2b_bus_reviews' and synchronized with backend /reviews
+   ────────────────────────────────────────────────────────── */
+
+const DEFAULT_SEED_REVIEWS = [
+  {
+    reviewId: 'REV-001',
+    tripId: 'T001',
+    busName: 'Volvo A/C B12',
+    route: 'SriCity → Chennai',
+    customerId: 'C001',
+    customerName: 'Rahul Sharma',
+    bookingId: 'BK-88210',
+    seatNumber: '14A',
+    rating: 5,
+    categories: { punctuality: 5, cleanliness: 5, comfort: 5, staff: 4 },
+    comment: 'Extremely smooth journey! Bus arrived right on time at SriCity pickup point. Clean blankets and charging port working perfectly.',
+    reviewDate: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    providerReply: 'Thank you for traveling with us Rahul! We take pride in punctual departures and clean coaches. Safe travels!',
+    repliedAt: new Date(Date.now() - 1 * 3600 * 1000).toISOString(),
+    providerName: 'Kiran Travels',
+    verifiedBooking: true,
+  },
+  {
+    reviewId: 'REV-002',
+    tripId: 'T001',
+    busName: 'Volvo A/C B12',
+    route: 'SriCity → Chennai',
+    customerId: 'C002',
+    customerName: 'Priya Patel',
+    bookingId: 'BK-88245',
+    seatNumber: '08B',
+    rating: 4,
+    categories: { punctuality: 4, cleanliness: 5, comfort: 4, staff: 5 },
+    comment: 'Good journey overall. Driver was polite and drove safely. Reached Chennai slightly late due to highway traffic, but very comfortable.',
+    reviewDate: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+    providerReply: 'Thank you Priya! Highway traffic near Koyambedu can sometimes add a few minutes, but passenger safety and comfort are always our priority.',
+    repliedAt: new Date(Date.now() - 20 * 3600 * 1000).toISOString(),
+    providerName: 'Kiran Travels',
+    verifiedBooking: true,
+  },
+  {
+    reviewId: 'REV-003',
+    tripId: 'T002',
+    busName: 'Scania AC',
+    route: 'Tada → Vizag',
+    customerId: 'C003',
+    customerName: 'Amit Kumar',
+    bookingId: 'BK-87912',
+    seatNumber: '21C',
+    rating: 3,
+    categories: { punctuality: 3, cleanliness: 4, comfort: 3, staff: 4 },
+    comment: 'AC was a bit too cold in the night and the departure was delayed by 15 minutes. Otherwise the seating was decent.',
+    reviewDate: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
+    providerReply: null,
+    repliedAt: null,
+    providerName: 'Kiran Travels',
+    verifiedBooking: true,
+  },
+  {
+    reviewId: 'REV-004',
+    tripId: 'T003',
+    busName: 'Volvo A/C B12',
+    route: 'Tada → Hyderabad',
+    customerId: 'C004',
+    customerName: 'Sneha Reddy',
+    bookingId: 'BK-89011',
+    seatNumber: '05A',
+    rating: 5,
+    categories: { punctuality: 5, cleanliness: 5, comfort: 5, staff: 5 },
+    comment: 'Top notch service! Best bus operator on this route. Water bottle provided and seats recline fully. Will definitely book again.',
+    reviewDate: new Date(Date.now() - 72 * 3600 * 1000).toISOString(),
+    providerReply: 'Glad you loved the hospitality Sneha! See you again on your next trip.',
+    repliedAt: new Date(Date.now() - 70 * 3600 * 1000).toISOString(),
+    providerName: 'Kiran Travels',
+    verifiedBooking: true,
+  },
+  {
+    reviewId: 'REV-005',
+    tripId: 'T004',
+    busName: 'Sleeper Bus',
+    route: 'Pune → Mumbai',
+    customerId: 'C005',
+    customerName: 'Vikram Deshmukh',
+    bookingId: 'BK-89240',
+    seatNumber: 'U4',
+    rating: 4,
+    categories: { punctuality: 4, cleanliness: 4, comfort: 4, staff: 4 },
+    comment: 'Comfortable sleeper berth and on-time arrival at Dadar. Smooth driving during nighttime.',
+    reviewDate: new Date(Date.now() - 96 * 3600 * 1000).toISOString(),
+    providerReply: null,
+    repliedAt: null,
+    providerName: 'Kiran Travels',
+    verifiedBooking: true,
+  },
+];
+
+export function getBusReviews(providerId, tripId) {
+  let reviews = [];
+  try {
+    const raw = localStorage.getItem('c2b_bus_reviews');
+    if (raw) {
+      reviews = JSON.parse(raw);
+    } else {
+      reviews = [...DEFAULT_SEED_REVIEWS];
+      localStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
+    }
+  } catch (e) {
+    reviews = [...DEFAULT_SEED_REVIEWS];
+  }
+
+  // Background fetch to sync any reviews posted via backend API
+  (async () => {
+    try {
+      const backendReviews = await spFetch('/reviews');
+      if (Array.isArray(backendReviews) && backendReviews.length > 0) {
+        let changed = false;
+        backendReviews.forEach((br) => {
+          const exists = reviews.some((r) => r.reviewId === br.reviewId || (r.tripId === br.tripId && r.customerId === br.customerId && r.reviewDate === br.reviewDate));
+          if (!exists) {
+            reviews.unshift({
+              reviewId: br.reviewId || `REV-${Date.now()}`,
+              tripId: br.tripId || 'T001',
+              busName: br.tripId === 'T001' ? 'Volvo A/C B12' : br.tripId === 'T002' ? 'Scania AC' : 'Express Bus',
+              route: br.tripId === 'T001' ? 'SriCity → Chennai' : br.tripId === 'T002' ? 'Tada → Vizag' : 'Active Route',
+              customerId: br.customerId || 'C001',
+              customerName: br.customerId === 'C001' ? 'Rahul Sharma' : br.customerId === 'C002' ? 'Priya Patel' : 'Verified Traveler',
+              bookingId: `BK-${Math.floor(10000 + Math.random() * 90000)}`,
+              seatNumber: '12A',
+              rating: br.rating || 5,
+              categories: { punctuality: br.rating || 5, cleanliness: br.rating || 5, comfort: br.rating || 4, staff: 5 },
+              comment: br.comment || 'Good journey experience.',
+              reviewDate: br.reviewDate ? new Date(br.reviewDate).toISOString() : new Date().toISOString(),
+              providerReply: null,
+              repliedAt: null,
+              providerName: 'Kiran Travels',
+              verifiedBooking: true,
+            });
+            changed = true;
+          }
+        });
+        if (changed) {
+          localStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
+        }
+      }
+    } catch {}
+  })();
+
+  if (tripId && tripId !== 'ALL') {
+    return reviews.filter((r) => r.tripId === tripId);
+  }
+
+  return reviews;
+}
+
+export async function submitCustomerReview(payload) {
+  if (!payload || !payload.tripId) {
+    throw new Error('Trip ID is required to submit a review.');
+  }
+
+  const ratingNum = Math.min(5, Math.max(1, parseInt(payload.rating || 5, 10)));
+  const reviews = getBusReviews();
+
+  // Look up bus info if not provided
+  const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+  const matchedSchedule = schedules.find((s) => (s.id || s.tripId) === payload.tripId);
+  const busName = payload.busName || matchedSchedule?.busName || (payload.tripId === 'T001' ? 'Volvo A/C B12' : payload.tripId === 'T002' ? 'Scania AC' : payload.tripId === 'T003' ? 'Volvo A/C B12' : payload.tripId === 'T004' ? 'Sleeper Bus' : 'Express Bus');
+  const route = payload.route || (matchedSchedule ? `${matchedSchedule.from} → ${matchedSchedule.to}` : (payload.tripId === 'T001' ? 'SriCity → Chennai' : payload.tripId === 'T002' ? 'Tada → Vizag' : payload.tripId === 'T003' ? 'Tada → Hyderabad' : payload.tripId === 'T004' ? 'Pune → Mumbai' : 'Intercity Route'));
+
+  const reviewId = `REV-${Date.now()}`;
+  const newReview = {
+    reviewId,
+    tripId: payload.tripId,
+    busName,
+    route,
+    customerId: payload.customerId || 'C001',
+    customerName: payload.customerName || 'Passenger',
+    bookingId: payload.bookingId || `BK-${Math.floor(10000 + Math.random() * 90000)}`,
+    seatNumber: payload.seatNumber || '14B',
+    rating: ratingNum,
+    categories: {
+      punctuality: payload.categories?.punctuality ?? ratingNum,
+      cleanliness: payload.categories?.cleanliness ?? ratingNum,
+      comfort: payload.categories?.comfort ?? ratingNum,
+      staff: payload.categories?.staff ?? ratingNum,
+    },
+    comment: (payload.comment || '').trim() || 'Pleasant journey, on-time bus and clean cabin.',
+    reviewDate: new Date().toISOString(),
+    providerReply: null,
+    repliedAt: null,
+    providerName: 'Kiran Travels',
+    verifiedBooking: true,
+  };
+
+  reviews.unshift(newReview);
+  localStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
+
+  // Sync to NestJS backend if available
+  try {
+    await spFetch('/reviews', {
+      method: 'POST',
+      body: JSON.stringify({
+        customerId: newReview.customerId,
+        tripId: newReview.tripId,
+        rating: newReview.rating,
+        comment: newReview.comment,
+      }),
+    });
+  } catch (e) {
+    console.info('Backend /reviews note (saved locally):', e?.message);
+  }
+
+  // Cross-actor notification
+  try {
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new CustomEvent('c2b_sync', {
+      detail: { type: 'REVIEW_SUBMITTED', payload: newReview },
+    }));
+  } catch {}
+
+  return newReview;
+}
+
+export function replyToReview(reviewId, replyText, providerName = 'Kiran Travels') {
+  if (!replyText || !replyText.trim()) {
+    throw new Error('Reply comment cannot be empty.');
+  }
+
+  const reviews = getBusReviews();
+  const idx = reviews.findIndex((r) => r.reviewId === reviewId);
+  if (idx === -1) {
+    throw new Error('Review not found.');
+  }
+
+  reviews[idx].providerReply = replyText.trim();
+  reviews[idx].repliedAt = new Date().toISOString();
+  reviews[idx].providerName = providerName || 'Kiran Travels';
+
+  localStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
+
+  try {
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new CustomEvent('c2b_sync', {
+      detail: { type: 'REVIEW_REPLIED', payload: reviews[idx] },
+    }));
+  } catch {}
+
+  return reviews[idx];
+}
+
+export function deleteReviewReply(reviewId) {
+  const reviews = getBusReviews();
+  const idx = reviews.findIndex((r) => r.reviewId === reviewId);
+  if (idx === -1) throw new Error('Review not found.');
+
+  reviews[idx].providerReply = null;
+  reviews[idx].repliedAt = null;
+
+  localStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
+
+  try {
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new CustomEvent('c2b_sync', {
+      detail: { type: 'REVIEW_REPLIED', payload: reviews[idx] },
+    }));
+  } catch {}
+
+  return reviews[idx];
+}
+
+export function getProviderFleetRatingSummary(providerId) {
+  const reviews = getBusReviews(providerId);
+  const totalReviews = reviews.length;
+  if (totalReviews === 0) {
+    return {
+      totalReviews: 0,
+      averageRating: 0,
+      starCounts: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+      starPercentages: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+      categoryAverages: { punctuality: 0, cleanliness: 0, comfort: 0, staff: 0 },
+      repliedCount: 0,
+      pendingCount: 0,
+      responseRate: 0,
+      positivePercentage: 0,
+    };
+  }
+
+  const starCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+  let sumRating = 0;
+  let sumPunctuality = 0;
+  let sumCleanliness = 0;
+  let sumComfort = 0;
+  let sumStaff = 0;
+  let repliedCount = 0;
+
+  reviews.forEach((r) => {
+    const stars = Math.min(5, Math.max(1, Math.round(r.rating || 5)));
+    starCounts[stars] = (starCounts[stars] || 0) + 1;
+    sumRating += (r.rating || 5);
+
+    const cat = r.categories || {};
+    sumPunctuality += (cat.punctuality ?? r.rating ?? 5);
+    sumCleanliness += (cat.cleanliness ?? r.rating ?? 5);
+    sumComfort += (cat.comfort ?? r.rating ?? 5);
+    sumStaff += (cat.staff ?? r.rating ?? 5);
+
+    if (r.providerReply) repliedCount++;
+  });
+
+  const averageRating = parseFloat((sumRating / totalReviews).toFixed(1));
+  const categoryAverages = {
+    punctuality: parseFloat((sumPunctuality / totalReviews).toFixed(1)),
+    cleanliness: parseFloat((sumCleanliness / totalReviews).toFixed(1)),
+    comfort: parseFloat((sumComfort / totalReviews).toFixed(1)),
+    staff: parseFloat((sumStaff / totalReviews).toFixed(1)),
+  };
+
+  const starPercentages = {
+    5: Math.round((starCounts[5] / totalReviews) * 100),
+    4: Math.round((starCounts[4] / totalReviews) * 100),
+    3: Math.round((starCounts[3] / totalReviews) * 100),
+    2: Math.round((starCounts[2] / totalReviews) * 100),
+    1: Math.round((starCounts[1] / totalReviews) * 100),
+  };
+
+  const positiveCount = (starCounts[5] || 0) + (starCounts[4] || 0);
+  const positivePercentage = Math.round((positiveCount / totalReviews) * 100);
+  const responseRate = Math.round((repliedCount / totalReviews) * 100);
+  const pendingCount = totalReviews - repliedCount;
+
+  return {
+    totalReviews,
+    averageRating,
+    starCounts,
+    starPercentages,
+    categoryAverages,
+    repliedCount,
+    pendingCount,
+    responseRate,
+    positivePercentage,
+  };
+}
+
+/* ──────────────────────────────────────────────────────────
+   Customer Inter-Actor Helpers (Coupons & Tokens)
+   ────────────────────────────────────────────────────────── */
+
+export function getActiveCouponsForCustomer(context = {}) {
+  const stored = JSON.parse(localStorage.getItem('c2b_active_coupons') || '[]');
+  const now = new Date();
+
+  return stored
+    .filter((c) => {
+      if (c.status !== 'ACTIVE') return false;
+      if (c.usedCount >= c.maxQuota) return false;
+      if (c.expiryDate && new Date(c.expiryDate) < now) return false;
+      return true;
+    })
+    .map((c) => {
+      const remainingQuota = Math.max(0, (c.maxQuota || 1) - (c.usedCount || 0));
+      let eligible = true;
+      let reason = '';
+
+      if (c.ruleType === 'TICKET_COUNT' && context.ticketCount) {
+        if (context.ticketCount < (c.minTicketCount || 1)) {
+          eligible = false;
+          reason = `Requires booking at least ${c.minTicketCount} tickets.`;
+        }
+      }
+
+      if (c.ruleType === 'REGULAR_CUSTOMER' && context.pastTripsCount !== undefined) {
+        if (context.pastTripsCount < (c.regularCustomerMinTrips || 2)) {
+          eligible = false;
+          reason = `Available for regular commuters with ${c.regularCustomerMinTrips}+ prior trips.`;
+        }
+      }
+
+      return {
+        ...c,
+        remainingQuota,
+        eligible,
+        reason,
+      };
+    });
+}
+
+export function redeemCouponAtCustomer(couponCode, bookingContext = {}) {
+  const coupons = getProviderCoupons();
+  const cleanCode = (couponCode || '').trim().toUpperCase();
+  const idx = coupons.findIndex((c) => (c.code || '').toUpperCase() === cleanCode);
+
+  if (idx === -1) {
+    throw new Error(`Coupon code "${couponCode}" is invalid or does not exist.`);
+  }
+
+  const coupon = coupons[idx];
+  if (coupon.status === 'EXHAUSTED' || coupon.usedCount >= coupon.maxQuota) {
+    throw new Error(`Coupon "${coupon.code}" limit of ${coupon.maxQuota} users has been reached and is no longer available.`);
+  }
+
+  if (coupon.status === 'PAUSED') {
+    throw new Error(`Coupon "${coupon.code}" is currently paused by the service provider.`);
+  }
+
+  const ticketsBooked = bookingContext.ticketCount || 1;
+  if (coupon.ruleType === 'TICKET_COUNT' && ticketsBooked < (coupon.minTicketCount || 1)) {
+    throw new Error(`Coupon "${coupon.code}" requires booking at least ${coupon.minTicketCount} tickets.`);
+  }
+
+  const totalBaseFare = bookingContext.baseFare || (ticketsBooked * 600);
+  if (coupon.minBookingFare && totalBaseFare < coupon.minBookingFare) {
+    throw new Error(`Minimum booking fare of ₹${coupon.minBookingFare} required to use coupon "${coupon.code}".`);
+  }
+
+  const discountAmount = coupon.discountType === 'PERCENTAGE'
+    ? Math.min(coupon.maxDiscountAmount || 300, Math.round((totalBaseFare * coupon.discountValue) / 100))
+    : coupon.discountValue;
+
+  const redemption = {
+    redemptionId: `RED-${Math.floor(1000 + Math.random() * 9000)}`,
+    customerName: bookingContext.customerName || 'Passenger',
+    customerEmail: bookingContext.customerEmail || 'customer@gmail.com',
+    bookingId: bookingContext.bookingId || `BK-${Math.floor(10000 + Math.random() * 90000)}`,
+    tripRoute: bookingContext.route || (coupon.corridor === 'ALL' ? 'SriCity → Chennai' : coupon.corridor),
+    ticketsBooked,
+    discountAmount,
+    redeemedAt: new Date().toISOString(),
+  };
+
+  coupon.usedCount = (coupon.usedCount || 0) + 1;
+  coupon.redemptions = [redemption, ...(coupon.redemptions || [])];
+
+  let exhausted = false;
+  if (coupon.usedCount >= coupon.maxQuota) {
+    coupon.status = 'EXHAUSTED';
+    exhausted = true;
+  }
+
+  localStorage.setItem('c2b_provider_coupons', JSON.stringify(coupons));
+  syncCouponsToCustomerEnd(coupons);
+
+  return {
+    success: true,
+    discountAmount,
+    couponCode: coupon.code,
+    remainingQuota: Math.max(0, coupon.maxQuota - coupon.usedCount),
+    exhausted,
+  };
+}
+
+/* ──────────────────────────────────────────────────────────
+   Direct Window Global Bridge for Customer & Testing
+   Allows customer team member to access reviews & coupons directly
+   via window.Click2BookReviewAPI and window.Click2BookCouponAPI
+   ────────────────────────────────────────────────────────── */
+if (typeof window !== 'undefined') {
+  window.Click2BookReviewAPI = {
+    getAll: (tripId) => getBusReviews(undefined, tripId),
+    submit: (payload) => submitCustomerReview(payload),
+    reply: (reviewId, text, name) => replyToReview(reviewId, text, name),
+    deleteReply: (reviewId) => deleteReviewReply(reviewId),
+    getSummary: () => getProviderFleetRatingSummary(),
+  };
+
+  window.Click2BookCouponAPI = {
+    getAllActive: (context) => getActiveCouponsForCustomer(context),
+    redeem: (code, ctx) => redeemCouponAtCustomer(code, ctx),
+    simulate: (couponId) => simulateCustomerRedemption(couponId),
+  };
+}
+
 

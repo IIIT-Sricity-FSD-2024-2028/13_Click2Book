@@ -1,4 +1,4 @@
-/* ──────────────────────────────────────────────────────────
+﻿/* ──────────────────────────────────────────────────────────
    Click2Book – Service Provider API Service  (api.js)
    Mirrors the approach used in the support agent services/api.js
    ────────────────────────────────────────────────────────── */
@@ -527,23 +527,69 @@ export function autoStartDueTrips(additionalTrips = []) {
   return autoStarted;
 }
 
-/* ── Delete a locally-stored schedule ── */
-export function deleteLocalSchedule(tripId) {
+/* ── Cancel/Delete a schedule (marks as CANCELLED and stores in cancelled list) ── */
+export function deleteLocalSchedule(tripId, tripMeta = {}) {
   try {
+    // Mark status as CANCELLED
+    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    statuses[tripId] = 'CANCELLED';
+    localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+
+    // Store in cancelled schedules list for display in Cancelled tab
+    const cancelled = JSON.parse(localStorage.getItem('c2b_cancelled_schedules') || '[]');
+    // Upsert: always store/update with latest meta so details are never blank
+    const existingIdx = cancelled.findIndex((c) => c.tripId === tripId);
+    const cancelledEntry = {
+      tripId,
+      source:        tripMeta.source        || tripMeta.from        || '—',
+      destination:   tripMeta.destination   || tripMeta.to          || '—',
+      via:           tripMeta.via           || '',
+      departureTime: tripMeta.departureTime || '—',
+      arrivalTime:   tripMeta.arrivalTime   || '—',
+      journeyDate:   tripMeta.journeyDate   || '—',
+      busName:       tripMeta.busName       || '—',
+      vehicleType:   tripMeta.vehicleType   || tripMeta.busType     || '—',
+      totalSeats:    tripMeta.totalSeats    || 0,
+      fare:          tripMeta.fare          || 0,
+      cancelledAt:   new Date().toISOString(),
+    };
+    if (existingIdx >= 0) {
+      cancelled[existingIdx] = cancelledEntry;
+    } else {
+      cancelled.push(cancelledEntry);
+    }
+    localStorage.setItem('c2b_cancelled_schedules', JSON.stringify(cancelled));
+
+    // Also remove from active local schedules (c2b_bus_schedules)
     const raw = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
     const filtered = raw.filter((s) => s.id !== tripId && s.tripId !== tripId);
     localStorage.setItem('c2b_bus_schedules', JSON.stringify(filtered));
 
-    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
-    delete statuses[tripId];
-    localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
-
+    // Clean up completions for this trip
     const completions = JSON.parse(localStorage.getItem('c2b_trip_completions') || '{}');
     delete completions[tripId];
     localStorage.setItem('c2b_trip_completions', JSON.stringify(completions));
+
+    try { window.dispatchEvent(new Event('storage')); } catch {}
     return true;
   } catch {
     return false;
+  }
+}
+
+/* ── Get all cancelled schedules ── */
+export function getCancelledSchedules() {
+  try {
+    const all = JSON.parse(localStorage.getItem('c2b_cancelled_schedules') || '[]');
+    // Filter out stale entries that were saved without bus details (from earlier buggy version)
+    const valid = all.filter((c) => c.busName && c.busName !== '-' && c.busName !== '—');
+    // If we filtered some out, persist the cleaned list
+    if (valid.length !== all.length) {
+      localStorage.setItem('c2b_cancelled_schedules', JSON.stringify(valid));
+    }
+    return valid;
+  } catch {
+    return [];
   }
 }
 

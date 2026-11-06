@@ -1,7 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { saveSchedule } from '../services/api';
 
 const BUS_TYPES = ['Sleeper AC', 'Semi-Sleeper', 'AC Seater', 'Volvo AC', 'Non-AC', 'Luxury'];
+
+/* ── Helper: compute arrival datetime from departure date+time + duration ── */
+function computeArrival(journeyDate, dep, durationHours, durationMins) {
+  if (!journeyDate || !dep || durationHours === '' || durationMins === '') return null;
+  const totalMins = Number(durationHours) * 60 + Number(durationMins);
+  if (isNaN(totalMins) || totalMins <= 0) return null;
+
+  const [depH, depM] = dep.split(':').map(Number);
+  if (isNaN(depH) || isNaN(depM)) return null;
+
+  const [y, mo, d] = journeyDate.split('-').map(Number);
+  const depDate = new Date(y, mo - 1, d, depH, depM, 0, 0);
+  const arrDate = new Date(depDate.getTime() + totalMins * 60000);
+
+  const arrTime = `${String(arrDate.getHours()).padStart(2, '0')}:${String(arrDate.getMinutes()).padStart(2, '0')}`;
+  const arrDateStr = `${arrDate.getFullYear()}-${String(arrDate.getMonth() + 1).padStart(2, '0')}-${String(arrDate.getDate()).padStart(2, '0')}`;
+  const isNextDay = arrDateStr !== journeyDate;
+
+  return { arrTime, arrDateStr, isNextDay, totalMins };
+}
+
+/* ── Format duration label ── */
+function formatDuration(h, m) {
+  const hNum = Number(h);
+  const mNum = Number(m);
+  if (isNaN(hNum) || isNaN(mNum) || (hNum === 0 && mNum === 0)) return '';
+  const parts = [];
+  if (hNum > 0) parts.push(`${hNum}h`);
+  if (mNum > 0) parts.push(`${mNum}m`);
+  return parts.join(' ');
+}
 
 export default function AddSchedule({ onNavigate, showToast }) {
   const today = new Date().toISOString().split('T')[0];
@@ -11,13 +42,20 @@ export default function AddSchedule({ onNavigate, showToast }) {
 
   const [form, setForm] = useState({
     journeyDate: today, from: '', to: '', via: '',
-    dep: '', arr: '', busName: '', busType: '', seats: '', fare: '',
+    dep: '', durationHours: '', durationMins: '0',
+    busName: '', busType: '', seats: '', fare: '',
   });
   const [error, setError]     = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  /* Computed arrival info */
+  const arrivalInfo = useMemo(
+    () => computeArrival(form.journeyDate, form.dep, form.durationHours, form.durationMins),
+    [form.journeyDate, form.dep, form.durationHours, form.durationMins]
+  );
 
   const validate = () => {
     const now = new Date();
@@ -31,12 +69,15 @@ export default function AddSchedule({ onNavigate, showToast }) {
     if (/^\d+$/.test(form.to))           return 'Destination cannot be only numbers.';
     if (form.from.toLowerCase() === form.to.toLowerCase()) return 'Departure and destination cannot be the same.';
     if (!form.dep)                       return 'Please enter departure time.';
-    if (!form.arr)                       return 'Please enter arrival time.';
     if (form.journeyDate === todayStr) {
       const curH = String(now.getHours()).padStart(2, '0');
       const curM = String(now.getMinutes()).padStart(2, '0');
       if (form.dep <= `${curH}:${curM}`) return `For today's date, departure time must be after current time (${curH}:${curM}).`;
     }
+    if (form.durationHours === '' || form.durationMins === '') return 'Please enter journey duration.';
+    const totalMins = Number(form.durationHours) * 60 + Number(form.durationMins);
+    if (isNaN(totalMins) || totalMins <= 0) return 'Journey duration must be greater than 0 minutes.';
+    if (totalMins > 48 * 60)             return 'Journey duration cannot exceed 48 hours.';
     if (!form.busName.trim())            return 'Please enter the bus name.';
     if (!form.busType)                   return 'Please select a bus type.';
     const seats = parseInt(form.seats, 10);
@@ -44,6 +85,7 @@ export default function AddSchedule({ onNavigate, showToast }) {
     if (seats > 100)                     return 'Seats cannot exceed 100.';
     const fare = parseInt(form.fare, 10);
     if (!form.fare || isNaN(fare) || fare < 1) return 'Enter valid fare (min ₹1).';
+    if (fare > 4500)                     return 'Please Enter the valid fare';
     return '';
   };
 
@@ -51,20 +93,26 @@ export default function AddSchedule({ onNavigate, showToast }) {
     setError(''); setSuccess('');
     const err = validate();
     if (err) { setError(err); return; }
+
+    const info = arrivalInfo;
+    if (!info) { setError('Could not compute arrival time. Please check departure time and duration.'); return; }
+
     setLoading(true);
     try {
       const result = await saveSchedule({
         journeyDate: form.journeyDate,
         from: form.from.trim(), to: form.to.trim(), via: form.via.trim(),
-        dep: form.dep, arr: form.arr,
+        dep: form.dep, arr: info.arrTime,
         busName: form.busName.trim(), busType: form.busType,
         seats: parseInt(form.seats, 10), fare: parseInt(form.fare, 10),
       });
       const viaText = form.via ? ` (Via ${form.via})` : '';
-      const msg = `✅ ${form.busName} (${form.seats} Seats, ₹${form.fare}) for ${form.journeyDate} (${form.dep} → ${form.arr}) from ${form.from} → ${form.to}${viaText} added ${result.isLive ? 'successfully!' : 'locally (backend offline).'}`;
+      const durLabel = formatDuration(form.durationHours, form.durationMins);
+      const arrLabel = info.isNextDay ? `${info.arrTime} on ${info.arrDateStr}` : info.arrTime;
+      const msg = `✅ ${form.busName} (${form.seats} Seats, ₹${form.fare}) for ${form.journeyDate} (${form.dep} → ${arrLabel}, ${durLabel}) from ${form.from} → ${form.to}${viaText} added ${result.isLive ? 'successfully!' : 'locally (backend offline).'}`;
       setSuccess(msg);
       showToast(`Schedule added for ${form.from} → ${form.to}!`, result.isLive ? 'success' : 'info');
-      setForm({ journeyDate: today, from: '', to: '', via: '', dep: '', arr: '', busName: '', busType: '', seats: '', fare: '' });
+      setForm({ journeyDate: today, from: '', to: '', via: '', dep: '', durationHours: '', durationMins: '0', busName: '', busType: '', seats: '', fare: '' });
       setTimeout(() => onNavigate('manage-schedules'), 2000);
     } catch (e) {
       setError(e.message || 'Failed to save schedule.');
@@ -72,6 +120,14 @@ export default function AddSchedule({ onNavigate, showToast }) {
       setLoading(false);
     }
   };
+
+  /* Duration hour options (0–48) */
+  const hourOptions = Array.from({ length: 49 }, (_, i) => i);
+  /* Duration minute options (0, 5, 10, … 55) */
+  const minOptions = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+
+  const totalDurMins = Number(form.durationHours) * 60 + Number(form.durationMins);
+  const durationExceeds48 = !isNaN(totalDurMins) && totalDurMins > 48 * 60;
 
   return (
     <div style={{ maxWidth: 680 }}>
@@ -126,17 +182,93 @@ export default function AddSchedule({ onNavigate, showToast }) {
             <span className="form-hint">* Optional: Add intermediate stops for a better customer booking experience.</span>
           </div>
 
-          {/* Dep / Arr */}
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Departure Time (HH:MM)</label>
-              <input type="time" className="form-control no-icon" value={form.dep} onChange={set('dep')} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Arrival Time (HH:MM)</label>
-              <input type="time" className="form-control no-icon" value={form.arr} onChange={set('arr')} />
-            </div>
+          {/* Departure Time */}
+          <div className="form-group">
+            <label className="form-label">Departure Time (HH:MM)</label>
+            <input type="time" className="form-control no-icon" value={form.dep} onChange={set('dep')} />
           </div>
+
+          {/* Journey Duration */}
+          <div className="form-group">
+            <label className="form-label">Journey Duration <span style={{ fontWeight: 400, color: '#6b7280' }}>(max 48 hours)</span></label>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <select
+                  className="form-control no-icon"
+                  style={{ width: '90px', cursor: 'pointer' }}
+                  value={form.durationHours}
+                  onChange={set('durationHours')}
+                >
+                  <option value="">HH</option>
+                  {hourOptions.map((h) => (
+                    <option key={h} value={h}>{String(h).padStart(2, '0')}</option>
+                  ))}
+                </select>
+                <span style={{ fontWeight: 600, color: '#374151' }}>hrs</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <select
+                  className="form-control no-icon"
+                  style={{ width: '90px', cursor: 'pointer' }}
+                  value={form.durationMins}
+                  onChange={set('durationMins')}
+                >
+                  {minOptions.map((m) => (
+                    <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
+                  ))}
+                </select>
+                <span style={{ fontWeight: 600, color: '#374151' }}>mins</span>
+              </div>
+              {form.durationHours !== '' && (
+                <span style={{
+                  fontSize: '0.82rem', fontWeight: 600,
+                  color: durationExceeds48 ? '#dc2626' : '#16a34a',
+                  background: durationExceeds48 ? '#fef2f2' : '#f0fdf4',
+                  padding: '3px 10px', borderRadius: '5px',
+                  border: `1px solid ${durationExceeds48 ? '#fca5a5' : '#bbf7d0'}`,
+                }}>
+                  {durationExceeds48
+                    ? '⚠️ Exceeds 48 hours!'
+                    : `⏱ ${formatDuration(form.durationHours, form.durationMins)}`}
+                </span>
+              )}
+            </div>
+            <span className="form-hint">* Journey duration is used to automatically calculate the arrival time.</span>
+          </div>
+
+          {/* Computed Arrival Info */}
+          {arrivalInfo && !durationExceeds48 && (
+            <div style={{
+              background: '#eff6ff',
+              border: '1.5px solid #bfdbfe',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              flexWrap: 'wrap',
+            }}>
+              <span style={{ fontSize: '1.1rem' }}>🕐</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1e40af' }}>
+                  Calculated Arrival Time: <span style={{ color: '#1d4ed8' }}>{arrivalInfo.arrTime}</span>
+                  {arrivalInfo.isNextDay && (
+                    <span style={{
+                      marginLeft: 8, fontSize: '0.78rem', background: '#dbeafe',
+                      color: '#1e40af', padding: '2px 8px', borderRadius: '4px', fontWeight: 600,
+                    }}>
+                      +1 Next Day
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: '0.82rem', color: '#3b82f6', marginTop: 2 }}>
+                  Arrival Date: <strong>{arrivalInfo.arrDateStr}</strong>
+                  {arrivalInfo.isNextDay && <span style={{ marginLeft: 6, color: '#f59e0b', fontWeight: 600 }}>⚠️ Arrives next day</span>}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Bus Name */}
           <div className="form-group">

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { fetchSchedulesFromAPI, updateLocalSchedule, deleteLocalSchedule } from '../services/api';
+﻿﻿﻿﻿﻿import React, { useState, useEffect } from 'react';
+import { fetchSchedulesFromAPI, updateLocalSchedule, deleteLocalSchedule, getCancelledSchedules } from '../services/api';
 
 const STATUS_COLORS = {
   SCHEDULED: '#3b82f6', IN_PROGRESS: '#f59e0b',
@@ -243,10 +243,11 @@ function EditModal({ trip, onClose, onSaved, showToast }) {
    ───────────────────────────────────────────────────────────── */
 export default function ManageSchedules({ onNavigate, showToast }) {
   const [trips,           setTrips]           = useState([]);
+  const [cancelledTrips,  setCancelledTrips]  = useState([]);
   const [isLive,          setIsLive]          = useState(false);
   const [loading,         setLoading]         = useState(true);
   const [editTrip,        setEditTrip]        = useState(null); // trip being edited
-  const [activeTab,       setActiveTab]       = useState('schedules'); // 'schedules' | 'completed'
+  const [activeTab,       setActiveTab]       = useState('schedules'); // 'schedules' | 'completed' | 'cancelled'
   const [dateFilter,      setDateFilter]      = useState('all'); // 'all' | '1day' | '2days' | '3days' | 'custom'
   const [customDays,      setCustomDays]      = useState('5');
 
@@ -255,6 +256,7 @@ export default function ManageSchedules({ onNavigate, showToast }) {
     fetchSchedulesFromAPI().then(({ data, isLive: live }) => {
       setTrips(data);
       setIsLive(live);
+      setCancelledTrips(getCancelledSchedules());
       setLoading(false);
     });
   };
@@ -282,35 +284,51 @@ export default function ManageSchedules({ onNavigate, showToast }) {
     loadTrips(); // refresh list after save
   };
 
-  // Delete Trip handler
+  // Delete/Cancel Trip handler
   const handleDeleteTrip = (t) => {
     const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
     const curStatus = statuses[t.tripId] || t.status || 'SCHEDULED';
 
     if (curStatus === 'IN_PROGRESS') {
-      showToast('⚠️ Cannot delete trip! This trip has already started and is in progress.', 'error');
+      showToast('Cannot cancel trip! This trip has already started and is in progress.', 'error');
       return;
     }
     if (curStatus === 'COMPLETED') {
-      showToast('⚠️ Cannot delete trip! This trip has already ended/completed.', 'error');
+      showToast('Cannot cancel trip! This trip has already ended/completed.', 'error');
+      return;
+    }
+    if (curStatus === 'CANCELLED') {
+      showToast('This trip is already cancelled.', 'info');
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to delete the schedule for "${t.busName}" (${t.source} → ${t.destination})?`)) {
+    if (!window.confirm(`Are you sure you want to cancel the schedule for "${t.busName}" (${t.source} → ${t.destination})? It will be moved to Cancelled Schedules.`)) {
       return;
     }
 
-    const ok = deleteLocalSchedule(t.tripId);
+    const ok = deleteLocalSchedule(t.tripId, {
+      source:        t.source,
+      destination:   t.destination,
+      via:           t.via,
+      departureTime: t.departureTime,
+      arrivalTime:   t.arrivalTime,
+      journeyDate:   t.journeyDate,
+      busName:       t.busName,
+      vehicleType:   t.vehicleType,
+      totalSeats:    t.totalSeats,
+      fare:          t.fare,
+    });
     if (ok) {
-      showToast(`🗑 Schedule for ${t.source} → ${t.destination} deleted successfully!`, 'success');
+      showToast('Schedule for ' + t.source + ' to ' + t.destination + ' has been cancelled and moved to Cancelled Schedules.', 'success');
       loadTrips();
+      setActiveTab('cancelled');
     } else {
-      showToast('Failed to delete schedule.', 'error');
+      showToast('Failed to cancel schedule.', 'error');
     }
   };
 
   // Split into active schedules vs completed trips
-  const activeTrips = trips.filter((t) => t.status !== 'COMPLETED');
+  const activeTrips = trips.filter((t) => t.status !== 'COMPLETED' && t.status !== 'CANCELLED');
   const completedTrips = trips.filter((t) => t.status === 'COMPLETED');
 
   // Calculate calendar days difference between today and a trip's completion/journey date
@@ -417,6 +435,13 @@ export default function ManageSchedules({ onNavigate, showToast }) {
             onClick={() => setActiveTab('completed')}
           >
             🏁 Completed Trips ({completedTrips.length})
+          </button>
+          <button
+            className={`btn ${activeTab === 'cancelled' ? 'btn-primary' : 'btn-outline'}`}
+            style={{ padding: '7px 16px', fontSize: '0.85rem', fontWeight: 600, borderColor: activeTab === 'cancelled' ? undefined : '#fca5a5', color: activeTab === 'cancelled' ? undefined : '#dc2626' }}
+            onClick={() => setActiveTab('cancelled')}
+          >
+            🚫 Cancelled ({cancelledTrips.length})
           </button>
         </div>
 
@@ -633,6 +658,49 @@ export default function ManageSchedules({ onNavigate, showToast }) {
                 </div>
               );
             })}
+          </div>
+        )
+      )}
+
+      {/* ── Cancelled Schedules View ── */}
+      {activeTab === 'cancelled' && (
+        cancelledTrips.length === 0 ? (
+          <div className="empty-state">
+            <p>No cancelled schedules yet. When you cancel a scheduled trip, it will appear here.</p>
+          </div>
+        ) : (
+          <div className="schedule-list">
+            {cancelledTrips.slice().reverse().map((t, i) => (
+              <div
+                key={t.tripId || i}
+                className="list-card"
+                style={{ borderLeftColor: '#6b7280', background: '#fafafa', opacity: 0.92 }}
+              >
+                <div className="card-meta-row" style={{ flex: 1 }}>
+                  <div className="card-route" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#374151' }}>{t.source} → {t.destination}</span>
+                    {t.via && <span className="via-tag">Via: {t.via}</span>}
+                    <span style={{ fontSize: '0.72rem', background: '#f3f4f6', color: '#6b7280', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, border: '1px solid #e5e7eb' }}>🚫 Cancelled</span>
+                  </div>
+                  <div className="card-time" style={{ marginTop: 4, color: '#6b7280' }}>
+                    🚌 <strong>{t.busName}</strong> · <span>{t.vehicleType}</span> · Dep: {t.departureTime} → Arr: {t.arrivalTime}
+                  </div>
+                  <div className="card-id" style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '14px', color: '#9ca3af' }}>
+                    <span><strong>Trip ID:</strong> {t.tripId}</span>
+                    <span><strong>Journey Date:</strong> {t.journeyDate}</span>
+                    <span><strong>Seats:</strong> {t.totalSeats}</span>
+                    <span><strong>Fare:</strong> ₹{t.fare}</span>
+                    {t.cancelledAt && (
+                      <span><strong>Cancelled At:</strong> {new Date(t.cancelledAt).toLocaleString()}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="card-right-info" style={{ textAlign: 'right' }}>
+                  <div style={{ color: '#6b7280', fontWeight: 700, fontSize: '0.9rem' }}>🚫 Cancelled</div>
+                  <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: 4 }}>Schedule Removed</div>
+                </div>
+              </div>
+            ))}
           </div>
         )
       )}

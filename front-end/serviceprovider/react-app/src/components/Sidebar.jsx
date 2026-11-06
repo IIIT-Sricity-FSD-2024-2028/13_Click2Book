@@ -112,12 +112,12 @@ export default function Sidebar({ activeTab, setActiveTab, provider, onLogout })
         ))}
       </nav>
 
-      {/* Bottom */}
+    
       <div className="sidebar-bottom">
-        <button className="nav-item" onClick={() => setActiveTab('settings')}>
+        {/* <button className="nav-item" onClick={() => setActiveTab('settings')}>
           <ShieldIcon />
           <span>Staff Portal</span>
-        </button>
+        </button> */}
         <button
           className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
           onClick={() => setActiveTab('settings')}

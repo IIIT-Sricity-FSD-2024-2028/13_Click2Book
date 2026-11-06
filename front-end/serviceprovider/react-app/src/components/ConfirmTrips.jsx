@@ -184,7 +184,7 @@ function TripCard({ item, onStart, onEnd, onUpdateLocation }) {
 /* ─────────────────────────────────────────────────────────────
    Main ConfirmTrips page
    ───────────────────────────────────────────────────────────── */
-export default function ConfirmTrips({ provider, showToast }) {
+export default function ConfirmTrips({ provider, onNavigate, showToast }) {
   const [trips,   setTrips]   = useState([]);
   const [isLive,  setIsLive]  = useState(false);
   const [loading, setLoading] = useState(true);

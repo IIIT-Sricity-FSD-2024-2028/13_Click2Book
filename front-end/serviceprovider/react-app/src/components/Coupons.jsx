@@ -8,7 +8,7 @@ import {
   getApprovedCities,
 } from '../services/api';
 
-export default function Coupons({ showToast, onNavigate }) {
+export default function Coupons({ provider, showToast, onNavigate }) {
   const [coupons, setCoupons] = useState([]);
   const [activeFilter, setActiveFilter] = useState('ALL'); // 'ALL' | 'TICKET_COUNT' | 'REGULAR_CUSTOMER' | 'ANY_BOOKING' | 'EXHAUSTED'
   const [showCreateModal, setShowCreateModal] = useState(false);

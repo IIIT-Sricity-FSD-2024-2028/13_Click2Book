@@ -267,7 +267,7 @@ function EditModal({ trip, onClose, onSaved, showToast }) {
 /* ─────────────────────────────────────────────────────────────
    Main ManageSchedules page
    ───────────────────────────────────────────────────────────── */
-export default function ManageSchedules({ onNavigate, showToast }) {
+export default function ManageSchedules({ provider, onNavigate, showToast }) {
   const [trips,           setTrips]           = useState([]);
   const [cancelledTrips,  setCancelledTrips]  = useState([]);
   const [isLive,          setIsLive]          = useState(false);

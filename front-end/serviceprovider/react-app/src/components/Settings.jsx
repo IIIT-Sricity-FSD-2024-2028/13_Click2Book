@@ -18,7 +18,7 @@ function Toggle({ on, onToggle }) {
   );
 }
 
-export default function Settings({ provider, showToast }) {
+export default function Settings({ provider, onNavigate, showToast }) {
   const [activePane, setActivePane] = useState('account');
   const [notifs, setNotifs] = useState({ bookings: true, capacity: true, confirmed: true, promotions: false });
   const [dark, setDark] = useState(false);

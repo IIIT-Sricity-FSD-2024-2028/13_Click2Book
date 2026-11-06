@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchRevenue } from '../services/api';
 
-export default function Revenue({ provider }) {
+export default function Revenue({ provider, onNavigate, showToast }) {
   const [stats, setStats] = useState({ totalGross: 0, totalNet: 0, totalBookings: 0, totalSeats: 0 });
   const [rows, setRows] = useState([]);
   const [isLive, setIsLive] = useState(false);

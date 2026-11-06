@@ -131,18 +131,18 @@ export default function App() {
 
   /* ── Page renderer ── */
   const renderPage = () => {
-    const commonProps = { provider, showToast };
+    const commonProps = { provider, showToast, onNavigate: setActiveTab };
     switch (activeTab) {
-      case 'dashboard':        return <Dashboard        {...commonProps} onNavigate={setActiveTab} />;
-      case 'manage-schedules': return <ManageSchedules  {...commonProps} onNavigate={setActiveTab} />;
-      case 'add-schedule':     return <AddSchedule      {...commonProps} onNavigate={setActiveTab} />;
+      case 'dashboard':        return <Dashboard        {...commonProps} />;
+      case 'manage-schedules': return <ManageSchedules  {...commonProps} />;
+      case 'add-schedule':     return <AddSchedule      {...commonProps} />;
       case 'confirm-trips':    return <ConfirmTrips     {...commonProps} />;
       case 'seat-management':  return <SeatManagement   {...commonProps} />;
-      case 'coupons':          return <Coupons          {...commonProps} onNavigate={setActiveTab} />;
+      case 'coupons':          return <Coupons          {...commonProps} />;
       case 'lost-found':       return <LostFound        {...commonProps} />;
       case 'revenue':          return <Revenue          {...commonProps} />;
       case 'settings':         return <Settings         {...commonProps} />;
-      default:                 return <Dashboard        {...commonProps} onNavigate={setActiveTab} />;
+      default:                 return <Dashboard        {...commonProps} />;
     }
   };
 

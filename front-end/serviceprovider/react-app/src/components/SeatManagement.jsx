@@ -253,7 +253,7 @@ function SeatModal({ bus, onClose }) {
 /* ─────────────────────────────────────────────────────────────
    Main SeatManagement page
    ───────────────────────────────────────────────────────────── */
-export default function SeatManagement({ provider }) {
+export default function SeatManagement({ provider, onNavigate, showToast }) {
   const [buses, setBuses]             = useState([]);
   const [selectedBus, setSelectedBus] = useState(null);
 

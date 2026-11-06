@@ -6,6 +6,7 @@ const PAGE_TITLES = {
   'add-schedule':   { title: 'Add Schedule',         sub: 'Service Provider Portal' },
   'confirm-trips':  { title: 'Confirm Trips',        sub: 'Service Provider Portal' },
   'seat-management':{ title: 'Seat Management',      sub: 'Service Provider Portal' },
+  coupons:          { title: 'Coupons & Promo Tokens',sub: 'Configure discount tokens and restrict customer redemption quota' },
   'lost-found':     { title: 'Lost & Found',         sub: 'Items reported by customers on your trips' },
   revenue:          { title: 'My Revenue',           sub: 'Provider Revenue & Fleet Performance' },
   settings:         { title: 'Settings',             sub: 'Manage your account preferences' },

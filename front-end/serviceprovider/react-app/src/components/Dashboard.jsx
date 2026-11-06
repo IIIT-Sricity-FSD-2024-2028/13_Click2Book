@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getDashboardData } from '../services/api';
 
-export default function Dashboard({ onNavigate }) {
+export default function Dashboard({ provider, onNavigate, showToast }) {
   const [data, setData] = useState({ buses: [], totalPax: 0, totalRev: 0 });
 
   useEffect(() => {

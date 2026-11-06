@@ -55,7 +55,7 @@ function LFCard({ item, onMarkStatus }) {
   );
 }
 
-export default function LostFound({ provider, showToast }) {
+export default function LostFound({ provider, onNavigate, showToast }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);

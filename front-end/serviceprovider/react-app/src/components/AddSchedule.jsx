@@ -64,7 +64,7 @@ function formatDuration(h, m) {
   return parts.join(' ');
 }
 
-export default function AddSchedule({ onNavigate, showToast }) {
+export default function AddSchedule({ provider, onNavigate, showToast }) {
   const today = new Date().toISOString().split('T')[0];
   const maxDate = (() => {
     const d = new Date();
@@ -779,9 +779,9 @@ export default function AddSchedule({ onNavigate, showToast }) {
                     justifyContent: 'space-between',
                   }}
                 >
-                  <span>Operator: <strong>Kiran Travels</strong></span>
+                  <span>Operator: <strong>{provider?.name || 'Kiran Travels'}</strong></span>
                   <span style={{ background: '#e2e8f0', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
-                    Provider ID: P001
+                    Provider ID: {provider?.id || 'P001'}
                   </span>
                 </div>
 

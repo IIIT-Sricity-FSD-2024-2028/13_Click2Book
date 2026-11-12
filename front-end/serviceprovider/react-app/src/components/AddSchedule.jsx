@@ -1,12 +1,16 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   saveSchedule,
   getApprovedCities,
   getDestinationRequests,
   submitDestinationRequest,
+  submitOsmLocationRequest,
+  searchOsmLocations,
   approveDestinationRequest,
   rejectDestinationRequest,
 } from '../services/api';
+import OsmLocationSelector from './OsmLocationSelector';
+import BusSeatLayout from './BusSeatLayout';
 
 const BUS_TYPES = ['Sleeper AC', 'Semi-Sleeper', 'AC Seater', 'Volvo AC', 'Non-AC', 'Luxury'];
 
@@ -91,10 +95,17 @@ export default function AddSchedule({ provider, onNavigate, showToast }) {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showViewRequestsModal, setShowViewRequestsModal] = useState(false);
 
-  // New Destination Request form
+  // New Destination Request form with OpenStreetMap Nominatim metadata
   const [reqForm, setReqForm] = useState({
     cityName: '',
+    displayName: '',
+    osmId: '',
+    osmType: 'node',
+    locationType: 'city',
+    latitude: null,
+    longitude: null,
     state: 'Andhra Pradesh',
+    address: {},
     hubType: 'Major District Headquarters',
     connectingRoutes: '',
     reason: '',
@@ -102,6 +113,13 @@ export default function AddSchedule({ provider, onNavigate, showToast }) {
   const [reqError, setReqError] = useState('');
   const [reqSuccess, setReqSuccess] = useState('');
   const [reqLoading, setReqLoading] = useState(false);
+
+  // Live OpenStreetMap Nominatim search state inside the request modal
+  const [modalOsmSearch, setModalOsmSearch] = useState('');
+  const [modalOsmResults, setModalOsmResults] = useState([]);
+  const [modalOsmLoading, setModalOsmLoading] = useState(false);
+  const [selectedOsmItem, setSelectedOsmItem] = useState(null);
+  const modalDebounce = useRef(null);
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -125,22 +143,86 @@ export default function AddSchedule({ provider, onNavigate, showToast }) {
     [form.journeyDate, form.dep, form.durationHours, form.durationMins]
   );
 
-  const handleFromChange = (e) => {
-    const val = e.target.value;
-    if (val === '__REQUEST_NEW__') {
-      setShowRequestModal(true);
-      return;
+  const handleOpenRequestModal = (prefilledOsmItem) => {
+    setReqError('');
+    setReqSuccess('');
+    if (prefilledOsmItem && prefilledOsmItem.name) {
+      setSelectedOsmItem(prefilledOsmItem);
+      setModalOsmSearch(prefilledOsmItem.name);
+      setReqForm({
+        cityName: prefilledOsmItem.name,
+        displayName: prefilledOsmItem.displayName || `${prefilledOsmItem.name}, India`,
+        osmId: prefilledOsmItem.osmId || '7998900',
+        osmType: prefilledOsmItem.osmType || 'node',
+        locationType: prefilledOsmItem.locationType || 'city',
+        latitude: prefilledOsmItem.latitude || 17.0,
+        longitude: prefilledOsmItem.longitude || 78.0,
+        state: prefilledOsmItem.state || 'Andhra Pradesh',
+        address: prefilledOsmItem.address || {},
+        hubType: prefilledOsmItem.locationType === 'bus_stop' ? 'Commercial Transit Junction' : 'Major District Headquarters',
+        connectingRoutes: form.from ? `${form.from} ↔ ${prefilledOsmItem.name}` : '',
+        reason: '',
+      });
+    } else {
+      setSelectedOsmItem(null);
+      setModalOsmSearch('');
+      setModalOsmResults([]);
+      setReqForm({
+        cityName: '',
+        displayName: '',
+        osmId: '',
+        osmType: 'node',
+        locationType: 'city',
+        latitude: null,
+        longitude: null,
+        state: 'Andhra Pradesh',
+        address: {},
+        hubType: 'Major District Headquarters',
+        connectingRoutes: '',
+        reason: '',
+      });
     }
-    setForm((f) => ({ ...f, from: val }));
+    setShowRequestModal(true);
   };
 
-  const handleToChange = (e) => {
-    const val = e.target.value;
-    if (val === '__REQUEST_NEW__') {
-      setShowRequestModal(true);
+  const handleModalSearchChange = (val) => {
+    setModalOsmSearch(val);
+    if (!val || val.trim().length < 2) {
+      setModalOsmResults([]);
       return;
     }
-    setForm((f) => ({ ...f, to: val }));
+    setModalOsmLoading(true);
+    if (modalDebounce.current) clearTimeout(modalDebounce.current);
+    modalDebounce.current = setTimeout(async () => {
+      try {
+        const results = await searchOsmLocations(val.trim());
+        setModalOsmResults(results);
+      } catch (err) {
+        console.warn('Modal OSM search error:', err);
+      } finally {
+        setModalOsmLoading(false);
+      }
+    }, 450);
+  };
+
+  const handleSelectModalOsm = (item) => {
+    setSelectedOsmItem(item);
+    setModalOsmSearch(item.name);
+    setModalOsmResults([]);
+    setReqForm((prev) => ({
+      ...prev,
+      cityName: item.name,
+      displayName: item.displayName,
+      osmId: item.osmId,
+      osmType: item.osmType || 'node',
+      locationType: item.locationType || 'city',
+      latitude: item.latitude,
+      longitude: item.longitude,
+      state: item.state || prev.state,
+      address: item.address || {},
+      hubType: item.locationType === 'bus_stop' ? 'Commercial Transit Junction' : 'Major District Headquarters',
+      connectingRoutes: form.from ? `${form.from} ↔ ${item.name}` : prev.connectingRoutes,
+    }));
   };
 
   const validate = () => {
@@ -247,40 +329,61 @@ export default function AddSchedule({ provider, onNavigate, showToast }) {
     }
   };
 
-  /* ── Submit Destination Request ── */
-  const handleRaiseRequest = (e) => {
+  /* ── Submit Destination Request with OpenStreetMap Validation ── */
+  const handleRaiseRequest = async (e) => {
     e.preventDefault();
     setReqError('');
     setReqSuccess('');
 
-    try {
-      const cleanCity = reqForm.cityName.trim();
-      if (!cleanCity) {
-        setReqError('Please enter the city or town name.');
-        return;
-      }
-      setReqLoading(true);
+    const cleanCity = (reqForm.cityName || '').trim();
+    if (!cleanCity) {
+      setReqError('Please search and select a verified city, town, or bus stop from OpenStreetMap.');
+      return;
+    }
 
-      const newReq = submitDestinationRequest({
+    if (!reqForm.osmId) {
+      setReqError('OpenStreetMap validation required: Please select a location from the OSM suggestions below.');
+      return;
+    }
+
+    setReqLoading(true);
+    try {
+      const newReq = await submitOsmLocationRequest({
+        osmId: reqForm.osmId,
+        osmType: reqForm.osmType || 'node',
         cityName: cleanCity,
+        displayName: reqForm.displayName || `${cleanCity}, India`,
+        locationType: reqForm.locationType || reqForm.hubType || 'city',
+        latitude: reqForm.latitude,
+        longitude: reqForm.longitude,
         state: reqForm.state,
+        address: reqForm.address,
         hubType: reqForm.hubType,
         connectingRoutes: reqForm.connectingRoutes,
         reason: reqForm.reason,
       });
 
       refreshNetworkData();
-      setReqSuccess(`✅ Request for "${cleanCity}" submitted to Platform Admin for approval.`);
+      setReqSuccess(`✅ Request for "${cleanCity}" (OSM ID: ${reqForm.osmId}) submitted to Platform Admin for approval.`);
       showToast(`Destination request for "${cleanCity}" submitted!`, 'info');
 
       // Reset request form
       setReqForm({
         cityName: '',
+        displayName: '',
+        osmId: '',
+        osmType: 'node',
+        locationType: 'city',
+        latitude: null,
+        longitude: null,
         state: 'Andhra Pradesh',
+        address: {},
         hubType: 'Major District Headquarters',
         connectingRoutes: '',
         reason: '',
       });
+      setSelectedOsmItem(null);
+      setModalOsmSearch('');
 
       setTimeout(() => {
         setShowRequestModal(false);
@@ -446,69 +549,25 @@ export default function AddSchedule({ provider, onNavigate, showToast }) {
             <span className="form-hint">* Schedules can be added from today up to a maximum of 2 months in advance.</span>
           </div>
 
-          {/* From / To (Restricted to Approved Major Cities Only) */}
+          {/* From / To (OpenStreetMap Autocomplete with strict Approved Validation) */}
           <div className="form-row">
-            <div className="form-group">
-              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>From (Departure City)</span>
-                <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 600 }}>● Approved Hubs Only</span>
-              </label>
-              <div className="input-wrap">
-                <svg className="input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-                <select
-                  className="form-control"
-                  value={form.from}
-                  onChange={handleFromChange}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <option value="">-- Select Departure City --</option>
-                  <optgroup label="Approved Major Cities & Towns">
-                    {approvedCities.map((c) => (
-                      <option key={`from-${c}`} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Town / City Not Listed?">
-                    <option value="__REQUEST_NEW__">➕ Origin not listed? (Raise Request)</option>
-                  </optgroup>
-                </select>
-              </div>
-            </div>
+            <OsmLocationSelector
+              label="From (Departure Hub)"
+              value={form.from}
+              onChange={(name) => setForm((f) => ({ ...f, from: name }))}
+              onRequestMissing={(item) => handleOpenRequestModal(item)}
+              approvedCities={approvedCities}
+              placeholder="Search Indian departure city, town, or bus stop..."
+            />
 
-            <div className="form-group">
-              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>To (Destination City)</span>
-                <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 600 }}>● Approved Hubs Only</span>
-              </label>
-              <div className="input-wrap">
-                <svg className="input-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-                <select
-                  className="form-control"
-                  value={form.to}
-                  onChange={handleToChange}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <option value="">-- Select Destination City --</option>
-                  <optgroup label="Approved Major Cities & Towns">
-                    {approvedCities.map((c) => (
-                      <option key={`to-${c}`} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Destination Not Listed?">
-                    <option value="__REQUEST_NEW__">➕ Destination not listed? (Raise Request)</option>
-                  </optgroup>
-                </select>
-              </div>
-            </div>
+            <OsmLocationSelector
+              label="To (Destination Hub)"
+              value={form.to}
+              onChange={(name) => setForm((f) => ({ ...f, to: name }))}
+              onRequestMissing={(item) => handleOpenRequestModal(item)}
+              approvedCities={approvedCities}
+              placeholder="Search Indian destination city, town, or bus stop..."
+            />
           </div>
 
           {/* Quick Helper for Destination Not Listed */}
@@ -723,6 +782,22 @@ export default function AddSchedule({ provider, onNavigate, showToast }) {
             </div>
           </div>
 
+          {/* Live Bus Layout Preview validating Bus Type (Sleeper vs Semi-Sleeper) and displaying Fare */}
+          <div style={{ marginTop: '1.25rem', marginBottom: '1.25rem' }}>
+            <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>🚌 Live Bus Seat Layout Preview</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>
+                {form.busType ? `Type: ${form.busType}` : 'Default: Semi-Sleeper'}
+              </span>
+            </label>
+            <BusSeatLayout
+              busType={form.busType || 'Semi-Sleeper'}
+              fare={form.fare ? Number(form.fare) : form.busType?.toLowerCase().includes('sleeper') && !form.busType?.toLowerCase().includes('semi') ? 1483 : 650}
+              totalSeats={Number(form.seats) || (form.busType?.toLowerCase().includes('sleeper') && !form.busType?.toLowerCase().includes('semi') ? 30 : 40)}
+              isPreview={true}
+            />
+          </div>
+
           <button
             className="btn btn-primary btn-block"
             onClick={handleSubmit}
@@ -785,6 +860,99 @@ export default function AddSchedule({ provider, onNavigate, showToast }) {
                   </span>
                 </div>
 
+                {/* Step 1: OpenStreetMap Nominatim Live Search & Validation */}
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1rem' }}>
+                  <label className="form-label" style={{ fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>
+                    🔍 Search &amp; Validate Location on OpenStreetMap *
+                  </label>
+                  <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '0 0 8px' }}>
+                    Type the city, town, or bus stop name. You must select a verified OpenStreetMap result to populate coordinates and OSM ID.
+                  </p>
+
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Warangal, Khammam, CMBT Bus Terminus..."
+                      value={modalOsmSearch}
+                      onChange={(e) => handleModalSearchChange(e.target.value)}
+                    />
+                    {modalOsmLoading && (
+                      <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#3b82f6' }}>
+                        Searching OSM...
+                      </span>
+                    )}
+                  </div>
+
+                  {/* OSM Live Search Results Dropdown */}
+                  {modalOsmResults.length > 0 && (
+                    <div
+                      style={{
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: 6,
+                        marginTop: 4,
+                        maxHeight: 180,
+                        overflowY: 'auto',
+                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                      }}
+                    >
+                      {modalOsmResults.map((item, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => handleSelectModalOsm(item)}
+                          style={{
+                            padding: '8px 12px',
+                            borderBottom: '1px solid #f1f5f9',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = '#f0fdf4')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
+                        >
+                          <div style={{ fontWeight: 700, color: '#0f172a' }}>
+                            {item.name} <span style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 600 }}>({item.locationType})</span>
+                          </div>
+                          <div style={{ color: '#64748b', fontSize: '0.72rem' }}>{item.displayName}</div>
+                          <div style={{ color: '#94a3b8', fontSize: '0.68rem' }}>OSM ID: {item.osmId} &bull; {item.latitude?.toFixed(4)}°, {item.longitude?.toFixed(4)}°</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Selected Verified OSM Location Card */}
+                  {selectedOsmItem ? (
+                    <div
+                      style={{
+                        background: '#ecfdf5',
+                        border: '1px solid #a7f3d0',
+                        borderRadius: 6,
+                        padding: '10px 12px',
+                        marginTop: 10,
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.84rem', color: '#065f46' }}>
+                          ✓ Verified OSM Location: {selectedOsmItem.name}
+                        </span>
+                        <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: 10, fontSize: '0.7rem', fontWeight: 700 }}>
+                          OSM ID: {selectedOsmItem.osmId}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#047857', marginTop: 2 }}>
+                        {selectedOsmItem.displayName}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: '#059669', marginTop: 2 }}>
+                        Type: <strong>{selectedOsmItem.locationType || 'city'}</strong> &bull; Lat: <strong>{selectedOsmItem.latitude}</strong> &bull; Lon: <strong>{selectedOsmItem.longitude}</strong>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '0.72rem', color: '#d97706', marginTop: 6 }}>
+                      ⚠️ No location selected yet. Search above and click a suggested OSM location.
+                    </div>
+                  )}
+                </div>
+
                 {/* City Name & State */}
                 <div className="form-row">
                   <div className="form-group">
@@ -792,7 +960,7 @@ export default function AddSchedule({ provider, onNavigate, showToast }) {
                     <input
                       type="text"
                       className="form-control no-icon"
-                      placeholder="e.g. Kurnool, Warangal, Hubli"
+                      placeholder="Selected from OpenStreetMap"
                       value={reqForm.cityName}
                       onChange={(e) => setReqForm({ ...reqForm, cityName: e.target.value })}
                       required
@@ -1025,7 +1193,7 @@ export default function AddSchedule({ provider, onNavigate, showToast }) {
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', paddingTop: '6px', borderTop: '1px solid #f1f5f9' }}>
                           <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                            Req ID: {r.requestId} · Submitted: {new Date(r.submittedAt).toLocaleDateString()}
+                            Req ID: {r.requestId} {r.osmId ? `· OSM: ${r.osmId}` : ''} {r.latitude ? `· (${r.latitude.toFixed(2)}°, ${r.longitude.toFixed(2)}°)` : ''} · Submitted: {new Date(r.submittedAt).toLocaleDateString()}
                           </span>
 
                           {/* Quick Admin Simulator for Grading / Evaluation */}

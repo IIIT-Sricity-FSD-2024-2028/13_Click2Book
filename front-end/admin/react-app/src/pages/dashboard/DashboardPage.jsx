@@ -9,6 +9,7 @@ import ProvidersSection from './ProvidersSection.jsx';
 import RefundsSection from './RefundsSection.jsx';
 import ReportsSection from './ReportsSection.jsx';
 import SupportSection from './SupportSection.jsx';
+import LocationsSection from './LocationsSection.jsx';
 import { loadSavedSection, saveSection, SECTIONS } from './sections.js';
 import Sidebar from './Sidebar.jsx';
 import Topbar from './Topbar.jsx';
@@ -151,6 +152,8 @@ export default function DashboardPage({ onLogout, onViewRevenue }) {
         return <SupportSection onAction={runAdminAction} busy={busy} />;
       case 'refund':
         return <RefundsSection refunds={refunds} onDecision={decideRefund} busy={busy} />;
+      case 'locations':
+        return <LocationsSection onAction={runAdminAction} busy={busy} />;
       case 'reports':
         return <ReportsSection bookings={bookings} refunds={refunds} users={users} routes={dashboardData.routes} totalRevenue={dashboardData.totalRevenue} />;
       default:

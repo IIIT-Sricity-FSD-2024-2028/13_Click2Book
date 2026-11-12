@@ -598,25 +598,29 @@ export function getSeatData() {
   const localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
   const localBookings  = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
 
-  let buses = localSchedules.map((s, idx) => ({
-    id:            s.id || s.tripId || `BUS_${idx}`,
-    tripId:        s.tripId || s.id || `BUS_${idx}`,
-    route:         s.from && s.to ? `${s.from} → ${s.to}` : 'Custom Route',
-    from:          s.from || 'Origin',
-    to:            s.to   || 'Destination',
-    time:          `${s.departureTime || '08:00'} → ${s.arrivalTime || '12:00'}`,
-    name:          s.busName || 'Express Bus',
-    type:          s.busType || 'AC',
-    total:         s.totalSeats || 40,
-    bookedSeatList: [],
-    passengerMap:   {}, // seatId → { name, phone, bookingId, bookingDate, email }
-  }));
+  let buses = localSchedules.map((s, idx) => {
+    const isSleeper = (s.busType || '').toLowerCase().includes('sleeper') && !(s.busType || '').toLowerCase().includes('semi');
+    return {
+      id:            s.id || s.tripId || `BUS_${idx}`,
+      tripId:        s.tripId || s.id || `BUS_${idx}`,
+      route:         s.from && s.to ? `${s.from} → ${s.to}` : 'Custom Route',
+      from:          s.from || 'Origin',
+      to:            s.to   || 'Destination',
+      time:          `${s.departureTime || '08:00'} → ${s.arrivalTime || '12:00'}`,
+      name:          s.busName || 'Express Bus',
+      type:          s.busType || 'AC',
+      total:         s.totalSeats || (isSleeper ? 30 : 40),
+      fare:          s.fare || (isSleeper ? 1483 : 650),
+      bookedSeatList: [],
+      passengerMap:   {}, // seatId → { name, phone, bookingId, bookingDate, email }
+    };
+  });
 
   if (!buses.length) {
     buses = [
-      { id: 'T001', tripId: 'T001', route: 'SriCity → Chennai', from: 'SriCity', to: 'Chennai', time: '06:00 → 09:30', name: 'Volvo A/C B12', type: 'AC', total: 40, bookedSeatList: [], passengerMap: {} },
-      { id: 'T002', tripId: 'T002', route: 'Tada → Vizag',      from: 'Tada',    to: 'Vizag',    time: '14:00 → 17:30', name: 'Scania AC',     type: 'AC', total: 45, bookedSeatList: [], passengerMap: {} },
-      { id: 'T003', tripId: 'T003', route: 'Pune → Mumbai',     from: 'Pune',    to: 'Mumbai',   time: '20:00 → 23:30', name: 'Sleeper Bus',   type: 'Sleeper', total: 36, bookedSeatList: [], passengerMap: {} },
+      { id: 'T001', tripId: 'T001', route: 'SriCity → Chennai', from: 'SriCity', to: 'Chennai', time: '06:00 → 09:30', name: 'Volvo A/C B12', type: 'Volvo AC', total: 40, fare: 650, bookedSeatList: ['A1', 'A2', 'C1'], passengerMap: { 'A1': { name: 'Priya Sharma', phone: '9876543210', gender: 'female', fare: 650, bookingId: 'BK-101', bookingDate: new Date().toISOString() }, 'A2': { name: 'Rahul Verma', phone: '9845123456', gender: 'male', fare: 650, bookingId: 'BK-102', bookingDate: new Date().toISOString() } } },
+      { id: 'T002', tripId: 'T002', route: 'Tada → Vizag',      from: 'Tada',    to: 'Vizag',    time: '14:00 → 17:30', name: 'Scania AC',     type: 'Semi-Sleeper', total: 40, fare: 750, bookedSeatList: ['B1', 'B2'], passengerMap: {} },
+      { id: 'T003', tripId: 'T003', route: 'Pune → Mumbai',     from: 'Pune',    to: 'Mumbai',   time: '20:00 → 23:30', name: 'Royal Sleeper AC',   type: 'Sleeper AC', total: 30, fare: 1483, bookedSeatList: ['L1', 'L3', 'U2'], passengerMap: { 'L1': { name: 'Ananya Rao', phone: '9988776655', gender: 'female', fare: 1483, bookingId: 'BK-301', bookingDate: new Date().toISOString() } } },
     ];
   }
 
@@ -655,6 +659,40 @@ export function getSeatData() {
   });
 
   return buses;
+}
+
+/* ── Blocked seats: get/set per trip ── */
+export function getBlockedSeatsForTrip(tripId) {
+  try {
+    const all = JSON.parse(localStorage.getItem('c2b_blocked_seats') || '{}');
+    return all[tripId] || [];
+  } catch { return []; }
+}
+
+export function setBlockedSeatsForTrip(tripId, seatIds) {
+  try {
+    const all = JSON.parse(localStorage.getItem('c2b_blocked_seats') || '{}');
+    all[tripId] = seatIds;
+    localStorage.setItem('c2b_blocked_seats', JSON.stringify(all));
+    try { window.dispatchEvent(new Event('storage')); } catch {}
+    return true;
+  } catch { return false; }
+}
+
+export function blockSeat(tripId, seatId) {
+  const current = getBlockedSeatsForTrip(tripId);
+  if (!current.includes(seatId)) {
+    setBlockedSeatsForTrip(tripId, [...current, seatId]);
+  }
+}
+
+export function unblockSeat(tripId, seatId, bookedSeatList = []) {
+  // Never unblock a confirmed booking
+  if (bookedSeatList.includes(seatId)) {
+    throw new Error(`Seat ${seatId} has an active confirmed booking and cannot be unblocked.`);
+  }
+  const current = getBlockedSeatsForTrip(tripId);
+  setBlockedSeatsForTrip(tripId, current.filter(s => s !== seatId));
 }
 
 function getLocalTripsForConfirm(localStatuses) {
@@ -825,6 +863,197 @@ export function getApprovedCities() {
   } catch {
     return APPROVED_MAJOR_CITIES;
   }
+}
+
+/* ── OpenStreetMap Nominatim Live Search & Location Management ── */
+
+export async function searchOsmLocations(query) {
+  const clean = (query || '').trim();
+  if (!clean || clean.length < 2) return [];
+
+  // 1. Try NestJS backend proxy first (enforces caching, rate limiting, India filter)
+  try {
+    const res = await spFetch(`/locations/osm-search?query=${encodeURIComponent(clean)}`);
+    const items = Array.isArray(res) ? res : res.data || [];
+    if (items.length > 0) return items;
+  } catch (e) {
+    console.info('Backend /locations/osm-search note (using client fallback):', e?.message);
+  }
+
+  // 2. Client fallback with session cache to respect Nominatim policy
+  const cacheKey = `c2b_osm_${clean.toLowerCase()}`;
+  const cached = sessionStorage.getItem(cacheKey);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch {}
+  }
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+      clean,
+    )}&format=json&addressdetails=1&countrycodes=in&limit=8&accept-language=en`;
+
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Click2Book-BusReservationSystem/1.0 (contact: admin@click2book.local)',
+        Accept: 'application/json',
+      },
+    });
+
+    if (res.ok) {
+      const raw = await res.json();
+      const approved = getApprovedCities();
+      const pendingReqs = getDestinationRequests();
+
+      const formatted = raw.map((item) => {
+        const addr = item.address || {};
+        const name =
+          addr.city ||
+          addr.town ||
+          addr.village ||
+          addr.bus_stop ||
+          addr.suburb ||
+          item.name ||
+          item.display_name.split(',')[0].trim();
+
+        const isApproved = approved.some((c) => c.toLowerCase() === name.toLowerCase());
+        const hasPending = pendingReqs.some(
+          (r) =>
+            (r.cityName?.toLowerCase() === name.toLowerCase() || String(r.osmId) === String(item.osm_id)) &&
+            r.status === 'PENDING',
+        );
+
+        let locType = item.type || item.class || 'town';
+        if (item.class === 'highway' && item.type === 'bus_stop') locType = 'bus_stop';
+        if (addr.bus_stop) locType = 'bus_stop';
+
+        return {
+          name,
+          displayName: item.display_name,
+          osmId: String(item.osm_id),
+          osmType: item.osm_type || 'node',
+          locationType: locType,
+          latitude: parseFloat(item.lat),
+          longitude: parseFloat(item.lon),
+          state: addr.state || '',
+          address: addr,
+          isAlreadyApproved: isApproved,
+          hasPendingRequest: hasPending,
+        };
+      });
+
+      sessionStorage.setItem(cacheKey, JSON.stringify(formatted));
+      return formatted;
+    }
+  } catch {}
+
+  // 3. Fallback: match local approved cities
+  const approved = getApprovedCities();
+  return approved
+    .filter((c) => c.toLowerCase().includes(clean.toLowerCase()))
+    .map((c) => ({
+      name: c,
+      displayName: `${c}, India`,
+      osmId: '7998900',
+      locationType: 'city',
+      latitude: 17.0,
+      longitude: 78.0,
+      isAlreadyApproved: true,
+      hasPendingRequest: false,
+    }));
+}
+
+export async function submitOsmLocationRequest({
+  osmId,
+  osmType = 'node',
+  cityName,
+  displayName,
+  locationType = 'city',
+  latitude,
+  longitude,
+  state = 'Andhra Pradesh',
+  hubType,
+  connectingRoutes = '',
+  reason = 'New operational corridor demand',
+  address = {},
+}) {
+  const cleanCity = (cityName || '').trim();
+  if (!cleanCity) throw new Error('Location name is required.');
+  if (!osmId) throw new Error('OpenStreetMap ID is required. Please select a verified location from the search suggestions.');
+
+  const approved = getApprovedCities();
+  if (approved.some((c) => c.toLowerCase() === cleanCity.toLowerCase())) {
+    throw new Error(`"${cleanCity}" is already an approved destination in the platform network.`);
+  }
+
+  const requests = getDestinationRequests();
+  const pending = requests.find(
+    (r) =>
+      (r.cityName?.toLowerCase() === cleanCity.toLowerCase() || String(r.osmId) === String(osmId)) &&
+      r.status === 'PENDING',
+  );
+  if (pending) {
+    throw new Error(`A request for "${cleanCity}" (OSM ID: ${osmId}) is already pending admin review.`);
+  }
+
+  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
+  const loggedName = localStorage.getItem('c2b_userName') || 'Kiran Travels';
+
+  const newReq = {
+    requestId: `REQ_${Date.now()}`,
+    osmId: String(osmId),
+    osmType,
+    cityName: cleanCity,
+    name: cleanCity,
+    displayName: displayName || `${cleanCity}, ${state}, India`,
+    locationType: locationType || hubType || 'city',
+    hubType: hubType || locationType || 'Major Town / District Hub',
+    latitude: Number(latitude) || 0,
+    longitude: Number(longitude) || 0,
+    state,
+    address,
+    connectingRoutes: (connectingRoutes || '').trim(),
+    reason: (reason || '').trim() || 'New operational corridor demand',
+    providerId: loggedId,
+    providerName: loggedName,
+    status: 'PENDING',
+    submittedAt: new Date().toISOString(),
+  };
+
+  requests.unshift(newReq);
+  localStorage.setItem('c2b_destination_requests', JSON.stringify(requests));
+
+  // Sync to NestJS backend if available
+  try {
+    await spFetch('/locations/requests', {
+      method: 'POST',
+      body: JSON.stringify({
+        osmId: String(osmId),
+        osmType,
+        name: cleanCity,
+        displayName: newReq.displayName,
+        locationType: newReq.locationType,
+        latitude: newReq.latitude,
+        longitude: newReq.longitude,
+        address,
+        state,
+        providerId: loggedId,
+        providerName: loggedName,
+        connectingRoutes: newReq.connectingRoutes,
+        reason: newReq.reason,
+      }),
+    });
+  } catch (e) {
+    console.info('Backend /locations/requests sync note (saved locally):', e?.message);
+  }
+
+  try {
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'LOCATION_REQUEST_CREATED', payload: newReq } }));
+  } catch {}
+
+  return newReq;
 }
 
 export function getDestinationRequests() {

@@ -1,13 +1,29 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { RouteRepository } from './route.repository';
 import { CreateRouteDto } from './dto/route.dto';
 import { successResponse } from '../../common/utils/response.util';
+import { LocationRepository } from '../location/location.repository';
 
 @Injectable()
 export class RouteService {
-  constructor(private readonly routeRepo: RouteRepository) {}
+  constructor(
+    private readonly routeRepo: RouteRepository,
+    private readonly locationRepo: LocationRepository,
+  ) {}
 
   create(dto: CreateRouteDto) {
+    // Requirement 12: Only approved locations can be used when creating bus routes
+    if (!this.locationRepo.isApproved(dto.source)) {
+      throw new BadRequestException(
+        `Source "${dto.source}" is not an approved location in the network. Only approved locations can be used to create routes.`,
+      );
+    }
+    if (!this.locationRepo.isApproved(dto.destination)) {
+      throw new BadRequestException(
+        `Destination "${dto.destination}" is not an approved location in the network. Only approved locations can be used to create routes.`,
+      );
+    }
+
     const existing = this.routeRepo.findBySourceAndDestination(dto.source, dto.destination);
     if (existing && existing.length > 0) {
       return successResponse('Route already exists', existing[0]);

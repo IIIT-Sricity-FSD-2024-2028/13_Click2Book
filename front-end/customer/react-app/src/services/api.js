@@ -89,6 +89,12 @@ export const API = {
     },
   },
 
+  locations: {
+    async getAll() {
+      return apiFetch('/locations');
+    },
+  },
+
   auth: {
     async login(email, password) {
       return apiFetch('/auth/login', {

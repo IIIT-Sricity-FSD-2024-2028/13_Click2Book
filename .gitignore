@@ -38,3 +38,4 @@ Videos/*.avi
 
 # AI tool directories
 .claude/
+scratch/

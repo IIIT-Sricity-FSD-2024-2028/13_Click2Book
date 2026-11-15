@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsEnum, IsOptional, IsIn, Length } from 'class-validator';
+import { IsString, IsEnum, IsOptional, Length } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { SupportStatus } from '../enums/support-status.enum';
 
 export class CreateSupportRequestDto {
@@ -7,7 +8,7 @@ export class CreateSupportRequestDto {
   @IsString() customerId: string;
 
   @ApiProperty({ example: 'My booking B001 was confirmed but seat not assigned.' })
-  @IsString() @Length(10, 1000) description: string;
+  @IsString() @Length(5, 1000) description: string;
 
   @ApiPropertyOptional({ example: 'B001', description: 'Booking this request relates to, if any' })
   @IsOptional() @IsString() bookingId?: string;
@@ -22,7 +23,10 @@ export class CreateSupportRequestDto {
   @IsOptional() @IsString() supporterId?: string;
 
   @ApiPropertyOptional({ enum: SupportStatus, example: SupportStatus.OPEN })
-  @IsOptional() @IsEnum(SupportStatus) status?: SupportStatus;
+  @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.toUpperCase() : value)
+  @IsEnum(SupportStatus)
+  status?: SupportStatus;
 
   @ApiPropertyOptional()
   @IsOptional() @IsString() customerName?: string;
@@ -48,10 +52,34 @@ export class UpdateSupportRequestDto {
   @IsOptional() @IsString() supporterId?: string;
 
   @ApiPropertyOptional({ enum: SupportStatus, example: SupportStatus.RESOLVED })
-  @IsOptional() @IsEnum(SupportStatus) status?: SupportStatus;
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      const u = value.toUpperCase().trim();
+      if (u === 'RESOLVED' || u === 'APPROVED' || u === 'CLOSED') return SupportStatus.RESOLVED;
+      if (u === 'IN_PROGRESS' || u === 'UNDER INVESTIGATION' || u === 'PENDING') return SupportStatus.IN_PROGRESS;
+      if (u === 'OPEN') return SupportStatus.OPEN;
+      return u;
+    }
+    return value;
+  })
+  @IsEnum(SupportStatus)
+  status?: SupportStatus;
 
   @ApiPropertyOptional({ example: 'Issue investigated and resolved.' })
   @IsOptional() @IsString() resolution?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() remarks?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() notes?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() category?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional() verificationChecklist?: any;
 
   @ApiPropertyOptional({ example: 'Support Agent' })
   @IsOptional() @IsString() resolvedBy?: string;

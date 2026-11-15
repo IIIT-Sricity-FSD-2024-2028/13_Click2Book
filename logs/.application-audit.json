@@ -1,0 +1,40 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "C:\\Users\\aakas\\OneDrive\\Desktop\\13_Click2Book\\logs\\.application-audit.json",
+    "files": [
+        {
+            "date": 1794657811724,
+            "name": "C:\\Users\\aakas\\OneDrive\\Desktop\\13_Click2Book\\logs\\application-2026-11-14.log",
+            "hash": "2ca00a5eef079de27804cfb82630a7cbe465efeb2e3f6972e48ac04de2c887fc"
+        },
+        {
+            "date": 1794663187915,
+            "name": "C:\\Users\\aakas\\OneDrive\\Desktop\\13_Click2Book\\logs\\application-2026-11-14.1.log",
+            "hash": "c63d7290372994ecab8db23413a74fe80b6be6ce125473e710d4db55e9ff079a"
+        },
+        {
+            "date": 1794677182475,
+            "name": "C:\\Users\\aakas\\OneDrive\\Desktop\\13_Click2Book\\logs\\application-2026-11-14.2.log",
+            "hash": "11df77586b288a2ff32b2d3d99a8206d06136eb02148d9e21a496a8b97697d7f"
+        },
+        {
+            "date": 1794677457978,
+            "name": "C:\\Users\\aakas\\OneDrive\\Desktop\\13_Click2Book\\logs\\application-2026-11-14.3.log",
+            "hash": "26241e8d2a6fd39b91f3d2454056c946c69672dd2db9df9ee119a407bd9e9e24"
+        },
+        {
+            "date": 1794681149122,
+            "name": "C:\\Users\\aakas\\OneDrive\\Desktop\\13_Click2Book\\logs\\application-2026-11-15.log",
+            "hash": "832439dd0e09abc1050a667e3f54d18d2cfa649470e6e11fe34156cb44101f98"
+        },
+        {
+            "date": 1794681312976,
+            "name": "C:\\Users\\aakas\\OneDrive\\Desktop\\13_Click2Book\\logs\\application-2026-11-15.1.log",
+            "hash": "331a336eb579722a15e238fb6f9925175d3a616072156029d792dc8272f6f343"
+        }
+    ],
+    "hashType": "sha256"
+}

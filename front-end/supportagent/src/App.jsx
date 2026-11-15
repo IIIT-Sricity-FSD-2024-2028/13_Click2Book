@@ -10,33 +10,52 @@ import NotificationDrawer from './components/NotificationDrawer';
 import Toast from './components/Toast';
 import Login from './components/Login';
 import TicketDetailModal from './components/TicketDetailModal';
+import ResolutionWorkflowModal from './components/ResolutionWorkflowModal';
 
 import {
   getTickets,
   resolveTicket,
   deescalateTicket,
+  saveTicketProgress,
+  escalateToServiceProvider,
+  escalateToTechnicalTeam,
+  updateServiceProviderResponse,
+  confirmTicketResolution,
   getCustomers,
   getRefunds,
   updateRefundStatus,
   getNotifications,
   markNotificationsAsRead,
+  getSyncChannel,
+  STORAGE_KEYS,
 } from './services/api';
-import { INITIAL_AGENTS, INITIAL_ESCALATIONS_RESOLVED } from './services/mockData';
+import { INITIAL_AGENTS, INITIAL_TICKETS, INITIAL_REFUNDS, INITIAL_ESCALATIONS_RESOLVED } from './services/mockData';
 
 export default function App() {
-  // Determine initial tab from hash or page URL (redirect #cost-impact to #dashboard)
+  // Determine initial tab from hash or page URL
   const getInitialTab = () => {
     if (typeof window === 'undefined') return 'dashboard';
+    const loggedIn =
+      sessionStorage.getItem('c2b_loggedIn') === 'true' ||
+      localStorage.getItem('c2b_loggedIn') === 'true';
+
     const hash = window.location.hash.replace('#', '');
     if (hash === 'cost-impact') {
       window.location.hash = 'dashboard';
       return 'dashboard';
     }
-    if (['dashboard', 'tickets', 'escalated', 'customers', 'refunds', 'login'].includes(hash)) {
+    if (hash === 'login') {
+      if (loggedIn) {
+        window.location.hash = 'dashboard';
+        return 'dashboard';
+      }
+      return 'login';
+    }
+    if (['dashboard', 'tickets', 'escalated', 'customers', 'refunds'].includes(hash)) {
       return hash;
     }
     const path = window.location.pathname.toLowerCase();
-    if (path.includes('login.html')) return 'login';
+    if (path.includes('login.html')) return loggedIn ? 'dashboard' : 'login';
     if (path.includes('tickets.html')) return 'tickets';
     if (path.includes('escalated.html')) return 'escalated';
     if (path.includes('revenue-impact.html')) return 'dashboard';
@@ -46,26 +65,44 @@ export default function App() {
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     if (typeof window === 'undefined') return true;
-    return sessionStorage.getItem('c2b_loggedIn') === 'true';
+    return (
+      sessionStorage.getItem('c2b_loggedIn') === 'true' ||
+      localStorage.getItem('c2b_loggedIn') === 'true'
+    );
   });
 
   const [agent, setAgent] = useState(() => {
     if (typeof window !== 'undefined') {
-      const email = sessionStorage.getItem('c2b_userEmail');
+      const email =
+        sessionStorage.getItem('c2b_userEmail') ||
+        localStorage.getItem('c2b_userEmail');
       const found = INITIAL_AGENTS.find((a) => a.email.toLowerCase() === (email || '').toLowerCase());
       if (found) return found;
     }
     return INITIAL_AGENTS[0];
   });
 
-  const [tickets, setTickets] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [refunds, setRefunds] = useState([]);
+  const [tickets, setTickets] = useState(() => {
+    try {
+      const local = localStorage.getItem('c2b_support_tickets_v2') || localStorage.getItem('c2b_support_tickets');
+      if (local) return JSON.parse(local);
+    } catch (_) {}
+    return INITIAL_TICKETS;
+  });
+  const [customers, setCustomers] = useState(() => getCustomers());
+  const [refunds, setRefunds] = useState(() => {
+    try {
+      const local = localStorage.getItem('c2b_support_refunds_v2') || localStorage.getItem('c2b_support_refunds');
+      if (local) return JSON.parse(local);
+    } catch (_) {}
+    return INITIAL_REFUNDS;
+  });
   const [resolvedEscalations, setResolvedEscalations] = useState(INITIAL_ESCALATIONS_RESOLVED);
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications] = useState(() => getNotifications());
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isLive, setIsLive] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [resolutionTicket, setResolutionTicket] = useState(null); // Active ticket in Structured Resolution Workflow
   const [toasts, setToasts] = useState([]);
 
   // Toast Helper
@@ -74,29 +111,62 @@ export default function App() {
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3500);
+    }, 4000);
   }, []);
 
   const handleDismissToast = (id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Load Tickets
+  // Load Tickets with deep check to avoid redundant re-renders
   const reloadTickets = useCallback(async () => {
     try {
       const res = await getTickets();
-      setTickets(res.tickets);
-      setIsLive(res.isLive);
+      if (res && Array.isArray(res.tickets)) {
+        setTickets((prev) => {
+          if (Array.isArray(prev) && prev.length === res.tickets.length) {
+            let unchanged = true;
+            for (let i = 0; i < prev.length; i++) {
+              if (
+                prev[i].id !== res.tickets[i].id ||
+                prev[i].status !== res.tickets[i].status ||
+                prev[i].updatedAt !== res.tickets[i].updatedAt ||
+                prev[i].resolution !== res.tickets[i].resolution
+              ) {
+                unchanged = false;
+                break;
+              }
+            }
+            if (unchanged) return prev;
+          }
+          return res.tickets;
+        });
+        setIsLive(res.isLive);
+      }
     } catch (e) {
       console.warn('Failed to load tickets', e);
     }
   }, []);
 
-  // Load Refunds
+  // Load Refunds with deep check
   const reloadRefunds = useCallback(async () => {
     try {
       const res = await getRefunds();
-      setRefunds(res);
+      if (Array.isArray(res)) {
+        setRefunds((prev) => {
+          if (Array.isArray(prev) && prev.length === res.length) {
+            let unchanged = true;
+            for (let i = 0; i < prev.length; i++) {
+              if (prev[i].refundId !== res[i].refundId || prev[i].status !== res[i].status) {
+                unchanged = false;
+                break;
+              }
+            }
+            if (unchanged) return prev;
+          }
+          return res;
+        });
+      }
     } catch (e) {
       console.warn('Failed to load refunds', e);
     }
@@ -109,34 +179,72 @@ export default function App() {
     setCustomers(getCustomers());
     setNotifications(getNotifications());
 
-    // Listen for cross-tab storage changes (e.g. customer submits support ticket or cancels ticket)
-    const handleStorageChange = (e) => {
-      if (
-        !e.key ||
-        e.key.includes('refund') ||
-        e.key.includes('ticket') ||
-        e.key.includes('support') ||
-        e.key.includes('booking')
-      ) {
+    // 1. Real-time Cross-Portal BroadcastChannel listener (0ms latency across ports 5176 & 5173)
+    let syncChannel = null;
+    try {
+      syncChannel = getSyncChannel();
+      if (syncChannel) {
+        syncChannel.onmessage = (event) => {
+          const msg = event?.data;
+          if (msg) {
+            if (msg.type === 'NEW_CUSTOMER_TICKET') {
+              showToast(`🔔 New Ticket Received: #${msg.ticket?.requestId || msg.ticket?.id || 'Customer Query'}`, 'info');
+              reloadTickets();
+            } else if (msg.type === 'TICKET_RESOLVED' || msg.type === 'TICKET_UPDATED') {
+              reloadTickets();
+            }
+          }
+        };
+      }
+    } catch (_) {}
+
+    // 2. Targeted internal data change listener (avoids infinite loops)
+    const handleDataChanged = (e) => {
+      const key = e?.detail?.key;
+      if (!key || key === STORAGE_KEYS.TICKETS) {
+        reloadTickets();
+      }
+      if (!key || key === STORAGE_KEYS.REFUNDS) {
+        reloadRefunds();
+      }
+    };
+    window.addEventListener('c2b_data_changed', handleDataChanged);
+
+    // 3. Tab visibility / focus sync: immediately refresh whenever support agent focuses tab
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
         reloadTickets();
         reloadRefunds();
       }
     };
-    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
 
-    // Auto-refresh queue every 10s
+    // 4. Hash navigation listener
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (['dashboard', 'tickets', 'escalated', 'customers', 'refunds'].includes(hash)) {
+        setActiveTab(hash);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+
+    // 5. Clean, fast background poll every 4 seconds
     const timer = setInterval(() => {
       reloadTickets();
       reloadRefunds();
-    }, 10000);
+    }, 4000);
 
     return () => {
       clearInterval(timer);
-      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('c2b_data_changed', handleDataChanged);
+      window.removeEventListener('focus', handleVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('hashchange', handleHashChange);
     };
-  }, [reloadTickets, reloadRefunds]);
+  }, [reloadTickets, reloadRefunds, showToast]);
 
-  // Sync hash on tab change (redirecting cost-impact if accessed)
+  // Sync hash on tab change
   const handleTabChange = (tabId) => {
     const valid = tabId === 'cost-impact' ? 'dashboard' : tabId;
     setActiveTab(valid);
@@ -149,13 +257,18 @@ export default function App() {
   const handleLogin = (loggedAgent) => {
     setAgent(loggedAgent);
     setIsAuthenticated(true);
-    const target = (activeTab && activeTab !== 'login') ? activeTab : 'dashboard';
-    setActiveTab(target);
-    showToast(`Welcome back, ${loggedAgent.name}! Support panel initialized.`, 'success');
-    if (typeof window !== 'undefined' && window.location.pathname.toLowerCase().includes('login.html')) {
-      setTimeout(() => {
-        window.location.href = 'index.html';
-      }, 300);
+    setActiveTab('dashboard');
+    showToast(`Welcome back, ${loggedAgent?.name || 'Support Agent'}! Support Desk initialized.`, 'success');
+    if (typeof window !== 'undefined') {
+      if (window.location.pathname.toLowerCase().includes('login.html')) {
+        try {
+          window.location.assign('index.html#dashboard');
+        } catch (_) {
+          window.location.href = 'index.html#dashboard';
+        }
+      } else {
+        window.location.hash = 'dashboard';
+      }
     }
   };
 
@@ -166,53 +279,118 @@ export default function App() {
       sessionStorage.removeItem('c2b_userName');
       sessionStorage.removeItem('c2b_userEmail');
       sessionStorage.removeItem('c2b_role');
+      localStorage.removeItem('c2b_loggedIn');
+      localStorage.removeItem('c2b_userName');
+      localStorage.removeItem('c2b_userEmail');
+      localStorage.removeItem('c2b_role');
       setIsAuthenticated(false);
       setActiveTab('login');
+      if (typeof window !== 'undefined') {
+        window.location.hash = 'login';
+      }
       showToast('You have been logged out securely.', 'info');
     }
   };
 
-  // Handle Ticket Resolution
-  const handleResolveTicket = async (ticketId, notes = '') => {
-    await resolveTicket(ticketId);
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === ticketId
-          ? { ...t, status: 'Resolved', resolvedAt: new Date().toISOString(), resolvedBy: agent?.name || 'Support Agent' }
-          : t
-      )
-    );
-    showToast(`Ticket #${ticketId} has been resolved successfully.`, 'success');
+  // ── STRUCTURED RESOLUTION WORKFLOW HANDLERS ──
+
+  // Open Structured Resolution Workflow
+  const handleOpenResolutionModal = (ticket) => {
+    // If ticket was clicked from details modal, close detail modal and open workflow modal
+    setSelectedTicket(null);
+    setResolutionTicket(ticket);
+  };
+
+  // Save in-progress verification checklist and notes
+  const handleSaveTicketProgress = async (ticketId, data) => {
+    const res = await saveTicketProgress(ticketId, data, agent?.name || 'Support Agent');
+    if (res.success) {
+      await reloadTickets();
+      if (resolutionTicket && resolutionTicket.id === ticketId) {
+        setResolutionTicket(res.ticket);
+      }
+      showToast(`Verification progress saved for ticket #${ticketId}.`, 'success');
+    }
+  };
+
+  // Escalate to Service Provider
+  const handleEscalateToProvider = async (ticketId, escalationData) => {
+    const res = await escalateToServiceProvider(ticketId, escalationData, agent?.name || 'Support Agent');
+    if (res.success) {
+      await reloadTickets();
+      if (resolutionTicket && resolutionTicket.id === ticketId) {
+        setResolutionTicket(res.ticket);
+      }
+      showToast(
+        `Ticket #${ticketId} escalated to Service Provider (${res.escalation.providerName}) with financial loss breakdown.`,
+        'success'
+      );
+    }
+  };
+
+  // Escalate to Technical Support Team
+  const handleEscalateToTech = async (ticketId, techData) => {
+    const res = await escalateToTechnicalTeam(ticketId, techData, agent?.name || 'Support Agent');
+    if (res.success) {
+      await reloadTickets();
+      if (resolutionTicket && resolutionTicket.id === ticketId) {
+        setResolutionTicket(res.ticket);
+      }
+      showToast(`Ticket #${ticketId} escalated to ${techData.escalationLevel}. Severity: ${techData.severity}.`, 'success');
+    }
+  };
+
+  // Service Provider Decision (Approve / Reject)
+  const handleProviderDecision = async (ticketId, decision, remarks = '') => {
+    const res = await updateServiceProviderResponse(ticketId, decision, remarks, agent?.name || 'Operator Desk');
+    if (res.success) {
+      await reloadTickets();
+      if (resolutionTicket && resolutionTicket.id === ticketId) {
+        setResolutionTicket(res.ticket);
+      }
+      showToast(`Service Provider recorded decision: ${decision} for ticket #${ticketId}.`, decision === 'Approved' ? 'success' : 'error');
+    }
+  };
+
+  // Confirm Final Resolution
+  const handleConfirmResolution = async (ticketId, resolutionData) => {
+    const res = await confirmTicketResolution(ticketId, resolutionData, agent?.name || 'Support Agent');
+    if (res.success) {
+      await reloadTickets();
+      await reloadRefunds();
+
+      // Add to resolved escalations history if it had escalations
+      const target = tickets.find((t) => t.id === ticketId);
+      if (target) {
+        setResolvedEscalations((prev) => [
+          {
+            id: target.id,
+            customer: target.customer,
+            bookingId: target.bookingId || 'B001',
+            subject: target.subject,
+            priority: target.priority,
+            status: 'Resolved',
+            resolvedBy: agent?.name || 'Support Agent',
+            resolutionNote: resolutionData.remarks,
+            resolvedDate: new Date().toISOString().split('T')[0],
+          },
+          ...prev,
+        ]);
+      }
+
+      setResolutionTicket(null);
+      showToast(`✓ Ticket #${ticketId} resolved successfully after full procedure verification!`, 'success');
+    } else {
+      showToast(res.error || 'Cannot resolve ticket: mandatory verification steps are incomplete.', 'error');
+    }
   };
 
   // Handle De-escalation
   const handleDeescalateTicket = async (ticketId, notes = 'De-escalated and resolved by supervisor.') => {
-    await deescalateTicket(ticketId, notes);
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === ticketId
-          ? { ...t, status: 'Resolved', resolvedAt: new Date().toISOString(), resolvedBy: agent?.name || 'Support Agent' }
-          : t
-      )
-    );
     const target = tickets.find((t) => t.id === ticketId);
     if (target) {
-      setResolvedEscalations((prev) => [
-        {
-          id: target.id,
-          customer: target.customer,
-          bookingId: target.bookingId || 'B001',
-          subject: target.subject,
-          priority: target.priority,
-          status: 'Resolved',
-          resolvedBy: agent?.name || 'Support Agent',
-          resolutionNote: notes,
-          resolvedDate: new Date().toISOString().split('T')[0],
-        },
-        ...prev,
-      ]);
+      handleOpenResolutionModal(target);
     }
-    showToast(`Escalation #${ticketId} de-escalated and resolved.`, 'success');
   };
 
   // Handle Refund update
@@ -235,11 +413,17 @@ export default function App() {
 
   // Count active stats
   const openCount = tickets.filter((t) => t.status === 'Open').length;
-  const escalationsCount = tickets.filter((t) => t.status === 'Escalated').length;
+  const escalationsCount = tickets.filter(
+    (t) =>
+      t.status === 'Escalated' ||
+      t.status === 'Escalated to Service Provider' ||
+      t.status === 'Escalated to Technical Team' ||
+      t.status === 'Pending Approval'
+  ).length;
   const unreadNotifsCount = notifications.filter((n) => !n.read).length;
 
-  // If not authenticated or on login tab, render Login view
-  if (!isAuthenticated || activeTab === 'login') {
+  // If not authenticated, render Login view
+  if (!isAuthenticated) {
     return (
       <>
         <Login onLogin={handleLogin} />
@@ -278,7 +462,7 @@ export default function App() {
               tickets={tickets}
               onSelectTicket={setSelectedTicket}
               onNavigate={handleTabChange}
-              onResolveTicket={handleResolveTicket}
+              onResolveTicket={handleOpenResolutionModal}
             />
           )}
 
@@ -286,7 +470,7 @@ export default function App() {
             <Tickets
               tickets={tickets}
               onSelectTicket={setSelectedTicket}
-              onResolveTicket={handleResolveTicket}
+              onResolveTicket={handleOpenResolutionModal}
             />
           )}
 
@@ -296,10 +480,10 @@ export default function App() {
               resolvedEscalations={resolvedEscalations}
               onDeescalateTicket={handleDeescalateTicket}
               onSelectTicket={setSelectedTicket}
+              onProviderDecision={handleProviderDecision}
+              onOpenResolutionModal={handleOpenResolutionModal}
             />
           )}
-
-
 
           {activeTab === 'customers' && (
             <CustomerLookup
@@ -327,13 +511,28 @@ export default function App() {
         onMarkAllRead={handleMarkAllRead}
       />
 
-      {/* Ticket Detail Modal */}
+      {/* Read-only Ticket Detail Modal */}
       {selectedTicket && (
         <TicketDetailModal
           ticket={selectedTicket}
           onClose={() => setSelectedTicket(null)}
-          onResolve={handleResolveTicket}
-          onDeescalate={handleDeescalateTicket}
+          onResolve={handleOpenResolutionModal}
+          onDeescalate={handleOpenResolutionModal}
+          onOpenResolutionWorkflow={handleOpenResolutionModal}
+        />
+      )}
+
+      {/* Structured Resolution & Escalation Workflow Modal */}
+      {resolutionTicket && (
+        <ResolutionWorkflowModal
+          ticket={resolutionTicket}
+          onClose={() => setResolutionTicket(null)}
+          onSaveProgress={handleSaveTicketProgress}
+          onEscalateToProvider={handleEscalateToProvider}
+          onEscalateToTech={handleEscalateToTech}
+          onProviderDecision={handleProviderDecision}
+          onConfirmResolution={handleConfirmResolution}
+          agentName={agent?.name || 'Support Agent'}
         />
       )}
 

@@ -84,6 +84,7 @@ const NAV_ITEMS = [
   { id: 'reviews',          label: 'Ratings & Reviews',Icon: StarIcon  },
   { id: 'lost-found',       label: 'Lost & Found',     Icon: BagIcon   },
   { id: 'revenue',          label: 'My Revenue',       Icon: DollarIcon},
+  { id: 'escalations',      label: 'Support Escalations', Icon: ShieldIcon},
 ];
 
 export default function Sidebar({ activeTab, setActiveTab, provider, onLogout }) {

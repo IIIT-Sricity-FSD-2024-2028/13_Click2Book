@@ -46,16 +46,35 @@ export class SupportRequestService {
   findBySupporter(sid: string) { return successResponse('Assigned tickets', this.repo.findBySupporter(sid)); }
 
   update(id: string, dto: UpdateSupportRequestDto) {
-    const existing = this.repo.findById(id);
-    if (!existing) throw new NotFoundException(`Support request ${id} not found`);
+    let existing = this.repo.findById(id);
+    if (!existing) {
+      existing = this.repo.findAll().find(
+        (r) =>
+          r.requestId.toLowerCase() === id.toLowerCase() ||
+          r.requestId.toLowerCase().replace(/[-_]/g, '') === id.toLowerCase().replace(/[-_]/g, '')
+      );
+    }
+    if (!existing) {
+      existing = this.repo.create({
+        requestId: id,
+        status: dto.status || SupportStatus.OPEN,
+        description: dto.resolution || dto.remarks || 'Support request',
+      });
+    }
 
     const updatePayload: Partial<any> = { ...dto };
+    if (!updatePayload.resolution && dto.remarks) {
+      updatePayload.resolution = dto.remarks;
+    } else if (!updatePayload.resolution && dto.notes) {
+      updatePayload.resolution = dto.notes;
+    }
+
     if (dto.status === SupportStatus.RESOLVED) {
       if (!updatePayload.resolvedAt) updatePayload.resolvedAt = new Date().toISOString();
       if (!updatePayload.resolvedBy) updatePayload.resolvedBy = dto.resolvedBy || dto.supporterId || 'Support Agent';
     }
 
-    const updated = this.repo.update(id, updatePayload);
+    const updated = this.repo.update(existing.requestId, updatePayload);
 
     if (dto.status === SupportStatus.RESOLVED && existing.bookingId) {
       try {

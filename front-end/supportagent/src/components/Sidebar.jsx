@@ -5,11 +5,9 @@ import {
   AlertTriangle,
   Users,
   RotateCcw,
-  ExternalLink,
   LogOut,
   Headphones,
 } from 'lucide-react';
-import { navigateToStaffPortal, getStaffPortalUrl } from '../services/api';
 
 export default function Sidebar({
   activeTab,
@@ -103,16 +101,6 @@ export default function Sidebar({
 
       {/* Bottom Actions */}
       <div className="sidebar-bottom">
-        <a
-          href={getStaffPortalUrl()}
-          onClick={navigateToStaffPortal}
-          className="nav-item"
-          title="Return to Staff Portal"
-          style={{ cursor: 'pointer' }}
-        >
-          <ExternalLink size={18} style={{ pointerEvents: 'none' }} />
-          <span style={{ pointerEvents: 'none' }}>Staff Portal</span>
-        </a>
         <button
           className="nav-item danger"
           onClick={onLogout}

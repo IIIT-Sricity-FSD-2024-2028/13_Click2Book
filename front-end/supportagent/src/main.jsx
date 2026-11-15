@@ -5,6 +5,8 @@ import './index.css';
 
 const container = document.getElementById('root');
 if (container) {
-  const root = createRoot(container);
-  root.render(<App />);
+  if (!window.__c2b_support_root__) {
+    window.__c2b_support_root__ = createRoot(container);
+  }
+  window.__c2b_support_root__.render(<App />);
 }

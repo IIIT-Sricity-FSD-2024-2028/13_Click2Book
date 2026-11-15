@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Wifi, WifiOff } from 'lucide-react';
+import { Bell } from 'lucide-react';
 
 const TAB_TITLES = {
   dashboard: {
@@ -62,12 +62,6 @@ export default function Header({
       </div>
 
       <div className="topbar-right">
-        {/* Live Connectivity Badge */}
-        <div className={`live-badge ${isLive ? 'online' : 'offline'}`}>
-          {isLive ? <Wifi size={13} /> : <WifiOff size={13} />}
-          <span>{isLive ? '● Live API Sync' : '● Offline DB Mode'}</span>
-        </div>
-
         {/* Real-time Clock */}
         <span
           style={{

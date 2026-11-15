@@ -16,6 +16,7 @@ import Revenue            from './components/Revenue';
 import Coupons            from './components/Coupons';
 import Reviews            from './components/Reviews';
 import Settings           from './components/Settings';
+import Escalations        from './components/Escalations';
 
 import { getNotifications, autoStartDueTrips } from './services/api';
 import { liveSync } from './services/liveSync';
@@ -23,7 +24,7 @@ import { liveSync } from './services/liveSync';
 /* ── Valid tabs (sync with hash URL, same approach as support agent) ── */
 const VALID_TABS = [
   'dashboard', 'manage-schedules', 'add-schedule',
-  'confirm-trips', 'seat-management', 'coupons', 'reviews', 'lost-found', 'revenue', 'settings',
+  'confirm-trips', 'seat-management', 'coupons', 'reviews', 'lost-found', 'revenue', 'settings', 'escalations',
 ];
 
 function getTabFromHash() {
@@ -146,6 +147,7 @@ export default function App() {
       case 'reviews':          return <Reviews          {...commonProps} />;
       case 'lost-found':       return <LostFound        {...commonProps} />;
       case 'revenue':          return <Revenue          {...commonProps} />;
+      case 'escalations':      return <Escalations      {...commonProps} />;
       case 'settings':         return <Settings         {...commonProps} />;
       default:                 return <Dashboard        {...commonProps} />;
     }

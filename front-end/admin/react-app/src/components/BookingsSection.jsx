@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import DataTable from '../../components/DataTable.jsx';
-import { humanize } from '../../lib/format.js';
+import DataTable from './DataTable.jsx';
+import { humanize } from '../lib/format.js';
 import BookingRow from './BookingRow.jsx';
-import { BOOKING_STATUSES } from './sections.js';
+import { BOOKING_STATUSES } from '../data/sections.js';
 
 export default function BookingsSection({ bookings = [], search = '', onSearchChange, onStatusChange, busy = false }) {
   const [statusFilter, setStatusFilter] = useState('');

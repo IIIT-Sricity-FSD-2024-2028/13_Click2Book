@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import DataTable from '../../components/DataTable.jsx';
-import StatusBadge from '../../components/StatusBadge.jsx';
-import { apiFetch } from '../../lib/api.js';
+import DataTable from './DataTable.jsx';
+import StatusBadge from './StatusBadge.jsx';
+import { apiFetch } from '../lib/api.js';
 
 export default function ProvidersSection({ onAction, busy = false }) {
   const [providers, setProviders] = useState([]);

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
-import DataTable from '../../components/DataTable.jsx';
-import StatusBadge from '../../components/StatusBadge.jsx';
-import { apiFetch } from '../../lib/api.js';
+import DataTable from './DataTable.jsx';
+import StatusBadge from './StatusBadge.jsx';
+import { apiFetch } from '../lib/api.js';
 
 export default function LocationsSection({ onAction, busy = false }) {
   const [activeTab, setActiveTab] = useState('requests'); // 'requests' | 'approved' | 'search_osm'
@@ -696,4 +696,3 @@ export default function LocationsSection({ onAction, busy = false }) {
     </section>
   );
 }
-

@@ -1,7 +1,7 @@
 import React from 'react';
-import DataTable from '../../components/DataTable.jsx';
-import StatusBadge from '../../components/StatusBadge.jsx';
-import { displayDate, money } from '../../lib/format.js';
+import DataTable from './DataTable.jsx';
+import StatusBadge from './StatusBadge.jsx';
+import { displayDate, money } from '../lib/format.js';
 
 export default function RefundsSection({ refunds = [], onDecision, busy = false }) {
   const pendingCount = refunds.filter((refund) => String(refund.status).toLowerCase() === 'pending').length;

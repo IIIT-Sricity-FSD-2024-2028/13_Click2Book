@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import DataTable from '../../components/DataTable.jsx';
-import StatusBadge from '../../components/StatusBadge.jsx';
-import { apiFetch } from '../../lib/api.js';
-import { displayDate, humanize } from '../../lib/format.js';
+import DataTable from './DataTable.jsx';
+import StatusBadge from './StatusBadge.jsx';
+import { apiFetch } from '../lib/api.js';
+import { displayDate, humanize } from '../lib/format.js';
 
 export default function SupportSection({ onAction, busy = false }) {
   const [staff, setStaff] = useState([]);

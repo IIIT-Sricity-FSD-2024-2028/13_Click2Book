@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import DataTable from '../../components/DataTable.jsx';
-import StatusBadge from '../../components/StatusBadge.jsx';
-import { displayDate, humanize } from '../../lib/format.js';
-import { USER_ROLES } from './sections.js';
+import DataTable from './DataTable.jsx';
+import StatusBadge from './StatusBadge.jsx';
+import { displayDate, humanize } from '../lib/format.js';
+import { USER_ROLES } from '../data/sections.js';
 
 export default function UsersSection({ users = [], onToggleStatus, busy = false }) {
   const [search, setSearch] = useState('');

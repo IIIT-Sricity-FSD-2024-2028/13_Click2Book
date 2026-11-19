@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import DashboardPage from './pages/dashboard/DashboardPage.jsx';
-import LoginPage from './pages/LoginPage.jsx';
-import RevenuePage from './pages/RevenuePage.jsx';
-import SuperUserLoginPage from './pages/SuperUserLoginPage.jsx';
+import DashboardPage from './components/DashboardPage.jsx';
+import LoginPage from './components/LoginPage.jsx';
+import RevenuePage from './components/RevenuePage.jsx';
+import SuperUserLoginPage from './components/SuperUserLoginPage.jsx';
 import { clearAdminSession, isAdminLoggedIn } from './lib/session.js';
-import { saveSection } from './pages/dashboard/sections.js';
+import { saveSection } from './data/sections.js';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(isAdminLoggedIn);

@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { loadAdminRevenueData } from '../lib/api.js';
 import { money } from '../lib/format.js';
 import { DASHBOARD_PATH } from '../lib/session.js';
-import MetricCard from '../components/MetricCard.jsx';
-import DataTable from '../components/DataTable.jsx';
+import MetricCard from './MetricCard.jsx';
+import DataTable from './DataTable.jsx';
 import '../styles/revenue-dashboard.css';
 
 export default function RevenuePage({ onBack }) {

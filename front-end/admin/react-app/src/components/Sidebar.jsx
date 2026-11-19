@@ -1,6 +1,6 @@
 import React from 'react';
-import { clearAdminSession } from '../../lib/session.js';
-import { SECTIONS } from './sections.js';
+import { clearAdminSession } from '../lib/session.js';
+import { SECTIONS } from '../data/sections.js';
 
 export default function Sidebar({
   section,

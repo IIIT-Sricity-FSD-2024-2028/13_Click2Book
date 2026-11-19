@@ -1,7 +1,7 @@
 import React from 'react';
-import DataTable from '../../components/DataTable.jsx';
-import MetricCard from '../../components/MetricCard.jsx';
-import { money } from '../../lib/format.js';
+import DataTable from './DataTable.jsx';
+import MetricCard from './MetricCard.jsx';
+import { money } from '../lib/format.js';
 import BookingRow from './BookingRow.jsx';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

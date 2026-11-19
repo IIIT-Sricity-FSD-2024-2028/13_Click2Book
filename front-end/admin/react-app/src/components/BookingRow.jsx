@@ -1,6 +1,6 @@
 import React from 'react';
-import StatusBadge from '../../components/StatusBadge.jsx';
-import { displayDate, humanize, money } from '../../lib/format.js';
+import StatusBadge from './StatusBadge.jsx';
+import { displayDate, humanize, money } from '../lib/format.js';
 
 export default function BookingRow({ booking, onStatusChange, busy = false }) {
   const withActions = Boolean(onStatusChange);

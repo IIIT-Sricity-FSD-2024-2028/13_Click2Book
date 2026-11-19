@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import BrandMark from '../components/BrandMark.jsx';
+import BrandMark from './BrandMark.jsx';
 import { EMAIL_PATTERN } from '../lib/format.js';
 import { DASHBOARD_PATH, SUPER_USER_AUTH_KEY } from '../lib/session.js';
 import '../styles/super-user-login.css';

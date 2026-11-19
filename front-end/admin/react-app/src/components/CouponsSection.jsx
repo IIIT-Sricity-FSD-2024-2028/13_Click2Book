@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { apiFetch } from '../../lib/api.js';
-import { money } from '../../lib/format.js';
+import { apiFetch } from '../lib/api.js';
+import { money } from '../lib/format.js';
 
 const EMPTY_FORM = {
   offerCode: '',

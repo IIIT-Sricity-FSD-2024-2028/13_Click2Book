@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import BrandMark from '../components/BrandMark.jsx';
+import BrandMark from './BrandMark.jsx';
 import { API_BASE } from '../lib/api.js';
 import { EMAIL_PATTERN } from '../lib/format.js';
 import { saveAdminSession } from '../lib/session.js';

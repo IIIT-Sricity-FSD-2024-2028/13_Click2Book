@@ -5,7 +5,7 @@ import { SUPER_USER_AUTH_KEY, SUPER_USER_LOGIN_PATH } from '../lib/session.js';
 import '../styles/super-user-panel.css';
 import ConfirmDelete from './ConfirmDelete.jsx';
 import RecordModal from './RecordModal.jsx';
-import { DEFAULT_TABLE, TABLE_SCHEMAS } from './tableSchemas.js';
+import { DEFAULT_TABLE, TABLE_SCHEMAS } from '../data/tableSchemas.js';
 
 const MONEY_COLUMNS = ['amount', 'discount_amount', 'refund_amount'];
 

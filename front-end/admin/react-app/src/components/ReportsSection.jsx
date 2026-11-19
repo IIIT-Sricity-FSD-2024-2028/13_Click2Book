@@ -1,8 +1,8 @@
 import React from 'react';
-import DataTable from '../../components/DataTable.jsx';
-import MetricCard from '../../components/MetricCard.jsx';
-import { humanize, money } from '../../lib/format.js';
-import { BOOKING_STATUSES } from './sections.js';
+import DataTable from './DataTable.jsx';
+import MetricCard from './MetricCard.jsx';
+import { humanize, money } from '../lib/format.js';
+import { BOOKING_STATUSES } from '../data/sections.js';
 
 export default function ReportsSection({ bookings = [], refunds = [], users = [], routes = [], totalRevenue = 0 }) {
   return (

@@ -939,6 +939,7 @@ export default function SearchTrips({
         totalAmount: paymentDetails.total,
         totalDiscount: paymentDetails.discount,
         paymentMethod: paymentDetails.method,
+        discountAllocation: 'first',
         payFn: (bId, amt, method, disc) => API.payments.pay(bId, amt, method, disc),
         onSeatPaid: (sIdx, paidSeat, allSeats) => {
           setPendingBackendBookings({

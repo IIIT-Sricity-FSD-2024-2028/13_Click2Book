@@ -4,6 +4,7 @@ import { getAdminName, initialsOf } from '../../lib/session.js';
 import '../../styles/admin_dashboard.css';
 import SuperUserPanel from '../../superuser/SuperUserPanel.jsx';
 import BookingsSection from './BookingsSection.jsx';
+import CouponsSection from './CouponsSection.jsx';
 import Overview from './Overview.jsx';
 import ProvidersSection from './ProvidersSection.jsx';
 import RefundsSection from './RefundsSection.jsx';
@@ -22,7 +23,6 @@ export default function DashboardPage({ onLogout, onViewRevenue }) {
   const [dashboardData, setDashboardData] = useState({ bookings: [], refunds: [], users: [], routes: [], revenueByDay: [], totalRevenue: 0, activeBuses: 0 });
   const [dataError, setDataError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [lastSynced, setLastSynced] = useState(null);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState('');
   const toastTimer = useRef();
@@ -41,7 +41,6 @@ export default function DashboardPage({ onLogout, onViewRevenue }) {
       .then((data) => {
         setDashboardData(data);
         setDataError('');
-        setLastSynced(new Date());
         return true;
       })
       .catch((error) => {
@@ -152,6 +151,8 @@ export default function DashboardPage({ onLogout, onViewRevenue }) {
         return <SupportSection onAction={runAdminAction} busy={busy} />;
       case 'refund':
         return <RefundsSection refunds={refunds} onDecision={decideRefund} busy={busy} />;
+      case 'coupons':
+        return <CouponsSection onDataChange={refresh} />;
       case 'locations':
         return <LocationsSection onAction={runAdminAction} busy={busy} />;
       case 'reports':
@@ -185,8 +186,6 @@ export default function DashboardPage({ onLogout, onViewRevenue }) {
           onNotify={notify}
           onRefresh={refresh}
           refreshing={refreshing}
-          lastSynced={lastSynced}
-          hasSyncError={Boolean(dataError)}
           onLogout={onLogout}
         />
         <div className="dashboard-body">

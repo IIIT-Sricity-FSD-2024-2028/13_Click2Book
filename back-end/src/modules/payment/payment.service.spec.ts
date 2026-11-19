@@ -1,4 +1,4 @@
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { PaymentService } from './payment.service';
 import { PaymentRepository } from './payment.repository';
 import { BookingRepository } from '../booking/booking.repository';
@@ -11,6 +11,7 @@ import { OfferService } from '../offer/offer.service';
 import { LedgerRepository } from '../ledger/ledger.repository';
 import { LedgerService } from '../ledger/ledger.service';
 import { ScheduleRepository } from '../schedule/schedule.repository';
+import { RouteRepository } from '../route/route.repository';
 import { ProviderRepository } from '../provider/provider.repository';
 import { AdminRepository } from '../admin/admin.repository';
 import { RevenueSplitRepository } from '../revenue-split/revenue-split.repository';
@@ -23,6 +24,7 @@ describe('PaymentService', () => {
   let paymentRepo: PaymentRepository;
   let bookingRepo: BookingRepository;
   let bookingService: BookingService;
+  let offerRepo: OfferRepository;
 
   beforeEach(() => {
     paymentRepo = new PaymentRepository();
@@ -31,12 +33,15 @@ describe('PaymentService', () => {
     const vehicleRepo = new VehicleRepository();
     const seatRepo = new SeatRepository();
     seatRepo.initSeats('V001', 45);
-    const offerService = new OfferService(new OfferRepository());
+    offerRepo = new OfferRepository();
+    const offerService = new OfferService(offerRepo);
+    const scheduleRepo = new ScheduleRepository();
+    const routeRepo = new RouteRepository();
     const revenueSplitService = new RevenueSplitService(new RevenueSplitRepository());
     const ledgerService = new LedgerService(
       new LedgerRepository(),
       tripRepo,
-      new ScheduleRepository(),
+      scheduleRepo,
       new ProviderRepository(),
       new AdminRepository(),
       revenueSplitService,
@@ -47,6 +52,8 @@ describe('PaymentService', () => {
       tripRepo,
       vehicleRepo,
       seatRepo,
+      scheduleRepo,
+      routeRepo,
       offerService,
       ledgerService,
     );
@@ -64,18 +71,18 @@ describe('PaymentService', () => {
     ).toThrow(NotFoundException);
   });
 
-  it('fails with BadRequestException when paying for a booking that is not PENDING', () => {
-    // Seeded B001 is already CONFIRMED
-    expect(() =>
-      paymentService.processPayment({
+  it('handles a repeated payment request for a confirmed booking idempotently', () => {
+    const result = paymentService.processPayment({
         bookingId: 'B001',
         amount: 600,
         paymentMethod: 'UPI',
-      }),
-    ).toThrow(BadRequestException);
+      });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.paymentStatus).toBe(PaymentStatus.SUCCESS);
   });
 
-  it('fails with ConflictException if a payment already exists for the booking', () => {
+  it('handles a successful payment retry idempotently if the booking status is stale', () => {
     // Create a pending booking first
     const pendingBooking = bookingRepo.create({
       customerId: 'C001',
@@ -93,14 +100,16 @@ describe('PaymentService', () => {
     // Manually reset booking status back to PENDING to test duplicate payment check
     bookingRepo.update(pendingBooking.bookingId, { bookingStatus: BookingStatus.PENDING });
 
-    // Paying again must be rejected due to existing payment
-    expect(() =>
-      paymentService.processPayment({
+    const paymentCount = paymentRepo.findAll().length;
+    const retry = paymentService.processPayment({
         bookingId: pendingBooking.bookingId,
         amount: 450,
         paymentMethod: 'UPI',
-      }),
-    ).toThrow(ConflictException);
+      });
+
+    expect(retry.success).toBe(true);
+    expect(paymentRepo.findAll()).toHaveLength(paymentCount);
+    expect(bookingRepo.findById(pendingBooking.bookingId)?.bookingStatus).toBe(BookingStatus.CONFIRMED);
   });
 
   it('successfully processes payment for PENDING booking, sets paymentStatus to SUCCESS, and confirms booking', () => {
@@ -113,16 +122,30 @@ describe('PaymentService', () => {
     const result = paymentService.processPayment({
       bookingId: pendingBooking.bookingId,
       amount: 450,
-      discountAmount: 50,
       paymentMethod: 'UPI',
     });
 
     expect(result.success).toBe(true);
     expect(result.data.paymentStatus).toBe(PaymentStatus.SUCCESS);
-    expect(result.data.discountAmount).toBe(50);
+    expect(result.data.discountAmount).toBe(0);
 
     const updatedBooking = bookingRepo.findById(pendingBooking.bookingId);
     expect(updatedBooking?.bookingStatus).toBe(BookingStatus.CONFIRMED);
+  });
+
+  it('rejects a frontend discount without a validated coupon on the booking', () => {
+    const pendingBooking = bookingRepo.create({
+      customerId: 'C001',
+      tripId: 'T001',
+      seatNumber: 21,
+    });
+
+    expect(() => paymentService.processPayment({
+      bookingId: pendingBooking.bookingId,
+      amount: 400,
+      discountAmount: 100,
+      paymentMethod: 'UPI',
+    })).toThrow(BadRequestException);
   });
 
   it('marks payment as FAILED if booking confirmation throws an error, avoiding false revenue', () => {
@@ -164,13 +187,15 @@ describe('PaymentService', () => {
     });
 
     expect(res.success).toBe(true);
-    const bookingId = res.data.bookingId;
-    expect(res.data.offerId).toBeDefined();
-    expect(res.data.bookingStatus).toBe(BookingStatus.PENDING);
+    const booking = res.data;
+    if (!booking) throw new Error('Booking response data was missing');
+    const bookingId = booking.bookingId;
+    expect(booking.offerId).toBeDefined();
+    expect(booking.bookingStatus).toBe(BookingStatus.PENDING);
 
     const payRes = paymentService.processPayment({
       bookingId,
-      amount: 400,
+      amount: 500,
       discountAmount: 100,
       paymentMethod: 'UPI',
     });
@@ -181,6 +206,15 @@ describe('PaymentService', () => {
 
     const confirmed = bookingRepo.findById(bookingId);
     expect(confirmed?.bookingStatus).toBe(BookingStatus.CONFIRMED);
+    expect(offerRepo.findRedemptions(booking.offerId)).toHaveLength(1);
+
+    paymentService.processPayment({
+      bookingId,
+      amount: 500,
+      discountAmount: 100,
+      paymentMethod: 'UPI',
+    });
+    expect(offerRepo.findRedemptions(booking.offerId)).toHaveLength(1);
   });
 
   it('marks payment as REFUNDED when requested for a processed booking', () => {

@@ -8,8 +8,13 @@ import '../styles/revenue-dashboard.css';
 
 export default function RevenuePage({ onBack }) {
   const [revenueData, setRevenueData] = useState({ bookings: [], refunds: [] });
+  const [couponFilter, setCouponFilter] = useState('all');
+  const [couponSearch, setCouponSearch] = useState('');
+  const [bookingStatusFilter, setBookingStatusFilter] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [error, setError] = useState('');
-  const [lastSynced, setLastSynced] = useState(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const requestRef = useRef(null);
   const refreshRef = useRef(() => {});
@@ -34,7 +39,7 @@ export default function RevenuePage({ onBack }) {
             totalRefunds: data.totalRefunds,
           });
           setError('');
-          setLastSynced(new Date());
+          setHasLoaded(true);
         })
         .catch((loadError) => active && setError(`Live revenue unavailable: ${loadError.message}`))
         .finally(() => {
@@ -61,6 +66,52 @@ export default function RevenuePage({ onBack }) {
 
   const completedRefunds = revenueData.refunds.filter((refund) => String(refund.status).toLowerCase() === 'refunded');
   const paidBookings = revenueData.bookings.filter((booking) => ['SUCCESS', 'REFUNDED'].includes(String(booking.paymentStatus).toUpperCase()));
+  const couponBookings = paidBookings.filter((booking) => {
+    if (!booking.offerId) return false;
+    if (couponFilter !== 'all' && booking.offerCode !== couponFilter) return false;
+    if (couponSearch && !String(booking.offerCode || '').toLowerCase().includes(couponSearch.toLowerCase())) return false;
+    if (bookingStatusFilter !== 'all' && String(booking.bookingStatus).toUpperCase() !== bookingStatusFilter) return false;
+    const date = String(booking.date || '').slice(0, 10);
+    if (startDate && date < startDate) return false;
+    if (endDate && date > endDate) return false;
+    return true;
+  });
+  const couponRows = Object.values(couponBookings.reduce((groups, booking) => {
+    const code = booking.offerCode || booking.offerId;
+    if (!groups[code]) {
+      groups[code] = {
+        code,
+        timesUsed: 0,
+        discount: 0,
+        gross: 0,
+        net: 0,
+        revenue: 0,
+        bookingIds: [],
+      };
+    }
+    groups[code].timesUsed += 1;
+    groups[code].discount += booking.discountAmount;
+    groups[code].gross += booking.grossBookingValue;
+    groups[code].net += booking.netBookingValue;
+    groups[code].revenue += booking.amount;
+    groups[code].bookingIds.push(booking.id);
+    return groups;
+  }, {})).map((row) => ({
+    ...row,
+    refunds: completedRefunds
+      .filter((refund) => row.bookingIds.includes(refund.bookingId))
+      .reduce((sum, refund) => sum + refund.amount, 0),
+  })).map((row) => ({ ...row, revenue: Math.max(0, row.revenue - row.refunds) }));
+  const filteredCouponSummary = {
+    redemptions: couponBookings.length,
+    discount: couponBookings.reduce((sum, booking) => sum + booking.discountAmount, 0),
+    gross: couponBookings.reduce((sum, booking) => sum + booking.grossBookingValue, 0),
+    net: couponBookings.reduce((sum, booking) => sum + booking.netBookingValue, 0),
+    collected: couponBookings.reduce((sum, booking) => sum + booking.amount, 0),
+    revenue: Math.max(0, couponBookings.reduce((sum, booking) => sum + booking.amount, 0) -
+      completedRefunds.filter((refund) => couponBookings.some((booking) => booking.id === refund.bookingId))
+        .reduce((sum, refund) => sum + refund.amount, 0)),
+  };
   const transactions = [
     ...paidBookings.map((booking) => ({
       id: booking.paymentId || `PAY-${booking.id}`,
@@ -125,7 +176,7 @@ export default function RevenuePage({ onBack }) {
           <div>
             <h1 style={{ fontSize: '20px', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>Platform Revenue & Financials</h1>
             <p style={{ fontSize: '12px', color: '#94a3b8', margin: '2px 0 0 0' }}>
-              {error || (lastSynced ? `Live Sync · Updated ${lastSynced.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Connecting to live ledger…')}
+              {error || 'Payment and refund records'}
             </p>
           </div>
         </div>
@@ -145,21 +196,74 @@ export default function RevenuePage({ onBack }) {
             opacity: refreshing ? 0.7 : 1
           }}
         >
-          {refreshing ? 'Syncing…' : '↻ Refresh Ledger'}
+          ↻ Refresh Ledger
         </button>
       </header>
 
       <main style={{ maxWidth: '1200px', margin: '28px auto', padding: '0 24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
         {error && (
           <div style={{ padding: '14px 18px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', color: '#b91c1c', fontSize: '13px' }}>
-            {error} Showing the last cached financial data.
+          {error}
           </div>
         )}
 
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
-          <MetricCard label="Net Platform Revenue" value={lastSynced ? money(revenueData.totalRevenue) : (refreshing ? 'Loading…' : '—')} accent="#16a34a" delta="Collected net of refunds" icon="₹" />
-          <MetricCard label="Gross Ticket Sales" value={lastSynced ? money(revenueData.grossRevenue) : (refreshing ? 'Loading…' : '—')} accent="#2563eb" delta="All booking transactions" icon="📈" />
-          <MetricCard label="Completed Refunds" value={lastSynced ? money(revenueData.totalRefunds) : (refreshing ? 'Loading…' : '—')} accent="#dc2626" delta="Returned to customers" icon="↻" />
+          <MetricCard label="Net Platform Revenue" value={hasLoaded ? money(revenueData.totalRevenue) : (refreshing ? 'Loading…' : '—')} accent="#16a34a" delta="Collected net of refunds" icon="₹" />
+          <MetricCard label="Gross Booking Value" value={hasLoaded ? money(revenueData.grossRevenue) : (refreshing ? 'Loading…' : '—')} accent="#2563eb" delta="Includes applied discounts" icon="📈" />
+          <MetricCard label="Completed Refunds" value={hasLoaded ? money(revenueData.totalRefunds) : (refreshing ? 'Loading…' : '—')} accent="#dc2626" delta="Returned to customers" icon="↻" />
+          <MetricCard label="Cancelled Bookings" value={revenueData.bookings.filter((booking) => String(booking.bookingStatus).toUpperCase() === 'CANCELLED').length} accent="#b91c1c" delta="All booking records" icon="×" />
+        </section>
+
+        <section style={{ background: '#ffffff', borderRadius: '14px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', marginBottom: '6px' }}>Coupon Analytics</h2>
+          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: 16 }}>
+            Successful coupon bookings only. Gross booking value is recorded payment plus the validated discount; net booking value is the customer payment. Refunds are shown separately from platform commission.
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+            <label style={filterLabel}>Search coupon
+              <input aria-label="Search coupon code" type="search" value={couponSearch} onChange={(event) => setCouponSearch(event.target.value)} placeholder="Coupon code" style={filterInput} />
+            </label>
+            <label style={filterLabel}>From <input aria-label="Coupon analytics start date" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} style={filterInput} /></label>
+            <label style={filterLabel}>To <input aria-label="Coupon analytics end date" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} style={filterInput} /></label>
+            <label style={filterLabel}>Coupon
+              <select aria-label="Filter by coupon" value={couponFilter} onChange={(event) => setCouponFilter(event.target.value)} style={filterInput}>
+                <option value="all">All coupons</option>
+                {[...new Set(paidBookings.filter((booking) => booking.offerId).map((booking) => booking.offerCode || booking.offerId))].map((code) => <option key={code} value={code}>{code}</option>)}
+              </select>
+            </label>
+            <label style={filterLabel}>Booking status
+              <select aria-label="Filter coupon bookings by status" value={bookingStatusFilter} onChange={(event) => setBookingStatusFilter(event.target.value)} style={filterInput}>
+                <option value="all">All statuses</option>
+                <option value="CONFIRMED">Confirmed</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </label>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginBottom: 18 }}>
+            <MetricCard label="Total coupons" value={revenueData.couponAnalytics?.summary?.totalCoupons ?? 0} accent="#0B2447" delta="Created" icon="%" />
+            <MetricCard label="Active coupons" value={revenueData.couponAnalytics?.summary?.activeCoupons ?? 0} accent="#16a34a" delta="Currently available" icon="✓" />
+            <MetricCard label="Inactive coupons" value={revenueData.couponAnalytics?.summary?.inactiveCoupons ?? 0} accent="#64748b" delta="Disabled or archived" icon="Ⅱ" />
+            <MetricCard label="Expired coupons" value={revenueData.couponAnalytics?.summary?.expiredCoupons ?? 0} accent="#64748b" delta="Past expiry date" icon="⌛" />
+            <MetricCard label="Successful redemptions" value={filteredCouponSummary.redemptions} accent="#7c3aed" delta="Filtered bookings" icon="🎟" />
+            <MetricCard label="Total discounts" value={money(filteredCouponSummary.discount)} accent="#dc2626" delta="Validated discounts" icon="−" />
+            <MetricCard label="Coupon gross value" value={money(filteredCouponSummary.gross)} accent="#2563eb" delta="Before coupon discounts" icon="₹" />
+            <MetricCard label="Coupon net booking value" value={money(filteredCouponSummary.net)} accent="#0891b2" delta="Before refunds" icon="₹" />
+            <MetricCard label="Coupon-based collected revenue" value={money(filteredCouponSummary.collected)} accent="#0f766e" delta="Successful payments" icon="₹" />
+            <MetricCard label="Coupon net revenue" value={money(filteredCouponSummary.revenue)} accent="#16a34a" delta="After completed refunds" icon="₹" />
+            <MetricCard label="Coupon refunds" value={money(filteredCouponSummary.net - filteredCouponSummary.revenue)} accent="#dc2626" delta="Completed refunds" icon="↻" />
+          </div>
+          <DataTable headers={['Coupon Code', 'Times Used', 'Total Discount', 'Gross Booking Value', 'Net Booking Value', 'Net Revenue']} emptyText="No successful coupon bookings match these filters.">
+            {couponRows.map((row) => (
+              <tr key={row.code}>
+                <td>{row.code}</td>
+                <td>{row.timesUsed}</td>
+                <td>{money(row.discount)}</td>
+                <td>{money(row.gross)}</td>
+                <td>{money(row.net)}</td>
+                <td>{money(row.revenue)}</td>
+              </tr>
+            ))}
+          </DataTable>
         </section>
 
         <section style={{ background: '#ffffff', borderRadius: '14px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
@@ -172,7 +276,7 @@ export default function RevenuePage({ onBack }) {
         <section style={{ background: '#ffffff', borderRadius: '14px', padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
           <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>Revenue Transactions</h2>
           <p style={{ fontSize: '13px', color: '#64748b' }}>Successful booking payments and completed refunds from the live payment and refund records.</p>
-          <DataTable headers={['Transaction ID', 'Booking ID', 'Customer', 'Type', 'Date', 'Amount', 'Status']} emptyText={!lastSynced && refreshing ? 'Loading revenue transactions…' : 'No completed payment or refund transactions found.'}>
+          <DataTable headers={['Transaction ID', 'Booking ID', 'Customer', 'Type', 'Date', 'Amount', 'Status']} emptyText={!hasLoaded && refreshing ? 'Loading revenue transactions…' : 'No completed payment or refund transactions found.'}>
             {transactions.map((transaction) => (
               <tr key={`${transaction.type}-${transaction.id}`}>
                 <td>{transaction.id}</td>
@@ -190,3 +294,6 @@ export default function RevenuePage({ onBack }) {
     </div>
   );
 }
+
+const filterLabel = { display: 'flex', flexDirection: 'column', gap: 5, color: '#475569', fontSize: 12, fontWeight: 700 };
+const filterInput = { minHeight: 36, border: '1px solid #cbd5e1', borderRadius: 7, background: '#fff', padding: '6px 9px', color: '#0f172a' };

@@ -201,6 +201,12 @@ export const API = {
     async getActive() {
       return apiFetch('/offers/active');
     },
+    async validate(offerCode, fare) {
+      return apiFetch('/offers/validate', {
+        method: 'POST',
+        body: JSON.stringify({ offerCode, fare: Number(fare), customerId: getCustomerId() }),
+      });
+    },
   },
 
   customer: {

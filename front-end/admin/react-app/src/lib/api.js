@@ -204,14 +204,16 @@ export async function loadAdminDashboardData() {
 
 export async function loadAdminRevenueData() {
   const fetchRevenueSource = (path) => apiFetch(path, { cache: 'no-store', signal: AbortSignal.timeout(10000) });
-  const [bookings, payments, refunds] = await Promise.all([
+  const [bookings, payments, refunds, offerAnalytics] = await Promise.all([
     fetchRevenueSource('/bookings'),
     fetchRevenueSource('/payments'),
     fetchRevenueSource('/refunds'),
+    fetchRevenueSource('/offers/analytics'),
   ]);
   const customers = await fetchRevenueSource('/customers').catch(() => []);
   const customerById = new Map(customers.map((customer) => [customer.customerId, customer]));
   const paymentByBooking = new Map(payments.map((payment) => [payment.bookingId, payment]));
+  const offerById = new Map((offerAnalytics.coupons || []).map((offer) => [offer.offerId, offer]));
   const refundBookingIds = new Set(refunds.map((refund) => refund.bookingId));
   const paidPayments = payments.filter((payment) => ['SUCCESS', 'REFUNDED'].includes(String(payment.paymentStatus).toUpperCase()));
 
@@ -252,18 +254,51 @@ export async function loadAdminRevenueData() {
       customer: local?.customerName || local?.passengerName || customer?.name || booking.customerId,
       date: booking.bookingDate || local?.journeyDate || local?.date,
       amount: Number(payment?.amount || local?.total || local?.amount || 0),
+      discountAmount: Number(payment?.discountAmount ?? booking.couponDiscountAmount ?? 0),
+      grossBookingValue: Number(booking.couponGrossAmount ??
+        (Number(payment?.amount || 0) + Number(payment?.discountAmount ?? booking.couponDiscountAmount ?? 0))),
+      netBookingValue: Math.max(
+        0,
+        Number(booking.couponGrossAmount ??
+          (Number(payment?.amount || 0) + Number(payment?.discountAmount ?? booking.couponDiscountAmount ?? 0))) -
+          Number(payment?.discountAmount ?? booking.couponDiscountAmount ?? 0),
+      ),
+      offerId: booking.offerId,
+      offerCode: booking.offerCode || offerById.get(booking.offerId)?.offerCode || '',
+      bookingStatus: booking.bookingStatus,
       paymentStatus: payment?.paymentStatus || (booking.bookingStatus === 'CONFIRMED' ? 'SUCCESS' : 'PENDING'),
       paymentId: payment?.paymentId || (local ? `PAY-${booking.bookingId}` : undefined),
       paymentDate: payment?.paymentDate || booking.bookingDate,
     };
   });
-  const gross = paidPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const gross = paidPayments.reduce((sum, payment) =>
+    sum + Number(payment.amount || 0) + Number(payment.discountAmount || 0), 0);
   const refunded = completedRefunds.reduce((sum, refund) => sum + Number(refund.amount || 0), 0);
+  const couponPayments = revenueBookings.filter((booking) =>
+    booking.offerId && ['SUCCESS', 'REFUNDED'].includes(String(booking.paymentStatus).toUpperCase()));
+  const couponRedemptions = (offerAnalytics.coupons || []).reduce(
+    (count, offer) => count + Number(offer.redemptions || 0),
+    0,
+  );
+  const couponDiscountTotal = couponPayments.reduce((sum, booking) => sum + booking.discountAmount, 0);
+  const couponGrossBookingValue = couponPayments.reduce((sum, booking) => sum + booking.grossBookingValue, 0);
+  const couponNetBookingValue = couponPayments.reduce((sum, booking) => sum + booking.amount, 0);
+  const couponRefunds = completedRefunds
+    .filter((refund) => couponPayments.some((booking) => booking.id === refund.bookingId))
+    .reduce((sum, refund) => sum + refund.amount, 0);
   return {
     bookings: revenueBookings,
     refunds: completedRefunds,
     grossRevenue: gross,
     totalRefunds: refunded,
-    totalRevenue: Math.max(0, gross - refunded),
+    totalRevenue: Math.max(0, paidPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0) - refunded),
+    couponAnalytics: {
+      summary: offerAnalytics.summary || {},
+      totalRedemptions: Math.max(couponRedemptions, couponPayments.length),
+      totalDiscount: couponDiscountTotal,
+      grossBookingValue: couponGrossBookingValue,
+      netBookingValue: couponNetBookingValue,
+      netRevenue: Math.max(0, couponNetBookingValue - couponRefunds),
+    },
   };
 }

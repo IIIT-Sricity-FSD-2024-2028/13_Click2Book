@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Tag, Check, CreditCard, Smartphone, Building, Wallet, ArrowLeft, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
-import { OFFERS_CATALOG } from '../services/mockData';
+import { API } from '../services/api';
 
 export default function PaymentModal({
   bus,
@@ -16,6 +16,24 @@ export default function PaymentModal({
   const [couponMessage, setCouponMessage] = useState(null);
   const [showOffersPanel, setShowOffersPanel] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('UPI');
+  const [availableOffers, setAvailableOffers] = useState([]);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const loadOffers = () => API.offers.getActive()
+      .then((offers) => active && setAvailableOffers(Array.isArray(offers) ? offers : []))
+      .catch((error) => active && setCouponMessage({ text: error.message || 'Could not load available coupons.', error: true }));
+    const onFocus = () => loadOffers();
+    loadOffers();
+    const timer = setInterval(loadOffers, 30000);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      active = false;
+      clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, []);
 
   const count = selectedSeats.length || 1;
   const baseFare = bus.price || 500;
@@ -26,43 +44,29 @@ export default function PaymentModal({
 
   let discount = 0;
   if (appliedOffer) {
-    if (appliedOffer.type === 'percent') {
-      discount = Math.round((grossTotal * appliedOffer.discount) / 100);
-    } else {
-      discount = appliedOffer.discount;
-    }
+    discount = appliedOffer.discountAmount;
   }
   const netTotal = Math.max(0, grossTotal - discount);
 
-  const handleApplyCoupon = (codeToApply) => {
+  const handleApplyCoupon = async (codeToApply) => {
     const code = (codeToApply || couponCode).trim().toUpperCase();
     if (!code) {
       setCouponMessage({ text: 'Please enter a coupon code.', error: true });
       return;
     }
 
-    const offer = OFFERS_CATALOG.find((o) => o.code === code);
-    if (!offer) {
-      setCouponMessage({ text: 'Invalid coupon code.', error: true });
-      return;
+    setValidatingCoupon(true);
+    try {
+      const validated = await API.offers.validate(code, baseFare);
+      setAppliedOffer({ code, discountAmount: Number(validated.discountAmount) });
+      setCouponCode(code);
+      setCouponMessage({ text: `Coupon "${code}" applied. You save ₹${validated.discountAmount}.`, error: false });
+    } catch (error) {
+      setAppliedOffer(null);
+      setCouponMessage({ text: error.message || 'Coupon could not be applied.', error: true });
+    } finally {
+      setValidatingCoupon(false);
     }
-
-    if (grossTotal < offer.minFare) {
-      setCouponMessage({
-        text: `Minimum booking fare of ₹${offer.minFare} required for this coupon.`,
-        error: true,
-      });
-      return;
-    }
-
-    setAppliedOffer(offer);
-    setCouponCode(code);
-    setCouponMessage({
-      text: `Coupon "${code}" applied successfully! You save ₹${
-        offer.type === 'percent' ? Math.round((grossTotal * offer.discount) / 100) : offer.discount
-      }`,
-      error: false,
-    });
   };
 
   const handleRemoveCoupon = () => {
@@ -170,10 +174,11 @@ export default function PaymentModal({
             <button
               type="button"
               onClick={() => handleApplyCoupon()}
+              disabled={validatingCoupon}
               className="btn-orange"
               style={{ padding: '8px 18px', fontSize: '0.8rem' }}
             >
-              Apply
+              {validatingCoupon ? 'Checking…' : 'Apply'}
             </button>
           )}
         </div>
@@ -195,10 +200,10 @@ export default function PaymentModal({
         {/* Collapsible Offers Accordion */}
         {showOffersPanel && (
           <div style={{ marginTop: '14px', borderTop: '1px dashed #fed7aa', paddingTop: '12px' }}>
-            {OFFERS_CATALOG.map((o) => (
+            {availableOffers.map((o) => (
               <div
-                key={o.code}
-                onClick={() => handleApplyCoupon(o.code)}
+                key={o.offerId}
+                onClick={() => handleApplyCoupon(o.offerCode)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -213,9 +218,9 @@ export default function PaymentModal({
               >
                 <div>
                   <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1e293b' }}>
-                    {o.code} · <span style={{ color: 'var(--primary)' }}>{o.title}</span>
+                    {o.offerCode} · <span style={{ color: 'var(--primary)' }}>{o.description || (o.flatDiscount != null ? `₹${o.flatDiscount} off` : `${o.discountPercentage}% off`)}</span>
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{o.desc}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Valid through {o.endDate}{o.minFare ? ` · Minimum ₹${o.minFare}` : ''}</div>
                 </div>
                 <button
                   type="button"

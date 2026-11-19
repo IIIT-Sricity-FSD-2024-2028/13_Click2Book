@@ -7,8 +7,6 @@ export default function Topbar({
   onNotify,
   onRefresh,
   refreshing,
-  lastSynced,
-  hasSyncError,
   onLogout,
 }) {
   const [search, setSearch] = useState('');
@@ -25,10 +23,6 @@ export default function Topbar({
         <p className="page-subtitle">Admin Control Panel</p>
       </div>
       <div className="topbar-right">
-        <div className="live-sync" aria-live="polite">
-          <span className={`live-sync-dot ${refreshing ? 'is-refreshing' : ''} ${hasSyncError ? 'is-offline' : ''}`} />
-          <span>{refreshing ? 'Syncing…' : lastSynced ? `${hasSyncError ? 'Stale' : 'Live'} · ${lastSynced.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Connecting…'}</span>
-        </div>
         <button className="topbar-btn refresh-btn" type="button" aria-label="Refresh dashboard data" title="Refresh dashboard data" onClick={onRefresh} disabled={refreshing}>⟳</button>
         <div className="topbar-search">
           <span aria-hidden="true">⌕</span>

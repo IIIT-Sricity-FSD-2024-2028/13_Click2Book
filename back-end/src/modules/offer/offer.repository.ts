@@ -5,6 +5,15 @@ import { generateId } from '../../common/utils/id.util';
 
 @Injectable()
 export class OfferRepository {
+  private redemptions: Array<{
+    offerId: string;
+    bookingId: string;
+    customerId: string;
+    discountAmount: number;
+    grossAmount: number;
+    redeemedAt: string;
+  }> = [];
+
   private offers: Offer[] = [
     { offerId: 'O001', providerId: 'P001', offerCode: 'SUMMER20', discountPercentage: 20, startDate: '2025-01-01', endDate: '2028-12-31', status: OfferStatus.ACTIVE },
     { offerId: 'O002', providerId: 'P002', offerCode: 'FIRST10', discountPercentage: 10, startDate: '2025-01-01', endDate: '2028-12-31', status: OfferStatus.ACTIVE },
@@ -24,7 +33,11 @@ export class OfferRepository {
   ];
 
   create(data: Omit<Offer, 'offerId'>): Offer {
-    const offer: Offer = { offerId: generateId('O'), ...data, status: OfferStatus.ACTIVE };
+    let offerId = generateId('O');
+    while (this.findById(offerId)) {
+      offerId = generateId('O');
+    }
+    const offer: Offer = { offerId, ...data, status: OfferStatus.ACTIVE };
     this.offers.push(offer);
     return offer;
   }
@@ -37,6 +50,23 @@ export class OfferRepository {
     return this.offers.find(o => o.offerCode.toUpperCase() === clean);
   }
   findActive(): Offer[] { return this.offers.filter(o => o.status === OfferStatus.ACTIVE); }
+  findRedemptions(offerId?: string) {
+    return this.redemptions.filter(redemption => !offerId || redemption.offerId === offerId);
+  }
+
+  recordRedemption(redemption: {
+    offerId: string;
+    bookingId: string;
+    customerId: string;
+    discountAmount: number;
+    grossAmount: number;
+  }) {
+    const existing = this.redemptions.find(item => item.bookingId === redemption.bookingId);
+    if (existing) return existing;
+    const saved = { ...redemption, redeemedAt: new Date().toISOString() };
+    this.redemptions.push(saved);
+    return saved;
+  }
 
   update(offerId: string, data: Partial<Offer>): Offer | undefined {
     const i = this.offers.findIndex(o => o.offerId === offerId);

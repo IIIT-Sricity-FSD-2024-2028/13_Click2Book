@@ -2,6 +2,7 @@ import {
   forwardRef, Inject, Injectable, NotFoundException, BadRequestException, ConflictException,
 } from '@nestjs/common';
 import { BookingRepository } from './booking.repository';
+import { Booking } from './interfaces/booking.interface';
 import { TripRepository } from '../trip/trip.repository';
 import { VehicleRepository } from '../vehicle/vehicle.repository';
 import { SeatRepository } from '../seat/seat.repository';
@@ -71,10 +72,11 @@ export class BookingService {
       throw new ConflictException(`Seat ${dto.seatNumber} is not available`);
 
     // 6. Apply offer if provided
-    let offerId: string | undefined;
+    let coupon: ReturnType<OfferService['validateAndApply']> | undefined;
     if (dto.offerCode) {
-      const applied = this.offerService.validateAndApply(dto.offerCode, 0);
-      offerId = applied.offerId;
+      const fare = this.scheduleRepo.findById(trip.scheduleId)?.fare;
+      if (fare == null) throw new BadRequestException('Fare is unavailable for this trip');
+      coupon = this.offerService.validateAndApply(dto.offerCode, fare, dto.customerId);
     }
 
     // 7. Create booking (PENDING — awaiting payment)
@@ -82,7 +84,10 @@ export class BookingService {
       customerId: dto.customerId,
       tripId: trip.tripId,
       seatNumber: dto.seatNumber,
-      offerId,
+      offerId: coupon?.offerId,
+      offerCode: coupon?.offerCode,
+      couponDiscountAmount: coupon?.discountAmount,
+      couponGrossAmount: coupon?.grossAmount,
     });
 
     // 8. Mark seat as BOOKED & decrement vehicle remaining seats
@@ -137,6 +142,37 @@ export class BookingService {
       throw new BadRequestException('Only PENDING bookings can be confirmed');
     const updated = this.bookingRepo.update(bookingId, { bookingStatus: BookingStatus.CONFIRMED });
     return successResponse('Booking confirmed', updated);
+  }
+
+  confirmAfterPayment(bookingId: string) {
+    const booking = this.bookingRepo.findById(bookingId);
+    if (!booking) throw new NotFoundException(`Booking ${bookingId} not found`);
+    if (booking.bookingStatus === BookingStatus.CONFIRMED) {
+      this.recordCouponRedemption(booking);
+      return successResponse('Booking confirmed', booking);
+    }
+    if (booking.bookingStatus !== BookingStatus.PENDING)
+      throw new BadRequestException('Only PENDING bookings can be confirmed');
+    const confirmed = this.confirm(bookingId);
+    try {
+      this.recordCouponRedemption(booking);
+      return confirmed;
+    } catch (error) {
+      this.bookingRepo.update(bookingId, { bookingStatus: BookingStatus.PENDING });
+      throw error;
+    }
+  }
+
+  private recordCouponRedemption(booking: Booking) {
+    if (booking.offerId) {
+      this.offerService.recordRedemption(
+        booking.offerId,
+        booking.bookingId,
+        booking.customerId,
+        booking.couponDiscountAmount || 0,
+        booking.couponGrossAmount || 0,
+      );
+    }
   }
 
   registerHistorical(body: any) {

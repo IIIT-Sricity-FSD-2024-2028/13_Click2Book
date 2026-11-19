@@ -6,6 +6,7 @@ export const SECTIONS = [
   ['providers', 'Service Providers', 'Service Provider Management', '🚌'],
   ['support', 'Customer Support', 'Customer Support Management', '💬'],
   ['refund', 'Refunds', 'Refund Requests & Decisions', '↻'],
+  ['coupons', 'Coupons', 'Coupon Management', '%'],
   ['locations', 'Locations & Hubs', 'Location Requests & OSM Hubs', '📍'],
   ['reports', 'Analytics', 'Reports & Route Analytics', '📊'],
 ];

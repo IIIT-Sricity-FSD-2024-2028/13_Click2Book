@@ -19,6 +19,17 @@ export class PaymentService {
     // 1. Check booking exists
     const booking = this.bookingRepo.findById(dto.bookingId);
     if (!booking) throw new NotFoundException(`Booking ${dto.bookingId} not found`);
+    const discountAmount = Number(booking.couponDiscountAmount || 0);
+    if (!booking.offerId && Number(dto.discountAmount || 0) > 0) {
+      throw new BadRequestException('A discount requires a validated coupon on the booking');
+    }
+    if (booking.offerId && dto.discountAmount != null &&
+      Math.round(Number(dto.discountAmount) * 100) !== Math.round(discountAmount * 100)) {
+      throw new BadRequestException('Payment discount does not match the validated coupon');
+    }
+    if (booking.offerId && Number(dto.amount) < Math.max(0, Number(booking.couponGrossAmount || 0) - discountAmount)) {
+      throw new BadRequestException('Payment amount is below the booking fare after the validated coupon');
+    }
 
     // If already confirmed, handle retries idempotently without charging or recording payment twice
     if (booking.bookingStatus === BookingStatus.CONFIRMED) {
@@ -27,10 +38,11 @@ export class PaymentService {
         if (existing.paymentStatus !== PaymentStatus.SUCCESS) {
           const updated = this.paymentRepo.update(existing.paymentId, {
             amount: dto.amount,
-            discountAmount: dto.discountAmount ?? 0,
+            discountAmount,
             paymentMethod: dto.paymentMethod,
             paymentStatus: PaymentStatus.SUCCESS,
           }) || existing;
+          this.bookingService.confirmAfterPayment(booking.bookingId);
           return successResponse('Payment already successful. Booking confirmed.', updated);
         }
         return successResponse('Payment already successful. Booking confirmed.', existing);
@@ -38,9 +50,10 @@ export class PaymentService {
       const payment = this.paymentRepo.create({
         ...dto,
         bookingId: booking.bookingId,
-        discountAmount: dto.discountAmount ?? 0,
+        discountAmount,
       });
       const updated = this.paymentRepo.update(payment.paymentId, { paymentStatus: PaymentStatus.SUCCESS }) || payment;
+      this.bookingService.confirmAfterPayment(booking.bookingId);
       return successResponse('Payment already successful. Booking confirmed.', updated);
     }
 
@@ -63,12 +76,12 @@ export class PaymentService {
       }
       payment = this.paymentRepo.update(payment.paymentId, {
         amount: dto.amount,
-        discountAmount: dto.discountAmount ?? 0,
+        discountAmount,
         paymentMethod: dto.paymentMethod,
         paymentStatus: PaymentStatus.PENDING,
       }) || payment;
     } else {
-      payment = this.paymentRepo.create({ ...dto, bookingId: booking.bookingId, discountAmount: dto.discountAmount ?? 0 });
+      payment = this.paymentRepo.create({ ...dto, bookingId: booking.bookingId, discountAmount });
     }
 
     try {
@@ -76,7 +89,7 @@ export class PaymentService {
       const updated = this.paymentRepo.update(payment.paymentId, { paymentStatus: PaymentStatus.SUCCESS }) || payment;
 
       // 6. Confirm the booking after payment succeeds
-      this.bookingService.confirm(booking.bookingId);
+      this.bookingService.confirmAfterPayment(booking.bookingId);
 
       return successResponse('Payment successful. Booking confirmed.', updated);
     } catch (err) {

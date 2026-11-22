@@ -860,6 +860,22 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
                   <div className="card-meta-row" style={{ flex: 1 }}>
                     <div className="card-route" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 800 }}>{t.source} → {t.destination}</span>
+                      {t.corridorName && (
+                        <span
+                          style={{
+                            background: '#f1f5f9',
+                            color: '#1e293b',
+                            border: '1px solid #cbd5e1',
+                            padding: '2px 7px',
+                            borderRadius: '4px',
+                            fontWeight: 700,
+                            fontSize: '0.7rem',
+                          }}
+                          title={t.corridorName}
+                        >
+                          🛣️ {t.corridorName}
+                        </span>
+                      )}
                       {Array.isArray(t.intermediateStops) && t.intermediateStops.length > 0 ? (
                         <span
                           className="via-tag"

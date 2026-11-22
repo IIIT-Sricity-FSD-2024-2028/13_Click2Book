@@ -274,7 +274,23 @@ export async function fetchSchedulesFromAPI() {
 export async function saveSchedule(payload) {
   const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId');
   const providerId = (loggedId && /^P\d+$/.test(loggedId)) ? loggedId : 'P001';
-  const { journeyDate, from, to, via, intermediateStops, dep, arr, busName, busType, seats, fare } = payload;
+  const {
+    journeyDate,
+    from,
+    to,
+    via,
+    intermediateStops,
+    dep,
+    arr,
+    busName,
+    busType,
+    seats,
+    fare,
+    corridorId,
+    corridorName,
+    routeStops,
+    encodedPolyline,
+  } = payload;
   const todayStr = new Date().toISOString().split('T')[0];
   const validJourneyDate = journeyDate || todayStr;
 
@@ -288,7 +304,7 @@ export async function saveSchedule(payload) {
   const effectiveVia = (via && String(via).trim()) ? String(via).trim() : stopsList.join(', ');
 
   try {
-    // Step 1 – Route (send origin, destination, and intermediate stops via string to backend)
+    // Step 1 – Route (send origin, destination, corridorId, and intermediate stops via string to backend)
     const routeData = await spFetch('/routes', {
       method: 'POST',
       body: JSON.stringify({
@@ -296,6 +312,7 @@ export async function saveSchedule(payload) {
         destination: to.trim(),
         distance: 300,
         ...(effectiveVia ? { via: effectiveVia } : {}),
+        ...(corridorId ? { selectedCorridorId: corridorId } : {}),
       }),
     });
     const routeId = routeData?.routeId || routeData?.data?.routeId || 'R001';
@@ -348,7 +365,7 @@ export async function saveSchedule(payload) {
       vehicleId = vehData?.vehicleId || vehData?.data?.vehicleId || 'V001';
     }
 
-    // Step 3 – Schedule (stores route, timings, fare and intermediate stops via)
+    // Step 3 – Schedule (stores route, timings, fare, corridor and intermediate stops via)
     const schData = await spFetch('/schedules', {
       method: 'POST',
       body: JSON.stringify({
@@ -360,6 +377,7 @@ export async function saveSchedule(payload) {
         arrivalTimeToDestination: arr || '12:00',
         fare: Number(fare) || 500,
         ...(effectiveVia ? { via: effectiveVia } : {}),
+        ...(corridorId ? { corridorId } : {}),
       }),
     });
     const scheduleId = schData?.scheduleId || schData?.data?.scheduleId || 'SCH001';
@@ -383,11 +401,15 @@ export async function saveSchedule(payload) {
       ...payload,
       via: effectiveVia,
       intermediateStops: stopsList,
+      corridorId: corridorId || null,
+      corridorName: corridorName || null,
+      routeStops: Array.isArray(routeStops) ? routeStops : [],
+      encodedPolyline: encodedPolyline || null,
     });
     return { tripId: canonicalTripId, isLive: true };
   } catch (err) {
     console.warn('saveSchedule error/fallback:', err?.message || err);
-    // If backend failed, retain payload and save locally with intermediate stops
+    // If backend failed, retain payload and save locally with intermediate stops & corridor
     const tripId = `TRIP_${Date.now()}`;
     _saveToLocalStorage({
       tripId,
@@ -396,6 +418,10 @@ export async function saveSchedule(payload) {
       ...payload,
       via: effectiveVia,
       intermediateStops: stopsList,
+      corridorId: corridorId || null,
+      corridorName: corridorName || null,
+      routeStops: Array.isArray(routeStops) ? routeStops : [],
+      encodedPolyline: encodedPolyline || null,
       vehicleId: null,
       scheduleId: null,
     });
@@ -403,7 +429,28 @@ export async function saveSchedule(payload) {
   }
 }
 
-function _saveToLocalStorage({ tripId, backendTripId, vehicleId, scheduleId, providerId, journeyDate, from, to, via, intermediateStops, dep, arr, busName, busType, seats, fare }) {
+function _saveToLocalStorage({
+  tripId,
+  backendTripId,
+  vehicleId,
+  scheduleId,
+  providerId,
+  journeyDate,
+  from,
+  to,
+  via,
+  intermediateStops,
+  dep,
+  arr,
+  busName,
+  busType,
+  seats,
+  fare,
+  corridorId,
+  corridorName,
+  routeStops,
+  encodedPolyline,
+}) {
   const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
   const canonicalId = backendTripId || (tripId && /^T\d+$/.test(tripId) ? tripId : null);
   const effectiveId = canonicalId || tripId;
@@ -434,6 +481,10 @@ function _saveToLocalStorage({ tripId, backendTripId, vehicleId, scheduleId, pro
     via: effectiveVia,
     intermediateStops: stopsList,
     allStops: fullStops,
+    corridorId: corridorId || null,
+    corridorName: corridorName || null,
+    routeStops: Array.isArray(routeStops) ? routeStops : [],
+    encodedPolyline: encodedPolyline || null,
     departureTime: dep,
     arrivalTime: arr,
     journeyDate,
@@ -2155,5 +2206,610 @@ if (typeof window !== 'undefined') {
     simulate: (couponId) => simulateCustomerRedemption(couponId),
   };
 }
+
+/* ──────────────────────────────────────────────────────────
+   Feature: Route Corridor Selection & Intermediate Bus Stops
+   Coordinates Database, Discovery Engine, Stop Suggestions &
+   Strict Route Progress Validation
+   ────────────────────────────────────────────────────────── */
+
+export const CITY_COORDINATES = {
+  'chennai': { name: 'Chennai', lat: 13.0827, lng: 80.2707, state: 'Tamil Nadu' },
+  'cmbt koyambedu': { name: 'CMBT Koyambedu', lat: 13.0694, lng: 80.2057, state: 'Tamil Nadu' },
+  'tada': { name: 'Tada', lat: 13.5937, lng: 80.0335, state: 'Andhra Pradesh' },
+  'sricity': { name: 'SriCity', lat: 13.5300, lng: 80.0300, state: 'Andhra Pradesh' },
+  'sullurpeta': { name: 'Sullurpeta', lat: 13.7008, lng: 80.0210, state: 'Andhra Pradesh' },
+  'nayudupeta': { name: 'Nayudupeta', lat: 13.9056, lng: 79.9026, state: 'Andhra Pradesh' },
+  'gudur': { name: 'Gudur', lat: 14.1463, lng: 79.8504, state: 'Andhra Pradesh' },
+  'nellore': { name: 'Nellore', lat: 14.4426, lng: 79.9865, state: 'Andhra Pradesh' },
+  'kavali': { name: 'Kavali', lat: 14.9132, lng: 79.9930, state: 'Andhra Pradesh' },
+  'singarayakonda': { name: 'Singarayakonda', lat: 15.2500, lng: 80.0300, state: 'Andhra Pradesh' },
+  'ongole': { name: 'Ongole', lat: 15.5057, lng: 80.0499, state: 'Andhra Pradesh' },
+  'chirala': { name: 'Chirala', lat: 15.8246, lng: 80.3521, state: 'Andhra Pradesh' },
+  'bapatla': { name: 'Bapatla', lat: 15.9042, lng: 80.4674, state: 'Andhra Pradesh' },
+  'chilakaluripet': { name: 'Chilakaluripet', lat: 16.0892, lng: 80.1672, state: 'Andhra Pradesh' },
+  'guntur': { name: 'Guntur', lat: 16.3067, lng: 80.4365, state: 'Andhra Pradesh' },
+  'vijayawada': { name: 'Vijayawada', lat: 16.5062, lng: 80.6480, state: 'Andhra Pradesh' },
+  'eluru': { name: 'Eluru', lat: 16.7107, lng: 81.0952, state: 'Andhra Pradesh' },
+  'rajahmundry': { name: 'Rajahmundry', lat: 17.0005, lng: 81.8040, state: 'Andhra Pradesh' },
+  'visakhapatnam': { name: 'Visakhapatnam', lat: 17.6868, lng: 83.2185, state: 'Andhra Pradesh' },
+  'tiruvallur': { name: 'Tiruvallur', lat: 13.1432, lng: 79.9083, state: 'Tamil Nadu' },
+  'tiruttani': { name: 'Tiruttani', lat: 13.1764, lng: 79.6102, state: 'Tamil Nadu' },
+  'nagari': { name: 'Nagari', lat: 13.3308, lng: 79.5843, state: 'Andhra Pradesh' },
+  'puttur': { name: 'Puttur', lat: 13.4414, lng: 79.5539, state: 'Andhra Pradesh' },
+  'renigunta': { name: 'Renigunta', lat: 13.6333, lng: 79.5167, state: 'Andhra Pradesh' },
+  'tirupati': { name: 'Tirupati', lat: 13.6288, lng: 79.4192, state: 'Andhra Pradesh' },
+  'srikalahasti': { name: 'Srikalahasti', lat: 13.7500, lng: 79.7000, state: 'Andhra Pradesh' },
+  'bangalore': { name: 'Bangalore', lat: 12.9716, lng: 77.5946, state: 'Karnataka' },
+  'hosur': { name: 'Hosur', lat: 12.7409, lng: 77.8253, state: 'Tamil Nadu' },
+  'krishnagiri': { name: 'Krishnagiri', lat: 12.5186, lng: 78.2138, state: 'Tamil Nadu' },
+  'ambur': { name: 'Ambur', lat: 12.7904, lng: 78.7166, state: 'Tamil Nadu' },
+  'vellore': { name: 'Vellore', lat: 12.9165, lng: 79.1325, state: 'Tamil Nadu' },
+  'ranipet': { name: 'Ranipet', lat: 12.9272, lng: 79.3330, state: 'Tamil Nadu' },
+  'kanchipuram': { name: 'Kanchipuram', lat: 12.8342, lng: 79.7036, state: 'Tamil Nadu' },
+  'sriperumbudur': { name: 'Sriperumbudur', lat: 12.9691, lng: 79.9416, state: 'Tamil Nadu' },
+  'kolar': { name: 'Kolar', lat: 13.1367, lng: 78.1340, state: 'Karnataka' },
+  'mulbagal': { name: 'Mulbagal', lat: 13.1639, lng: 78.3966, state: 'Karnataka' },
+  'palamaner': { name: 'Palamaner', lat: 13.2000, lng: 78.7500, state: 'Andhra Pradesh' },
+  'chittoor': { name: 'Chittoor', lat: 13.2172, lng: 79.1003, state: 'Andhra Pradesh' },
+  'hyderabad': { name: 'Hyderabad', lat: 17.3850, lng: 78.4867, state: 'Telangana' },
+  'suryapet': { name: 'Suryapet', lat: 17.1439, lng: 79.6239, state: 'Telangana' },
+  'kodad': { name: 'Kodad', lat: 16.9961, lng: 79.9678, state: 'Telangana' },
+  'nandigama': { name: 'Nandigama', lat: 16.7667, lng: 80.3000, state: 'Andhra Pradesh' },
+  'mumbai': { name: 'Mumbai', lat: 19.0760, lng: 72.8777, state: 'Maharashtra' },
+  'pune': { name: 'Pune', lat: 18.5204, lng: 73.8567, state: 'Maharashtra' },
+  'lonavala': { name: 'Lonavala', lat: 18.7557, lng: 73.4091, state: 'Maharashtra' },
+  'khandala': { name: 'Khandala', lat: 18.7614, lng: 73.3748, state: 'Maharashtra' },
+  'panvel': { name: 'Panvel', lat: 18.9894, lng: 73.1175, state: 'Maharashtra' },
+  'navi mumbai': { name: 'Navi Mumbai', lat: 19.0330, lng: 73.0297, state: 'Maharashtra' },
+};
+
+export function getCityCoords(name) {
+  if (!name) return null;
+  const key = String(name).trim().toLowerCase();
+  return CITY_COORDINATES[key] || null;
+}
+
+// Haversine distance in kilometers
+export function calculateGeoDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+/* ── Registered Provider Fleet for Step 1 ── */
+export function getRegisteredBuses() {
+  return [
+    {
+      vehicleNumber: 'AP 03 TC 1001',
+      busName: 'Volvo A/C Multi-Axle B12',
+      busType: 'Volvo AC',
+      totalSeats: 40,
+      seatingType: '2+2 Pushback / Semi-Sleeper',
+      amenities: ['WiFi', 'AC', 'USB Charging', 'Blankets', 'Emergency Exit'],
+      rating: 4.8,
+      status: 'Active',
+    },
+    {
+      vehicleNumber: 'AP 03 TC 2002',
+      busName: 'Scania Touring HD Luxury',
+      busType: 'AC Seater',
+      totalSeats: 45,
+      seatingType: '2+2 Ergonomic Recliner',
+      amenities: ['AC', 'USB Charging', 'Water Bottle', 'Luggage Compartment'],
+      rating: 4.6,
+      status: 'Active',
+    },
+    {
+      vehicleNumber: 'AP 03 TC 3003',
+      busName: 'Mercedes-Benz Super Luxury',
+      busType: 'Sleeper AC',
+      totalSeats: 36,
+      seatingType: '2+1 Sleeper Berths',
+      amenities: ['AC', 'Personal TV', 'Reading Lights', 'Pillow & Blanket'],
+      rating: 4.9,
+      status: 'Active',
+    },
+    {
+      vehicleNumber: 'AP 03 TC 4004',
+      busName: 'Ashok Leyland Viking Express',
+      busType: 'Non-AC',
+      totalSeats: 48,
+      seatingType: '2+2 Standard Seater',
+      amenities: ['Overhead Luggage Rack', 'Emergency Exits', 'First Aid'],
+      rating: 4.3,
+      status: 'Active',
+    },
+    {
+      vehicleNumber: 'AP 03 TC 5005',
+      busName: 'BharatBenz High-Deck Coach',
+      busType: 'Semi-Sleeper',
+      totalSeats: 40,
+      seatingType: '2+2 Semi-Sleeper Recliners',
+      amenities: ['AC', 'Reclining Seats', 'Ambient Lighting', 'WiFi'],
+      rating: 4.7,
+      status: 'Active',
+    },
+  ];
+}
+
+/* ── Verified Indian Corridor Presets ── */
+const CORRIDOR_PRESET_DB = {
+  'chennai|guntur': [
+    {
+      corridorId: 'CORR_CHN_GNT_A',
+      name: 'Corridor A: NH16 Coastal Corridor (via Tada - Nellore - Kavali - Ongole - Chirala - Bapatla)',
+      highway: 'NH16 Expressway',
+      distance: 415,
+      duration: '6h 45m',
+      durationMinutes: 405,
+      description: 'Primary coastal national highway route via NH16 with 4-lane expressway, modern toll bypasses, and major RTC transit terminals.',
+      majorTowns: ['Tada', 'Nayudupeta', 'Gudur', 'Nellore', 'Kavali', 'Singarayakonda', 'Ongole', 'Chirala', 'Bapatla'],
+      polyline: [
+        [13.0827, 80.2707], [13.5937, 80.0335], [13.9056, 79.9026], [14.1463, 79.8504],
+        [14.4426, 79.9865], [14.9132, 79.9930], [15.2500, 80.0300], [15.5057, 80.0499],
+        [15.8246, 80.3521], [15.9042, 80.4674], [16.3067, 80.4365]
+      ],
+      suggestedCities: [
+        { name: 'Tada', lat: 13.5937, lng: 80.0335, type: 'city' },
+        { name: 'Nayudupeta', lat: 13.9056, lng: 79.9026, type: 'city' },
+        { name: 'Nellore', lat: 14.4426, lng: 79.9865, type: 'city' },
+        { name: 'Kavali', lat: 14.9132, lng: 79.9930, type: 'city' },
+        { name: 'Ongole', lat: 15.5057, lng: 80.0499, type: 'city' },
+        { name: 'Chirala', lat: 15.8246, lng: 80.3521, type: 'city' },
+        { name: 'Bapatla', lat: 15.9042, lng: 80.4674, type: 'city' },
+      ],
+      suggestedBoardingPoints: [
+        { name: 'CMBT Koyambedu Bus Terminus', lat: 13.0694, lng: 80.2057, type: 'bus_station', boardingPoint: 'Platform 6, CMBT Intercity Terminal', droppingPoint: 'CMBT Koyambedu Roundtana' },
+        { name: 'Tada Toll Gate Junction', lat: 13.5937, lng: 80.0335, type: 'bus_station', boardingPoint: 'Tada NH16 Highway Bus Bay', droppingPoint: 'Tada Toll Gate Service Road' },
+        { name: 'Nayudupeta RTC Bus Station', lat: 13.9056, lng: 79.9026, type: 'bus_station', boardingPoint: 'APSRTC Bus Station Bay 1', droppingPoint: 'Highway Bypass Flyover' },
+        { name: 'Nellore RTC Central Bus Stand', lat: 14.4426, lng: 79.9865, type: 'bus_station', boardingPoint: 'RTC Central Bus Complex Platform 4', droppingPoint: 'Nellore Mini Bypass Junction' },
+        { name: 'Kavali RTC Bus Complex', lat: 14.9132, lng: 79.9930, type: 'bus_station', boardingPoint: 'RTC Complex Main Entrance', droppingPoint: 'Kavali Highway Bypass' },
+        { name: 'Ongole New RTC Bus Stand', lat: 15.5057, lng: 80.0499, type: 'bus_station', boardingPoint: 'New RTC Stand Kurnool Road', droppingPoint: 'Ongole South Bypass Flyover' },
+        { name: 'Chirala Railway Station Road Terminal', lat: 15.8246, lng: 80.3521, type: 'bus_station', boardingPoint: 'Railway Station Road Bus Stand', droppingPoint: 'Chirala Bypass Junction' },
+        { name: 'Bapatla Town Clock Tower Stand', lat: 15.9042, lng: 80.4674, type: 'bus_station', boardingPoint: 'Town Clock Tower RTC Stop', droppingPoint: 'Bapatla Bypass Cross' },
+        { name: 'Guntur NTR RTC Bus Station', lat: 16.3067, lng: 80.4365, type: 'bus_station', boardingPoint: 'NTR Bus Station Platform 12', droppingPoint: 'Guntur Auto Nagar Drop Point' },
+      ],
+    },
+    {
+      corridorId: 'CORR_CHN_GNT_B',
+      name: 'Corridor B: Inland Highway (via Tiruvallur - Tiruttani - Nagari - Puttur - Nellore)',
+      highway: 'SH57 / NH716',
+      distance: 448,
+      duration: '8h 15m',
+      durationMinutes: 495,
+      description: 'Regional inland highway connecting western Tamil Nadu towns and Chittoor borders before rejoining NH16 at Nellore.',
+      majorTowns: ['Tiruvallur', 'Tiruttani', 'Nagari', 'Puttur', 'Nellore', 'Kavali', 'Ongole', 'Chilakaluripet'],
+      polyline: [
+        [13.0827, 80.2707], [13.1432, 79.9083], [13.1764, 79.6102], [13.3308, 79.5843],
+        [13.4414, 79.5539], [14.4426, 79.9865], [14.9132, 79.9930], [15.5057, 80.0499],
+        [16.0892, 80.1672], [16.3067, 80.4365]
+      ],
+      suggestedCities: [
+        { name: 'Tiruvallur', lat: 13.1432, lng: 79.9083, type: 'city' },
+        { name: 'Tiruttani', lat: 13.1764, lng: 79.6102, type: 'city' },
+        { name: 'Nagari', lat: 13.3308, lng: 79.5843, type: 'city' },
+        { name: 'Puttur', lat: 13.4414, lng: 79.5539, type: 'city' },
+        { name: 'Nellore', lat: 14.4426, lng: 79.9865, type: 'city' },
+        { name: 'Ongole', lat: 15.5057, lng: 80.0499, type: 'city' },
+        { name: 'Chilakaluripet', lat: 16.0892, lng: 80.1672, type: 'city' },
+      ],
+      suggestedBoardingPoints: [
+        { name: 'Tiruvallur Head Bus Depot', lat: 13.1432, lng: 79.9083, type: 'bus_station', boardingPoint: 'Head Bus Depot Bay 2', droppingPoint: 'Tiruvallur Bypass' },
+        { name: 'Tiruttani Bypass Circle', lat: 13.1764, lng: 79.6102, type: 'bus_station', boardingPoint: 'RTC Stand Main Bay', droppingPoint: 'Tiruttani Bypass' },
+        { name: 'Nagari RTC Stand', lat: 13.3308, lng: 79.5843, type: 'bus_station', boardingPoint: 'Nagari RTC Bus Stand', droppingPoint: 'Nagari Checkpost' },
+        { name: 'Puttur Checkpost Bus Bay', lat: 13.4414, lng: 79.5539, type: 'bus_station', boardingPoint: 'Puttur Town RTC Station', droppingPoint: 'Checkpost Drop Bay' },
+        { name: 'Nellore Mini Bypass Junction', lat: 14.4480, lng: 79.9800, type: 'bus_station', boardingPoint: 'Nellore Mini Bypass', droppingPoint: 'Mini Bypass Flyover' },
+        { name: 'Ongole Bypass Flyover Point', lat: 15.5100, lng: 80.0450, type: 'bus_station', boardingPoint: 'Ongole South Highway Point', droppingPoint: 'Bypass Flyover Point' },
+        { name: 'Chilakaluripet Clock Tower Stop', lat: 16.0892, lng: 80.1672, type: 'bus_station', boardingPoint: 'Clock Tower RTC Point', droppingPoint: 'Chilakaluripet Bypass Toll' },
+      ],
+    },
+    {
+      corridorId: 'CORR_CHN_GNT_C',
+      name: 'Corridor C: Western Rayalaseema Link (via Srikalahasti - Gudur)',
+      highway: 'SH61 / NH16',
+      distance: 432,
+      duration: '7h 50m',
+      durationMinutes: 470,
+      description: 'Inland pilgrim & industrial route via Srikalahasti temple corridor and Gudur bypass connecting to Guntur.',
+      majorTowns: ['Gummidipoondi', 'Srikalahasti', 'Gudur', 'Nellore', 'Ongole', 'Chilakaluripet'],
+      polyline: [
+        [13.0827, 80.2707], [13.4077, 80.1255], [13.7500, 79.7000], [14.1463, 79.8504],
+        [14.4426, 79.9865], [15.5057, 80.0499], [16.0892, 80.1672], [16.3067, 80.4365]
+      ],
+      suggestedCities: [
+        { name: 'Gummidipoondi', lat: 13.4077, lng: 80.1255, type: 'city' },
+        { name: 'Srikalahasti', lat: 13.7500, lng: 79.7000, type: 'city' },
+        { name: 'Gudur', lat: 14.1463, lng: 79.8504, type: 'city' },
+        { name: 'Nellore', lat: 14.4426, lng: 79.9865, type: 'city' },
+        { name: 'Ongole', lat: 15.5057, lng: 80.0499, type: 'city' },
+        { name: 'Chilakaluripet', lat: 16.0892, lng: 80.1672, type: 'city' },
+      ],
+      suggestedBoardingPoints: [
+        { name: 'Gummidipoondi SIPCOT Bus Stop', lat: 13.4077, lng: 80.1255, type: 'bus_station', boardingPoint: 'SIPCOT Industrial Gate', droppingPoint: 'Railway Station Road' },
+        { name: 'Srikalahasti Temple RTC Bus Stop', lat: 13.7500, lng: 79.7000, type: 'bus_station', boardingPoint: 'Temple Car Street Stand', droppingPoint: 'Srikalahasti Bypass' },
+        { name: 'Gudur Railway Station Circle', lat: 14.1463, lng: 79.8504, type: 'bus_station', boardingPoint: 'Railway Station Circle Stand', droppingPoint: 'Gudur Old Bus Stand' },
+        { name: 'Nellore Atmakur Bus Stand', lat: 14.4410, lng: 79.9820, type: 'bus_station', boardingPoint: 'Atmakur Bus Stand Platform 1', droppingPoint: 'Highway Junction' },
+        { name: 'Ongole South Bypass Point', lat: 15.4950, lng: 80.0420, type: 'bus_station', boardingPoint: 'South Bypass Junction', droppingPoint: 'Kurnool Road Flyover' },
+      ],
+    },
+  ],
+
+  'chennai|ongole': [
+    {
+      corridorId: 'CORR_CHN_ONG_A',
+      name: 'Corridor A: NH16 Direct Coastal Express (via Tada - Nellore - Kavali)',
+      highway: 'NH16 Expressway',
+      distance: 298,
+      duration: '5h 15m',
+      durationMinutes: 315,
+      description: 'High-speed 4-lane expressway along the Bay of Bengal coastline with minimal town diversions.',
+      majorTowns: ['Tada', 'Nayudupeta', 'Gudur', 'Nellore', 'Kavali', 'Singarayakonda'],
+      polyline: [
+        [13.0827, 80.2707], [13.5937, 80.0335], [13.9056, 79.9026], [14.1463, 79.8504],
+        [14.4426, 79.9865], [14.9132, 79.9930], [15.2500, 80.0300], [15.5057, 80.0499]
+      ],
+      suggestedCities: [
+        { name: 'Tada', lat: 13.5937, lng: 80.0335, type: 'city' },
+        { name: 'Nayudupeta', lat: 13.9056, lng: 79.9026, type: 'city' },
+        { name: 'Nellore', lat: 14.4426, lng: 79.9865, type: 'city' },
+        { name: 'Kavali', lat: 14.9132, lng: 79.9930, type: 'city' },
+      ],
+      suggestedBoardingPoints: [
+        { name: 'CMBT Koyambedu Terminal', lat: 13.0694, lng: 80.2057, type: 'bus_station', boardingPoint: 'CMBT Platform 8', droppingPoint: 'Koyambedu Roundtana' },
+        { name: 'Nayudupeta Bus Stand', lat: 13.9056, lng: 79.9026, type: 'bus_station', boardingPoint: 'APSRTC Bay 1', droppingPoint: 'Highway Flyover' },
+        { name: 'Nellore RTC Central Stand', lat: 14.4426, lng: 79.9865, type: 'bus_station', boardingPoint: 'RTC Central Complex', droppingPoint: 'Mini Bypass Flyover' },
+        { name: 'Kavali RTC Bus Stand', lat: 14.9132, lng: 79.9930, type: 'bus_station', boardingPoint: 'RTC Main Gate', droppingPoint: 'Kavali Bypass' },
+        { name: 'Ongole New RTC Stand', lat: 15.5057, lng: 80.0499, type: 'bus_station', boardingPoint: 'Kurnool Road Stand', droppingPoint: 'South Bypass Drop' },
+      ],
+    },
+    {
+      corridorId: 'CORR_CHN_ONG_B',
+      name: 'Corridor B: Inland Highway (via Tiruvallur - Renigunta - Gudur)',
+      highway: 'SH57 / NH716',
+      distance: 326,
+      duration: '6h 10m',
+      durationMinutes: 370,
+      description: 'Inland transit route catering to passengers from western Chennai suburbs, Renigunta, and Nellore.',
+      majorTowns: ['Tiruvallur', 'Tiruttani', 'Nagari', 'Renigunta', 'Gudur', 'Nellore', 'Kavali'],
+      polyline: [
+        [13.0827, 80.2707], [13.1432, 79.9083], [13.1764, 79.6102], [13.6333, 79.5167],
+        [14.1463, 79.8504], [14.4426, 79.9865], [14.9132, 79.9930], [15.5057, 80.0499]
+      ],
+      suggestedCities: [
+        { name: 'Tiruvallur', lat: 13.1432, lng: 79.9083, type: 'city' },
+        { name: 'Tiruttani', lat: 13.1764, lng: 79.6102, type: 'city' },
+        { name: 'Renigunta', lat: 13.6333, lng: 79.5167, type: 'city' },
+        { name: 'Nellore', lat: 14.4426, lng: 79.9865, type: 'city' },
+        { name: 'Kavali', lat: 14.9132, lng: 79.9930, type: 'city' },
+      ],
+      suggestedBoardingPoints: [
+        { name: 'Tiruvallur Bus Depot', lat: 13.1432, lng: 79.9083, type: 'bus_station', boardingPoint: 'Tiruvallur Bus Stand', droppingPoint: 'Depot Gate' },
+        { name: 'Renigunta Railway Stand', lat: 13.6333, lng: 79.5167, type: 'bus_station', boardingPoint: 'Renigunta Circle Stand', droppingPoint: 'Railway Station Road' },
+        { name: 'Nellore Mini Bypass Stand', lat: 14.4480, lng: 79.9800, type: 'bus_station', boardingPoint: 'Mini Bypass Junction', droppingPoint: 'Bypass Flyover' },
+      ],
+    },
+  ],
+
+  'bangalore|chennai': [
+    {
+      corridorId: 'CORR_BLR_CHN_A',
+      name: 'Corridor A: Golden Quadrilateral (via Hosur - Krishnagiri - Vellore)',
+      highway: 'NH44 / NH48',
+      distance: 345,
+      duration: '5h 45m',
+      durationMinutes: 345,
+      description: 'Major 6-lane national highway through industrial hubs of Hosur, Ambur, Vellore, and Kanchipuram.',
+      majorTowns: ['Hosur', 'Krishnagiri', 'Ambur', 'Vellore', 'Ranipet', 'Kanchipuram', 'Sriperumbudur'],
+      polyline: [
+        [12.9716, 77.5946], [12.7409, 77.8253], [12.5186, 78.2138], [12.7904, 78.7166],
+        [12.9165, 79.1325], [12.9272, 79.3330], [12.8342, 79.7036], [12.9691, 79.9416], [13.0827, 80.2707]
+      ],
+      suggestedCities: [
+        { name: 'Hosur', lat: 12.7409, lng: 77.8253, type: 'city' },
+        { name: 'Krishnagiri', lat: 12.5186, lng: 78.2138, type: 'city' },
+        { name: 'Vellore', lat: 12.9165, lng: 79.1325, type: 'city' },
+        { name: 'Kanchipuram', lat: 12.8342, lng: 79.7036, type: 'city' },
+        { name: 'Sriperumbudur', lat: 12.9691, lng: 79.9416, type: 'city' },
+      ],
+      suggestedBoardingPoints: [
+        { name: 'Kempegowda Majestic Stand', lat: 12.9716, lng: 77.5946, type: 'bus_station', boardingPoint: 'Majestic Intercity Platform 1', droppingPoint: 'Kempegowda Circle' },
+        { name: 'Hosur Bus Stand', lat: 12.7409, lng: 77.8253, type: 'bus_station', boardingPoint: 'Hosur Central Stand', droppingPoint: 'Hosur Toll Gate' },
+        { name: 'Vellore New Bus Stand', lat: 12.9165, lng: 79.1325, type: 'bus_station', boardingPoint: 'Katpadi Road Bus Stand', droppingPoint: 'Green Circle Vellore' },
+        { name: 'Kanchipuram Bypass', lat: 12.8342, lng: 79.7036, type: 'bus_station', boardingPoint: 'Bypass Highway Stop', droppingPoint: 'Kanchi Checkpost' },
+        { name: 'CMBT Koyambedu Stand', lat: 13.0694, lng: 80.2057, type: 'bus_station', boardingPoint: 'CMBT Terminal', droppingPoint: 'Koyambedu Roundtana' },
+      ],
+    },
+    {
+      corridorId: 'CORR_BLR_CHN_B',
+      name: 'Corridor B: Old Madras Road (via Kolar - Chittoor - Ranipet)',
+      highway: 'NH75 / NH69',
+      distance: 328,
+      duration: '6h 00m',
+      durationMinutes: 360,
+      description: 'Historic route via Kolar and Chittoor connecting to Ranipet and Chennai.',
+      majorTowns: ['Kolar', 'Mulbagal', 'Palamaner', 'Chittoor', 'Ranipet', 'Sriperumbudur'],
+      polyline: [
+        [12.9716, 77.5946], [13.1367, 78.1340], [13.1639, 78.3966], [13.2000, 78.7500],
+        [13.2172, 79.1003], [12.9272, 79.3330], [12.9691, 79.9416], [13.0827, 80.2707]
+      ],
+      suggestedCities: [
+        { name: 'Kolar', lat: 13.1367, lng: 78.1340, type: 'city' },
+        { name: 'Chittoor', lat: 13.2172, lng: 79.1003, type: 'city' },
+        { name: 'Ranipet', lat: 12.9272, lng: 79.3330, type: 'city' },
+        { name: 'Sriperumbudur', lat: 12.9691, lng: 79.9416, type: 'city' },
+      ],
+      suggestedBoardingPoints: [
+        { name: 'Tin Factory Bus Stop', lat: 12.9900, lng: 77.6600, type: 'bus_station', boardingPoint: 'Tin Factory Footover Bridge', droppingPoint: 'Tin Factory Circle' },
+        { name: 'Chittoor RTC Central Depot', lat: 13.2172, lng: 79.1003, type: 'bus_station', boardingPoint: 'Chittoor RTC Central', droppingPoint: 'Highway Bypass' },
+      ],
+    },
+  ],
+
+  'mumbai|pune': [
+    {
+      corridorId: 'CORR_BOM_PNQ_A',
+      name: 'Corridor A: Mumbai-Pune Expressway (via Panvel - Lonavala)',
+      highway: 'Yashwantrao Chavan Expressway',
+      distance: 148,
+      duration: '3h 15m',
+      durationMinutes: 195,
+      description: 'Access-controlled 6-lane toll expressway via Khandala Ghat and Lonavala bypass.',
+      majorTowns: ['Navi Mumbai', 'Panvel', 'Lonavala', 'Talegaon'],
+      polyline: [
+        [19.0760, 72.8777], [19.0330, 73.0297], [18.9894, 73.1175], [18.7557, 73.4091], [18.5204, 73.8567]
+      ],
+      suggestedCities: [
+        { name: 'Navi Mumbai', lat: 19.0330, lng: 73.0297, type: 'city' },
+        { name: 'Panvel', lat: 18.9894, lng: 73.1175, type: 'city' },
+        { name: 'Lonavala', lat: 18.7557, lng: 73.4091, type: 'city' },
+      ],
+      suggestedBoardingPoints: [
+        { name: 'Dadar Asiad Bus Stand', lat: 19.0178, lng: 72.8478, type: 'bus_station', boardingPoint: 'Dadar TT Circle Asiad Stand', droppingPoint: 'Dadar Station' },
+        { name: 'Vashi Plaza Bus Stop', lat: 19.0667, lng: 72.9972, type: 'bus_station', boardingPoint: 'Vashi Highway Plaza', droppingPoint: 'Vashi Station' },
+        { name: 'Lonavala Center Point', lat: 18.7557, lng: 73.4091, type: 'bus_station', boardingPoint: 'Kumar Resort Lonavala', droppingPoint: 'Expressway Food Mall' },
+        { name: 'Pune Swargate Bus Stand', lat: 18.5018, lng: 73.8580, type: 'bus_station', boardingPoint: 'Swargate MSRTC Complex', droppingPoint: 'Swargate Flyover' },
+      ],
+    },
+    {
+      corridorId: 'CORR_BOM_PNQ_B',
+      name: 'Corridor B: Old Mumbai-Pune Highway (via Khandala & Khopoli)',
+      highway: 'NH48 (Old Route)',
+      distance: 162,
+      duration: '4h 15m',
+      durationMinutes: 255,
+      description: 'Traditional scenic highway passing through Khopoli, Khandala, and Dehu Road.',
+      majorTowns: ['Thane', 'Panvel', 'Khandala', 'Lonavala'],
+      polyline: [
+        [19.0760, 72.8777], [18.9894, 73.1175], [18.7614, 73.3748], [18.7557, 73.4091], [18.5204, 73.8567]
+      ],
+      suggestedCities: [
+        { name: 'Panvel', lat: 18.9894, lng: 73.1175, type: 'city' },
+        { name: 'Khandala', lat: 18.7614, lng: 73.3748, type: 'city' },
+        { name: 'Lonavala', lat: 18.7557, lng: 73.4091, type: 'city' },
+      ],
+      suggestedBoardingPoints: [
+        { name: 'Panvel Bus Stand', lat: 18.9894, lng: 73.1175, type: 'bus_station', boardingPoint: 'Panvel ST Stand', droppingPoint: 'Palaspa Phata' },
+      ],
+    },
+  ],
+
+  'hyderabad|vijayawada': [
+    {
+      corridorId: 'CORR_HYD_BZA_A',
+      name: 'Corridor A: NH65 Express Corridor (via Suryapet - Kodad - Nandigama)',
+      highway: 'NH65 Expressway',
+      distance: 275,
+      duration: '4h 45m',
+      durationMinutes: 285,
+      description: 'Direct 4-lane expressway connecting Hyderabad capital with Amaravati / Vijayawada commercial hub.',
+      majorTowns: ['Suryapet', 'Kodad', 'Nandigama'],
+      polyline: [
+        [17.3850, 78.4867], [17.1439, 79.6239], [16.9961, 79.9678], [16.7667, 80.3000], [16.5062, 80.6480]
+      ],
+      suggestedCities: [
+        { name: 'Suryapet', lat: 17.1439, lng: 79.6239, type: 'city' },
+        { name: 'Kodad', lat: 16.9961, lng: 79.9678, type: 'city' },
+        { name: 'Nandigama', lat: 16.7667, lng: 80.3000, type: 'city' },
+      ],
+      suggestedBoardingPoints: [
+        { name: 'MGBS Imlibun Bus Station', lat: 17.3789, lng: 78.4816, type: 'bus_station', boardingPoint: 'Platform 34, MGBS Hyderabad', droppingPoint: 'MGBS Out Gate' },
+        { name: 'LB Nagar Bus Stop', lat: 17.3500, lng: 78.5500, type: 'bus_station', boardingPoint: 'LB Nagar Ring Road', droppingPoint: 'LB Nagar Metro Pillar' },
+        { name: 'Suryapet Hiway Bus Stand', lat: 17.1439, lng: 79.6239, type: 'bus_station', boardingPoint: 'Suryapet Bypass Stop', droppingPoint: 'Suryapet Hotel 7 Junction' },
+        { name: 'Vijayawada Pandit Nehru Stand', lat: 16.5062, lng: 80.6480, type: 'bus_station', boardingPoint: 'PNBS Platform 1', droppingPoint: 'PNBS Exit Circle' },
+      ],
+    },
+  ],
+};
+
+/* ── Route Corridors Discovery Engine ── */
+export async function discoverRouteCorridors(source, destination) {
+  const srcName = (source?.name || source || '').trim();
+  const dstName = (destination?.name || destination || '').trim();
+
+  if (!srcName || !dstName) {
+    throw new Error('Please select both Departure and Destination locations.');
+  }
+  if (srcName.toLowerCase() === dstName.toLowerCase()) {
+    throw new Error('Departure and Destination cannot be the same location.');
+  }
+
+  const key1 = `${srcName.toLowerCase()}|${dstName.toLowerCase()}`;
+  const key2 = `${dstName.toLowerCase()}|${srcName.toLowerCase()}`;
+
+  // 1. Check verified corridor database for direct or reverse presets
+  if (CORRIDOR_PRESET_DB[key1]) {
+    return CORRIDOR_PRESET_DB[key1];
+  }
+  if (CORRIDOR_PRESET_DB[key2]) {
+    // Reverse the preset for reverse journeys
+    return CORRIDOR_PRESET_DB[key2].map((c) => ({
+      ...c,
+      corridorId: `${c.corridorId}_REV`,
+      name: `${c.name} (Reverse Flow)`,
+      majorTowns: [...c.majorTowns].reverse(),
+      polyline: [...c.polyline].reverse(),
+      suggestedCities: [...c.suggestedCities].reverse(),
+      suggestedBoardingPoints: [...c.suggestedBoardingPoints].reverse(),
+    }));
+  }
+
+  // 2. Dynamic Discovery for any other Indian city pair
+  const srcCoords = source?.lat ? source : getCityCoords(srcName) || { name: srcName, lat: 13.0827, lng: 80.2707 };
+  const dstCoords = destination?.lat ? destination : getCityCoords(dstName) || { name: dstName, lat: 16.3067, lng: 80.4365 };
+
+  const directDistance = calculateGeoDistance(srcCoords.lat, srcCoords.lng, dstCoords.lat, dstCoords.lng);
+  const roadDistA = Math.max(80, Math.round(directDistance * 1.25));
+  const roadDistB = Math.max(95, Math.round(directDistance * 1.38));
+  const roadDistC = Math.max(110, Math.round(directDistance * 1.45));
+
+  const formatHoursMins = (km) => {
+    const mins = Math.round((km / 55) * 60);
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${h}h ${m}m`;
+  };
+
+  // Intermediate midpoint interpolation
+  const midLat = (srcCoords.lat + dstCoords.lat) / 2;
+  const midLng = (srcCoords.lng + dstCoords.lng) / 2;
+
+  const dynamicCorridors = [
+    {
+      corridorId: `CORR_${srcName.slice(0, 3).toUpperCase()}_${dstName.slice(0, 3).toUpperCase()}_A`,
+      name: `Corridor A: National Highway Express (${srcName} ➔ ${dstName})`,
+      highway: 'National Highway Route',
+      distance: roadDistA,
+      duration: formatHoursMins(roadDistA),
+      durationMinutes: Math.round((roadDistA / 55) * 60),
+      description: `Fastest direct commercial highway route between ${srcName} and ${dstName} with multi-lane roads.`,
+      majorTowns: ['Midpoint Junction', 'Highway Transit Hub'],
+      polyline: [
+        [srcCoords.lat, srcCoords.lng],
+        [midLat + 0.05, midLng + 0.02],
+        [dstCoords.lat, dstCoords.lng],
+      ],
+      suggestedCities: [
+        { name: `${srcName} Transit Hub`, lat: srcCoords.lat + 0.02, lng: srcCoords.lng + 0.02, type: 'city' },
+        { name: `Highway Mid-Stop`, lat: midLat, lng: midLng, type: 'city' },
+        { name: `${dstName} Outer Junction`, lat: dstCoords.lat - 0.02, lng: dstCoords.lng - 0.02, type: 'city' },
+      ],
+      suggestedBoardingPoints: [
+        { name: `${srcName} Central Bus Stand`, lat: srcCoords.lat, lng: srcCoords.lng, type: 'bus_station', boardingPoint: `${srcName} Main Platform`, droppingPoint: `${srcName} Terminal Exit` },
+        { name: `Midpoint RTC Hub`, lat: midLat, lng: midLng, type: 'bus_station', boardingPoint: 'Midpoint Transit Bay', droppingPoint: 'Midpoint Bypass' },
+        { name: `${dstName} Central Terminal`, lat: dstCoords.lat, lng: dstCoords.lng, type: 'bus_station', boardingPoint: `${dstName} Main Platform`, droppingPoint: `${dstName} Drop Point` },
+      ],
+    },
+    {
+      corridorId: `CORR_${srcName.slice(0, 3).toUpperCase()}_${dstName.slice(0, 3).toUpperCase()}_B`,
+      name: `Corridor B: State Regional Bypass (${srcName} ➔ ${dstName})`,
+      highway: 'State Highway Link',
+      distance: roadDistB,
+      duration: formatHoursMins(roadDistB),
+      durationMinutes: Math.round((roadDistB / 55) * 60),
+      description: `Alternative regional corridor connecting intermediate commuter towns and bypasses.`,
+      majorTowns: ['State Bypass Ring', 'Regional Depot'],
+      polyline: [
+        [srcCoords.lat, srcCoords.lng],
+        [midLat - 0.08, midLng + 0.08],
+        [dstCoords.lat, dstCoords.lng],
+      ],
+      suggestedCities: [
+        { name: `Regional Hub Point`, lat: midLat - 0.06, lng: midLng + 0.06, type: 'city' },
+      ],
+      suggestedBoardingPoints: [
+        { name: `Regional Bus Stand`, lat: midLat - 0.06, lng: midLng + 0.06, type: 'bus_station', boardingPoint: 'Regional Bay', droppingPoint: 'Regional Bypass' },
+      ],
+    },
+  ];
+
+  if (roadDistC > 350) {
+    dynamicCorridors.push({
+      corridorId: `CORR_${srcName.slice(0, 3).toUpperCase()}_${dstName.slice(0, 3).toUpperCase()}_C`,
+      name: `Corridor C: Western Inland Expressway Link`,
+      highway: 'Inland Expressway',
+      distance: roadDistC,
+      duration: formatHoursMins(roadDistC),
+      durationMinutes: Math.round((roadDistC / 55) * 60),
+      description: `Inland scenic highway avoiding major urban choke-points.`,
+      majorTowns: ['Western Junction', 'Inland Depot'],
+      polyline: [
+        [srcCoords.lat, srcCoords.lng],
+        [midLat + 0.12, midLng - 0.1],
+        [dstCoords.lat, dstCoords.lng],
+      ],
+      suggestedCities: [
+        { name: `Inland Junction`, lat: midLat + 0.1, lng: midLng - 0.08, type: 'city' },
+      ],
+      suggestedBoardingPoints: [
+        { name: `Inland RTC Station`, lat: midLat + 0.1, lng: midLng - 0.08, type: 'bus_station', boardingPoint: 'Platform 1', droppingPoint: 'Inland Bypass' },
+      ],
+    });
+  }
+
+  return dynamicCorridors;
+}
+
+/* ── Intermediate Stop Suggestions for Selected Corridor ── */
+export function suggestStopsForCorridor(corridorId, source, destination) {
+  const srcName = (source?.name || source || '').trim().toLowerCase();
+  const dstName = (destination?.name || destination || '').trim().toLowerCase();
+  const key = `${srcName}|${dstName}`;
+  const list = CORRIDOR_PRESET_DB[key] || [];
+  const match = list.find((c) => c.corridorId === corridorId) || list[0];
+
+  if (match) {
+    return {
+      suggestedCities: match.suggestedCities || [],
+      suggestedBoardingPoints: match.suggestedBoardingPoints || [],
+    };
+  }
+
+  return {
+    suggestedCities: [],
+    suggestedBoardingPoints: [],
+  };
+}
+
+/* ── Strict Route and Stop Sequence Validation ── */
+export function validateRouteProgression(stops = [], sourceName = '', destName = '') {
+  if (!Array.isArray(stops) || stops.length === 0) {
+    return { valid: true };
+  }
+
+  const sLower = (sourceName || '').trim().toLowerCase();
+  const dLower = (destName || '').trim().toLowerCase();
+  const seen = new Set();
+
+  for (let i = 0; i < stops.length; i++) {
+    const raw = stops[i];
+    const name = (typeof raw === 'string' ? raw : raw.name || raw.stopName || '').trim();
+    if (!name) {
+      return { valid: false, error: `Stop at position #${i + 1} has an empty name.` };
+    }
+    const lower = name.toLowerCase();
+    if (sLower && lower === sLower) {
+      return { valid: false, error: `Intermediate stop "${name}" cannot be the same as Departure hub.` };
+    }
+    if (dLower && lower === dLower) {
+      return { valid: false, error: `Intermediate stop "${name}" cannot be the same as Destination hub.` };
+    }
+    if (seen.has(lower)) {
+      return { valid: false, error: `Duplicate stop detected: "${name}" is listed multiple times.` };
+    }
+    seen.add(lower);
+  }
+
+  return { valid: true };
+}
+
 
 

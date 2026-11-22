@@ -188,6 +188,11 @@ export default function LiveBusTrackerModal({
             <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px' }}>
               {busName} ({busType}) · Reference: <strong>{bookingId}</strong>
             </div>
+            {item.corridorName && (
+              <div style={{ fontSize: '0.74rem', color: '#2563eb', fontWeight: 700, marginTop: '2px' }}>
+                🛣️ Corridor: {item.corridorName}
+              </div>
+            )}
           </div>
           <button
             type="button"

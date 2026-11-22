@@ -2822,6 +2822,99 @@ export function normalizeVehiclePlate(rawNumber) {
   return res.valid ? res.normalized : (rawNumber || '').trim().toUpperCase();
 }
 
+/* ── Parse Route Duration String (e.g. "6h 45m", "8h 15m") to Total Minutes ── */
+export function parseDurationToMinutes(durationStr) {
+  if (!durationStr) return 360;
+  if (typeof durationStr === 'number') return durationStr;
+  let total = 0;
+  const hMatch = String(durationStr).match(/(\d+)\s*h/i);
+  const mMatch = String(durationStr).match(/(\d+)\s*m/i);
+  if (hMatch) total += parseInt(hMatch[1], 10) * 60;
+  if (mMatch) total += parseInt(mMatch[1], 10);
+  return total > 0 ? total : 360;
+}
+
+/* ── Auto-Compute Arrival Time & Date from Departure Time and Route Duration ── */
+export function computeArrivalTime(depTime, durationMinutes, startDateStr) {
+  if (!depTime) return null;
+  const [dh, dm] = depTime.split(':').map(Number);
+  if (isNaN(dh) || isNaN(dm)) return null;
+
+  const mins = Number(durationMinutes) || 0;
+  const totalDepMins = dh * 60 + dm;
+  const totalArrMins = totalDepMins + mins;
+
+  const arrH = Math.floor((totalArrMins % (24 * 60)) / 60);
+  const arrM = totalArrMins % 60;
+  const arrTime = `${String(arrH).padStart(2, '0')}:${String(arrM).padStart(2, '0')}`;
+  const daysDiff = Math.floor(totalArrMins / (24 * 60));
+
+  let arrDateStr = '';
+  if (startDateStr) {
+    const [y, m, d] = startDateStr.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d + daysDiff);
+    arrDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+  }
+
+  return {
+    arrTime,
+    daysDiff,
+    isNextDay: daysDiff > 0,
+    arrDateStr,
+  };
+}
+
+/* ── Validate Future Departure Time (Buses Cannot Depart in Present / Past Time) ── */
+export function validateFutureDeparture(journeyDate, departureTime) {
+  if (!journeyDate || !departureTime) {
+    return { valid: false, message: 'Journey date and departure time are required.' };
+  }
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+  const curH = String(now.getHours()).padStart(2, '0');
+  const curM = String(now.getMinutes()).padStart(2, '0');
+  const curTimeStr = `${curH}:${curM}`;
+
+  if (journeyDate < todayStr) {
+    return {
+      valid: false,
+      message: `Journey date (${journeyDate}) cannot be in the past. Please select today (${todayStr}) or a future date.`,
+    };
+  }
+
+  if (journeyDate === todayStr && departureTime <= curTimeStr) {
+    return {
+      valid: false,
+      message: `Departure time (${departureTime}) cannot be earlier than or equal to current time (${curTimeStr}). Buses cannot depart in the present or past time.`,
+    };
+  }
+
+  return { valid: true };
+}
+
+/* ── Check if Bus is Currently In Trip (Active Trip Check) ── */
+export function isBusInActiveTrip(vehicleNumber) {
+  if (!vehicleNumber) return null;
+  const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+  const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const curHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  return (
+    schedules.find((s) => {
+      const match = s.vehicleNumber === vehicleNumber || (s.busName && s.busName.includes(vehicleNumber));
+      if (!match) return false;
+      const st = statuses[s.tripId] || s.status;
+      if (st === 'IN_PROGRESS') return true;
+      if (st === 'SCHEDULED' && s.journeyDate === today && s.departureTime && s.departureTime <= curHHMM) {
+        return true;
+      }
+      return false;
+    }) || null
+  );
+}
+
 /* ── Dynamic Seat Layout Generator ── */
 export function generateDefaultSeatLayout(busType = 'Seater', totalSeats = 40, rows = 10, cols = 5) {
   const typeStr = (busType || '').toLowerCase();
@@ -3620,6 +3713,7 @@ export async function saveRoundTripSchedules(busId, scheduleConfig) {
     },
     fare: Number(fare) || 650,
     validFrom: scheduleConfig.validFrom || new Date().toISOString().split('T')[0],
+    validUntil: scheduleConfig.validUntil || '',
     restMinutesBetweenJourneys: restMinutes,
   };
 
@@ -3649,92 +3743,125 @@ export async function saveRoundTripSchedules(busId, scheduleConfig) {
 function generateRecurringJourneyInstances(bus, roundTripData) {
   const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
   const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
   const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+  const curH = String(today.getHours()).padStart(2, '0');
+  const curM = String(today.getMinutes()).padStart(2, '0');
+  const curHHMM = `${curH}:${curM}`;
 
   // Clean any stale unbooked schedules for this bus
   const cleanSchedules = schedules.filter(
     (s) => s.vehicleNumber !== bus.vehicleNumber || s.bookedSeats > 0
   );
 
-  // Generate instances for the next 7 days
-  for (let i = 0; i < 7; i++) {
-    const curDate = new Date(today);
-    curDate.setDate(today.getDate() + i);
-    const dateStr = curDate.toISOString().split('T')[0];
-    const dayOfWeek = dayNames[curDate.getDay()];
+  // Determine window dates (from date to date)
+  const startWindow = roundTripData.validFrom ? new Date(roundTripData.validFrom) : new Date(today);
+  const endWindow = roundTripData.validUntil ? new Date(roundTripData.validUntil) : null;
+  const numDays = endWindow
+    ? Math.max(1, Math.min(30, Math.round((endWindow - startWindow) / (1000 * 60 * 60 * 24)) + 1))
+    : 7;
 
-    // Generate UP Journey
+  const routeDurMins = parseDurationToMinutes(bus.assignedRoute?.durationEst);
+
+  // Generate instances across the operating window
+  for (let i = 0; i < numDays; i++) {
+    const curDate = new Date(startWindow);
+    curDate.setDate(startWindow.getDate() + i);
+    const dateStr = curDate.toISOString().split('T')[0];
+
+    // Buses cannot be scheduled for past dates
+    if (dateStr < todayStr) continue;
+
+    const dayOfWeek = dayNames[curDate.getDay()];
+    const isToday = dateStr === todayStr;
+
+    // Auto-compute arrivals for UP and DOWN journeys
+    const upTimeline = computeArrivalTime(roundTripData.upSchedule.departureTime, routeDurMins, dateStr);
+    const downTimeline = computeArrivalTime(roundTripData.downSchedule.departureTime, routeDurMins, dateStr);
+
+    // Generate UP Journey (skip if today and departure time has already arrived/passed)
     if (roundTripData.upSchedule.operatingDays.includes(dayOfWeek)) {
-      const upTripId = `T_UP_${bus.vehicleNumber.replace(/\W/g, '')}_${dateStr.replace(/-/g, '')}`;
-      cleanSchedules.push({
-        id: upTripId,
-        tripId: upTripId,
-        vehicleId: bus.vehicleId,
-        vehicleNumber: bus.vehicleNumber,
-        providerId: bus.providerId || 'P001',
-        from: roundTripData.upSchedule.originCity,
-        to: roundTripData.upSchedule.destCity,
-        corridorId: bus.assignedRoute?.corridorId,
-        corridorName: bus.assignedRoute?.corridorName,
-        departureTime: roundTripData.upSchedule.departureTime,
-        arrivalTime: roundTripData.upSchedule.arrivalTime,
-        journeyDate: dateStr,
-        busName: bus.busName,
-        busType: bus.busType,
-        totalSeats: bus.totalSeats,
-        availableSeats: bus.totalSeats,
-        bookedSeats: 0,
-        fare: roundTripData.fare,
-        revenue: 0,
-        status: 'SCHEDULED',
-        direction: 'UP',
-        intermediateStops: (roundTripData.upSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s),
-        via: (roundTripData.upSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s).join(', '),
-        allStops: [
-          roundTripData.upSchedule.originCity,
-          ...(roundTripData.upSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s),
-          roundTripData.upSchedule.destCity,
-        ],
-        isPrimaryRoute: true,
-        addedAt: new Date().toISOString(),
-      });
+      if (!isToday || roundTripData.upSchedule.departureTime > curHHMM) {
+        const upTripId = `T_UP_${bus.vehicleNumber.replace(/\W/g, '')}_${dateStr.replace(/-/g, '')}`;
+        cleanSchedules.push({
+          id: upTripId,
+          tripId: upTripId,
+          vehicleId: bus.vehicleId,
+          vehicleNumber: bus.vehicleNumber,
+          providerId: bus.providerId || 'P001',
+          from: roundTripData.upSchedule.originCity,
+          to: roundTripData.upSchedule.destCity,
+          corridorId: bus.assignedRoute?.corridorId,
+          corridorName: bus.assignedRoute?.corridorName,
+          departureTime: roundTripData.upSchedule.departureTime,
+          arrivalTime: roundTripData.upSchedule.arrivalTime,
+          arrivalDate: upTimeline?.arrDateStr || dateStr,
+          estimatedDuration: bus.assignedRoute?.durationEst || '6h 30m',
+          isOvernight: upTimeline?.isNextDay || false,
+          journeyDate: dateStr,
+          busName: bus.busName,
+          busType: bus.busType,
+          totalSeats: bus.totalSeats,
+          availableSeats: bus.totalSeats,
+          bookedSeats: 0,
+          fare: roundTripData.fare,
+          revenue: 0,
+          status: 'SCHEDULED',
+          direction: 'UP',
+          intermediateStops: (roundTripData.upSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s),
+          via: (roundTripData.upSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s).join(', '),
+          allStops: [
+            roundTripData.upSchedule.originCity,
+            ...(roundTripData.upSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s),
+            roundTripData.upSchedule.destCity,
+          ],
+          isPrimaryRoute: true,
+          addedAt: new Date().toISOString(),
+        });
+      }
     }
 
-    // Generate DOWN Journey (Reverse Route)
+    // Generate DOWN Journey (skip if today and departure time has already arrived/passed)
     if (roundTripData.downSchedule.operatingDays.includes(dayOfWeek)) {
-      const downTripId = `T_DN_${bus.vehicleNumber.replace(/\W/g, '')}_${dateStr.replace(/-/g, '')}`;
-      cleanSchedules.push({
-        id: downTripId,
-        tripId: downTripId,
-        vehicleId: bus.vehicleId,
-        vehicleNumber: bus.vehicleNumber,
-        providerId: bus.providerId || 'P001',
-        from: roundTripData.downSchedule.originCity,
-        to: roundTripData.downSchedule.destCity,
-        corridorId: bus.assignedRoute?.corridorId,
-        corridorName: bus.assignedRoute?.corridorName,
-        departureTime: roundTripData.downSchedule.departureTime,
-        arrivalTime: roundTripData.downSchedule.arrivalTime,
-        journeyDate: dateStr,
-        busName: bus.busName,
-        busType: bus.busType,
-        totalSeats: bus.totalSeats,
-        availableSeats: bus.totalSeats,
-        bookedSeats: 0,
-        fare: roundTripData.fare,
-        revenue: 0,
-        status: 'SCHEDULED',
-        direction: 'DOWN',
-        intermediateStops: (roundTripData.downSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s),
-        via: (roundTripData.downSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s).join(', '),
-        allStops: [
-          roundTripData.downSchedule.originCity,
-          ...(roundTripData.downSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s),
-          roundTripData.downSchedule.destCity,
-        ],
-        isPrimaryRoute: true,
-        addedAt: new Date().toISOString(),
-      });
+      if (!isToday || roundTripData.downSchedule.departureTime > curHHMM) {
+        const downTripId = `T_DN_${bus.vehicleNumber.replace(/\W/g, '')}_${dateStr.replace(/-/g, '')}`;
+        cleanSchedules.push({
+          id: downTripId,
+          tripId: downTripId,
+          vehicleId: bus.vehicleId,
+          vehicleNumber: bus.vehicleNumber,
+          providerId: bus.providerId || 'P001',
+          from: roundTripData.downSchedule.originCity,
+          to: roundTripData.downSchedule.destCity,
+          corridorId: bus.assignedRoute?.corridorId,
+          corridorName: bus.assignedRoute?.corridorName,
+          departureTime: roundTripData.downSchedule.departureTime,
+          arrivalTime: roundTripData.downSchedule.arrivalTime,
+          arrivalDate: downTimeline?.arrDateStr || dateStr,
+          estimatedDuration: bus.assignedRoute?.durationEst || '6h 30m',
+          isOvernight: downTimeline?.isNextDay || false,
+          journeyDate: dateStr,
+          busName: bus.busName,
+          busType: bus.busType,
+          totalSeats: bus.totalSeats,
+          availableSeats: bus.totalSeats,
+          bookedSeats: 0,
+          fare: roundTripData.fare,
+          revenue: 0,
+          status: 'SCHEDULED',
+          direction: 'DOWN',
+          intermediateStops: (roundTripData.downSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s),
+          via: (roundTripData.downSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s).join(', '),
+          allStops: [
+            roundTripData.downSchedule.originCity,
+            ...(roundTripData.downSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s),
+            roundTripData.downSchedule.destCity,
+          ],
+          isPrimaryRoute: true,
+          addedAt: new Date().toISOString(),
+        });
+      }
     }
   }
 
@@ -3770,7 +3897,7 @@ export async function updateBusStatus(busId, newStatus) {
   return all[idx];
 }
 
-/* ── Delete Registered Bus (Safe Deletion Check) ── */
+/* ── Delete Registered Bus (Safe Deletion Check: In-Trip & Booking Protected) ── */
 export async function deleteBus(busId) {
   initFleetStorage();
   const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
@@ -3782,10 +3909,18 @@ export async function deleteBus(busId) {
 
   const bus = all[idx];
 
-  // Prevent deleting bus with active bookings
+  // Rule 1: Prevent deleting bus if it is currently in an active trip
+  const liveTrip = isBusInActiveTrip(bus.vehicleNumber);
+  if (liveTrip) {
+    throw new Error(
+      `Cannot delete bus "${bus.vehicleNumber}"! It is currently running an active trip (${liveTrip.from} → ${liveTrip.to}, Trip ID: ${liveTrip.tripId}). Buses in trip cannot be deleted.`
+    );
+  }
+
+  // Rule 2: Prevent deleting bus with upcoming active bookings
   const activeBookings = checkBusActiveBookings(bus.vehicleNumber);
   if (activeBookings.length > 0) {
-    throw new Error(`Cannot delete bus ${bus.vehicleNumber}: It has ${activeBookings.length} upcoming active passenger bookings.`);
+    throw new Error(`Cannot delete bus "${bus.vehicleNumber}": It has ${activeBookings.length} upcoming active passenger bookings.`);
   }
 
   all.splice(idx, 1);
@@ -3801,6 +3936,7 @@ export async function deleteBus(busId) {
   try { window.dispatchEvent(new Event('storage')); } catch {}
   return true;
 }
+
 
 
 

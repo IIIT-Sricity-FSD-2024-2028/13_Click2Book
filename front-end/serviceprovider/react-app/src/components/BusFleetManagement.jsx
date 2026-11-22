@@ -15,6 +15,11 @@ import {
   getApprovedCities,
   validateVehicleNumberPlate,
   normalizeVehiclePlate,
+  isBusInActiveTrip,
+  parseDurationToMinutes,
+  computeArrivalTime,
+  validateFutureDeparture,
+  checkBusActiveBookings,
 } from '../services/api';
 import RouteCorridorMap from './RouteCorridorMap';
 import OsmLocationSelector from './OsmLocationSelector';
@@ -112,6 +117,12 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
 
   // ── Round-Trip (UP/DOWN) Scheduling State ──
   const [scheduleBusId, setScheduleBusId] = useState('');
+  const [scheduleStartDate, setScheduleStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [scheduleEndDate, setScheduleEndDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d.toISOString().split('T')[0];
+  });
   const [upDepTime, setUpDepTime] = useState('06:00');
   const [upArrTime, setUpArrTime] = useState('14:30');
   const [upDays, setUpDays] = useState(['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']);
@@ -199,6 +210,97 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
       isValid,
     };
   }, [upArrTime, downDepTime]);
+
+  // Route travel duration in minutes (derived from assigned corridor)
+  const routeDurationMins = useMemo(() => {
+    if (!currentScheduleBus?.assignedRoute?.durationEst) return 360;
+    return parseDurationToMinutes(currentScheduleBus.assignedRoute.durationEst);
+  }, [currentScheduleBus]);
+
+  // Auto-compute UP Arrival Time when Departure Time changes
+  const handleUpDepChange = (newDep) => {
+    setUpDepTime(newDep);
+    if (newDep) {
+      const computed = computeArrivalTime(newDep, routeDurationMins, scheduleStartDate);
+      if (computed?.arrTime) {
+        setUpArrTime(computed.arrTime);
+      }
+    }
+  };
+
+  // Auto-compute DOWN Arrival Time when Departure Time changes
+  const handleDownDepChange = (newDep) => {
+    setDownDepTime(newDep);
+    if (newDep) {
+      const computed = computeArrivalTime(newDep, routeDurationMins, scheduleStartDate);
+      if (computed?.arrTime) {
+        setDownArrTime(computed.arrTime);
+      }
+    }
+  };
+
+  // Computed timeline previews (Date-to-Date and Arrival details)
+  const upTimeline = useMemo(() => {
+    if (!upDepTime) return null;
+    return computeArrivalTime(upDepTime, routeDurationMins, scheduleStartDate);
+  }, [upDepTime, routeDurationMins, scheduleStartDate]);
+
+  const downTimeline = useMemo(() => {
+    if (!downDepTime) return null;
+    return computeArrivalTime(downDepTime, routeDurationMins, scheduleStartDate);
+  }, [downDepTime, routeDurationMins, scheduleStartDate]);
+
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const curHHMM = useMemo(() => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }, []);
+
+  /* ─────────────────────────────────────────────────────────────
+     Delete Bus Handler (Protected: Cannot be deleted if in trip or has active bookings)
+     ───────────────────────────────────────────────────────────── */
+  const handleDeleteBus = async (bus) => {
+    if (!bus) return;
+
+    // 1. Strict Validation: Bus cannot be deleted if currently running an active trip
+    const liveTrip = isBusInActiveTrip(bus.vehicleNumber);
+    if (liveTrip) {
+      showToast(
+        `⛔ Cannot delete bus ${bus.vehicleNumber}! It is currently in a trip (${liveTrip.from} → ${liveTrip.to}, Trip ID: ${liveTrip.tripId}). Buses currently in a trip cannot be deleted.`,
+        'error'
+      );
+      return;
+    }
+
+    // 2. Strict Validation: Bus cannot be deleted if upcoming confirmed bookings exist
+    const activeBookings = checkBusActiveBookings(bus.vehicleNumber);
+    if (activeBookings && activeBookings.length > 0) {
+      showToast(
+        `⛔ Cannot delete bus ${bus.vehicleNumber}! It has ${activeBookings.length} upcoming passenger bookings. Please complete or cancel bookings before deleting.`,
+        'error'
+      );
+      return;
+    }
+
+    // 3. Confirm Deletion
+    const isAssigned = bus.assignedRoute || bus.status === 'Assigned';
+    const confirmMsg = isAssigned
+      ? `Are you sure you want to permanently delete bus "${bus.vehicleNumber}" (${bus.busName})?\n\nThis bus is currently assigned to route "${bus.assignedRoute?.originCity} ↔ ${bus.assignedRoute?.destCity}". Deleting it will also remove this permanent route assignment.`
+      : `Are you sure you want to delete bus "${bus.vehicleNumber}" (${bus.busName}) from your fleet?`;
+
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    try {
+      await deleteBus(bus.vehicleId);
+      refreshFleet();
+      if (showBusDetailsModal) setShowBusDetailsModal(false);
+      showToast(`Bus ${bus.vehicleNumber} successfully deleted from your fleet.`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to delete bus.', 'error');
+    }
+  };
 
   /* ─────────────────────────────────────────────────────────────
      MODULE 1: Register Bus Handler (Strict Indian Plate & Passenger Validation)
@@ -365,6 +467,33 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
       setScheduleError('Please select operating days for both UP and DOWN journeys.');
       return;
     }
+
+    // Validate that buses cannot run in the past or present time
+    const todayStr = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const curHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const todayDayName = dayNames[now.getDay()];
+
+    if (scheduleStartDate < todayStr) {
+      setScheduleError(`Schedule start date (${scheduleStartDate}) cannot be in the past.`);
+      return;
+    }
+    if (scheduleStartDate === todayStr) {
+      if (upDays.includes(todayDayName) && upDepTime <= curHHMM) {
+        setScheduleError(
+          `UP Journey departure time (${upDepTime}) cannot be earlier than or equal to current time (${curHHMM}) for today. Buses cannot depart in the present or past time. Please select a future departure time or set the start date from tomorrow.`
+        );
+        return;
+      }
+      if (downDays.includes(todayDayName) && downDepTime <= curHHMM) {
+        setScheduleError(
+          `DOWN Journey departure time (${downDepTime}) cannot be earlier than or equal to current time (${curHHMM}) for today. Buses cannot depart in the present or past time.`
+        );
+        return;
+      }
+    }
+
     if (!turnaroundInfo.isValid) {
       setScheduleError(`Warning: Inadequate turnaround rest time (${turnaroundInfo.text}). A minimum of 60 minutes rest between UP arrival and DOWN departure is required.`);
       return;
@@ -389,10 +518,14 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
           intermediateStops: [...intermediateList].reverse().map((stop) => ({ stopName: stop })),
         },
         fare: Number(tripFare) || 650,
+        validFrom: scheduleStartDate,
+        validUntil: scheduleEndDate,
       });
 
       refreshFleet();
-      setScheduleSuccess(`✅ UP and DOWN round-trip schedules saved for ${currentScheduleBus.vehicleNumber}! Recurring schedules generated for the next 7 days.`);
+      setScheduleSuccess(
+        `✅ UP and DOWN round-trip schedules saved for ${currentScheduleBus.vehicleNumber} (Operating window: ${scheduleStartDate} to ${scheduleEndDate})! Recurring schedules generated.`
+      );
       showToast('Round-trip schedules published successfully!', 'success');
     } catch (err) {
       setScheduleError(err.message || 'Failed to save round-trip schedules.');
@@ -707,7 +840,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                             🛣️ Route: {bus.assignedRoute.originCity} ↔ {bus.assignedRoute.destCity}
                           </div>
                           <div style={{ color: '#475569', fontSize: '0.7rem' }}>
-                            {bus.assignedRoute.corridorName} &bull; {bus.assignedRoute.distanceKm} km
+                            {bus.assignedRoute.corridorName} &bull; {bus.assignedRoute.distanceKm} km &bull; ⏱️ Est. {bus.assignedRoute.durationEst || '6h 30m'}
                           </div>
                           {bus.roundTripSchedule && (
                             <div style={{ color: '#16a34a', fontWeight: 600, fontSize: '0.7rem', marginTop: 2 }}>
@@ -813,6 +946,22 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                         title={isMaint ? 'Mark as Available' : 'Mark for Maintenance'}
                       >
                         {isMaint ? '🔧 Re-activate' : '🔧 Maint'}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={() => handleDeleteBus(bus)}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '0.72rem',
+                          color: '#dc2626',
+                          borderColor: '#fca5a5',
+                          background: '#fff5f5',
+                        }}
+                        title="Delete bus from fleet (Blocked if bus is in trip or has bookings)"
+                      >
+                        🗑️ Delete
                       </button>
                     </div>
                   </div>
@@ -1151,6 +1300,9 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                           </td>
                           <td style={{ padding: '10px', fontSize: '0.74rem', color: '#475569' }}>
                             {r.corridorName}
+                            <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 2 }}>
+                              ⏱️ Est. {r.durationEst || '—'} &bull; {r.distanceKm} km
+                            </div>
                           </td>
                           <td style={{ padding: '10px', fontWeight: 700, color: '#15803d' }}>
                             {sched?.upSchedule?.departureTime || '—'}
@@ -1183,6 +1335,15 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                                 style={{ padding: '3px 8px', fontSize: '0.74rem', color: '#2563eb' }}
                               >
                                 Schedules
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={() => handleDeleteBus(bus)}
+                                style={{ padding: '3px 8px', fontSize: '0.74rem', color: '#dc2626', borderColor: '#fca5a5' }}
+                                title="Delete bus from fleet"
+                              >
+                                🗑️ Delete
                               </button>
                             </div>
                           </td>
@@ -1302,7 +1463,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                             {c.name}
                           </span>
                           <span style={{ fontWeight: 700, fontSize: '0.8rem', color: '#1e40af' }}>
-                            {c.distance} km &bull; {c.duration}
+                            {c.distance} km &bull; ⏱️ Est. Travel: {c.duration}
                           </span>
                         </div>
                         <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: 4 }}>
@@ -1419,6 +1580,81 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                   </div>
                 </div>
 
+                {/* ── MODULE 4: Route Corridor Travel Estimation Highlight ── */}
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1.5px solid #cbd5e1',
+                    borderRadius: 8,
+                    padding: '12px 16px',
+                    marginBottom: '1.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 12,
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0f172a' }}>
+                      ⏱️ Estimated Route Travel Time: <span style={{ color: '#2563eb' }}>{currentScheduleBus.assignedRoute.durationEst || '6h 30m'}</span> &bull; Distance: <span style={{ color: '#059669' }}>{currentScheduleBus.assignedRoute.distanceKm || '450'} km</span>
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: 3 }}>
+                      Entering a Departure Time below auto-computes the exact Arrival Time and date timeline (including overnight transitions).
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1e40af', background: '#dbeafe', padding: '4px 10px', borderRadius: 6 }}>
+                    Travel Duration: approx. {routeDurationMins} minutes
+                  </div>
+                </div>
+
+                {/* ── Operating Schedule Window: From Date to Date ── */}
+                <div
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: 8,
+                    padding: '12px 16px',
+                    marginBottom: '1.25rem',
+                  }}
+                >
+                  <div style={{ fontWeight: 800, fontSize: '0.84rem', color: '#0f172a', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    📅 Operating Schedule Window (From Date to Date)
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.74rem', marginBottom: 4 }}>
+                        From Start Date *
+                      </label>
+                      <input
+                        type="date"
+                        className="form-control"
+                        min={todayStr}
+                        value={scheduleStartDate}
+                        onChange={(e) => setScheduleStartDate(e.target.value)}
+                      />
+                      <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 3 }}>
+                        Buses cannot be scheduled for past dates or past clock times.
+                      </div>
+                    </div>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.74rem', marginBottom: 4 }}>
+                        To End Date (Schedule Horizon) *
+                      </label>
+                      <input
+                        type="date"
+                        className="form-control"
+                        min={scheduleStartDate}
+                        value={scheduleEndDate}
+                        onChange={(e) => setScheduleEndDate(e.target.value)}
+                      />
+                      <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 3 }}>
+                        Generates recurring journey instances across this window.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Grid of UP and DOWN Schedules */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '16px', marginBottom: '1.5rem' }}>
                   {/* ── UP JOURNEY ── */}
@@ -1447,19 +1683,66 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                           type="time"
                           className="form-control"
                           value={upDepTime}
-                          onChange={(e) => setUpDepTime(e.target.value)}
+                          onChange={(e) => handleUpDepChange(e.target.value)}
                         />
+                        <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 2 }}>
+                          Auto-computes arrival time
+                        </div>
                       </div>
                       <div className="form-group">
-                        <label className="form-label" style={{ fontSize: '0.76rem' }}>Arrival Time *</label>
+                        <label className="form-label" style={{ fontSize: '0.76rem' }}>Arrival Time * (Auto-computed)</label>
                         <input
                           type="time"
                           className="form-control"
                           value={upArrTime}
                           onChange={(e) => setUpArrTime(e.target.value)}
                         />
+                        <div style={{ fontSize: '0.68rem', color: upTimeline?.isNextDay ? '#b45309' : '#15803d', marginTop: 2, fontWeight: 600 }}>
+                          {upTimeline?.isNextDay ? '🌙 Next-Day Arrival (+1 Day)' : '☀️ Same-Day Arrival'}
+                        </div>
                       </div>
                     </div>
+
+                    {/* Auto-Computed Schedule Timeline Preview */}
+                    {upTimeline && (
+                      <div
+                        style={{
+                          background: '#f0fdf4',
+                          border: '1px solid #bbf7d0',
+                          borderRadius: 6,
+                          padding: '8px 10px',
+                          marginBottom: 10,
+                          fontSize: '0.74rem',
+                        }}
+                      >
+                        <div style={{ fontWeight: 700, color: '#166534', marginBottom: 3 }}>
+                          🕒 Auto-Computed UP Journey Timeline:
+                        </div>
+                        <div style={{ color: '#15803d', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div>
+                            <strong>Depart:</strong> {scheduleStartDate} at {upDepTime} ({currentScheduleBus.assignedRoute.originCity})
+                          </div>
+                          <div>
+                            <strong>Arrive:</strong> {upTimeline.arrDateStr || scheduleStartDate} at {upArrTime} ({currentScheduleBus.assignedRoute.destCity})
+                            {upTimeline.isNextDay && (
+                              <span style={{ marginLeft: 6, background: '#fef08a', color: '#854d0e', padding: '1px 5px', borderRadius: 4, fontWeight: 700, fontSize: '0.68rem' }}>
+                                +1 Day Overnight
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <strong>Estimated Journey Duration:</strong> {currentScheduleBus.assignedRoute.durationEst || 'Approx. 6h 30m'} ({currentScheduleBus.assignedRoute.distanceKm || '450'} km)
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Past / Present Departure Validation Warning */}
+                    {scheduleStartDate === todayStr && upDepTime && upDepTime <= curHHMM && (
+                      <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', padding: '6px 8px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 600, marginBottom: 10 }}>
+                        ⚠️ Departure time ({upDepTime}) cannot be in the past or present (current clock: {curHHMM}). Please select a future time.
+                      </div>
+                    )}
 
                     {/* Intermediate stops list */}
                     <div style={{ fontSize: '0.74rem', color: '#475569', marginBottom: 10 }}>
@@ -1528,19 +1811,66 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                           type="time"
                           className="form-control"
                           value={downDepTime}
-                          onChange={(e) => setDownDepTime(e.target.value)}
+                          onChange={(e) => handleDownDepChange(e.target.value)}
                         />
+                        <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 2 }}>
+                          Auto-computes arrival time
+                        </div>
                       </div>
                       <div className="form-group">
-                        <label className="form-label" style={{ fontSize: '0.76rem' }}>Arrival Time *</label>
+                        <label className="form-label" style={{ fontSize: '0.76rem' }}>Arrival Time * (Auto-computed)</label>
                         <input
                           type="time"
                           className="form-control"
                           value={downArrTime}
                           onChange={(e) => setDownArrTime(e.target.value)}
                         />
+                        <div style={{ fontSize: '0.68rem', color: downTimeline?.isNextDay ? '#b45309' : '#15803d', marginTop: 2, fontWeight: 600 }}>
+                          {downTimeline?.isNextDay ? '🌙 Next-Day Arrival (+1 Day)' : '☀️ Same-Day Arrival'}
+                        </div>
                       </div>
                     </div>
+
+                    {/* Auto-Computed Schedule Timeline Preview */}
+                    {downTimeline && (
+                      <div
+                        style={{
+                          background: '#fffbeb',
+                          border: '1px solid #fde68a',
+                          borderRadius: 6,
+                          padding: '8px 10px',
+                          marginBottom: 10,
+                          fontSize: '0.74rem',
+                        }}
+                      >
+                        <div style={{ fontWeight: 700, color: '#92400e', marginBottom: 3 }}>
+                          🕒 Auto-Computed DOWN Journey Timeline:
+                        </div>
+                        <div style={{ color: '#b45309', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div>
+                            <strong>Depart:</strong> {scheduleStartDate} at {downDepTime} ({currentScheduleBus.assignedRoute.destCity})
+                          </div>
+                          <div>
+                            <strong>Arrive:</strong> {downTimeline.arrDateStr || scheduleStartDate} at {downArrTime} ({currentScheduleBus.assignedRoute.originCity})
+                            {downTimeline.isNextDay && (
+                              <span style={{ marginLeft: 6, background: '#fef08a', color: '#854d0e', padding: '1px 5px', borderRadius: 4, fontWeight: 700, fontSize: '0.68rem' }}>
+                                +1 Day Overnight
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <strong>Estimated Journey Duration:</strong> {currentScheduleBus.assignedRoute.durationEst || 'Approx. 6h 30m'} ({currentScheduleBus.assignedRoute.distanceKm || '450'} km)
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Past / Present Departure Validation Warning */}
+                    {scheduleStartDate === todayStr && downDepTime && downDepTime <= curHHMM && (
+                      <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', padding: '6px 8px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 600, marginBottom: 10 }}>
+                        ⚠️ Departure time ({downDepTime}) cannot be in the past or present (current clock: {curHHMM}). Please select a future time.
+                      </div>
+                    )}
 
                     {/* Reversed Intermediate Stops */}
                     <div style={{ fontSize: '0.74rem', color: '#475569', marginBottom: 10 }}>
@@ -1719,28 +2049,39 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 18px', borderTop: '1px solid #e2e8f0', gap: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderTop: '1px solid #e2e8f0', flexWrap: 'wrap', gap: 8 }}>
               <button
                 type="button"
                 className="btn btn-outline"
-                onClick={() => setShowBusDetailsModal(false)}
-                style={{ padding: '6px 14px' }}
+                onClick={() => handleDeleteBus(selectedBus)}
+                style={{ padding: '6px 14px', color: '#dc2626', borderColor: '#fca5a5', background: '#fff5f5' }}
+                title="Delete this bus from fleet (Blocked if currently in trip or has active bookings)"
               >
-                Close
+                🗑️ Delete Bus
               </button>
-              {selectedBus.assignedRoute && (
+              <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   type="button"
-                  className="btn btn-primary"
-                  onClick={() => {
-                    setShowBusDetailsModal(false);
-                    handleOpenChangeRoute(selectedBus);
-                  }}
-                  style={{ padding: '6px 16px' }}
+                  className="btn btn-outline"
+                  onClick={() => setShowBusDetailsModal(false)}
+                  style={{ padding: '6px 14px' }}
                 >
-                  Change Route
+                  Close
                 </button>
-              )}
+                {selectedBus.assignedRoute && (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setShowBusDetailsModal(false);
+                      handleOpenChangeRoute(selectedBus);
+                    }}
+                    style={{ padding: '6px 16px' }}
+                  >
+                    Change Route
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

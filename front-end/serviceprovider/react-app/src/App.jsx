@@ -9,7 +9,6 @@ import Toast              from './components/Toast';
 import Dashboard          from './components/Dashboard';
 import BusFleetManagement from './components/BusFleetManagement';
 import ManageSchedules    from './components/ManageSchedules';
-import AddSchedule        from './components/AddSchedule';
 import ConfirmTrips       from './components/ConfirmTrips';
 import SeatManagement     from './components/SeatManagement';
 import LostFound          from './components/LostFound';
@@ -24,12 +23,13 @@ import { liveSync } from './services/liveSync';
 
 /* ── Valid tabs (sync with hash URL, same approach as support agent) ── */
 const VALID_TABS = [
-  'dashboard', 'fleet-management', 'manage-schedules', 'add-schedule',
+  'dashboard', 'fleet-management', 'manage-schedules',
   'confirm-trips', 'seat-management', 'coupons', 'reviews', 'lost-found', 'revenue', 'settings', 'escalations',
 ];
 
 function getTabFromHash() {
   const hash = window.location.hash.replace('#', '');
+  if (hash === 'add-schedule') return 'fleet-management';
   return VALID_TABS.includes(hash) ? hash : 'dashboard';
 }
 
@@ -142,7 +142,7 @@ export default function App() {
       case 'dashboard':        return <Dashboard        {...commonProps} />;
       case 'fleet-management': return <BusFleetManagement {...commonProps} />;
       case 'manage-schedules': return <ManageSchedules  {...commonProps} />;
-      case 'add-schedule':     return <AddSchedule      {...commonProps} />;
+      case 'add-schedule':     return <BusFleetManagement {...commonProps} />;
       case 'confirm-trips':    return <ConfirmTrips     {...commonProps} />;
       case 'seat-management':  return <SeatManagement   {...commonProps} />;
       case 'coupons':          return <Coupons          {...commonProps} />;

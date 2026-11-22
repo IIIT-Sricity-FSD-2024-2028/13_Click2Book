@@ -78,7 +78,6 @@ const NAV_ITEMS = [
   { id: 'dashboard',        label: 'Dashboard',        Icon: GridIcon  },
   { id: 'fleet-management', label: 'Bus Fleet & Routes', Icon: BusIcon },
   { id: 'manage-schedules', label: 'Manage Schedules', Icon: CalIcon   },
-  { id: 'add-schedule',     label: 'Add Schedule',     Icon: PlusIcon  },
   { id: 'confirm-trips',    label: 'Confirm Trips',    Icon: CheckIcon },
   { id: 'seat-management',  label: 'Seat Management',  Icon: UsersIcon },
   { id: 'coupons',          label: 'Coupons & Offers', Icon: TagIcon   },

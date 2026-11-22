@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { fetchSchedulesFromAPI, updateLocalSchedule, deleteLocalSchedule, getCancelledSchedules, getApprovedCities } from '../services/api';
-import LiveBusTrackerModal from './LiveBusTrackerModal';
+import { fetchSchedulesFromAPI, updateLocalSchedule, deleteLocalSchedule, deletePermanentSchedule, getCancelledSchedules, getApprovedCities } from '../services/api';
 
 const STATUS_COLORS = {
   SCHEDULED: '#3b82f6', IN_PROGRESS: '#f59e0b',
@@ -26,16 +25,20 @@ function EditModal({ trip, onClose, onSaved, showToast }) {
 
   const [form, setForm] = useState({
     journeyDate: trip.journeyDate && trip.journeyDate !== '—' ? trip.journeyDate : today,
-    from:        trip.source      || '',
-    to:          trip.destination || '',
+    from:        trip.source      || trip.from || '',
+    to:          trip.destination || trip.to   || '',
     via:         trip.via         || '',
     intermediateStops: initialStops,
     dep:         trip.departureTime && trip.departureTime !== '—' ? trip.departureTime : '',
     arr:         trip.arrivalTime  && trip.arrivalTime  !== '—' ? trip.arrivalTime  : '',
     busName:     trip.busName      || '',
-    busType:     trip.vehicleType  || '',
+    busType:     trip.vehicleType  || trip.busType || '',
     seats:       String(trip.totalSeats || ''),
     fare:        String(trip.fare || ''),
+    vehicleNumber: trip.vehicleNumber || '',
+    direction:   trip.direction    || 'UP',
+    corridorName: trip.corridorName || trip.assignedRoute?.corridorName || '',
+    corridorId:   trip.corridorId   || trip.assignedRoute?.corridorId   || '',
   });
 
   const [newStopInput, setNewStopInput] = useState('');
@@ -180,11 +183,15 @@ function EditModal({ trip, onClose, onSaved, showToast }) {
       seats:             parseInt(form.seats, 10),
       fare:              parseInt(form.fare, 10),
       journeyDate:       form.journeyDate,
+      vehicleNumber:     trip.vehicleNumber || form.vehicleNumber,
+      direction:         trip.direction || form.direction,
+      corridorName:      form.corridorName || trip.corridorName,
+      corridorId:        form.corridorId || trip.corridorId,
     });
     setLoading(false);
 
     if (ok) {
-      showToast(`Schedule for ${form.from} → ${form.to} updated successfully!`, 'success');
+      showToast(`Schedule for ${form.from} → ${form.to} updated successfully! (Assigned corridor synchronized)`, 'success');
       onSaved();
     } else {
       showToast('Could not update — only locally-added schedules can be edited offline.', 'info');
@@ -206,6 +213,54 @@ function EditModal({ trip, onClose, onSaved, showToast }) {
 
         <div className="modal-body-scroll">
           {error && <div className="alert alert-error" style={{ marginBottom: '1rem' }}>⚠️ {error}</div>}
+
+          {/* Assigned Route Corridor Banner */}
+          <div style={{
+            background: '#f0fdf4',
+            border: '1.5px solid #86efac',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            marginBottom: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '8px',
+          }}>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                🛣️ Assigned Route Corridor
+              </div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#14532d', marginTop: 2 }}>
+                {trip.corridorName || (trip.assignedRoute?.corridorName) || `${form.from} ↔ ${form.to} Corridor`}
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {trip.direction && (
+                <span style={{
+                  background: trip.direction === 'UP' ? '#e0f2fe' : '#fef3c7',
+                  color: trip.direction === 'UP' ? '#0369a1' : '#b45309',
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  fontWeight: 700,
+                  fontSize: '0.75rem',
+                }}>
+                  {trip.direction === 'UP' ? '⬆ UP Leg' : '⬇ DOWN Leg'}
+                </span>
+              )}
+              <span style={{
+                background: '#ffffff',
+                color: '#15803d',
+                border: '1px solid #bbf7d0',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                fontWeight: 700,
+                fontSize: '0.75rem',
+              }}>
+                🚍 {trip.busName} ({trip.vehicleNumber || trip.vehicleType || 'Assigned'})
+              </span>
+            </div>
+          </div>
 
           {/* Journey Date */}
           <div className="form-group">
@@ -498,7 +553,6 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
   const [isLive,          setIsLive]          = useState(false);
   const [loading,         setLoading]         = useState(true);
   const [editTrip,        setEditTrip]        = useState(null); // trip being edited
-  const [trackingTrip,    setTrackingTrip]    = useState(null); // trip being tracked on Google Maps
   const [activeTab,       setActiveTab]       = useState('schedules'); // 'schedules' | 'completed' | 'cancelled'
   const [dateFilter,      setDateFilter]      = useState('all'); // 'all' | '1day' | '2days' | '3days' | 'custom'
   const [customDays,      setCustomDays]      = useState('5');
@@ -584,6 +638,30 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
     }
   };
 
+  // Permanently Delete Schedule handler (completely removes from system)
+  const handlePermanentDelete = (tripId) => {
+    if (!window.confirm('Are you sure you want to permanently delete this cancelled schedule? It cannot be recovered.')) {
+      return;
+    }
+    const ok = deletePermanentSchedule(tripId);
+    if (ok) {
+      showToast('Schedule permanently deleted.', 'success');
+      loadTrips();
+    } else {
+      showToast('Failed to delete schedule.', 'error');
+    }
+  };
+
+  // Clear all cancelled schedules
+  const handleClearAllCancelled = () => {
+    if (!window.confirm(`Are you sure you want to permanently clear all ${cancelledTrips.length} cancelled schedules?`)) {
+      return;
+    }
+    cancelledTrips.forEach((t) => deletePermanentSchedule(t.tripId));
+    showToast('All cancelled schedules permanently deleted.', 'success');
+    loadTrips();
+  };
+
   // Split into active schedules vs completed trips
   const activeTrips = trips.filter((t) => t.status !== 'COMPLETED' && t.status !== 'CANCELLED');
   const completedTrips = trips.filter((t) => t.status === 'COMPLETED');
@@ -597,6 +675,21 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
     const inStops = Array.isArray(t.intermediateStops) && t.intermediateStops.some((s) => s.toLowerCase() === c);
     const inVia = typeof t.via === 'string' && t.via.toLowerCase().includes(c);
     return inSource || inDest || inStops || inVia;
+  });
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const sortedActive = [...filteredActive].sort((a, b) => {
+    const isTodayA = (a.journeyDate || '').split('T')[0] === todayStr ? 0 : 1;
+    const isTodayB = (b.journeyDate || '').split('T')[0] === todayStr ? 0 : 1;
+    if (isTodayA !== isTodayB) return isTodayA - isTodayB;
+
+    const dateA = a.journeyDate || '';
+    const dateB = b.journeyDate || '';
+    if (dateA !== dateB) return dateA.localeCompare(dateB);
+
+    const timeA = a.departureTime || '';
+    const timeB = b.departureTime || '';
+    return timeA.localeCompare(timeB);
   });
 
   // Calculate calendar days difference between today and a trip's completion/journey date
@@ -670,12 +763,8 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-outline" onClick={() => onNavigate('fleet-management')}>
-            🚍 Fleet &amp; Routes
-          </button>
-          <button className="btn btn-primary" onClick={() => onNavigate('add-schedule')}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add New
+          <button className="btn btn-primary" onClick={() => onNavigate('fleet-management')}>
+            🚍 Manage Fleet &amp; Schedules
           </button>
         </div>
       </div>
@@ -820,7 +909,7 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
 
       {/* ── Active Schedules View ── */}
       {activeTab === 'schedules' && (
-        filteredActive.length === 0 ? (
+        sortedActive.length === 0 ? (
           <div className="empty-state">
             <p>
               {cityFilter === 'all'
@@ -837,16 +926,16 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
               )}
               <button
                 className="btn btn-primary"
-                onClick={() => onNavigate('add-schedule')}
+                onClick={() => onNavigate('fleet-management')}
                 style={{ display: 'inline-flex', marginLeft: 8 }}
               >
-                + Add one
+                🚍 Schedule in Fleet
               </button>
             </p>
           </div>
         ) : (
           <div className="schedule-list">
-            {filteredActive.map((t, i) => {
+            {sortedActive.map((t, i) => {
               const avail     = parseInt(t.availableSeats) || 0;
               const total     = parseInt(t.totalSeats) || 1;
               const pct       = Math.round((avail / total) * 100);
@@ -855,6 +944,7 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
               const isLocal   = !!t.isNew;
               const hasStarted = t.status === 'IN_PROGRESS';
               const canDelete = !hasStarted;
+              const isToday   = (t.journeyDate || '').split('T')[0] === todayStr;
 
               return (
                 <div
@@ -865,6 +955,21 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
                   <div className="card-meta-row" style={{ flex: 1 }}>
                     <div className="card-route" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 800 }}>{t.source} → {t.destination}</span>
+                      {isToday && (
+                        <span
+                          style={{
+                            background: '#dcfce7',
+                            color: '#15803d',
+                            border: '1px solid #86efac',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            fontWeight: 800,
+                            fontSize: '0.72rem',
+                          }}
+                        >
+                          📅 Today's Trip
+                        </span>
+                      )}
                       {t.corridorName && (
                         <span
                           style={{
@@ -915,14 +1020,6 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
                       {t.availableSeats}/{t.totalSeats} seats
                     </div>
                     <div style={{ display: 'flex', gap: '6px', marginTop: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                      <button
-                        className="btn btn-outline"
-                        style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#2563eb', borderColor: '#bfdbfe', background: '#eff6ff' }}
-                        title="Track live bus GPS, route progress, and telemetry"
-                        onClick={() => setTrackingTrip(t)}
-                      >
-                        🧭 Track Bus
-                      </button>
                       <button
                         className="btn btn-outline"
                         style={{ padding: '4px 10px', fontSize: '0.78rem' }}
@@ -1063,38 +1160,62 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
             <p>No cancelled schedules yet. When you cancel a scheduled trip, it will appear here.</p>
           </div>
         ) : (
-          <div className="schedule-list">
-            {cancelledTrips.slice().reverse().map((t, i) => (
-              <div
-                key={t.tripId || i}
-                className="list-card"
-                style={{ borderLeftColor: '#6b7280', background: '#fafafa', opacity: 0.92 }}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                Showing {cancelledTrips.length} cancelled {cancelledTrips.length === 1 ? 'schedule' : 'schedules'}. Permanently delete to remove from records.
+              </span>
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ borderColor: '#ef4444', color: '#ef4444', padding: '4px 12px', fontSize: '0.78rem' }}
+                onClick={handleClearAllCancelled}
               >
-                <div className="card-meta-row" style={{ flex: 1 }}>
-                  <div className="card-route" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#374151' }}>{t.source} → {t.destination}</span>
-                    {t.via && <span className="via-tag">Via: {t.via}</span>}
-                    <span style={{ fontSize: '0.72rem', background: '#f3f4f6', color: '#6b7280', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, border: '1px solid #e5e7eb' }}>🚫 Cancelled</span>
+                🗑 Clear All Cancelled
+              </button>
+            </div>
+            <div className="schedule-list">
+              {cancelledTrips.slice().reverse().map((t, i) => (
+                <div
+                  key={t.tripId || i}
+                  className="list-card"
+                  style={{ borderLeftColor: '#6b7280', background: '#fafafa', opacity: 0.95 }}
+                >
+                  <div className="card-meta-row" style={{ flex: 1 }}>
+                    <div className="card-route" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#374151' }}>{t.source} → {t.destination}</span>
+                      {t.via && <span className="via-tag">Via: {t.via}</span>}
+                      <span style={{ fontSize: '0.72rem', background: '#f3f4f6', color: '#6b7280', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, border: '1px solid #e5e7eb' }}>🚫 Cancelled</span>
+                    </div>
+                    <div className="card-time" style={{ marginTop: 4, color: '#6b7280' }}>
+                      🚌 <strong>{t.busName}</strong> · <span>{t.vehicleType}</span> · Dep: {t.departureTime} → Arr: {t.arrivalTime}
+                    </div>
+                    <div className="card-id" style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '14px', color: '#9ca3af' }}>
+                      <span><strong>Trip ID:</strong> {t.tripId}</span>
+                      <span><strong>Journey Date:</strong> {t.journeyDate}</span>
+                      <span><strong>Seats:</strong> {t.totalSeats}</span>
+                      <span><strong>Fare:</strong> ₹{t.fare}</span>
+                      {t.cancelledAt && (
+                        <span><strong>Cancelled At:</strong> {new Date(t.cancelledAt).toLocaleString()}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="card-time" style={{ marginTop: 4, color: '#6b7280' }}>
-                    🚌 <strong>{t.busName}</strong> · <span>{t.vehicleType}</span> · Dep: {t.departureTime} → Arr: {t.arrivalTime}
-                  </div>
-                  <div className="card-id" style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '14px', color: '#9ca3af' }}>
-                    <span><strong>Trip ID:</strong> {t.tripId}</span>
-                    <span><strong>Journey Date:</strong> {t.journeyDate}</span>
-                    <span><strong>Seats:</strong> {t.totalSeats}</span>
-                    <span><strong>Fare:</strong> ₹{t.fare}</span>
-                    {t.cancelledAt && (
-                      <span><strong>Cancelled At:</strong> {new Date(t.cancelledAt).toLocaleString()}</span>
-                    )}
+                  <div className="card-right-info" style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                    <div style={{ color: '#6b7280', fontWeight: 700, fontSize: '0.9rem' }}>🚫 Cancelled</div>
+                    <div style={{ fontSize: '0.72rem', color: '#9ca3af' }}>Schedule Removed</div>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      style={{ borderColor: '#ef4444', color: '#ef4444', padding: '4px 10px', fontSize: '0.74rem', fontWeight: 600 }}
+                      onClick={() => handlePermanentDelete(t.tripId)}
+                      title="Permanently delete this schedule record"
+                    >
+                      🗑 Delete Permanently
+                    </button>
                   </div>
                 </div>
-                <div className="card-right-info" style={{ textAlign: 'right' }}>
-                  <div style={{ color: '#6b7280', fontWeight: 700, fontSize: '0.9rem' }}>🚫 Cancelled</div>
-                  <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: 4 }}>Schedule Removed</div>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )
       )}
@@ -1108,14 +1229,6 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
           showToast={showToast}
         />
       )}
-
-      {/* Real Google Maps Live Bus Tracker Modal (Task 5) */}
-      <LiveBusTrackerModal
-        isOpen={!!trackingTrip}
-        onClose={() => setTrackingTrip(null)}
-        trip={trackingTrip}
-        isProviderView={true}
-      />
     </div>
   );
 }

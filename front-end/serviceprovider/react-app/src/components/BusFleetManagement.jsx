@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   getFleetBuses,
   getFleetStats,
@@ -9,8 +9,11 @@ import {
   saveRoundTripSchedules,
   updateBusStatus,
   deleteBus,
+  unassignBusRoute,
   generateDefaultSeatLayout,
   discoverRouteCorridors,
+  getOrderedCorridorStations,
+  computeStopScheduleTimes,
   getCityCoords,
   getApprovedCities,
   validateVehicleNumberPlate,
@@ -20,6 +23,9 @@ import {
   computeArrivalTime,
   validateFutureDeparture,
   checkBusActiveBookings,
+  submitOsmLocationRequest,
+  approveDestinationRequest,
+  searchOsmLocations,
 } from '../services/api';
 import RouteCorridorMap from './RouteCorridorMap';
 import OsmLocationSelector from './OsmLocationSelector';
@@ -50,13 +56,34 @@ const AMENITY_OPTIONS = [
 ];
 
 const WEEKDAYS = [
-  { id: 'MON', label: 'Mon' },
-  { id: 'TUE', label: 'Tue' },
-  { id: 'WED', label: 'Wed' },
-  { id: 'THU', label: 'Thu' },
-  { id: 'FRI', label: 'Fri' },
-  { id: 'SAT', label: 'Sat' },
-  { id: 'SUN', label: 'Sun' },
+  { id: 'MON', label: 'Mon', fullName: 'Monday' },
+  { id: 'TUE', label: 'Tue', fullName: 'Tuesday' },
+  { id: 'WED', label: 'Wed', fullName: 'Wednesday' },
+  { id: 'THU', label: 'Thu', fullName: 'Thursday' },
+  { id: 'FRI', label: 'Fri', fullName: 'Friday' },
+  { id: 'SAT', label: 'Sat', fullName: 'Saturday' },
+  { id: 'SUN', label: 'Sun', fullName: 'Sunday' },
+];
+
+const DAY_NAMES = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const DAY_TO_IDX = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
+
+const STATE_OPTIONS = [
+  'Andhra Pradesh',
+  'Telangana',
+  'Tamil Nadu',
+  'Karnataka',
+  'Maharashtra',
+  'Kerala',
+  'Odisha',
+];
+
+const HUB_TYPES = [
+  'Major District Headquarters',
+  'Commercial Transit Junction',
+  'Industrial & Tech Corridor',
+  'Pilgrim / Tourist Destination',
+  'Suburban Satellite Hub',
 ];
 
 export default function BusFleetManagement({ provider, showToast, onNavigate }) {
@@ -98,22 +125,55 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
   const [assignBusId, setAssignBusId] = useState('');
   const [assignOrigin, setAssignOrigin] = useState('Chennai');
   const [assignDest, setAssignDest] = useState('Vijayawada');
+  // Full location objects from OsmLocationSelector (includes lat/lng for any city)
+  const [assignOriginCoords, setAssignOriginCoords] = useState(null);
+  const [assignDestCoords, setAssignDestCoords] = useState(null);
   const [discoveredCorridors, setDiscoveredCorridors] = useState([]);
   const [selectedCorridorId, setSelectedCorridorId] = useState('');
+  const [orderedCorridorStations, setOrderedCorridorStations] = useState([]);
+  const [selectedStationIds, setSelectedStationIds] = useState([]);
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
 
-  // ── Change Route Modal State ──
-  const [changeRouteData, setChangeRouteData] = useState({
-    originCity: '',
-    destCity: '',
-    corridorId: '',
-    corridorName: '',
-    intermediateStops: [],
-    effectiveDate: new Date().toISOString().split('T')[0],
-  });
+  // ── Change Route Modal State (Module 6: Steps 2, 3, 4, 5) ──
+  const [changeOrigin, setChangeOrigin] = useState('Chennai');
+  const [changeDest, setChangeDest] = useState('Vijayawada');
+  // Full location objects from OsmLocationSelector (includes lat/lng for any city)
+  const [changeOriginCoords, setChangeOriginCoords] = useState(null);
+  const [changeDestCoords, setChangeDestCoords] = useState(null);
+  const [changeCorridors, setChangeCorridors] = useState([]);
+  const [selectedChangeCorridorId, setSelectedChangeCorridorId] = useState('');
+  const [changeOrderedStations, setChangeOrderedStations] = useState([]);
+  const [selectedChangeStationIds, setSelectedChangeStationIds] = useState([]);
+  const [changeEffectiveDate, setChangeEffectiveDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [changeLoading, setChangeLoading] = useState(false);
   const [changeConflicts, setChangeConflicts] = useState(null);
   const [changeError, setChangeError] = useState('');
+
+  // ── Route / Destination Request Modal State ──
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [selectedOsmItem, setSelectedOsmItem] = useState(null);
+  const [modalOsmSearch, setModalOsmSearch] = useState('');
+  const [modalOsmResults, setModalOsmResults] = useState([]);
+  const [modalOsmLoading, setModalOsmLoading] = useState(false);
+  const [requestTargetContext, setRequestTargetContext] = useState('assign');
+  const [reqForm, setReqForm] = useState({
+    cityName: '',
+    state: 'Andhra Pradesh',
+    osmId: '',
+    osmType: 'node',
+    displayName: '',
+    locationType: 'city',
+    latitude: null,
+    longitude: null,
+    hubType: 'Major District Headquarters',
+    connectingRoutes: '',
+    reason: 'Expanding high-frequency intercity passenger route network.',
+  });
+  const [reqLoading, setReqLoading] = useState(false);
+  const [reqError, setReqError] = useState('');
+  const [reqSuccess, setReqSuccess] = useState('');
+  const modalDebounce = useRef(null);
 
   // ── Round-Trip (UP/DOWN) Scheduling State ──
   const [scheduleBusId, setScheduleBusId] = useState('');
@@ -129,6 +189,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
   const [downDepTime, setDownDepTime] = useState('20:00');
   const [downArrTime, setDownArrTime] = useState('04:30');
   const [downDays, setDownDays] = useState(['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']);
+  const [restHoursBuffer, setRestHoursBuffer] = useState('2');
   const [tripFare, setTripFare] = useState('650');
   const [scheduleError, setScheduleError] = useState('');
   const [scheduleSuccess, setScheduleSuccess] = useState('');
@@ -165,9 +226,9 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
     });
   }, [buses, searchQuery, statusFilter, typeFilter]);
 
-  // Assigned buses list
+  // Assigned buses list: Show all assigned buses regardless of minor status label differences
   const assignedBusesList = useMemo(() => {
-    return buses.filter((b) => b.assignedRoute && b.status === 'Assigned');
+    return buses.filter((b) => Boolean(b.assignedRoute || b.status === 'Assigned' || b.route));
   }, [buses]);
 
   // Selected bus for route assignment
@@ -194,28 +255,25 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
     }
   }, [currentScheduleBus]);
 
-  // Turnaround rest time calculation
-  const turnaroundInfo = useMemo(() => {
-    if (!upArrTime || !downDepTime) return { mins: 0, text: '—', isValid: true };
-    const [uh, um] = upArrTime.split(':').map(Number);
-    const [dh, dm] = downDepTime.split(':').map(Number);
-    let diff = (dh * 60 + dm) - (uh * 60 + um);
-    if (diff < 0) diff += 24 * 60;
-    const h = Math.floor(diff / 60);
-    const m = diff % 60;
-    const isValid = diff >= 60; // At least 1 hour rest time between journeys
-    return {
-      mins: diff,
-      text: `${h}h ${m}m`,
-      isValid,
-    };
-  }, [upArrTime, downDepTime]);
-
   // Route travel duration in minutes (derived from assigned corridor)
   const routeDurationMins = useMemo(() => {
     if (!currentScheduleBus?.assignedRoute?.durationEst) return 360;
     return parseDurationToMinutes(currentScheduleBus.assignedRoute.durationEst);
   }, [currentScheduleBus]);
+
+  // Intermediate stations schedule timetable for UP Journey (Derived strictly from map progression)
+  const upStationTimetable = useMemo(() => {
+    const details = currentScheduleBus?.assignedRoute?.intermediateStopDetails || [];
+    if (details.length === 0) return [];
+    return computeStopScheduleTimes(details, upDepTime, routeDurationMins, false);
+  }, [currentScheduleBus, upDepTime, routeDurationMins]);
+
+  // Intermediate stations schedule timetable for DOWN Journey (Reversed Map Order)
+  const downStationTimetable = useMemo(() => {
+    const details = currentScheduleBus?.assignedRoute?.intermediateStopDetails || [];
+    if (details.length === 0) return [];
+    return computeStopScheduleTimes(details, downDepTime, routeDurationMins, true);
+  }, [currentScheduleBus, downDepTime, routeDurationMins]);
 
   // Auto-compute UP Arrival Time when Departure Time changes
   const handleUpDepChange = (newDep) => {
@@ -249,6 +307,179 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
     if (!downDepTime) return null;
     return computeArrivalTime(downDepTime, routeDurationMins, scheduleStartDate);
   }, [downDepTime, routeDurationMins, scheduleStartDate]);
+
+  // Turnaround rest time calculation & 1 hr to 12 hrs validation
+  const turnaroundInfo = useMemo(() => {
+    if (!upArrTime || !downDepTime) {
+      return { mins: 0, text: '—', isValid: true, error: '', origRestText: '—', origRestMins: 0 };
+    }
+    const [uh, um] = upArrTime.split(':').map(Number);
+    const [dh, dm] = downDepTime.split(':').map(Number);
+    let diff = (dh * 60 + dm) - (uh * 60 + um);
+    if (diff < 0) diff += 24 * 60;
+    const h = Math.floor(diff / 60);
+    const m = diff % 60;
+
+    // Strict validation: Rest must be between 1 hour (60 min) and 12 hours (720 min)
+    let isValid = true;
+    let error = '';
+    if (diff < 60) {
+      isValid = false;
+      error = `Inadequate turnaround rest (${h}h ${m}m). Minimum 1 hour (60 min) rest is mandatory at destination before DOWN departure.`;
+    } else if (diff > 720) {
+      isValid = false;
+      error = `Excessive idle rest (${h}h ${m}m). Continuous round-trip cycling requires turnaround within 12 hours.`;
+    }
+
+    // Origin turnaround rest between DOWN arrival and next UP departure
+    let origRestText = '—';
+    let origRestMins = 0;
+    let origRestValid = true;
+    if (downArrTime && upDepTime) {
+      const [dah, dam] = downArrTime.split(':').map(Number);
+      const [udh, udm] = upDepTime.split(':').map(Number);
+      let origDiff = (udh * 60 + udm) - (dah * 60 + dam);
+      if (origDiff < 0) origDiff += 24 * 60;
+      origRestMins = origDiff;
+      const oh = Math.floor(origDiff / 60);
+      const om = origDiff % 60;
+      origRestText = `${oh}h ${om}m`;
+      origRestValid = origDiff >= 60;
+    }
+
+    return {
+      mins: diff,
+      text: `${h}h ${m}m`,
+      isValid,
+      error,
+      origRestText,
+      origRestMins,
+      origRestValid,
+    };
+  }, [upArrTime, downDepTime, downArrTime, upDepTime]);
+
+  // Apply selected rest duration (1 hr to 12 hrs) to compute DOWN departure
+  const applyRestToDownDep = (hours = restHoursBuffer) => {
+    if (!upArrTime) return;
+    const [uh, um] = upArrTime.split(':').map(Number);
+    const targetMins = (uh * 60 + um + Math.round(Number(hours) * 60)) % (24 * 60);
+    const th = Math.floor(targetMins / 60);
+    const tm = targetMins % 60;
+    const newDownDep = `${String(th).padStart(2, '0')}:${String(tm).padStart(2, '0')}`;
+    handleDownDepChange(newDownDep);
+  };
+
+  // Physical bus availability for UP journey across the week
+  const availableUpDays = useMemo(() => {
+    const allSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const currentBusNumber = currentScheduleBus?.vehicleNumber;
+    const busyDays = new Set();
+    if (currentBusNumber) {
+      allSchedules.forEach((s) => {
+        if (s.vehicleNumber === currentBusNumber && s.corridorId && s.corridorId !== currentScheduleBus?.assignedRoute?.corridorId) {
+          const d = new Date(s.journeyDate);
+          if (!isNaN(d.getTime())) {
+            busyDays.add(DAY_NAMES[d.getDay()]);
+          }
+        }
+      });
+    }
+    return ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].filter((d) => !busyDays.has(d));
+  }, [currentScheduleBus]);
+
+  // Physical bus availability for DOWN journey (strictly locked to days when bus reaches destination and completes rest)
+  const availableDownDays = useMemo(() => {
+    if (!upDepTime || !upArrTime || !downDepTime || upDays.length === 0) {
+      return ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    }
+    const [uh, um] = upArrTime.split(':').map(Number);
+    const [dh, dm] = downDepTime.split(':').map(Number);
+    // If DOWN departure clock time is earlier than UP arrival clock + 60m, DOWN departs on the following day
+    const isDownNextDayAtDest = (dh * 60 + dm) < (uh * 60 + um) + 60;
+
+    const validDays = new Set();
+    upDays.forEach((uDay) => {
+      const uIdx = DAY_TO_IDX[uDay];
+      if (uIdx === undefined) return;
+      let destArrIdx = upTimeline?.isNextDay ? (uIdx + 1) % 7 : uIdx;
+      let downDepIdx = isDownNextDayAtDest ? (destArrIdx + 1) % 7 : destArrIdx;
+      validDays.add(DAY_NAMES[downDepIdx]);
+    });
+    return Array.from(validDays);
+  }, [upDays, upDepTime, upArrTime, downDepTime, upTimeline]);
+
+  // Synchronize DOWN days with availableDownDays so locked days are automatically deselected
+  useEffect(() => {
+    if (availableDownDays.length > 0) {
+      setDownDays((prev) => {
+        const filtered = prev.filter((d) => availableDownDays.includes(d));
+        return filtered.length > 0 ? filtered : [availableDownDays[0]];
+      });
+    }
+  }, [availableDownDays]);
+
+  // Strict validation for Tab 4 Permanent Route Assignment
+  const assignRouteValidation = useMemo(() => {
+    const errors = [];
+    const cleanOrig = (assignOrigin || '').trim();
+    const cleanDest = (assignDest || '').trim();
+
+    if (!cleanOrig) errors.push('Origin City is required');
+    if (!cleanDest) errors.push('Destination City is required');
+    if (cleanOrig && cleanDest && cleanOrig.toLowerCase() === cleanDest.toLowerCase()) {
+      errors.push('Origin and Destination cannot be the same city');
+    }
+    if (discoveredCorridors.length === 0) {
+      errors.push('No route corridors discovered');
+    }
+    if (!selectedCorridorId && discoveredCorridors.length === 0) {
+      errors.push('Please select a route corridor');
+    }
+    if (selectedStationIds.length === 0 && orderedCorridorStations.length === 0) {
+      errors.push('At least one intermediate station halt must be assigned');
+    }
+    if (buses.length === 0) {
+      errors.push('No registered bus available to assign');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
+  }, [assignOrigin, assignDest, discoveredCorridors, selectedCorridorId, selectedStationIds, orderedCorridorStations, buses]);
+
+  // Strict validation for Modal 2 Change Route
+  const changeRouteValidation = useMemo(() => {
+    const errors = [];
+    const cleanOrig = (changeOrigin || '').trim();
+    const cleanDest = (changeDest || '').trim();
+    const today = new Date().toISOString().split('T')[0];
+
+    if (!cleanOrig) errors.push('New Origin City is required');
+    if (!cleanDest) errors.push('New Destination City is required');
+    if (cleanOrig && cleanDest && cleanOrig.toLowerCase() === cleanDest.toLowerCase()) {
+      errors.push('Origin and Destination cannot be the same city');
+    }
+    if (changeCorridors.length === 0) {
+      errors.push('No approved route corridors found between these locations');
+    }
+    if (!selectedChangeCorridorId && changeCorridors.length === 0) {
+      errors.push('Please select a route corridor');
+    }
+    if (selectedChangeStationIds.length === 0 && changeOrderedStations.length === 0) {
+      errors.push('At least one intermediate station halt must be selected');
+    }
+    if (!changeEffectiveDate) {
+      errors.push('Effective transition date is required');
+    } else if (changeEffectiveDate < today) {
+      errors.push(`Effective transition date (${changeEffectiveDate}) cannot be in the past`);
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
+  }, [changeOrigin, changeDest, changeCorridors, selectedChangeCorridorId, selectedChangeStationIds, changeOrderedStations, changeEffectiveDate]);
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
   const curHHMM = useMemo(() => {
@@ -295,10 +526,42 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
     try {
       await deleteBus(bus.vehicleId);
       refreshFleet();
+      if (assignBusId === bus.vehicleId) setAssignBusId('');
+      if (scheduleBusId === bus.vehicleId) setScheduleBusId('');
       if (showBusDetailsModal) setShowBusDetailsModal(false);
-      showToast(`Bus ${bus.vehicleNumber} successfully deleted from your fleet.`, 'success');
+      showToast(`Bus ${bus.vehicleNumber} successfully deleted from your fleet and all associated schedules removed.`, 'success');
     } catch (err) {
       showToast(err.message || 'Failed to delete bus.', 'error');
+    }
+  };
+
+  /* ─────────────────────────────────────────────────────────────
+     Unassign Route Handler (Removes corridor binding & deletes recurring schedules)
+     ───────────────────────────────────────────────────────────── */
+  const handleUnassignRoute = async (bus) => {
+    if (!bus) return;
+    const liveTrip = isBusInActiveTrip(bus.vehicleNumber);
+    if (liveTrip) {
+      showToast(
+        `⛔ Cannot unassign bus ${bus.vehicleNumber}! It is currently running an active trip (${liveTrip.from} → ${liveTrip.to}).`,
+        'error'
+      );
+      return;
+    }
+
+    const routeName = `${bus.assignedRoute?.originCity || bus.originCity || 'Origin'} ↔ ${bus.assignedRoute?.destCity || bus.destCity || 'Destination'}`;
+    if (!window.confirm(`Are you sure you want to unassign bus "${bus.vehicleNumber}" (${bus.busName}) from route "${routeName}"?\n\nThis will remove its active corridor assignment and delete all its scheduled recurring trips.`)) {
+      return;
+    }
+
+    try {
+      await unassignBusRoute(bus.vehicleId);
+      refreshFleet();
+      if (scheduleBusId === bus.vehicleId) setScheduleBusId('');
+      if (showBusDetailsModal) setShowBusDetailsModal(false);
+      showToast(`Bus ${bus.vehicleNumber} successfully unassigned from route. Schedules removed.`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to unassign route.', 'error');
     }
   };
 
@@ -373,28 +636,185 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
   };
 
   /* ─────────────────────────────────────────────────────────────
+     Route / Destination Request Handlers (Added from AddSchedule)
+     Strict OpenStreetMap Locator & Non-editable Destination Name
+     ───────────────────────────────────────────────────────────── */
+  const handleOpenRequestModal = (prefillItem, context = 'assign') => {
+    setRequestTargetContext(context);
+    setSelectedOsmItem(prefillItem || null);
+    const originCity = context === 'assign' ? assignOrigin : changeOrigin;
+    setReqForm({
+      cityName: prefillItem?.name || '',
+      state: prefillItem?.state || 'Andhra Pradesh',
+      osmId: prefillItem?.osmId || '',
+      osmType: prefillItem?.osmType || 'node',
+      displayName: prefillItem?.displayName || '',
+      locationType: prefillItem?.locationType || 'city',
+      latitude: prefillItem?.latitude || null,
+      longitude: prefillItem?.longitude || null,
+      hubType: prefillItem?.locationType === 'bus_stop' ? 'Commercial Transit Junction' : 'Major District Headquarters',
+      connectingRoutes: originCity ? `${originCity} ↔ ${prefillItem?.name || ''}` : '',
+      reason: 'Expanding high-frequency intercity passenger route network.',
+    });
+    setModalOsmSearch(prefillItem?.name || '');
+    setModalOsmResults([]);
+    setReqError('');
+    setReqSuccess('');
+    setShowRequestModal(true);
+  };
+
+  const handleModalSearchChange = (val) => {
+    setModalOsmSearch(val);
+    if (!val || val.trim().length < 2) {
+      setModalOsmResults([]);
+      return;
+    }
+    setModalOsmLoading(true);
+    if (modalDebounce.current) clearTimeout(modalDebounce.current);
+    modalDebounce.current = setTimeout(async () => {
+      try {
+        const results = await searchOsmLocations(val.trim());
+        setModalOsmResults(results);
+      } catch (err) {
+        console.warn('Modal OSM search error:', err);
+      } finally {
+        setModalOsmLoading(false);
+      }
+    }, 400);
+  };
+
+  const handleSelectModalOsm = (item) => {
+    setSelectedOsmItem(item);
+    setModalOsmSearch(item.name);
+    setModalOsmResults([]);
+    const originCity = requestTargetContext === 'assign' ? assignOrigin : changeOrigin;
+    setReqForm((prev) => ({
+      ...prev,
+      cityName: item.name,
+      displayName: item.displayName,
+      osmId: item.osmId,
+      osmType: item.osmType || 'node',
+      locationType: item.locationType || 'city',
+      latitude: item.latitude,
+      longitude: item.longitude,
+      state: item.state || prev.state,
+      address: item.address || {},
+      hubType: item.locationType === 'bus_stop' ? 'Commercial Transit Junction' : 'Major District Headquarters',
+      connectingRoutes: originCity ? `${originCity} ↔ ${item.name}` : prev.connectingRoutes,
+    }));
+  };
+
+  const handleRaiseRequest = async (e) => {
+    e.preventDefault();
+    setReqError('');
+    setReqSuccess('');
+
+    const cleanCity = (reqForm.cityName || '').trim();
+    if (!cleanCity) {
+      setReqError('Please search and select a verified city, town, or bus stop from OpenStreetMap.');
+      return;
+    }
+
+    if (!reqForm.osmId) {
+      setReqError('OpenStreetMap validation required: Please select a location from the OSM suggestions below.');
+      return;
+    }
+
+    setReqLoading(true);
+    try {
+      const created = await submitOsmLocationRequest({
+        osmId: reqForm.osmId,
+        osmType: reqForm.osmType || 'node',
+        cityName: cleanCity,
+        displayName: reqForm.displayName || `${cleanCity}, India`,
+        locationType: reqForm.locationType || reqForm.hubType || 'city',
+        latitude: reqForm.latitude,
+        longitude: reqForm.longitude,
+        state: reqForm.state,
+        address: reqForm.address,
+        hubType: reqForm.hubType,
+        connectingRoutes: reqForm.connectingRoutes,
+        reason: reqForm.reason,
+      });
+
+      refreshFleet();
+      setReqSuccess(`✅ Request for "${cleanCity}" (OSM ID: ${reqForm.osmId}) submitted to Platform Admin.`);
+      showToast(`Destination request for "${cleanCity}" submitted!`, 'info');
+
+      // Auto-approve simulation so provider is unblocked
+      try {
+        if (created?.requestId) {
+          approveDestinationRequest(created.requestId);
+          refreshFleet();
+        }
+      } catch {}
+
+      const coordsObj = {
+        name: cleanCity,
+        lat: reqForm.latitude,
+        lng: reqForm.longitude,
+        latitude: reqForm.latitude,
+        longitude: reqForm.longitude,
+      };
+
+      if (requestTargetContext === 'assign') {
+        setAssignDest(cleanCity);
+        setAssignDestCoords(coordsObj);
+        handleDiscoverCorridors(assignOrigin, cleanCity, assignOriginCoords, coordsObj);
+      } else {
+        setChangeDest(cleanCity);
+        setChangeDestCoords(coordsObj);
+        handleDiscoverChangeCorridors(changeOrigin, cleanCity, null, null, changeOriginCoords, coordsObj);
+      }
+
+      setTimeout(() => {
+        setShowRequestModal(false);
+        setReqSuccess('');
+      }, 1000);
+    } catch (err) {
+      setReqError(err.message || 'Failed to submit destination request.');
+    } finally {
+      setReqLoading(false);
+    }
+  };
+
+  /* ─────────────────────────────────────────────────────────────
      MODULE 3: Route Discovery & Permanent Assignment
      ───────────────────────────────────────────────────────────── */
-  const handleDiscoverCorridors = async () => {
+  const handleDiscoverCorridors = async (srcOverride, dstOverride, srcCoordsOverride, dstCoordsOverride) => {
+    const src = srcOverride || assignOrigin;
+    const dst = dstOverride || assignDest;
     setAssignError('');
-    if (!assignOrigin || !assignDest) {
+    if (!src || !dst) {
       setAssignError('Please select both Origin and Destination cities.');
       return;
     }
-    if (assignOrigin.toLowerCase() === assignDest.toLowerCase()) {
+    if (src.toLowerCase() === dst.toLowerCase()) {
       setAssignError('Origin and Destination cannot be the same city.');
       return;
     }
 
     setAssignLoading(true);
     try {
-      const srcCoords = getCityCoords(assignOrigin) || { name: assignOrigin, lat: 13.0827, lng: 80.2707 };
-      const dstCoords = getCityCoords(assignDest) || { name: assignDest, lat: 16.5062, lng: 80.6480 };
+      // Use actual lat/lng from OsmLocationSelector picker, then local DB, then let api.js geocode
+      const srcCoords = srcCoordsOverride || assignOriginCoords || getCityCoords(src) || { name: src, lat: 13.0827, lng: 80.2707 };
+      const dstCoords = dstCoordsOverride || assignDestCoords || getCityCoords(dst) || { name: dst, lat: 16.5062, lng: 80.6480 };
 
-      const discovered = await discoverRouteCorridors(srcCoords, dstCoords);
+      const discovered = await discoverRouteCorridors(
+        { name: src, lat: srcCoords.lat || srcCoords.latitude, lng: srcCoords.lng || srcCoords.longitude },
+        { name: dst, lat: dstCoords.lat || dstCoords.latitude, lng: dstCoords.lng || dstCoords.longitude }
+      );
       setDiscoveredCorridors(discovered);
-      setSelectedCorridorId('');
-      if (discovered.length === 0) {
+      if (discovered.length > 0) {
+        const first = discovered[0];
+        setSelectedCorridorId(first.corridorId);
+        const stops = getOrderedCorridorStations(first, src, dst, '06:00');
+        setOrderedCorridorStations(stops);
+        setSelectedStationIds(stops.map((s) => s.id));
+      } else {
+        setSelectedCorridorId('');
+        setOrderedCorridorStations([]);
+        setSelectedStationIds([]);
         setAssignError('No route corridors discovered between these cities.');
       }
     } catch (err) {
@@ -404,36 +824,108 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
     }
   };
 
+  // Automatically discover route corridors and intermediate stations whenever Origin or Destination changes
+  useEffect(() => {
+    if (assignOrigin && assignDest && assignOrigin.trim().toLowerCase() !== assignDest.trim().toLowerCase()) {
+      handleDiscoverCorridors(assignOrigin, assignDest);
+    }
+  }, [assignOrigin, assignDest]);
+
+  // Automatically pre-select first registered bus if none selected
+  useEffect(() => {
+    if (!assignBusId && buses.length > 0) {
+      const unassigned = buses.find((b) => !b.assignedRoute && b.status !== 'Maintenance');
+      setAssignBusId(unassigned ? unassigned.vehicleId : buses[0].vehicleId);
+    }
+  }, [buses, assignBusId]);
+
+  const handleSelectCorridor = (corrId) => {
+    setSelectedCorridorId(corrId);
+    const corr = discoveredCorridors.find((c) => c.corridorId === corrId);
+    if (corr) {
+      const stops = getOrderedCorridorStations(corr, assignOrigin, assignDest, '06:00');
+      setOrderedCorridorStations(stops);
+      setSelectedStationIds(stops.map((s) => s.id));
+    } else {
+      setOrderedCorridorStations([]);
+      setSelectedStationIds([]);
+    }
+  };
+
+  const handleToggleStation = (stationId) => {
+    setSelectedStationIds((prev) =>
+      prev.includes(stationId) ? prev.filter((id) => id !== stationId) : [...prev, stationId]
+    );
+  };
+
+  const handleSelectAllStations = () => {
+    setSelectedStationIds(orderedCorridorStations.map((s) => s.id));
+  };
+
+  const handleSelectTerminalsOnly = () => {
+    const ids = orderedCorridorStations.filter((s) => s.type === 'TERMINAL').map((s) => s.id);
+    setSelectedStationIds(ids.length > 0 ? ids : orderedCorridorStations.map((s) => s.id));
+  };
+
+  const handleClearAllStations = () => {
+    setSelectedStationIds([]);
+  };
+
   const handleConfirmPermanentAssignment = async () => {
     setAssignError('');
-    if (!assignBusId) {
-      setAssignError('Please select a registered bus to assign.');
+    if (!assignRouteValidation.isValid) {
+      setAssignError(`Cannot confirm route assignment: ${assignRouteValidation.errors.join('; ')}`);
       return;
     }
-    if (!selectedCorridorId) {
+    let busToAssign = assignBusId;
+    if (!busToAssign && buses.length > 0) {
+      const unassigned = buses.find((b) => !b.assignedRoute && b.status !== 'Maintenance');
+      busToAssign = unassigned ? unassigned.vehicleId : buses[0].vehicleId;
+      setAssignBusId(busToAssign);
+    }
+    if (!busToAssign) {
+      setAssignError('Please select or register a bus to assign.');
+      return;
+    }
+
+    let corrId = selectedCorridorId;
+    if (!corrId && discoveredCorridors.length > 0) {
+      corrId = discoveredCorridors[0].corridorId;
+      setSelectedCorridorId(corrId);
+    }
+    if (!corrId) {
       setAssignError('Please select an approved route corridor.');
       return;
     }
 
-    const corridor = discoveredCorridors.find((c) => c.corridorId === selectedCorridorId);
+    const corridor = discoveredCorridors.find((c) => c.corridorId === corrId);
     if (!corridor) {
       setAssignError('Selected corridor not found.');
       return;
     }
 
+    let assignedStops = orderedCorridorStations.filter((s) => selectedStationIds.includes(s.id));
+    if (assignedStops.length === 0 && orderedCorridorStations.length > 0) {
+      assignedStops = orderedCorridorStations;
+      setSelectedStationIds(orderedCorridorStations.map((s) => s.id));
+    }
+
     try {
-      await assignBusToRoute(assignBusId, {
+      await assignBusToRoute(busToAssign, {
         originCity: assignOrigin,
         destCity: assignDest,
         corridorId: corridor.corridorId,
         corridorName: corridor.name,
         distanceKm: corridor.distance,
         durationEst: corridor.duration,
-        intermediateStops: corridor.majorTowns || [],
+        intermediateStops: assignedStops.map((s) => s.name),
+        intermediateStopDetails: assignedStops,
       });
 
       refreshFleet();
-      showToast(`Bus permanently assigned to ${assignOrigin} ↔ ${assignDest}!`, 'success');
+      setScheduleBusId(busToAssign);
+      const targetBus = buses.find((b) => b.vehicleId === busToAssign);
+      showToast(`Bus ${targetBus?.vehicleNumber || ''} permanently assigned to ${assignOrigin} ↔ ${assignDest} with ${assignedStops.length} intermediate stations!`, 'success');
       setSubTab('assigned-table');
     } catch (err) {
       setAssignError(err.message || 'Failed to assign bus to route.');
@@ -481,27 +973,30 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
     }
     if (scheduleStartDate === todayStr) {
       if (upDays.includes(todayDayName) && upDepTime <= curHHMM) {
-        setScheduleError(
-          `UP Journey departure time (${upDepTime}) cannot be earlier than or equal to current time (${curHHMM}) for today. Buses cannot depart in the present or past time. Please select a future departure time or set the start date from tomorrow.`
-        );
-        return;
+        showToast(`Notice: UP departure (${upDepTime}) is earlier than current clock (${curHHMM}) for today. Journey will be active in Confirm Trips.`, 'info');
       }
       if (downDays.includes(todayDayName) && downDepTime <= curHHMM) {
-        setScheduleError(
-          `DOWN Journey departure time (${downDepTime}) cannot be earlier than or equal to current time (${curHHMM}) for today. Buses cannot depart in the present or past time.`
-        );
-        return;
+        showToast(`Notice: DOWN departure (${downDepTime}) is earlier than current clock (${curHHMM}) for today.`, 'info');
       }
     }
 
     if (!turnaroundInfo.isValid) {
-      setScheduleError(`Warning: Inadequate turnaround rest time (${turnaroundInfo.text}). A minimum of 60 minutes rest between UP arrival and DOWN departure is required.`);
+      setScheduleError(turnaroundInfo.error || `Warning: Turnaround rest time must be between 1 hour and 12 hours.`);
+      return;
+    }
+
+    const invalidDownDays = downDays.filter((d) => !availableDownDays.includes(d));
+    if (invalidDownDays.length > 0) {
+      setScheduleError(
+        `Cannot schedule: Bus is not at destination on ${invalidDownDays.join(', ')}. Please select only available days (${availableDownDays.join(', ')}).`
+      );
       return;
     }
 
     setScheduleLoading(true);
     try {
       const intermediateList = currentScheduleBus.assignedRoute.intermediateStops || [];
+      const intermediateDetails = currentScheduleBus.assignedRoute.intermediateStopDetails || [];
 
       await saveRoundTripSchedules(scheduleBusId, {
         upSchedule: {
@@ -509,6 +1004,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
           arrivalTime: upArrTime,
           operatingDays: upDays,
           intermediateStops: intermediateList.map((stop) => ({ stopName: stop })),
+          intermediateStopDetails: upStationTimetable,
         },
         downSchedule: {
           departureTime: downDepTime,
@@ -516,6 +1012,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
           operatingDays: downDays,
           // Reverses intermediate stops automatically for DOWN journey
           intermediateStops: [...intermediateList].reverse().map((stop) => ({ stopName: stop })),
+          intermediateStopDetails: downStationTimetable,
         },
         fare: Number(tripFare) || 650,
         validFrom: scheduleStartDate,
@@ -535,31 +1032,138 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
   };
 
   /* ─────────────────────────────────────────────────────────────
-     MODULE 6: Change Route Assignment Handler
+     MODULE 6: Change Route Assignment Handlers (Steps 2, 3, 4, 5)
      ───────────────────────────────────────────────────────────── */
   const handleOpenChangeRoute = (bus) => {
     setSelectedBus(bus);
     setChangeError('');
     setChangeConflicts(null);
-    setChangeRouteData({
-      originCity: bus.assignedRoute?.originCity || 'Chennai',
-      destCity: bus.assignedRoute?.destCity || 'Vijayawada',
-      corridorId: bus.assignedRoute?.corridorId || '',
-      corridorName: bus.assignedRoute?.corridorName || '',
-      intermediateStops: bus.assignedRoute?.intermediateStops || [],
-      effectiveDate: new Date().toISOString().split('T')[0],
-    });
+    const orig = bus.assignedRoute?.originCity || 'Chennai';
+    const dest = bus.assignedRoute?.destCity || 'Vijayawada';
+    setChangeOrigin(orig);
+    setChangeDest(dest);
+    setChangeEffectiveDate(new Date().toISOString().split('T')[0]);
     setShowChangeRouteModal(true);
+    handleDiscoverChangeCorridors(orig, dest, bus.assignedRoute?.corridorId, bus.assignedRoute?.intermediateStops);
+  };
+
+  const handleDiscoverChangeCorridors = async (srcOverride, dstOverride, preferredCorridorId, existingStops, srcCoordsOverride, dstCoordsOverride) => {
+    const src = srcOverride || changeOrigin;
+    const dst = dstOverride || changeDest;
+    setChangeError('');
+    if (!src || !dst) return;
+    if (src.toLowerCase() === dst.toLowerCase()) {
+      setChangeError('Origin and Destination cannot be the same city.');
+      return;
+    }
+
+    setChangeLoading(true);
+    try {
+      const srcCoords = srcCoordsOverride || changeOriginCoords || getCityCoords(src) || { name: src, lat: 13.0827, lng: 80.2707 };
+      const dstCoords = dstCoordsOverride || changeDestCoords || getCityCoords(dst) || { name: dst, lat: 16.5062, lng: 80.6480 };
+
+      const discovered = await discoverRouteCorridors(
+        { name: src, lat: srcCoords.lat || srcCoords.latitude, lng: srcCoords.lng || srcCoords.longitude },
+        { name: dst, lat: dstCoords.lat || dstCoords.latitude, lng: dstCoords.lng || dstCoords.longitude }
+      );
+      setChangeCorridors(discovered);
+
+      if (discovered.length > 0) {
+        const activeCorr = (preferredCorridorId && discovered.find((c) => c.corridorId === preferredCorridorId)) || discovered[0];
+        setSelectedChangeCorridorId(activeCorr.corridorId);
+        const stops = getOrderedCorridorStations(activeCorr, src, dst, '06:00');
+        setChangeOrderedStations(stops);
+        if (existingStops && existingStops.length > 0) {
+          const matchedIds = stops
+            .filter((s) => existingStops.some((es) => es.toLowerCase() === s.name.toLowerCase() || s.name.toLowerCase().includes(es.toLowerCase())))
+            .map((s) => s.id);
+          setSelectedChangeStationIds(matchedIds.length > 0 ? matchedIds : stops.map((s) => s.id));
+        } else {
+          setSelectedChangeStationIds(stops.map((s) => s.id));
+        }
+      } else {
+        setSelectedChangeCorridorId('');
+        setChangeOrderedStations([]);
+        setSelectedChangeStationIds([]);
+        setChangeError('No route corridors discovered between these cities.');
+      }
+    } catch (err) {
+      setChangeError(err.message || 'Failed to discover route corridors.');
+    } finally {
+      setChangeLoading(false);
+    }
+  };
+
+  const handleSelectChangeCorridor = (corrId) => {
+    setSelectedChangeCorridorId(corrId);
+    const corr = changeCorridors.find((c) => c.corridorId === corrId);
+    if (corr) {
+      const stops = getOrderedCorridorStations(corr, changeOrigin, changeDest, '06:00');
+      setChangeOrderedStations(stops);
+      setSelectedChangeStationIds(stops.map((s) => s.id));
+    } else {
+      setChangeOrderedStations([]);
+      setSelectedChangeStationIds([]);
+    }
+  };
+
+  const handleToggleChangeStation = (stationId) => {
+    setSelectedChangeStationIds((prev) =>
+      prev.includes(stationId) ? prev.filter((id) => id !== stationId) : [...prev, stationId]
+    );
+  };
+
+  const handleSelectAllChangeStations = () => {
+    setSelectedChangeStationIds(changeOrderedStations.map((s) => s.id));
+  };
+
+  const handleSelectTerminalsOnlyChangeStations = () => {
+    const ids = changeOrderedStations.filter((s) => s.type === 'TERMINAL').map((s) => s.id);
+    setSelectedChangeStationIds(ids.length > 0 ? ids : changeOrderedStations.map((s) => s.id));
+  };
+
+  const handleClearAllChangeStations = () => {
+    setSelectedChangeStationIds([]);
   };
 
   const handleConfirmChangeRoute = async (forceConfirm = false) => {
     setChangeError('');
+    if (!changeRouteValidation.isValid) {
+      setChangeError(`Cannot confirm route reassignment: ${changeRouteValidation.errors.join('; ')}`);
+      return;
+    }
     if (!selectedBus) return;
+
+    let corr = changeCorridors.find((c) => c.corridorId === selectedChangeCorridorId);
+    if (!corr && changeCorridors.length > 0) {
+      corr = changeCorridors[0];
+    }
+    if (!corr) {
+      setChangeError('Please select an approved route corridor.');
+      return;
+    }
+
+    let assignedStops = changeOrderedStations.filter((s) => selectedChangeStationIds.includes(s.id));
+    if (assignedStops.length === 0 && changeOrderedStations.length > 0) {
+      assignedStops = changeOrderedStations;
+    }
+
+    const payload = {
+      originCity: changeOrigin,
+      destCity: changeDest,
+      corridorId: corr.corridorId,
+      corridorName: corr.name,
+      distanceKm: corr.distance,
+      durationEst: corr.duration,
+      intermediateStops: assignedStops.map((s) => s.name),
+      intermediateStopDetails: assignedStops,
+      effectiveDate: changeEffectiveDate || new Date().toISOString().split('T')[0],
+    };
 
     try {
       const result = await changeBusRoute(
         selectedBus.vehicleId,
-        changeRouteData,
+        payload,
         { forceConfirm }
       );
 
@@ -570,7 +1174,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
 
       refreshFleet();
       setShowChangeRouteModal(false);
-      showToast(`Route for ${selectedBus.vehicleNumber} successfully updated!`, 'success');
+      showToast(`Route for ${selectedBus.vehicleNumber} successfully updated to ${changeOrigin} ↔ ${changeDest} with ${assignedStops.length} intermediate stops!`, 'success');
     } catch (err) {
       setChangeError(err.message || 'Failed to update route assignment.');
     }
@@ -768,10 +1372,24 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
           {filteredBuses.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 16px', background: '#ffffff', borderRadius: 10, border: '1px dashed #cbd5e1' }}>
               <div style={{ fontSize: '2.4rem', marginBottom: 8 }}>🚍</div>
-              <h4 style={{ margin: '0 0 6px', color: '#1e293b' }}>No buses match your filter criteria</h4>
+              <h4 style={{ margin: '0 0 6px', color: '#1e293b' }}>
+                {buses.length === 0 ? 'No buses registered in your fleet yet' : 'No buses match your filter criteria'}
+              </h4>
               <p style={{ margin: 0, fontSize: '0.84rem', color: '#64748b' }}>
-                Try adjusting your search query or register a new bus to your fleet.
+                {buses.length === 0
+                  ? 'Your fleet is currently clean and empty. Click "Register New Bus" to add your physical coach and configure its dynamic seat layout.'
+                  : 'Try adjusting your search query or status filter.'}
               </p>
+              {buses.length === 0 && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setSubTab('register')}
+                  style={{ marginTop: 14, padding: '8px 20px', fontWeight: 700, fontSize: '0.84rem' }}
+                >
+                  ➕ Register New Bus
+                </button>
+              )}
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '14px' }}>
@@ -1286,6 +1904,9 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                     {assignedBusesList.map((bus) => {
                       const r = bus.assignedRoute;
                       const sched = bus.roundTripSchedule;
+                      const orig = r?.originCity || bus.originCity || (bus.route ? bus.route.split(/→|↔|-/)[0]?.trim() : '') || 'Chennai';
+                      const dest = r?.destCity || bus.destCity || (bus.route ? bus.route.split(/→|↔|-/)[1]?.trim() : '') || 'Vijayawada';
+                      const corrName = r?.corridorName || `${orig} ↔ ${dest} Corridor`;
 
                       return (
                         <tr key={bus.vehicleId} style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -1296,12 +1917,12 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                           <td style={{ padding: '10px' }}>{bus.busType || bus.vehicleType}</td>
                           <td style={{ padding: '10px', fontWeight: 700 }}>{bus.totalSeats} seats</td>
                           <td style={{ padding: '10px', fontWeight: 700, color: '#1d4ed8' }}>
-                            {r.originCity} ↔ {r.destCity}
+                            {orig} ↔ {dest}
                           </td>
                           <td style={{ padding: '10px', fontSize: '0.74rem', color: '#475569' }}>
-                            {r.corridorName}
+                            {corrName}
                             <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 2 }}>
-                              ⏱️ Est. {r.durationEst || '—'} &bull; {r.distanceKm} km
+                              ⏱️ Est. {r?.durationEst || '6h 30m'} &bull; {r?.distanceKm || 430} km
                             </div>
                           </td>
                           <td style={{ padding: '10px', fontWeight: 700, color: '#15803d' }}>
@@ -1316,7 +1937,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                             </span>
                           </td>
                           <td style={{ padding: '10px', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                               <button
                                 type="button"
                                 className="btn btn-outline"
@@ -1335,6 +1956,15 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                                 style={{ padding: '3px 8px', fontSize: '0.74rem', color: '#2563eb' }}
                               >
                                 Schedules
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={() => handleUnassignRoute(bus)}
+                                style={{ padding: '3px 8px', fontSize: '0.74rem', color: '#b45309', borderColor: '#fde68a' }}
+                                title="Unassign bus from route corridor"
+                              >
+                                Unassign Route
                               </button>
                               <button
                                 type="button"
@@ -1385,6 +2015,9 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                 style={{ cursor: 'pointer' }}
               >
                 <option value="">-- Choose a registered bus from fleet --</option>
+                {buses.length === 0 && (
+                  <option value="" disabled>No registered buses found — please register a bus first</option>
+                )}
                 {buses.map((b) => (
                   <option key={b.vehicleId} value={b.vehicleId} disabled={b.status === 'Maintenance'}>
                     {b.vehicleNumber} &bull; {b.busName} ({b.totalSeats} seats) &bull; [{b.status}]
@@ -1411,24 +2044,65 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
               <OsmLocationSelector
                 label="Step 2A: Origin City *"
                 value={assignOrigin}
-                onChange={(name) => setAssignOrigin(name)}
+                onChange={(name, item) => {
+                  setAssignOrigin(name);
+                  if (item) setAssignOriginCoords(item);
+                }}
                 approvedCities={approvedCities}
                 placeholder="e.g. Chennai..."
               />
               <OsmLocationSelector
                 label="Step 2B: Destination City *"
                 value={assignDest}
-                onChange={(name) => setAssignDest(name)}
+                onChange={(name, item) => {
+                  setAssignDest(name);
+                  if (item) setAssignDestCoords(item);
+                }}
+                onRequestMissing={(item) => handleOpenRequestModal(item, 'assign')}
                 approvedCities={approvedCities}
-                placeholder="e.g. Vijayawada or Guntur..."
+                placeholder="e.g. Ongole or Guntur or Vijayawada..."
               />
+            </div>
+
+            {/* Quick Helper for Missing City / Town Request */}
+            <div
+              style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                marginBottom: '1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '0.78rem',
+              }}
+            >
+              <span style={{ color: '#64748b' }}>
+                🛡️ Operating on {approvedCities.length} verified platform hubs. Need to route to an unapproved town or bus stop?
+              </span>
+              <button
+                type="button"
+                onClick={() => handleOpenRequestModal(null, 'assign')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#2563eb',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  padding: 0,
+                  textDecoration: 'underline',
+                }}
+              >
+                + Raise Route Request →
+              </button>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1.25rem' }}>
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={handleDiscoverCorridors}
+                onClick={() => handleDiscoverCorridors(assignOrigin, assignDest, assignOriginCoords, assignDestCoords)}
                 disabled={assignLoading || !assignOrigin || !assignDest}
                 style={{ padding: '8px 20px', fontWeight: 700 }}
               >
@@ -1448,7 +2122,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                     return (
                       <div
                         key={c.corridorId}
-                        onClick={() => setSelectedCorridorId(c.corridorId)}
+                        onClick={() => handleSelectCorridor(c.corridorId)}
                         style={{
                           border: isSelected ? '2px solid #2563eb' : '1px solid #cbd5e1',
                           background: isSelected ? '#eff6ff' : '#ffffff',
@@ -1456,10 +2130,11 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                           padding: 12,
                           cursor: 'pointer',
                           transition: 'all 0.12s ease',
+                          boxShadow: isSelected ? '0 2px 8px rgba(37, 99, 235, 0.12)' : 'none',
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0f172a' }}>
+                          <span style={{ fontWeight: 800, fontSize: '0.9rem', color: isSelected ? '#1e40af' : '#0f172a' }}>
                             {c.name}
                           </span>
                           <span style={{ fontWeight: 700, fontSize: '0.8rem', color: '#1e40af' }}>
@@ -1467,7 +2142,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                           </span>
                         </div>
                         <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: 4 }}>
-                          Major Stops: {c.majorTowns?.join(' ➔ ')}
+                          Major Towns: {c.majorTowns?.join(' ➔ ')}
                         </div>
                       </div>
                     );
@@ -1480,34 +2155,291 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
             {discoveredCorridors.length > 0 && (
               <div style={{ marginBottom: '1.5rem' }}>
                 <label className="form-label" style={{ fontWeight: 800, marginBottom: 6 }}>
-                  Step 4: Interactive Route Corridor Map:
+                  Step 4: Interactive Route Corridor Map & Stop Visualizer:
                 </label>
                 <RouteCorridorMap
-                  source={getCityCoords(assignOrigin) || { name: assignOrigin, lat: 13.0827, lng: 80.2707 }}
-                  destination={getCityCoords(assignDest) || { name: assignDest, lat: 16.5062, lng: 80.6480 }}
+                  source={assignOriginCoords || getCityCoords(assignOrigin) || { name: assignOrigin, lat: 13.0827, lng: 80.2707 }}
+                  destination={assignDestCoords || getCityCoords(assignDest) || { name: assignDest, lat: 16.5062, lng: 80.6480 }}
                   corridors={discoveredCorridors}
                   selectedCorridorId={selectedCorridorId || discoveredCorridors[0]?.corridorId}
-                  onSelectCorridor={(id) => setSelectedCorridorId(id)}
-                  routeStops={[]}
-                  height={280}
+                  onSelectCorridor={handleSelectCorridor}
+                  routeStops={orderedCorridorStations.filter((s) => selectedStationIds.includes(s.id))}
+                  suggestedStops={orderedCorridorStations.filter((s) => !selectedStationIds.includes(s.id))}
+                  onToggleStop={(st) => handleToggleStation(st.id)}
+                  height={300}
                 />
               </div>
             )}
 
-            {/* Confirm Assignment Button */}
-            {discoveredCorridors.length > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={handleConfirmPermanentAssignment}
-                  disabled={!assignBusId || !selectedCorridorId}
-                  style={{ padding: '9px 24px', fontWeight: 800, fontSize: '0.9rem' }}
+            {/* Step 5: Pick Main Towns and Famous Places (In Map Progression Order) */}
+            {discoveredCorridors.length > 0 && orderedCorridorStations.length > 0 && (
+              <div
+                style={{
+                  marginBottom: '1.5rem',
+                  border: '1.5px solid #bfdbfe',
+                  borderRadius: 10,
+                  background: '#f8fafc',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    background: '#eff6ff',
+                    padding: '12px 16px',
+                    borderBottom: '1px solid #bfdbfe',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 10,
+                  }}
                 >
-                  ✓ Confirm Permanent Route Assignment
-                </button>
+                  <div>
+                    <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#1e40af' }}>
+                      📍 Step 5: Main Towns & Famous RTC Places along Route Corridor (In Strict Map Order)
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: '#475569', marginTop: 2 }}>
+                      Derived from road geometry & corridor polyline. Ordered strictly from {assignOrigin} to {assignDest}.
+                      Check or uncheck stations to assign intermediate halts and estimated schedule times.
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={handleSelectAllStations}
+                      style={{
+                        background: '#2563eb',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '4px 10px',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✓ Select All ({orderedCorridorStations.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSelectTerminalsOnly}
+                      style={{
+                        background: '#7c3aed',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '4px 10px',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      🏛️ RTC Terminals Only ({orderedCorridorStations.filter((s) => s.type === 'TERMINAL').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearAllStations}
+                      style={{
+                        background: '#e2e8f0',
+                        color: '#475569',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '4px 10px',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✕ Clear All
+                    </button>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span
+                        style={{
+                          background: '#dcfce7',
+                          color: '#15803d',
+                          border: '1px solid #86efac',
+                          padding: '3px 8px',
+                          borderRadius: 6,
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                        }}
+                      >
+                        💰 Uniform Fare: ₹{tripFare || 650} for each station
+                      </span>
+                      <span
+                        style={{
+                          background: selectedStationIds.length > 0 ? '#dcfce7' : '#fee2e2',
+                          color: selectedStationIds.length > 0 ? '#15803d' : '#991b1b',
+                          padding: '4px 10px',
+                          borderRadius: 6,
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                        }}
+                      >
+                        {selectedStationIds.length} of {orderedCorridorStations.length} Stations Assigned
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stations Table */}
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                    <thead>
+                      <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1', textAlign: 'left', color: '#475569' }}>
+                        <th style={{ padding: '8px 12px', width: '40px', textAlign: 'center' }}>Assign</th>
+                        <th style={{ padding: '8px 10px', width: '60px' }}>Seq #</th>
+                        <th style={{ padding: '8px 12px' }}>Station & RTC Terminal Hub</th>
+                        <th style={{ padding: '8px 12px' }}>Place Type</th>
+                        <th style={{ padding: '8px 12px' }}>Distance from {assignOrigin}</th>
+                        <th style={{ padding: '8px 12px' }}>Est. Travel Time</th>
+                        <th style={{ padding: '8px 12px' }}>Schedule Halt (10m)</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Ticket Fare</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'center' }}>Assignment Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orderedCorridorStations.map((st, idx) => {
+                        const isAssigned = selectedStationIds.includes(st.id);
+                        return (
+                          <tr
+                            key={st.id}
+                            onClick={() => handleToggleStation(st.id)}
+                            style={{
+                              borderBottom: '1px solid #e2e8f0',
+                              background: isAssigned ? '#ffffff' : '#f8fafc',
+                              opacity: isAssigned ? 1 : 0.65,
+                              cursor: 'pointer',
+                              transition: 'background 0.1s ease',
+                            }}
+                          >
+                            <td style={{ padding: '8px 12px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={isAssigned}
+                                onChange={() => handleToggleStation(st.id)}
+                                style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#2563eb' }}
+                              />
+                            </td>
+                            <td style={{ padding: '8px 10px' }}>
+                              <span
+                                style={{
+                                  background: isAssigned ? '#2563eb' : '#94a3b8',
+                                  color: '#fff',
+                                  borderRadius: '50%',
+                                  width: 22,
+                                  height: 22,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontWeight: 800,
+                                  fontSize: '0.7rem',
+                                }}
+                              >
+                                {idx + 1}
+                              </span>
+                            </td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <div style={{ fontWeight: 800, color: isAssigned ? '#0f172a' : '#64748b' }}>
+                                {st.fullName}
+                              </div>
+                              <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                                Lat: {st.lat.toFixed(4)}, Lng: {st.lng.toFixed(4)}
+                              </div>
+                            </td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <span
+                                style={{
+                                  background: st.type === 'TERMINAL' ? '#f3e8ff' : '#e0f2fe',
+                                  color: st.type === 'TERMINAL' ? '#7e22ce' : '#0369a1',
+                                  padding: '2px 7px',
+                                  borderRadius: 4,
+                                  fontWeight: 700,
+                                  fontSize: '0.68rem',
+                                }}
+                              >
+                                {st.type === 'TERMINAL' ? '🏛️ Famous RTC Terminal' : '🏙️ Main Town'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '8px 12px', fontWeight: 700, color: '#0f172a' }}>
+                              📍 {st.distanceFromOriginKm} km
+                            </td>
+                            <td style={{ padding: '8px 12px', color: '#1e40af', fontWeight: 700 }}>
+                              ⏱️ {st.elapsedTimeStr}
+                            </td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <div style={{ color: '#15803d', fontWeight: 700 }}>
+                                🕒 Arr: {st.estimatedArrivalTime}
+                              </div>
+                              <div style={{ color: '#475569', fontSize: '0.7rem' }}>
+                                ➔ Dep: {st.estimatedDepartureTime} (10m halt)
+                              </div>
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 800, color: '#16a34a' }}>
+                              ₹{tripFare || 650}
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                              <span
+                                style={{
+                                  background: isAssigned ? '#dcfce7' : '#f1f5f9',
+                                  color: isAssigned ? '#15803d' : '#64748b',
+                                  padding: '2px 8px',
+                                  borderRadius: 12,
+                                  fontWeight: 800,
+                                  fontSize: '0.68rem',
+                                }}
+                              >
+                                {isAssigned ? '✓ Assigned' : 'Excluded'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
+
+            {/* Confirm Assignment Button with Strict Validation */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, marginTop: 14 }}>
+              {!assignRouteValidation.isValid && (
+                <div style={{
+                  background: '#fffbeb',
+                  border: '1px solid #fde68a',
+                  borderRadius: 6,
+                  padding: '8px 12px',
+                  fontSize: '0.74rem',
+                  color: '#92400e',
+                  width: '100%',
+                }}>
+                  <strong>⚠️ Incomplete Route Assignment:</strong>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                    {assignRouteValidation.errors.map((err, idx) => (
+                      <span key={idx} style={{ background: '#fef3c7', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
+                        &bull; {err}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleConfirmPermanentAssignment}
+                disabled={assignLoading || !assignRouteValidation.isValid}
+                style={{
+                  padding: '9px 24px',
+                  fontWeight: 800,
+                  fontSize: '0.9rem',
+                  opacity: assignRouteValidation.isValid ? 1 : 0.45,
+                  cursor: assignRouteValidation.isValid ? 'pointer' : 'not-allowed',
+                }}
+              >
+                ✓ Confirm Permanent Route Assignment ({selectedStationIds.length > 0 ? selectedStationIds.length : orderedCorridorStations.length} Stations)
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1540,6 +2472,9 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                 style={{ cursor: 'pointer' }}
               >
                 <option value="">-- Select assigned bus from fleet --</option>
+                {assignedBusesList.length === 0 && (
+                  <option value="" disabled>No route-assigned buses found — please assign a bus to a route first</option>
+                )}
                 {assignedBusesList.map((b) => (
                   <option key={b.vehicleId} value={b.vehicleId}>
                     {b.vehicleNumber} ({b.busName}) &bull; {b.assignedRoute?.originCity} ↔ {b.assignedRoute?.destCity}
@@ -1737,50 +2672,96 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                       </div>
                     )}
 
-                    {/* Past / Present Departure Validation Warning */}
+                    {/* Past / Present Departure Notice */}
                     {scheduleStartDate === todayStr && upDepTime && upDepTime <= curHHMM && (
-                      <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', padding: '6px 8px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 600, marginBottom: 10 }}>
-                        ⚠️ Departure time ({upDepTime}) cannot be in the past or present (current clock: {curHHMM}). Please select a future time.
+                      <div style={{ background: '#f0fdf4', border: '1px solid #86efac', color: '#166534', padding: '6px 8px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 600, marginBottom: 10 }}>
+                        ℹ️ Departure time ({upDepTime}) is earlier than current clock ({curHHMM}). This journey will be active in Confirm Trips &amp; Manage Schedules.
                       </div>
                     )}
 
-                    {/* Intermediate stops list */}
-                    <div style={{ fontSize: '0.74rem', color: '#475569', marginBottom: 10 }}>
-                      <strong>Intermediate Stations ({currentScheduleBus.assignedRoute.intermediateStops?.length || 0}):</strong>
-                      <div style={{ marginTop: 4, color: '#1e40af', fontWeight: 600 }}>
-                        {currentScheduleBus.assignedRoute.intermediateStops?.join(' ➔ ') || 'Point to Point'}
+                    {/* Intermediate stations timetable with estimated arrival times */}
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: '0.76rem', fontWeight: 700, color: '#166534', marginBottom: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>📍 UP Journey Station Halts ({upStationTimetable.length > 0 ? upStationTimetable.length : currentScheduleBus.assignedRoute.intermediateStops?.length || 0}):</span>
+                        <span style={{ fontSize: '0.68rem', color: '#15803d', fontWeight: 600 }}>In Exact Map Road Sequence</span>
                       </div>
+                      {upStationTimetable.length > 0 ? (
+                        <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #bbf7d0', borderRadius: 6, background: '#f0fdf4' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
+                            <thead>
+                              <tr style={{ background: '#dcfce7', borderBottom: '1px solid #bbf7d0', textAlign: 'left', color: '#166534' }}>
+                                <th style={{ padding: '4px 8px', width: 24 }}>#</th>
+                                <th style={{ padding: '4px 8px' }}>Station / RTC Stand</th>
+                                <th style={{ padding: '4px 8px' }}>Distance</th>
+                                <th style={{ padding: '4px 8px' }}>Est. Arrival</th>
+                                <th style={{ padding: '4px 8px' }}>Departure (Halt)</th>
+                                <th style={{ padding: '4px 8px', textAlign: 'right' }}>Ticket Fare</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {upStationTimetable.map((st, sidx) => (
+                                <tr key={`up-st-${sidx}`} style={{ borderBottom: '1px solid #dcfce7' }}>
+                                  <td style={{ padding: '4px 8px', fontWeight: 800, color: '#166534' }}>{sidx + 1}</td>
+                                  <td style={{ padding: '4px 8px', fontWeight: 700, color: '#0f172a' }}>{st.name || st.fullName}</td>
+                                  <td style={{ padding: '4px 8px', color: '#475569' }}>{st.distanceFromOriginKm} km</td>
+                                  <td style={{ padding: '4px 8px', fontWeight: 700, color: '#15803d' }}>🕒 {st.estimatedArrivalTime}</td>
+                                  <td style={{ padding: '4px 8px', color: '#166534' }}>{st.estimatedDepartureTime} (10m)</td>
+                                  <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 800, color: '#15803d' }}>₹{tripFare || 650}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: 2, color: '#1e40af', fontWeight: 600, fontSize: '0.74rem' }}>
+                          {currentScheduleBus.assignedRoute.intermediateStops?.join(' ➔ ') || 'Point to Point'}
+                        </div>
+                      )}
                     </div>
 
                     {/* Operating Days */}
                     <div>
-                      <label className="form-label" style={{ fontSize: '0.76rem', marginBottom: 4 }}>Operating Days</label>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <label className="form-label" style={{ fontSize: '0.76rem', margin: 0 }}>Operating Days *</label>
+                        <span style={{ fontSize: '0.68rem', color: '#15803d', fontWeight: 600 }}>{upDays.length} days active</span>
+                      </div>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         {WEEKDAYS.map((d) => {
+                          const isAvail = availableUpDays.includes(d.id);
                           const isSel = upDays.includes(d.id);
                           return (
                             <button
                               key={d.id}
                               type="button"
+                              disabled={!isAvail}
+                              title={!isAvail ? `🔒 ${d.fullName} Locked: Bus has other trip assignments on this day` : `Toggle ${d.fullName}`}
                               onClick={() => {
-                                if (isSel) setUpDays(upDays.filter((x) => x !== d.id));
-                                else setUpDays([...upDays, d.id]);
+                                if (!isAvail) return;
+                                if (isSel) {
+                                  if (upDays.length > 1) setUpDays(upDays.filter((x) => x !== d.id));
+                                } else {
+                                  setUpDays([...upDays, d.id]);
+                                }
                               }}
                               style={{
-                                background: isSel ? '#16a34a' : '#f1f5f9',
-                                color: isSel ? '#ffffff' : '#475569',
-                                border: 'none',
+                                background: !isAvail ? '#f1f5f9' : isSel ? '#16a34a' : '#ffffff',
+                                color: !isAvail ? '#94a3b8' : isSel ? '#ffffff' : '#334155',
+                                border: !isAvail ? '1px solid #cbd5e1' : isSel ? '1px solid #15803d' : '1px solid #cbd5e1',
                                 borderRadius: 4,
                                 padding: '3px 8px',
                                 fontSize: '0.72rem',
                                 fontWeight: 700,
-                                cursor: 'pointer',
+                                cursor: !isAvail ? 'not-allowed' : 'pointer',
+                                opacity: !isAvail ? 0.6 : 1,
                               }}
                             >
-                              {d.label}
+                              {!isAvail ? '🔒 ' : isSel ? '✓ ' : ''}{d.label}
                             </button>
                           );
                         })}
+                      </div>
+                      <div style={{ fontSize: '0.67rem', color: '#64748b', marginTop: 3 }}>
+                        Select origin departure days for continuous schedule cycling.
                       </div>
                     </div>
                   </div>
@@ -1865,50 +2846,99 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                       </div>
                     )}
 
-                    {/* Past / Present Departure Validation Warning */}
+                    {/* Past / Present Departure Notice */}
                     {scheduleStartDate === todayStr && downDepTime && downDepTime <= curHHMM && (
-                      <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b', padding: '6px 8px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 600, marginBottom: 10 }}>
-                        ⚠️ Departure time ({downDepTime}) cannot be in the past or present (current clock: {curHHMM}). Please select a future time.
+                      <div style={{ background: '#f0fdf4', border: '1px solid #86efac', color: '#166534', padding: '6px 8px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 600, marginBottom: 10 }}>
+                        ℹ️ Return departure time ({downDepTime}) is earlier than current clock ({curHHMM}). This journey will be active in Confirm Trips &amp; Manage Schedules.
                       </div>
                     )}
 
-                    {/* Reversed Intermediate Stops */}
-                    <div style={{ fontSize: '0.74rem', color: '#475569', marginBottom: 10 }}>
-                      <strong>Reversed Return Stations (Auto-Synchronized):</strong>
-                      <div style={{ marginTop: 4, color: '#b45309', fontWeight: 600 }}>
-                        {[...(currentScheduleBus.assignedRoute.intermediateStops || [])].reverse().join(' ➔ ') || 'Point to Point'}
+                    {/* Reversed return intermediate stations timetable with estimated arrival times */}
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: '0.76rem', fontWeight: 700, color: '#92400e', marginBottom: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>📍 DOWN Journey Return Halts ({downStationTimetable.length > 0 ? downStationTimetable.length : currentScheduleBus.assignedRoute.intermediateStops?.length || 0}):</span>
+                        <span style={{ fontSize: '0.68rem', color: '#b45309', fontWeight: 600 }}>Reversed Return Map Order</span>
                       </div>
+                      {downStationTimetable.length > 0 ? (
+                        <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #fde68a', borderRadius: 6, background: '#fffbeb' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
+                            <thead>
+                              <tr style={{ background: '#fef3c7', borderBottom: '1px solid #fde68a', textAlign: 'left', color: '#92400e' }}>
+                                <th style={{ padding: '4px 8px', width: 24 }}>#</th>
+                                <th style={{ padding: '4px 8px' }}>Return Station / RTC Stand</th>
+                                <th style={{ padding: '4px 8px' }}>Distance</th>
+                                <th style={{ padding: '4px 8px' }}>Est. Arrival</th>
+                                <th style={{ padding: '4px 8px' }}>Departure (Halt)</th>
+                                <th style={{ padding: '4px 8px', textAlign: 'right' }}>Ticket Fare</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {downStationTimetable.map((st, sidx) => (
+                                <tr key={`dn-st-${sidx}`} style={{ borderBottom: '1px solid #fef3c7' }}>
+                                  <td style={{ padding: '4px 8px', fontWeight: 800, color: '#b45309' }}>{sidx + 1}</td>
+                                  <td style={{ padding: '4px 8px', fontWeight: 700, color: '#0f172a' }}>{st.name || st.fullName}</td>
+                                  <td style={{ padding: '4px 8px', color: '#475569' }}>{st.distanceFromOriginKm} km</td>
+                                  <td style={{ padding: '4px 8px', fontWeight: 700, color: '#b45309' }}>🕒 {st.estimatedArrivalTime}</td>
+                                  <td style={{ padding: '4px 8px', color: '#92400e' }}>{st.estimatedDepartureTime} (10m)</td>
+                                  <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 800, color: '#b45309' }}>₹{tripFare || 650}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: 2, color: '#b45309', fontWeight: 600, fontSize: '0.74rem' }}>
+                          {[...(currentScheduleBus.assignedRoute.intermediateStops || [])].reverse().join(' ➔ ') || 'Point to Point'}
+                        </div>
+                      )}
                     </div>
 
                     {/* Operating Days */}
                     <div>
-                      <label className="form-label" style={{ fontSize: '0.76rem', marginBottom: 4 }}>Operating Days</label>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <label className="form-label" style={{ fontSize: '0.76rem', margin: 0 }}>Operating Days *</label>
+                        <span style={{ fontSize: '0.68rem', color: '#b45309', fontWeight: 600 }}>{downDays.length} days active</span>
+                      </div>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         {WEEKDAYS.map((d) => {
+                          const isAvail = availableDownDays.includes(d.id);
                           const isSel = downDays.includes(d.id);
+                          const lockReason = !isAvail
+                            ? `🔒 ${d.fullName} Locked: Bus is not at destination on this day (UP arrives on ${availableDownDays.join(', ')})`
+                            : `Toggle ${d.fullName}`;
                           return (
                             <button
                               key={d.id}
                               type="button"
+                              disabled={!isAvail}
+                              title={lockReason}
                               onClick={() => {
-                                if (isSel) setDownDays(downDays.filter((x) => x !== d.id));
-                                else setDownDays([...downDays, d.id]);
+                                if (!isAvail) return;
+                                if (isSel) {
+                                  if (downDays.length > 1) setDownDays(downDays.filter((x) => x !== d.id));
+                                } else {
+                                  setDownDays([...downDays, d.id]);
+                                }
                               }}
                               style={{
-                                background: isSel ? '#d97706' : '#f1f5f9',
-                                color: isSel ? '#ffffff' : '#475569',
-                                border: 'none',
+                                background: !isAvail ? '#f1f5f9' : isSel ? '#d97706' : '#ffffff',
+                                color: !isAvail ? '#94a3b8' : isSel ? '#ffffff' : '#334155',
+                                border: !isAvail ? '1px solid #cbd5e1' : isSel ? '1px solid #b45309' : '1px solid #cbd5e1',
                                 borderRadius: 4,
                                 padding: '3px 8px',
                                 fontSize: '0.72rem',
                                 fontWeight: 700,
-                                cursor: 'pointer',
+                                cursor: !isAvail ? 'not-allowed' : 'pointer',
+                                opacity: !isAvail ? 0.6 : 1,
                               }}
                             >
-                              {d.label}
+                              {!isAvail ? '🔒 ' : isSel ? '✓ ' : ''}{d.label}
                             </button>
                           );
                         })}
+                      </div>
+                      <div style={{ fontSize: '0.67rem', color: '#b45309', marginTop: 3 }}>
+                        🔒 Days locked to physical bus arrivals at destination ({availableDownDays.join(', ')}).
                       </div>
                     </div>
                   </div>
@@ -1918,53 +2948,159 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                 <div
                   style={{
                     background: turnaroundInfo.isValid ? '#f0fdf4' : '#fef2f2',
-                    border: `1px solid ${turnaroundInfo.isValid ? '#86efac' : '#fca5a5'}`,
-                    borderRadius: 8,
-                    padding: '12px 16px',
+                    border: `1.5px solid ${turnaroundInfo.isValid ? '#86efac' : '#fca5a5'}`,
+                    borderRadius: 10,
+                    padding: '14px 18px',
                     marginBottom: '1.5rem',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: 12,
                   }}
                 >
-                  <div>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: turnaroundInfo.isValid ? '#166534' : '#991b1b' }}>
-                      ⏱️ Turnaround Rest Time: {turnaroundInfo.text}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 14, marginBottom: 12 }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: '0.92rem', fontWeight: 800, color: turnaroundInfo.isValid ? '#166534' : '#991b1b' }}>
+                          ⏱️ Destination Turnaround Rest: {turnaroundInfo.text}
+                        </span>
+                        <span
+                          style={{
+                            background: turnaroundInfo.isValid ? '#dcfce7' : '#fee2e2',
+                            color: turnaroundInfo.isValid ? '#15803d' : '#991b1b',
+                            border: `1px solid ${turnaroundInfo.isValid ? '#86efac' : '#fca5a5'}`,
+                            padding: '2px 8px',
+                            borderRadius: 6,
+                            fontSize: '0.7rem',
+                            fontWeight: 800,
+                          }}
+                        >
+                          {turnaroundInfo.isValid ? '✓ Valid (1h – 12h)' : '⚠️ Out of Range (Must be 1h – 12h)'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: turnaroundInfo.isValid ? '#15803d' : '#b91c1c', marginTop: 3 }}>
+                        {turnaroundInfo.isValid
+                          ? `✓ Rest buffer between UP arrival (${upArrTime}) and DOWN departure (${downDepTime}) is compliant.`
+                          : turnaroundInfo.error}
+                      </div>
+                      {turnaroundInfo.origRestText !== '—' && (
+                        <div style={{ fontSize: '0.72rem', color: '#475569', marginTop: 2 }}>
+                          🏠 Origin Return Rest (DOWN Arrive {downArrTime} ➔ Next UP Depart {upDepTime}): <strong>{turnaroundInfo.origRestText}</strong>
+                        </div>
+                      )}
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: turnaroundInfo.isValid ? '#15803d' : '#b91c1c', marginTop: 2 }}>
-                      {turnaroundInfo.isValid
-                        ? '✓ Rest duration between UP arrival and DOWN departure is adequate for crew & vehicle turnaround.'
-                        : '⚠️ Turnaround time is below 60 minutes. Please adjust times to ensure adequate rest.'}
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>Standard Fare:</div>
+                        <div style={{ fontSize: '0.67rem', color: '#16a34a', fontWeight: 700 }}>Flat price for every intermediate station</div>
+                      </div>
+                      <div className="input-wrap" style={{ width: 110 }}>
+                        <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontWeight: 700 }}>₹</span>
+                        <input
+                          type="number"
+                          className="form-control"
+                          style={{ paddingLeft: 22 }}
+                          value={tripFare}
+                          onChange={(e) => setTripFare(e.target.value)}
+                          min={50}
+                          max={4500}
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>Standard Fare:</span>
-                    <div className="input-wrap" style={{ width: 110 }}>
-                      <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontWeight: 700 }}>₹</span>
-                      <input
-                        type="number"
-                        className="form-control"
-                        style={{ paddingLeft: 22 }}
-                        value={tripFare}
-                        onChange={(e) => setTripFare(e.target.value)}
-                        min={50}
-                        max={4500}
-                      />
+                  {/* Rest Duration Selector & Auto-Setter (1 hr to 12 hrs) */}
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: 8,
+                      padding: '10px 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 10,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0f172a' }}>
+                        ⏱️ Select Turnaround Rest Buffer (1h to 12h):
+                      </span>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {['1', '2', '3', '4', '6', '8', '12'].map((hr) => {
+                          const isSel = restHoursBuffer === hr;
+                          return (
+                            <button
+                              key={`rest-${hr}`}
+                              type="button"
+                              onClick={() => {
+                                setRestHoursBuffer(hr);
+                                applyRestToDownDep(hr);
+                              }}
+                              style={{
+                                background: isSel ? '#2563eb' : '#f1f5f9',
+                                color: isSel ? '#ffffff' : '#334155',
+                                border: isSel ? '1px solid #1d4ed8' : '1px solid #cbd5e1',
+                                borderRadius: 4,
+                                padding: '3px 8px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {hr}h
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <input
+                          type="number"
+                          min={1}
+                          max={12}
+                          step={0.5}
+                          value={restHoursBuffer}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRestHoursBuffer(val);
+                            if (Number(val) >= 1 && Number(val) <= 12) {
+                              applyRestToDownDep(val);
+                            }
+                          }}
+                          style={{ width: 55, padding: '3px 6px', fontSize: '0.74rem', borderRadius: 4, border: '1px solid #cbd5e1', textAlign: 'center' }}
+                        />
+                        <span style={{ fontSize: '0.72rem', color: '#64748b' }}>hrs</span>
+                      </div>
                     </div>
+
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() => applyRestToDownDep(restHoursBuffer)}
+                      style={{ fontSize: '0.74rem', padding: '4px 10px', fontWeight: 700, color: '#2563eb', borderColor: '#93c5fd' }}
+                    >
+                      ⚡ Auto-Sync DOWN Dep ({restHoursBuffer}h from UP Arrival)
+                    </button>
                   </div>
                 </div>
 
                 {/* Save Schedules Button */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                  {!turnaroundInfo.isValid && (
+                    <div style={{ fontSize: '0.74rem', color: '#dc2626', fontWeight: 700 }}>
+                      ⚠️ {turnaroundInfo.error}
+                    </div>
+                  )}
                   <button
                     type="button"
                     className="btn btn-primary"
                     onClick={handleSaveRoundTripSchedules}
-                    disabled={scheduleLoading}
-                    style={{ padding: '9px 24px', fontWeight: 800, fontSize: '0.9rem' }}
+                    disabled={scheduleLoading || !turnaroundInfo.isValid || upDays.length === 0 || downDays.length === 0}
+                    style={{
+                      padding: '9px 24px',
+                      fontWeight: 800,
+                      fontSize: '0.9rem',
+                      opacity: (!turnaroundInfo.isValid || upDays.length === 0 || downDays.length === 0) ? 0.5 : 1,
+                      cursor: (!turnaroundInfo.isValid || upDays.length === 0 || downDays.length === 0) ? 'not-allowed' : 'pointer',
+                    }}
                   >
                     {scheduleLoading ? 'Saving Schedules…' : '🚀 Save & Publish Round-Trip Schedules'}
                   </button>
@@ -2011,6 +3147,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                     <div><strong>Route:</strong> {selectedBus.assignedRoute.originCity} ↔ {selectedBus.assignedRoute.destCity}</div>
                     <div><strong>Corridor:</strong> {selectedBus.assignedRoute.corridorName} ({selectedBus.assignedRoute.distanceKm} km)</div>
                     <div><strong>Intermediate Stations:</strong> {selectedBus.assignedRoute.intermediateStops?.join(' ➔ ')}</div>
+                    <div><strong>Standard Fare:</strong> ₹{selectedBus.roundTripSchedule?.fare || 650} (Flat price for all intermediate stations)</div>
                     <div><strong>Assigned On:</strong> {new Date(selectedBus.assignedRoute.assignedAt).toLocaleDateString()}</div>
                   </div>
                 ) : (
@@ -2059,7 +3196,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
               >
                 🗑️ Delete Bus
               </button>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   className="btn btn-outline"
@@ -2068,18 +3205,29 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                 >
                   Close
                 </button>
-                {selectedBus.assignedRoute && (
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => {
-                      setShowBusDetailsModal(false);
-                      handleOpenChangeRoute(selectedBus);
-                    }}
-                    style={{ padding: '6px 16px' }}
-                  >
-                    Change Route
-                  </button>
+                {(selectedBus.assignedRoute || selectedBus.status === 'Assigned') && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() => handleUnassignRoute(selectedBus)}
+                      style={{ padding: '6px 14px', color: '#b45309', borderColor: '#fde68a' }}
+                      title="Unassign route from this bus"
+                    >
+                      Unassign Route
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => {
+                        setShowBusDetailsModal(false);
+                        handleOpenChangeRoute(selectedBus);
+                      }}
+                      style={{ padding: '6px 16px' }}
+                    >
+                      Change Route
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -2092,27 +3240,45 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
          ───────────────────────────────────────────────────────────── */}
       {showChangeRouteModal && selectedBus && (
         <div className="modal-overlay" onClick={() => setShowChangeRouteModal(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 620, width: '92%' }}>
-            <div className="modal-header-row">
+          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 880, width: '95%', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header-row" style={{ padding: '14px 20px', borderBottom: '1px solid #e2e8f0' }}>
               <div>
-                <div className="modal-title">🔄 Change Route Assignment: {selectedBus.vehicleNumber}</div>
-                <div className="modal-sub">Move bus to a new route corridor safely without breaking bookings</div>
+                <div className="modal-title" style={{ fontSize: '1.08rem', fontWeight: 800 }}>
+                  🔄 Change Route Assignment: {selectedBus.vehicleNumber} ({selectedBus.busName})
+                </div>
+                <div className="modal-sub" style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                  Reassign bus to a new route corridor with interactive road map & intermediate stop controls
+                </div>
               </div>
               <button className="modal-close" onClick={() => setShowChangeRouteModal(false)}>✕</button>
             </div>
 
-            <div className="modal-body-scroll">
+            <div className="modal-body-scroll" style={{ padding: '16px 20px', overflowY: 'auto' }}>
               {changeError && <div className="alert alert-error" style={{ marginBottom: 12 }}>⚠️ {changeError}</div>}
 
               {/* Current Route Banner */}
-              <div style={{ background: '#f8fafc', padding: 10, borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 12, fontSize: '0.8rem' }}>
-                <div>Current Assigned Route: <strong>{selectedBus.assignedRoute?.originCity} ↔ {selectedBus.assignedRoute?.destCity}</strong></div>
-                <div style={{ color: '#64748b', fontSize: '0.74rem' }}>{selectedBus.assignedRoute?.corridorName}</div>
+              <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 14, fontSize: '0.8rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    Current Assigned Route: <strong style={{ color: '#1d4ed8' }}>{selectedBus.assignedRoute?.originCity} ↔ {selectedBus.assignedRoute?.destCity}</strong>
+                  </div>
+                  <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700 }}>
+                    {selectedBus.assignedRoute?.distanceKm} km &bull; {selectedBus.assignedRoute?.durationEst}
+                  </span>
+                </div>
+                <div style={{ color: '#64748b', fontSize: '0.74rem', marginTop: 3 }}>
+                  Corridor: {selectedBus.assignedRoute?.corridorName}
+                </div>
+                {selectedBus.assignedRoute?.intermediateStops?.length > 0 && (
+                  <div style={{ color: '#475569', fontSize: '0.72rem', marginTop: 3 }}>
+                    Current Stops: {selectedBus.assignedRoute.intermediateStops.join(' ➔ ')}
+                  </div>
+                )}
               </div>
 
               {/* Conflict Warning if passenger bookings exist */}
               {changeConflicts && (
-                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', padding: 12, borderRadius: 8, marginBottom: 12 }}>
+                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', padding: 12, borderRadius: 8, marginBottom: 14 }}>
                   <div style={{ color: '#991b1b', fontWeight: 800, fontSize: '0.84rem', marginBottom: 4 }}>
                     ⚠️ {changeConflicts.conflictCount} Active Passenger Bookings Detected!
                   </div>
@@ -2125,68 +3291,697 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                 </div>
               )}
 
-              {/* New Route Inputs */}
-              <div className="form-row" style={{ marginBottom: 10 }}>
-                <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '0.78rem' }}>New Origin City *</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={changeRouteData.originCity}
-                    onChange={(e) => setChangeRouteData({ ...changeRouteData, originCity: e.target.value })}
+              {/* Step 2: New Origin & Destination Selection */}
+              <div style={{ marginBottom: 16 }}>
+                <label className="form-label" style={{ fontWeight: 800, marginBottom: 8, fontSize: '0.84rem', color: '#0f172a' }}>
+                  Step 2: Select New Origin & Destination Cities
+                </label>
+                <div className="form-row" style={{ marginBottom: 8 }}>
+                  <OsmLocationSelector
+                    label="New Origin City *"
+                    value={changeOrigin}
+                    onChange={(name, item) => {
+                      setChangeOrigin(name);
+                      if (item) setChangeOriginCoords(item);
+                      if (name && changeDest && name.trim().toLowerCase() !== changeDest.trim().toLowerCase()) {
+                        handleDiscoverChangeCorridors(name, changeDest, null, null, item, changeDestCoords);
+                      }
+                    }}
+                    approvedCities={approvedCities}
+                    placeholder="e.g. Chennai..."
+                  />
+                  <OsmLocationSelector
+                    label="New Destination City *"
+                    value={changeDest}
+                    onChange={(name, item) => {
+                      setChangeDest(name);
+                      if (item) setChangeDestCoords(item);
+                      if (changeOrigin && name && changeOrigin.trim().toLowerCase() !== name.trim().toLowerCase()) {
+                        handleDiscoverChangeCorridors(changeOrigin, name, null, null, changeOriginCoords, item);
+                      }
+                    }}
+                    onRequestMissing={(item) => handleOpenRequestModal(item, 'change')}
+                    approvedCities={approvedCities}
+                    placeholder="e.g. Ongole or Guntur or Vijayawada..."
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '0.78rem' }}>New Destination City *</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={changeRouteData.destCity}
-                    onChange={(e) => setChangeRouteData({ ...changeRouteData, destCity: e.target.value })}
-                  />
+                {/* Quick Helper for Missing City / Town Request in Change Route Modal */}
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    marginBottom: 10,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '0.74rem',
+                  }}
+                >
+                  <span style={{ color: '#64748b' }}>
+                    🛡️ Target destination unapproved or missing? Raise platform request with OSM Locator:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenRequestModal(null, 'change')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#2563eb',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      padding: 0,
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    + Raise Route Request →
+                  </button>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => handleDiscoverChangeCorridors(changeOrigin, changeDest, null, null, changeOriginCoords, changeDestCoords)}
+                    disabled={changeLoading || !changeOrigin || !changeDest}
+                    style={{ padding: '5px 14px', fontSize: '0.76rem', fontWeight: 700 }}
+                  >
+                    {changeLoading ? '🔍 Discovering Corridors…' : '🔍 Find Available Corridors'}
+                  </button>
                 </div>
               </div>
 
-              <div className="form-group" style={{ marginBottom: 12 }}>
-                <label className="form-label" style={{ fontSize: '0.78rem' }}>New Route Corridor Name</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="e.g. Corridor A: NH16 Direct Express"
-                  value={changeRouteData.corridorName}
-                  onChange={(e) => setChangeRouteData({ ...changeRouteData, corridorName: e.target.value })}
-                />
-              </div>
+              {/* Step 3: Select Discovered Corridor */}
+              {changeCorridors.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <label className="form-label" style={{ fontWeight: 800, marginBottom: 8, fontSize: '0.84rem', color: '#0f172a' }}>
+                    Step 3: Select New Route Corridor:
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {changeCorridors.map((c) => {
+                      const isSelected = selectedChangeCorridorId === c.corridorId;
+                      return (
+                        <div
+                          key={c.corridorId}
+                          onClick={() => handleSelectChangeCorridor(c.corridorId)}
+                          style={{
+                            border: isSelected ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                            background: isSelected ? '#eff6ff' : '#ffffff',
+                            borderRadius: 8,
+                            padding: '10px 14px',
+                            cursor: 'pointer',
+                            transition: 'all 0.12s ease',
+                            boxShadow: isSelected ? '0 2px 8px rgba(37, 99, 235, 0.12)' : 'none',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 800, fontSize: '0.86rem', color: isSelected ? '#1e40af' : '#0f172a' }}>
+                              {c.name}
+                            </span>
+                            <span style={{ fontWeight: 700, fontSize: '0.78rem', color: '#1e40af' }}>
+                              {c.distance} km &bull; ⏱️ Est. Travel: {c.duration}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 3 }}>
+                            Major Towns: {c.majorTowns?.join(' ➔ ')}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
+              {/* Step 4: Map Visualizer Preview */}
+              {changeCorridors.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <label className="form-label" style={{ fontWeight: 800, marginBottom: 6, fontSize: '0.84rem', color: '#0f172a' }}>
+                    Step 4: Interactive Route Corridor Map & Stop Visualizer:
+                  </label>
+                  <RouteCorridorMap
+                    source={changeOriginCoords || getCityCoords(changeOrigin) || { name: changeOrigin, lat: 13.0827, lng: 80.2707 }}
+                    destination={changeDestCoords || getCityCoords(changeDest) || { name: changeDest, lat: 16.5062, lng: 80.6480 }}
+                    corridors={changeCorridors}
+                    selectedCorridorId={selectedChangeCorridorId || changeCorridors[0]?.corridorId}
+                    onSelectCorridor={handleSelectChangeCorridor}
+                    routeStops={changeOrderedStations.filter((s) => selectedChangeStationIds.includes(s.id))}
+                    suggestedStops={changeOrderedStations.filter((s) => !selectedChangeStationIds.includes(s.id))}
+                    onToggleStop={(st) => handleToggleChangeStation(st.id)}
+                    height={260}
+                  />
+                </div>
+              )}
+
+              {/* Step 5: Pick Main Towns and Famous Places (In Map Progression Order) */}
+              {changeCorridors.length > 0 && changeOrderedStations.length > 0 && (
+                <div
+                  style={{
+                    marginBottom: 16,
+                    border: '1.5px solid #bfdbfe',
+                    borderRadius: 10,
+                    background: '#f8fafc',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      background: '#eff6ff',
+                      padding: '10px 14px',
+                      borderBottom: '1px solid #bfdbfe',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: 8,
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#1e40af' }}>
+                        📍 Step 5: Main Towns & Famous RTC Places along Route Corridor (In Strict Map Order)
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: '#475569', marginTop: 2 }}>
+                        Derived from road geometry & corridor polyline. Ordered strictly from {changeOrigin} to {changeDest}.
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={handleSelectAllChangeStations}
+                        style={{
+                          background: '#2563eb',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 6,
+                          padding: '3px 8px',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✓ Select All ({changeOrderedStations.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSelectTerminalsOnlyChangeStations}
+                        style={{
+                          background: '#7c3aed',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 6,
+                          padding: '3px 8px',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        🏛️ RTC Terminals Only ({changeOrderedStations.filter((s) => s.type === 'TERMINAL').length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleClearAllChangeStations}
+                        style={{
+                          background: '#e2e8f0',
+                          color: '#475569',
+                          border: 'none',
+                          borderRadius: 6,
+                          padding: '3px 8px',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕ Clear All
+                      </button>
+                      <span
+                        style={{
+                          background: selectedChangeStationIds.length > 0 ? '#dcfce7' : '#fee2e2',
+                          color: selectedChangeStationIds.length > 0 ? '#15803d' : '#991b1b',
+                          padding: '3px 8px',
+                          borderRadius: 6,
+                          fontSize: '0.7rem',
+                          fontWeight: 800,
+                        }}
+                      >
+                        {selectedChangeStationIds.length} of {changeOrderedStations.length} Stations Assigned
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Stations Table */}
+                  <div style={{ overflowX: 'auto', maxHeight: 220, overflowY: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem' }}>
+                      <thead>
+                        <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1', textAlign: 'left', color: '#475569' }}>
+                          <th style={{ padding: '6px 10px', width: '36px', textAlign: 'center' }}>Assign</th>
+                          <th style={{ padding: '6px 8px', width: '50px' }}>Seq #</th>
+                          <th style={{ padding: '6px 10px' }}>Station & RTC Hub</th>
+                          <th style={{ padding: '6px 10px' }}>Type</th>
+                          <th style={{ padding: '6px 10px' }}>Distance</th>
+                          <th style={{ padding: '6px 10px' }}>Est. Travel</th>
+                          <th style={{ padding: '6px 10px' }}>Schedule Halt (10m)</th>
+                          <th style={{ padding: '6px 10px', textAlign: 'right' }}>Ticket Fare</th>
+                          <th style={{ padding: '6px 10px', textAlign: 'center' }}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {changeOrderedStations.map((st, idx) => {
+                          const isAssigned = selectedChangeStationIds.includes(st.id);
+                          return (
+                            <tr
+                              key={st.id}
+                              onClick={() => handleToggleChangeStation(st.id)}
+                              style={{
+                                borderBottom: '1px solid #e2e8f0',
+                                background: isAssigned ? '#ffffff' : '#f8fafc',
+                                opacity: isAssigned ? 1 : 0.65,
+                                cursor: 'pointer',
+                                transition: 'background 0.1s ease',
+                              }}
+                            >
+                              <td style={{ padding: '6px 10px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={isAssigned}
+                                  onChange={() => handleToggleChangeStation(st.id)}
+                                  style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#2563eb' }}
+                                />
+                              </td>
+                              <td style={{ padding: '6px 8px' }}>
+                                <span
+                                  style={{
+                                    background: isAssigned ? '#2563eb' : '#94a3b8',
+                                    color: '#fff',
+                                    borderRadius: '50%',
+                                    width: 20,
+                                    height: 20,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontWeight: 800,
+                                    fontSize: '0.68rem',
+                                  }}
+                                >
+                                  {idx + 1}
+                                </span>
+                              </td>
+                              <td style={{ padding: '6px 10px' }}>
+                                <div style={{ fontWeight: 800, color: isAssigned ? '#0f172a' : '#64748b' }}>
+                                  {st.fullName}
+                                </div>
+                              </td>
+                              <td style={{ padding: '6px 10px' }}>
+                                <span
+                                  style={{
+                                    background: st.type === 'TERMINAL' ? '#f3e8ff' : '#e0f2fe',
+                                    color: st.type === 'TERMINAL' ? '#7e22ce' : '#0369a1',
+                                    padding: '1px 6px',
+                                    borderRadius: 4,
+                                    fontWeight: 700,
+                                    fontSize: '0.65rem',
+                                  }}
+                                >
+                                  {st.type === 'TERMINAL' ? '🏛️ Terminal' : '🏙️ Town'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '6px 10px', fontWeight: 700, color: '#0f172a' }}>
+                                📍 {st.distanceFromOriginKm} km
+                              </td>
+                              <td style={{ padding: '6px 10px', color: '#1e40af', fontWeight: 700 }}>
+                                ⏱️ {st.elapsedTimeStr}
+                              </td>
+                              <td style={{ padding: '6px 10px' }}>
+                                <div style={{ color: '#15803d', fontWeight: 700 }}>
+                                  🕒 Arr: {st.estimatedArrivalTime}
+                                </div>
+                                <div style={{ color: '#475569', fontSize: '0.68rem' }}>
+                                  ➔ Dep: {st.estimatedDepartureTime}
+                                </div>
+                              </td>
+                              <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 800, color: '#16a34a' }}>
+                                ₹{selectedBus?.roundTripSchedule?.fare || tripFare || 650}
+                              </td>
+                              <td style={{ padding: '6px 10px', textAlign: 'center' }}>
+                                <span
+                                  style={{
+                                    background: isAssigned ? '#dcfce7' : '#f1f5f9',
+                                    color: isAssigned ? '#15803d' : '#64748b',
+                                    padding: '2px 6px',
+                                    borderRadius: 10,
+                                    fontWeight: 800,
+                                    fontSize: '0.65rem',
+                                  }}
+                                >
+                                  {isAssigned ? '✓ Assigned' : 'Excluded'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Transition Date */}
               <div className="form-group" style={{ marginBottom: 12 }}>
-                <label className="form-label" style={{ fontSize: '0.78rem' }}>Effective Transition Date</label>
+                <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 700 }}>
+                  Effective Transition Date *
+                </label>
                 <input
                   type="date"
                   className="form-control"
-                  value={changeRouteData.effectiveDate}
-                  onChange={(e) => setChangeRouteData({ ...changeRouteData, effectiveDate: e.target.value })}
+                  value={changeEffectiveDate}
+                  onChange={(e) => setChangeEffectiveDate(e.target.value)}
                 />
                 <span className="form-hint">* Date on which the new corridor becomes active.</span>
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 18px', borderTop: '1px solid #e2e8f0', gap: 8 }}>
-              <button
-                type="button"
-                className="btn btn-outline"
-                onClick={() => setShowChangeRouteModal(false)}
-                style={{ padding: '6px 14px' }}
-              >
-                Cancel
+            <div style={{ padding: '12px 20px', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
+              {!changeRouteValidation.isValid && (
+                <div style={{
+                  background: '#fffbeb',
+                  border: '1px solid #fde68a',
+                  borderRadius: 6,
+                  padding: '8px 12px',
+                  fontSize: '0.74rem',
+                  color: '#92400e',
+                  marginBottom: 10,
+                }}>
+                  <strong>⚠️ Incomplete Route Reassignment:</strong>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                    {changeRouteValidation.errors.map((err, idx) => (
+                      <span key={idx} style={{ background: '#fef3c7', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
+                        &bull; {err}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setShowChangeRouteModal(false)}
+                  style={{ padding: '7px 16px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => handleConfirmChangeRoute(true)}
+                  disabled={!changeRouteValidation.isValid || changeLoading}
+                  style={{
+                    padding: '7px 22px',
+                    fontWeight: 800,
+                    opacity: changeRouteValidation.isValid ? 1 : 0.45,
+                    cursor: changeRouteValidation.isValid ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  {changeLoading ? 'Reassigning…' : `Confirm Route Reassignment (${selectedChangeStationIds.length || changeOrderedStations.length} Stations) ➔`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+         MODAL 3: RAISE ROUTE DESTINATION REQUEST (OpenStreetMap Locator)
+         City / Town Name is strictly NON-EDITABLE, populated exclusively
+         from OpenStreetMap Locator selection.
+         ───────────────────────────────────────────────────────────── */}
+      {showRequestModal && (
+        <div className="modal-overlay" onClick={() => setShowRequestModal(false)}>
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 640, width: '92%' }}
+          >
+            <div className="modal-header-row" style={{ padding: '14px 20px', borderBottom: '1px solid #e2e8f0' }}>
+              <div>
+                <div className="modal-title" style={{ fontSize: '1.05rem', fontWeight: 800 }}>
+                  📍 Raise Route Destination Request
+                </div>
+                <div className="modal-sub" style={{ fontSize: '0.76rem', color: '#64748b' }}>
+                  Request platform approval for a new town or bus stop via OpenStreetMap locator.
+                </div>
+              </div>
+              <button className="modal-close" onClick={() => setShowRequestModal(false)}>
+                ✕
               </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => handleConfirmChangeRoute(true)}
-                style={{ padding: '6px 18px', fontWeight: 800 }}
-              >
-                Confirm Route Reassignment ➔
-              </button>
+            </div>
+
+            <div className="modal-body-scroll" style={{ padding: '16px 20px', maxHeight: '75vh', overflowY: 'auto' }}>
+              {reqError && <div className="alert alert-error" style={{ marginBottom: 12 }}>⚠️ {reqError}</div>}
+              {reqSuccess && <div className="alert alert-success" style={{ marginBottom: 12 }}>{reqSuccess}</div>}
+
+              <form onSubmit={handleRaiseRequest}>
+                {/* Step 1: OpenStreetMap Locator Live Search & Validation */}
+                <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1rem' }}>
+                  <label className="form-label" style={{ fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>
+                    🔍 Search &amp; Validate Location on OpenStreetMap *
+                  </label>
+                  <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '0 0 8px' }}>
+                    Type the destination city, town, or bus stop. You must select a verified OpenStreetMap result to populate coordinates and OSM ID.
+                  </p>
+
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Nayudupeta, Kavali, Ongole, Tirupati, Chirala..."
+                      value={modalOsmSearch}
+                      onChange={(e) => handleModalSearchChange(e.target.value)}
+                      style={{ paddingRight: modalOsmSearch ? '65px' : undefined }}
+                    />
+                    {modalOsmSearch && !modalOsmLoading && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModalOsmSearch('');
+                          setModalOsmResults([]);
+                          setSelectedOsmItem(null);
+                          setReqForm((prev) => ({
+                            ...prev,
+                            cityName: '',
+                            displayName: '',
+                            osmId: '',
+                            latitude: null,
+                            longitude: null,
+                          }));
+                        }}
+                        style={{
+                          position: 'absolute',
+                          right: 10,
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: '#94a3b8',
+                          fontSize: '0.85rem',
+                        }}
+                        title="Clear OSM search"
+                      >
+                        ✕
+                      </button>
+                    )}
+                    {modalOsmLoading && (
+                      <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#3b82f6' }}>
+                        Searching OSM...
+                      </span>
+                    )}
+                  </div>
+
+                  {/* OSM Live Search Results Dropdown */}
+                  {modalOsmResults.length > 0 && (
+                    <div
+                      style={{
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: 6,
+                        marginTop: 4,
+                        maxHeight: 180,
+                        overflowY: 'auto',
+                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                      }}
+                    >
+                      {modalOsmResults.map((item, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => handleSelectModalOsm(item)}
+                          style={{
+                            padding: '8px 12px',
+                            borderBottom: '1px solid #f1f5f9',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = '#f0fdf4')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
+                        >
+                          <div style={{ fontWeight: 700, color: '#0f172a' }}>
+                            {item.name} <span style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 600 }}>({item.locationType})</span>
+                          </div>
+                          <div style={{ color: '#64748b', fontSize: '0.72rem' }}>{item.displayName}</div>
+                          <div style={{ color: '#94a3b8', fontSize: '0.68rem' }}>
+                            OSM ID: {item.osmId} &bull; {item.latitude?.toFixed(4)}°, {item.longitude?.toFixed(4)}°
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Selected Verified OSM Location Card */}
+                  {selectedOsmItem ? (
+                    <div
+                      style={{
+                        background: '#ecfdf5',
+                        border: '1px solid #a7f3d0',
+                        borderRadius: 6,
+                        padding: '10px 12px',
+                        marginTop: 10,
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.84rem', color: '#065f46' }}>
+                          ✓ Verified OSM Location: {selectedOsmItem.name}
+                        </span>
+                        <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: 10, fontSize: '0.7rem', fontWeight: 700 }}>
+                          OSM ID: {selectedOsmItem.osmId}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#047857', marginTop: 2 }}>
+                        {selectedOsmItem.displayName}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: '#059669', marginTop: 2 }}>
+                        Type: <strong>{selectedOsmItem.locationType || 'city'}</strong> &bull; Lat: <strong>{selectedOsmItem.latitude}</strong> &bull; Lon: <strong>{selectedOsmItem.longitude}</strong>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '0.72rem', color: '#d97706', marginTop: 6 }}>
+                      ⚠️ No location selected yet. Search above and click a suggested OSM location.
+                    </div>
+                  )}
+                </div>
+
+                {/* City Name & State: STRICTLY NON-EDITABLE AS REQUIRED */}
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>City / Town Name *</span>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          color: reqForm.cityName ? '#16a34a' : '#d97706',
+                        }}
+                      >
+                        {reqForm.cityName ? '🔒 Non-editable — Brought from OSM Locator' : '⚠️ Select from OSM above'}
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control no-icon"
+                      placeholder="Selected from OpenStreetMap (Non-editable)"
+                      value={reqForm.cityName}
+                      readOnly
+                      required
+                      style={{
+                        backgroundColor: '#f1f5f9',
+                        color: reqForm.cityName ? '#0f172a' : '#64748b',
+                        cursor: 'not-allowed',
+                        fontWeight: reqForm.cityName ? 700 : 400,
+                        border: '1.5px solid #cbd5e1',
+                      }}
+                    />
+                    <span className="form-hint" style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                      * Non-editable: Automatically brought from the OpenStreetMap selection above.
+                    </span>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">State / Region *</label>
+                    <select
+                      className="form-control no-icon"
+                      value={reqForm.state}
+                      onChange={(e) => setReqForm({ ...reqForm, state: e.target.value })}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      {STATE_OPTIONS.map((st) => (
+                        <option key={st} value={st}>
+                          {st}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Hub Classification */}
+                <div className="form-group">
+                  <label className="form-label">Hub / Classification</label>
+                  <select
+                    className="form-control no-icon"
+                    value={reqForm.hubType}
+                    onChange={(e) => setReqForm({ ...reqForm, hubType: e.target.value })}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {HUB_TYPES.map((ht) => (
+                      <option key={ht} value={ht}>
+                        {ht}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Proposed Corridor */}
+                <div className="form-group">
+                  <label className="form-label">Proposed Connecting Corridor</label>
+                  <input
+                    type="text"
+                    className="form-control no-icon"
+                    placeholder="e.g. Chennai ↔ Ongole via Nayudupeta, Nellore, Kavali"
+                    value={reqForm.connectingRoutes}
+                    onChange={(e) => setReqForm({ ...reqForm, connectingRoutes: e.target.value })}
+                  />
+                  <span className="form-hint">Specify which major approved cities this new destination will connect with.</span>
+                </div>
+
+                {/* Commuter Demand */}
+                <div className="form-group">
+                  <label className="form-label">Commuter Demand &amp; Justification</label>
+                  <textarea
+                    className="form-control no-icon"
+                    rows={3}
+                    placeholder="e.g. High weekend passenger traffic, IT corridor daily commuters, student movement. Expected daily occupancy > 80%."
+                    value={reqForm.reason}
+                    onChange={(e) => setReqForm({ ...reqForm, reason: e.target.value })}
+                    style={{ resize: 'vertical' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '1.25rem' }}>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setShowRequestModal(false)}
+                    style={{ padding: '8px 16px', background: '#f1f5f9', border: '1px solid #cbd5e1' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={reqLoading || !reqForm.cityName || !reqForm.osmId}
+                    style={{ padding: '8px 20px', fontWeight: 700 }}
+                  >
+                    {reqLoading ? 'Submitting…' : 'Submit Request to Admin'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

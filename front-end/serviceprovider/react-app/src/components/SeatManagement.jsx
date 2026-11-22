@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getSeatData } from '../services/api';
 import BusSeatLayout from './BusSeatLayout';
 
@@ -148,10 +148,19 @@ function TripSeatModal({ bus, onClose, showToast }) {
   const [activeSeat, setActiveSeat] = useState(null);
   const [blockedSeats, setBlockedSeats] = useState([]);
 
-  /* Load blocked seats for this trip from localStorage */
+  /* Load & sync blocked seats for this trip from localStorage */
   useEffect(() => {
-    const all = loadAllBlocked();
-    setBlockedSeats(all[bus.tripId] || []);
+    const updateBlocked = () => {
+      const all = loadAllBlocked();
+      setBlockedSeats(all[bus.tripId] || []);
+    };
+    updateBlocked();
+    window.addEventListener('storage', updateBlocked);
+    window.addEventListener('c2b_sync', updateBlocked);
+    return () => {
+      window.removeEventListener('storage', updateBlocked);
+      window.removeEventListener('c2b_sync', updateBlocked);
+    };
   }, [bus.tripId]);
 
   const {
@@ -159,7 +168,7 @@ function TripSeatModal({ bus, onClose, showToast }) {
     bookedSeatList = [], passengerMap = {}, tripId,
   } = bus;
 
-  const bookedCount   = bookedSeatList.length;
+  const bookedCount   = bus.bookedCount != null ? bus.bookedCount : bookedSeatList.length;
   const blockedCount  = blockedSeats.length;
   const availCount    = Math.max(0, total - bookedCount - blockedCount);
   const pct           = total > 0 ? Math.round((bookedCount / total) * 100) : 0;
@@ -167,9 +176,6 @@ function TripSeatModal({ bus, onClose, showToast }) {
   const isBooked   = (seatId) => bookedSeatList.includes(seatId);
   const isBlocked  = (seatId) => blockedSeats.includes(seatId);
   const passenger  = activeSeat ? (passengerMap[activeSeat] || null) : null;
-
-  /* Merge booked + blocked for BusSeatLayout */
-  const displayBookedList = [...new Set([...bookedSeatList, ...blockedSeats])];
 
   const handleSeatClick = (seat) => {
     const id = typeof seat === 'object' ? seat.seatId : seat;
@@ -259,11 +265,12 @@ function TripSeatModal({ bus, onClose, showToast }) {
               busType={type}
               fare={fare}
               totalSeats={total}
-              bookedSeatList={displayBookedList}
+              bookedSeatList={bookedSeatList}
               passengerMap={passengerMap}
               activeSeat={activeSeat}
               onSeatClick={handleSeatClick}
               isPreview={false}
+              blockedSeats={blockedSeats}
             />
 
             {/* Legend */}
@@ -303,7 +310,7 @@ function TripSeatModal({ bus, onClose, showToast }) {
 function BusTripCard({ bus, onView }) {
   const blockedAll   = loadAllBlocked();
   const blockedCount = (blockedAll[bus.tripId] || []).length;
-  const bookedCount  = (bus.bookedSeatList || []).length;
+  const bookedCount  = bus.bookedCount != null ? bus.bookedCount : (bus.bookedSeatList || []).length;
   const totalSeats   = bus.total || 40;
   const availCount   = Math.max(0, totalSeats - bookedCount - blockedCount);
   const pct          = Math.min(100, totalSeats > 0 ? Math.round((bookedCount / totalSeats) * 100) : 0);
@@ -328,13 +335,28 @@ function BusTripCard({ bus, onView }) {
           </div>
           <div className="seat-mg-sub">
             📍 {bus.from} → {bus.to}
+            {bus.direction && (
+              <span style={{
+                marginLeft: '0.4rem',
+                background: bus.direction === 'UP' ? '#e0f2fe' : '#fef3c7',
+                color: bus.direction === 'UP' ? '#0369a1' : '#b45309',
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                padding: '1px 6px',
+                borderRadius: 4,
+              }}>
+                {bus.direction === 'UP' ? '⬆ UP' : '⬇ DOWN'}
+              </span>
+            )}
             {journeyDate && (
               <span style={{ marginLeft: '0.5rem', color: '#94a3b8', fontSize: '0.78rem' }}>
                 · {new Date(journeyDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
               </span>
             )}
           </div>
-          <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>🕐 {bus.time}</div>
+          <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>
+            🕐 {bus.time} &nbsp;·&nbsp; ₹{bus.fare?.toLocaleString('en-IN')} / seat
+          </div>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
           <div className="seat-mg-count">{bookedCount}/{totalSeats}</div>
@@ -386,10 +408,10 @@ function BusTripCard({ bus, onView }) {
    Main SeatManagement page
    ───────────────────────────────────────────────────────────── */
 export default function SeatManagement({ provider, onNavigate, showToast }) {
-  const [buses, setBuses]             = useState([]);
-  const [selectedBus, setSelectedBus] = useState(null);
-  const [search, setSearch]           = useState('');
-  const [filterType, setFilterType]   = useState('ALL');
+  const [buses, setBuses]               = useState([]);
+  const [selectedBusId, setSelectedBusId] = useState(null);
+  const [search, setSearch]             = useState('');
+  const [filterType, setFilterType]     = useState('ALL');
 
   /* ── Load & refresh buses ── */
   useEffect(() => {
@@ -397,7 +419,7 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
     refresh();
     window.addEventListener('storage', refresh);
     window.addEventListener('c2b_sync', refresh);
-    const interval = setInterval(refresh, 3000);
+    const interval = setInterval(refresh, 2000);
     return () => {
       window.removeEventListener('storage', refresh);
       window.removeEventListener('c2b_sync', refresh);
@@ -407,6 +429,12 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
 
   /* ── Derive available bus types for dropdown ── */
   const busTypes = ['ALL', ...Array.from(new Set(buses.map((b) => b.type).filter(Boolean)))];
+
+  /* ── Derive live modal bus dynamically from buses state ── */
+  const activeModalBus = useMemo(() => {
+    if (!selectedBusId) return null;
+    return buses.find((b) => b.id === selectedBusId || b.tripId === selectedBusId) || null;
+  }, [buses, selectedBusId]);
 
   /* ── Filter logic ── */
   const filtered = buses.filter((bus) => {
@@ -427,7 +455,7 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
 
   /* ── Summary stats ── */
   const totalBuses   = filtered.length;
-  const totalBooked  = filtered.reduce((acc, b) => acc + (b.bookedSeatList || []).length, 0);
+  const totalBooked  = filtered.reduce((acc, b) => acc + (b.bookedCount != null ? b.bookedCount : (b.bookedSeatList || []).length), 0);
   const totalSeats   = filtered.reduce((acc, b) => acc + (b.total || 0), 0);
   const allBlocked   = loadAllBlocked();
   const totalBlocked = filtered.reduce((acc, b) => acc + (allBlocked[b.tripId] || []).length, 0);
@@ -438,7 +466,7 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
       <div className="page-header">
         <div>
           <h3>Trip Seat Availability Monitoring</h3>
-          <p>Monitor seat occupancy for all trips. Click any trip to view the interactive seat map, passenger details, and block/unblock seats.</p>
+          <p>Monitor seat occupancy for all assigned trips. Click any trip to view the interactive seat map, passenger details, and block/unblock seats.</p>
         </div>
       </div>
 
@@ -513,10 +541,28 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
 
       {/* ── Empty State ── */}
       {buses.length === 0 && (
-        <div className="empty-state">
-          <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🚌</div>
-          <h3 style={{ marginBottom: '0.5rem', color: '#374151' }}>No trips found</h3>
-          <p style={{ color: '#6b7280' }}>Add a schedule first to monitor seat availability here.</p>
+        <div className="empty-state" style={{ padding: '3.5rem 1.5rem', textAlign: 'center' }}>
+          <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🚏</div>
+          <h3 style={{ marginBottom: '0.5rem', color: '#1e293b', fontWeight: 700 }}>No Assigned Buses Found</h3>
+          <p style={{ color: '#64748b', maxWidth: 520, margin: '0 auto 1.5rem', fontSize: '0.92rem', lineHeight: 1.5 }}>
+            To monitor real-time seat availability, customer bookings, and coach seat layouts, first assign your registered fleet buses to route corridors in Bus Fleet &amp; Routes.
+          </p>
+          {onNavigate && (
+            <button
+              className="btn btn-primary"
+              onClick={() => onNavigate('fleet-management')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.7rem 1.5rem',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+              }}
+            >
+              🚍 Go to Bus Fleet &amp; Routes
+            </button>
+          )}
         </div>
       )}
 
@@ -535,17 +581,17 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
             <BusTripCard
               key={bus.id}
               bus={bus}
-              onView={setSelectedBus}
+              onView={(b) => setSelectedBusId(b.id || b.tripId)}
             />
           ))}
         </div>
       )}
 
-      {/* ── Seat Modal ── */}
-      {selectedBus && (
+      {/* ── Seat Modal (Dynamically Updated Live) ── */}
+      {activeModalBus && (
         <TripSeatModal
-          bus={selectedBus}
-          onClose={() => setSelectedBus(null)}
+          bus={activeModalBus}
+          onClose={() => setSelectedBusId(null)}
           showToast={showToast}
         />
       )}

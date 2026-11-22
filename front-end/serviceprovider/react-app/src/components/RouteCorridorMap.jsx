@@ -1,6 +1,21 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MapPin, Navigation, Compass, Layers, CheckCircle, PlusCircle, Trash2, ArrowRight } from 'lucide-react';
 
+/* ── Helper: Extract lat/lng whether provided as lat/lng or latitude/longitude ── */
+function getPointLat(p) {
+  if (!p) return null;
+  const v = p.lat !== undefined ? p.lat : p.latitude;
+  const n = Number(v);
+  return !isNaN(n) ? n : null;
+}
+
+function getPointLng(p) {
+  if (!p) return null;
+  const v = p.lng !== undefined ? p.lng : p.longitude;
+  const n = Number(v);
+  return !isNaN(n) ? n : null;
+}
+
 /* ── Helper: Convert lat/lng to Web Mercator projection x,y in range [0, 1] ── */
 function projectLatLng(lat, lng) {
   const sinY = Math.min(Math.max(Math.sin((lat * Math.PI) / 180), -0.9999), 0.9999);
@@ -25,7 +40,7 @@ export default function RouteCorridorMap({
   const [zoomLevel, setZoomLevel] = useState(1);
   const [activeMarker, setActiveMarker] = useState(null);
   const [hoveredCorridor, setHoveredCorridor] = useState(null);
-  const [mapMode, setMapMode] = useState('osm'); // 'osm' or 'satellite'
+  const [mapMode, setMapMode] = useState('osm'); // 'osm' or 'dark'
   const containerRef = useRef(null);
 
   // Active corridor
@@ -33,31 +48,47 @@ export default function RouteCorridorMap({
     return corridors.find((c) => c.corridorId === selectedCorridorId) || corridors[0] || null;
   }, [corridors, selectedCorridorId]);
 
+  const srcLat = getPointLat(source);
+  const srcLng = getPointLng(source);
+  const dstLat = getPointLat(destination);
+  const dstLng = getPointLng(destination);
+
   // Collect all points across source, destination, corridors, and stops for bounding box
   const allPoints = useMemo(() => {
     const pts = [];
-    if (source?.lat && source?.lng) pts.push({ lat: source.lat, lng: source.lng, name: source.name, role: 'source' });
-    if (destination?.lat && destination?.lng) pts.push({ lat: destination.lat, lng: destination.lng, name: destination.name, role: 'dest' });
+    if (srcLat != null && srcLng != null) {
+      pts.push({ lat: srcLat, lng: srcLng, name: source?.name || 'Origin', role: 'source' });
+    }
+    if (dstLat != null && dstLng != null) {
+      pts.push({ lat: dstLat, lng: dstLng, name: destination?.name || 'Destination', role: 'dest' });
+    }
 
     (routeStops || []).forEach((st, idx) => {
-      if (st.lat && st.lng) pts.push({ ...st, role: 'stop', order: idx + 1 });
+      const lat = getPointLat(st);
+      const lng = getPointLng(st);
+      if (lat != null && lng != null) pts.push({ ...st, lat, lng, role: 'stop', order: idx + 1 });
     });
 
     (suggestedStops || []).forEach((st) => {
-      if (st.lat && st.lng && !routeStops.some((s) => s.name?.toLowerCase() === st.name?.toLowerCase())) {
-        pts.push({ ...st, role: 'suggested' });
+      const lat = getPointLat(st);
+      const lng = getPointLng(st);
+      if (lat != null && lng != null && !routeStops.some((s) => s.name?.toLowerCase() === st.name?.toLowerCase())) {
+        pts.push({ ...st, lat, lng, role: 'suggested' });
       }
     });
 
     corridors.forEach((c) => {
       (c.polyline || []).forEach((pt) => {
-        const [lat, lng] = Array.isArray(pt) ? pt : [pt.lat, pt.lng];
-        if (lat && lng) pts.push({ lat, lng, role: 'poly' });
+        const lat = Array.isArray(pt) ? Number(pt[0]) : getPointLat(pt);
+        const lng = Array.isArray(pt) ? Number(pt[1]) : getPointLng(pt);
+        if (lat != null && lng != null && !isNaN(lat) && !isNaN(lng)) {
+          pts.push({ lat, lng, role: 'poly' });
+        }
       });
     });
 
     return pts;
-  }, [source, destination, routeStops, suggestedStops, corridors]);
+  }, [srcLat, srcLng, dstLat, dstLng, source?.name, destination?.name, routeStops, suggestedStops, corridors]);
 
   // Compute map bounding box
   const bounds = useMemo(() => {
@@ -71,14 +102,14 @@ export default function RouteCorridorMap({
       if (p.lng < minLng) minLng = p.lng;
       if (p.lng > maxLng) maxLng = p.lng;
     });
-    // Add 12% padding
-    const latSpan = Math.max(0.3, maxLat - minLat);
-    const lngSpan = Math.max(0.3, maxLng - minLng);
+    // Add 16% padding for clean marker presentation
+    const latSpan = Math.max(0.4, maxLat - minLat);
+    const lngSpan = Math.max(0.4, maxLng - minLng);
     return {
-      minLat: minLat - latSpan * 0.12,
-      maxLat: maxLat + latSpan * 0.12,
-      minLng: minLng - lngSpan * 0.12,
-      maxLng: maxLng + lngSpan * 0.12,
+      minLat: minLat - latSpan * 0.16,
+      maxLat: maxLat + latSpan * 0.16,
+      minLng: minLng - lngSpan * 0.16,
+      maxLng: maxLng + lngSpan * 0.16,
     };
   }, [allPoints]);
 
@@ -89,8 +120,8 @@ export default function RouteCorridorMap({
   const toSvgCoords = (lat, lng) => {
     const latFrac = (lat - bounds.minLat) / (bounds.maxLat - bounds.minLat || 1);
     const lngFrac = (lng - bounds.minLng) / (bounds.maxLng - bounds.minLng || 1);
-    const x = lngFrac * (mapWidth - 80) + 40;
-    const y = (1 - latFrac) * (mapHeight - 80) + 40;
+    const x = lngFrac * (mapWidth - 100) + 50;
+    const y = (1 - latFrac) * (mapHeight - 100) + 50;
     return { x, y };
   };
 
@@ -99,10 +130,13 @@ export default function RouteCorridorMap({
     if (!pts || pts.length < 2) return '';
     return pts
       .map((p, i) => {
-        const [lat, lng] = Array.isArray(p) ? p : [p.lat, p.lng];
+        const lat = Array.isArray(p) ? Number(p[0]) : getPointLat(p);
+        const lng = Array.isArray(p) ? Number(p[1]) : getPointLng(p);
+        if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) return '';
         const { x, y } = toSvgCoords(lat, lng);
         return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
       })
+      .filter(Boolean)
       .join(' ');
   };
 
@@ -378,14 +412,14 @@ export default function RouteCorridorMap({
           })}
 
           {/* 5. Origin Departure Hub (Green Flag & Pin) */}
-          {source?.lat && source?.lng && (
+          {srcLat != null && srcLng != null && (
             <g
               filter="url(#pin-shadow)"
               style={{ cursor: 'pointer' }}
-              onClick={() => setActiveMarker({ ...source, role: 'source' })}
+              onClick={() => setActiveMarker({ name: source?.name || 'Origin', lat: srcLat, lng: srcLng, role: 'source' })}
             >
               {(() => {
-                const { x, y } = toSvgCoords(source.lat, source.lng);
+                const { x, y } = toSvgCoords(srcLat, srcLng);
                 return (
                   <>
                     <circle cx={x} cy={y} r="16" fill="#16a34a" opacity="0.25" />
@@ -404,7 +438,7 @@ export default function RouteCorridorMap({
                       strokeWidth="1"
                     />
                     <text x={x} y={y + 26} fill="#86efac" fontSize="9.5" fontWeight="800" textAnchor="middle">
-                      {source.name || 'Origin'}
+                      {source?.name || 'Origin'}
                     </text>
                   </>
                 );
@@ -413,14 +447,14 @@ export default function RouteCorridorMap({
           )}
 
           {/* 6. Destination Hub (Red Flag & Pin) */}
-          {destination?.lat && destination?.lng && (
+          {dstLat != null && dstLng != null && (
             <g
               filter="url(#pin-shadow)"
               style={{ cursor: 'pointer' }}
-              onClick={() => setActiveMarker({ ...destination, role: 'dest' })}
+              onClick={() => setActiveMarker({ name: destination?.name || 'Destination', lat: dstLat, lng: dstLng, role: 'dest' })}
             >
               {(() => {
-                const { x, y } = toSvgCoords(destination.lat, destination.lng);
+                const { x, y } = toSvgCoords(dstLat, dstLng);
                 return (
                   <>
                     <circle cx={x} cy={y} r="16" fill="#dc2626" opacity="0.25" />
@@ -439,7 +473,7 @@ export default function RouteCorridorMap({
                       strokeWidth="1"
                     />
                     <text x={x} y={y + 26} fill="#fca5a5" fontSize="9.5" fontWeight="800" textAnchor="middle">
-                      {destination.name || 'Destination'}
+                      {destination?.name || 'Destination'}
                     </text>
                   </>
                 );

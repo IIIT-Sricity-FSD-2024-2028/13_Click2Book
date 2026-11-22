@@ -196,7 +196,7 @@ export default function Settings({ provider, onNavigate, showToast }) {
             <div className="settings-card">
               <h2>Help &amp; Support</h2>
               {[
-                { q: 'How do I add a new bus schedule?', a: 'Go to "Add Schedule" from the sidebar. Fill in route, timing, vehicle and fare details.' },
+                { q: 'How do I add a new bus schedule?', a: 'Go to "Bus Fleet & Routes" from the sidebar. Select your bus, assign a route corridor, and configure round-trip UP/DOWN schedules.' },
                 { q: 'How is revenue calculated?', a: '90% of gross ticket sales is your net payout. Platform retains 10% commission.' },
                 { q: 'What if the backend is offline?', a: 'All data is saved locally and synced automatically once the backend is back online.' },
                 { q: 'How do I track my trips live?', a: 'Go to "Confirm Trips" → click "Start Trip" → update GPS location or use the Simulate button.' },

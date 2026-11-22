@@ -123,6 +123,14 @@ function PassengerDrawer({ seat, passenger, onClose, onBlock, onUnblock, isBlock
                 <span className="pax-field-value">{passenger.seats.join(', ')}</span>
               </div>
             )}
+            {(passenger.from || passenger.boardingPoint) && (passenger.to || passenger.droppingPoint) && (
+              <div className="pax-field">
+                <span className="pax-field-label">📍 Boarding ➔ Dropping</span>
+                <span className="pax-field-value" style={{ fontWeight: 700, color: '#1e40af' }}>
+                  {passenger.from || passenger.boardingPoint} ➔ {passenger.to || passenger.droppingPoint}
+                </span>
+              </div>
+            )}
           </div>
           <div style={{ padding: '1rem', borderTop: '1px solid #f1f5f9', color: '#6b7280', fontSize: '0.78rem', textAlign: 'center' }}>
             Confirmed booking — cannot be unblocked here

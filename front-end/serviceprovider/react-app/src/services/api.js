@@ -84,6 +84,7 @@ export function getDashboardData() {
   const buses = [...DEFAULT_BUSES];
 
   localSchedules.forEach((s) => {
+    if (s.isSegment) return;
     const tid = s.id || s.tripId;
     const total = s.totalSeats || 40;
     const tripStatus = statuses[tid] || s.status || 'Active';
@@ -150,11 +151,12 @@ export function getDashboardData() {
 export function getLocalSchedules() {
   try {
     const raw = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const primaryOnly = raw.filter((s) => !s.isSegment);
     const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
     const completions = JSON.parse(localStorage.getItem('c2b_trip_completions') || '{}');
     const localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
 
-    return raw.map((s, i) => {
+    return primaryOnly.map((s, i) => {
       const tripId = s.id || s.tripId || `LOCAL-${i + 1}`;
       const status = statuses[tripId] || s.status || 'SCHEDULED';
       const totalSeats = s.totalSeats || 40;
@@ -174,25 +176,31 @@ export function getLocalSchedules() {
       const bookingRev = tripBookings.reduce((sum, b) => sum + (Number(b.total) || Number(b.amount) || Number(b.subtotal) || (fare * (Array.isArray(b.seat_list) ? b.seat_list.length : 1))), 0);
       const revenue = Math.max(s.revenue || 0, bookingRev || (bookedSeats * fare));
 
+      const parsedStops = Array.isArray(s.intermediateStops)
+        ? s.intermediateStops
+        : (s.via ? s.via.split(',').map((x) => x.trim()).filter(Boolean) : []);
+
       return {
         tripId,
-        source:         s.from || '—',
-        destination:    s.to   || '—',
-        via:            s.via  || '',
-        departureTime:  s.departureTime || '—',
-        arrivalTime:    s.arrivalTime   || '—',
-        journeyDate:    s.journeyDate || (s.addedAt ? s.addedAt.split('T')[0] : '—'),
-        busName:        s.busName || '—',
-        vehicleType:    s.busType || '—',
+        source:            s.from || '—',
+        destination:       s.to   || '—',
+        via:               s.via  || '',
+        intermediateStops: parsedStops,
+        allStops:          s.allStops || [s.from, ...parsedStops, s.to].filter(Boolean),
+        departureTime:     s.departureTime || '—',
+        arrivalTime:       s.arrivalTime   || '—',
+        journeyDate:       s.journeyDate || (s.addedAt ? s.addedAt.split('T')[0] : '—'),
+        busName:           s.busName || '—',
+        vehicleType:       s.busType || '—',
         availableSeats,
         totalSeats,
         bookedSeats,
         fare,
         revenue,
         status,
-        isNew:          true,
-        completedAt:    completions[tripId] || s.completedAt || null,
-        addedAt:        s.addedAt || null,
+        isNew:             true,
+        completedAt:       completions[tripId] || s.completedAt || null,
+        addedAt:           s.addedAt || null,
       };
     });
   } catch (e) { return []; }
@@ -266,15 +274,29 @@ export async function fetchSchedulesFromAPI() {
 export async function saveSchedule(payload) {
   const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId');
   const providerId = (loggedId && /^P\d+$/.test(loggedId)) ? loggedId : 'P001';
-  const { journeyDate, from, to, via, dep, arr, busName, busType, seats, fare } = payload;
+  const { journeyDate, from, to, via, intermediateStops, dep, arr, busName, busType, seats, fare } = payload;
   const todayStr = new Date().toISOString().split('T')[0];
   const validJourneyDate = journeyDate || todayStr;
 
+  // Derive intermediate stops array and effective via string
+  const stopsList = Array.isArray(intermediateStops)
+    ? intermediateStops.map((s) => String(s).trim()).filter(Boolean)
+    : typeof via === 'string' && via.trim()
+    ? via.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+
+  const effectiveVia = (via && String(via).trim()) ? String(via).trim() : stopsList.join(', ');
+
   try {
-    // Step 1 – Route
+    // Step 1 – Route (send origin, destination, and intermediate stops via string to backend)
     const routeData = await spFetch('/routes', {
       method: 'POST',
-      body: JSON.stringify({ source: from.trim(), destination: to.trim(), distance: 300, ...(via ? { via } : {}) }),
+      body: JSON.stringify({
+        source: from.trim(),
+        destination: to.trim(),
+        distance: 300,
+        ...(effectiveVia ? { via: effectiveVia } : {}),
+      }),
     });
     const routeId = routeData?.routeId || routeData?.data?.routeId || 'R001';
 
@@ -326,7 +348,7 @@ export async function saveSchedule(payload) {
       vehicleId = vehData?.vehicleId || vehData?.data?.vehicleId || 'V001';
     }
 
-    // Step 3 – Schedule
+    // Step 3 – Schedule (stores route, timings, fare and intermediate stops via)
     const schData = await spFetch('/schedules', {
       method: 'POST',
       body: JSON.stringify({
@@ -337,7 +359,7 @@ export async function saveSchedule(payload) {
         journeyDate: validJourneyDate,
         arrivalTimeToDestination: arr || '12:00',
         fare: Number(fare) || 500,
-        ...(via ? { via } : {}),
+        ...(effectiveVia ? { via: effectiveVia } : {}),
       }),
     });
     const scheduleId = schData?.scheduleId || schData?.data?.scheduleId || 'SCH001';
@@ -352,84 +374,199 @@ export async function saveSchedule(payload) {
       throw new Error(`Invalid canonical trip ID returned: ${canonicalTripId}`);
     }
 
-    _saveToLocalStorage({ tripId: canonicalTripId, backendTripId: canonicalTripId, vehicleId, scheduleId, providerId, ...payload });
+    _saveToLocalStorage({
+      tripId: canonicalTripId,
+      backendTripId: canonicalTripId,
+      vehicleId,
+      scheduleId,
+      providerId,
+      ...payload,
+      via: effectiveVia,
+      intermediateStops: stopsList,
+    });
     return { tripId: canonicalTripId, isLive: true };
   } catch (err) {
     console.warn('saveSchedule error/fallback:', err?.message || err);
-    // If backend failed, retain payload but do not generate fake TRIP_ if we can avoid it
+    // If backend failed, retain payload and save locally with intermediate stops
     const tripId = `TRIP_${Date.now()}`;
-    _saveToLocalStorage({ tripId, backendTripId: null, providerId, ...payload, vehicleId: null, scheduleId: null });
+    _saveToLocalStorage({
+      tripId,
+      backendTripId: null,
+      providerId,
+      ...payload,
+      via: effectiveVia,
+      intermediateStops: stopsList,
+      vehicleId: null,
+      scheduleId: null,
+    });
     return { tripId, isLive: false };
   }
 }
 
-function _saveToLocalStorage({ tripId, backendTripId, vehicleId, scheduleId, providerId, journeyDate, from, to, via, dep, arr, busName, busType, seats, fare }) {
+function _saveToLocalStorage({ tripId, backendTripId, vehicleId, scheduleId, providerId, journeyDate, from, to, via, intermediateStops, dep, arr, busName, busType, seats, fare }) {
   const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
   const canonicalId = backendTripId || (tripId && /^T\d+$/.test(tripId) ? tripId : null);
   const effectiveId = canonicalId || tripId;
-  const idx = schedules.findIndex((s) => (s.id || s.tripId) === effectiveId);
-  const item = {
+
+  const stopsList = Array.isArray(intermediateStops)
+    ? intermediateStops.map((s) => String(s).trim()).filter(Boolean)
+    : typeof via === 'string' && via.trim()
+    ? via.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+
+  const effectiveVia = (via && String(via).trim()) ? String(via).trim() : stopsList.join(', ');
+  const fullStops = [from.trim(), ...stopsList, to.trim()];
+
+  // Filter out any stale subsegments belonging to this trip
+  const cleanSchedules = schedules.filter(
+    (s) => s.parentTripId !== effectiveId && !String(s.id).startsWith(`${effectiveId}_SEG_`)
+  );
+
+  const primaryItem = {
     id: effectiveId,
     tripId: effectiveId,
     backendTripId: canonicalId,
-    vehicleId, scheduleId, providerId,
-    from, to, via,
-    departureTime: dep, arrivalTime: arr, journeyDate,
-    busName, busType,
-    totalSeats: Number(seats) || 40, availableSeats: Number(seats) || 40, bookedSeats: 0,
-    fare: Number(fare) || 500, revenue: 0, operatorPayout: 0,
+    vehicleId,
+    scheduleId,
+    providerId,
+    from: from.trim(),
+    to: to.trim(),
+    via: effectiveVia,
+    intermediateStops: stopsList,
+    allStops: fullStops,
+    departureTime: dep,
+    arrivalTime: arr,
+    journeyDate,
+    busName: busName || 'Express Bus',
+    busType: busType || 'AC',
+    totalSeats: Number(seats) || 40,
+    availableSeats: Number(seats) || 40,
+    bookedSeats: 0,
+    fare: Number(fare) || 500,
+    revenue: 0,
+    operatorPayout: 0,
     status: 'SCHEDULED',
+    isPrimaryRoute: true,
     addedAt: new Date().toISOString(),
   };
+
+  const idx = cleanSchedules.findIndex((s) => (s.id || s.tripId) === effectiveId);
   if (idx >= 0) {
-    schedules[idx] = { ...schedules[idx], ...item };
+    cleanSchedules[idx] = { ...cleanSchedules[idx], ...primaryItem };
   } else {
-    schedules.push(item);
+    cleanSchedules.push(primaryItem);
   }
-  localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
+
+  // Multi-Stop Route Segment Generator:
+  // If intermediate stations exist, generate all bookable sub-route pairs on this same bus.
+  // E.g. Chennai -> Nayudupeta -> Nellore -> Kavali -> Ongole generates bookable trips
+  // for (Chennai->Nellore), (Nayudupeta->Ongole), (Nellore->Kavali), etc., all sharing the same canonicalTripId!
+  if (fullStops.length > 2) {
+    let totalMins = 360;
+    try {
+      const [dh, dm] = (dep || '08:00').split(':').map(Number);
+      const [ah, am] = (arr || '14:00').split(':').map(Number);
+      let diff = (ah * 60 + am) - (dh * 60 + dm);
+      if (diff < 0) diff += 24 * 60;
+      if (diff > 0) totalMins = diff;
+    } catch {}
+
+    const intervals = fullStops.length - 1;
+    const minsPerHop = Math.round(totalMins / intervals);
+
+    const getTimeAtStop = (stopIdx) => {
+      try {
+        const [dh, dm] = (dep || '08:00').split(':').map(Number);
+        const stopMinutes = (dh * 60 + dm) + (stopIdx * minsPerHop);
+        const h = Math.floor((stopMinutes / 60) % 24);
+        const m = Math.floor(stopMinutes % 60);
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      } catch { return dep; }
+    };
+
+    const baseFare = Number(fare) || 500;
+
+    for (let i = 0; i < fullStops.length - 1; i++) {
+      for (let j = i + 1; j < fullStops.length; j++) {
+        // Skip the main full route since primaryItem covers it
+        if (i === 0 && j === fullStops.length - 1) continue;
+
+        const segFrom = fullStops[i];
+        const segTo = fullStops[j];
+        const subStops = fullStops.slice(i + 1, j);
+        const segVia = subStops.join(', ');
+        const segDep = getTimeAtStop(i);
+        const segArr = getTimeAtStop(j);
+        const hopCount = j - i;
+        const segFare = Math.max(120, Math.round((baseFare * hopCount) / intervals));
+
+        cleanSchedules.push({
+          id: `${effectiveId}_SEG_${i}_${j}`,
+          tripId: effectiveId, // Links to canonical trip so all customer bookings match this bus!
+          segmentId: `${effectiveId}_SEG_${i}_${j}`,
+          parentTripId: effectiveId,
+          isSegment: true,
+          backendTripId: canonicalId,
+          vehicleId,
+          scheduleId,
+          providerId,
+          from: segFrom,
+          to: segTo,
+          via: segVia,
+          intermediateStops: subStops,
+          allStops: fullStops,
+          departureTime: segDep,
+          arrivalTime: segArr,
+          journeyDate,
+          busName: busName || 'Express Bus',
+          busType: busType || 'AC',
+          totalSeats: Number(seats) || 40,
+          availableSeats: Number(seats) || 40,
+          bookedSeats: 0,
+          fare: segFare,
+          revenue: 0,
+          operatorPayout: 0,
+          status: 'SCHEDULED',
+          addedAt: new Date().toISOString(),
+        });
+      }
+    }
+  }
+
+  localStorage.setItem('c2b_bus_schedules', JSON.stringify(cleanSchedules));
   try { window.dispatchEvent(new Event('storage')); } catch {}
-  try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'SCHEDULE_UPDATED', payload: item } })); } catch {}
-  try { liveSync.syncSchedule(item); } catch {}
+  try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'SCHEDULE_UPDATED', payload: primaryItem } })); } catch {}
+  try { liveSync.syncSchedule(primaryItem); } catch {}
 }
 
 /* ── Edit / Update a locally-stored schedule ── */
-export function updateLocalSchedule(tripId, { from, to, via, dep, arr, busName, busType, seats, fare, journeyDate }) {
-  const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-  const idx = schedules.findIndex((s) => (s.id || s.tripId) === tripId);
-  const newTotal = seats || 40;
+export function updateLocalSchedule(tripId, { from, to, via, intermediateStops, dep, arr, busName, busType, seats, fare, journeyDate }) {
+  const stopsList = Array.isArray(intermediateStops)
+    ? intermediateStops.map((s) => String(s).trim()).filter(Boolean)
+    : typeof via === 'string' && via.trim()
+    ? via.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
 
-  if (idx === -1) {
-    schedules.push({
-      id: tripId, tripId,
-      from, to, via,
-      departureTime: dep, arrivalTime: arr, journeyDate,
-      busName, busType,
-      totalSeats: newTotal,
-      availableSeats: newTotal,
-      bookedSeats: 0,
-      fare, revenue: 0,
-      status: 'SCHEDULED',
-      updatedAt: new Date().toISOString(),
-    });
-  } else {
-    const existing = schedules[idx];
-    const bookedSeats = existing.bookedSeats || 0;
-    const newAvail = Math.max(0, newTotal - bookedSeats);
-    schedules[idx] = {
-      ...existing,
-      from, to, via,
-      departureTime: dep, arrivalTime: arr, journeyDate,
-      busName, busType,
-      totalSeats: newTotal,
-      availableSeats: newAvail,
-      fare,
-      updatedAt: new Date().toISOString(),
-    };
-  }
-  localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
-  try { window.dispatchEvent(new Event('storage')); } catch {}
-  try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'SCHEDULE_UPDATED', payload: schedules[idx === -1 ? schedules.length - 1 : idx] } })); } catch {}
-  try { liveSync.syncSchedule(schedules[idx === -1 ? schedules.length - 1 : idx]); } catch {}
+  const effectiveVia = (via && String(via).trim()) ? String(via).trim() : stopsList.join(', ');
+
+  _saveToLocalStorage({
+    tripId,
+    backendTripId: /^T\d+$/.test(tripId) ? tripId : null,
+    vehicleId: null,
+    scheduleId: null,
+    providerId: 'P001',
+    from,
+    to,
+    via: effectiveVia,
+    intermediateStops: stopsList,
+    dep,
+    arr,
+    busName,
+    busType,
+    seats,
+    fare,
+    journeyDate,
+  });
   return true;
 }
 
@@ -564,9 +701,11 @@ export function deleteLocalSchedule(tripId, tripMeta = {}) {
     }
     localStorage.setItem('c2b_cancelled_schedules', JSON.stringify(cancelled));
 
-    // Also remove from active local schedules (c2b_bus_schedules)
+    // Also remove from active local schedules (c2b_bus_schedules) including subsegments
     const raw = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-    const filtered = raw.filter((s) => s.id !== tripId && s.tripId !== tripId);
+    const filtered = raw.filter(
+      (s) => s.id !== tripId && s.tripId !== tripId && s.parentTripId !== tripId && !String(s.id).startsWith(`${tripId}_SEG_`)
+    );
     localStorage.setItem('c2b_bus_schedules', JSON.stringify(filtered));
 
     // Clean up completions for this trip

@@ -42,13 +42,25 @@ export default function LiveBusTrackerModal({
   const busType = item.busType || item.vehicleType || item.type || 'AC';
   const bookingId = item.bookingId || item.pnr || `TRIP-${tripId}`;
 
+  const intermediateStops = Array.isArray(item.intermediateStops) && item.intermediateStops.length > 0
+    ? item.intermediateStops
+    : item.via
+    ? String(item.via).split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+
   const [telemetry, setTelemetry] = useState(() => {
     const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
     const st = statuses[tripId] || item.status || 'SCHEDULED';
+    const nextSt = st === 'COMPLETED'
+      ? `${toCity} Terminal`
+      : st === 'IN_PROGRESS'
+      ? (intermediateStops.length > 0 ? `${intermediateStops[0]} Station` : 'Highway Transit Junction')
+      : `${fromCity} Boarding Point`;
+
     return {
       lat: 13.5684,
       lng: 80.0215,
-      nextStop: st === 'COMPLETED' ? `${toCity} Terminal` : st === 'IN_PROGRESS' ? 'Highway Transit Junction' : `${fromCity} Boarding Point`,
+      nextStop: nextSt,
       status: st,
       percentComplete: st === 'COMPLETED' ? 100 : st === 'IN_PROGRESS' ? 52 : 0,
       etaMinutes: st === 'COMPLETED' ? 0 : st === 'IN_PROGRESS' ? 45 : 120,
@@ -309,8 +321,8 @@ export default function LiveBusTrackerModal({
         {/* Milestone Route Progress Track */}
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', marginBottom: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 700, color: '#1e293b', marginBottom: '8px' }}>
-            <span>🚩 {fromCity}</span>
-            <span>🏁 {toCity}</span>
+            <span>🚩 {fromCity} (Departure)</span>
+            <span>🏁 {toCity} (Final Destination)</span>
           </div>
           <div style={{ height: '8px', background: '#e2e8f0', borderRadius: '999px', position: 'relative', marginBottom: '10px' }}>
             <div style={{
@@ -339,6 +351,27 @@ export default function LiveBusTrackerModal({
               🚌
             </div>
           </div>
+
+          {intermediateStops.length > 0 && (
+            <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #e2e8f0' }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>
+                Intermediate Stations along Corridor:
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', fontSize: '0.74rem' }}>
+                <span style={{ color: '#2563eb', fontWeight: 700 }}>{fromCity}</span>
+                {intermediateStops.map((stop, sIdx) => (
+                  <React.Fragment key={sIdx}>
+                    <span style={{ color: '#94a3b8' }}>➔</span>
+                    <span style={{ background: '#eff6ff', color: '#1e40af', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                      📍 {stop}
+                    </span>
+                  </React.Fragment>
+                ))}
+                <span style={{ color: '#94a3b8' }}>➔</span>
+                <span style={{ color: '#dc2626', fontWeight: 700 }}>{toCity}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Emergency SOS Banner (for Customer View) */}

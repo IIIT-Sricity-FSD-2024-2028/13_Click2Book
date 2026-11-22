@@ -18,11 +18,18 @@ function EditModal({ trip, onClose, onSaved, showToast }) {
     const d = new Date(); d.setMonth(d.getMonth() + 2); return d.toISOString().split('T')[0];
   })();
 
+  const initialStops = Array.isArray(trip.intermediateStops) && trip.intermediateStops.length > 0
+    ? trip.intermediateStops
+    : trip.via
+    ? trip.via.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+
   const [form, setForm] = useState({
     journeyDate: trip.journeyDate && trip.journeyDate !== '—' ? trip.journeyDate : today,
     from:        trip.source      || '',
     to:          trip.destination || '',
     via:         trip.via         || '',
+    intermediateStops: initialStops,
     dep:         trip.departureTime && trip.departureTime !== '—' ? trip.departureTime : '',
     arr:         trip.arrivalTime  && trip.arrivalTime  !== '—' ? trip.arrivalTime  : '',
     busName:     trip.busName      || '',
@@ -31,6 +38,8 @@ function EditModal({ trip, onClose, onSaved, showToast }) {
     fare:        String(trip.fare || ''),
   });
 
+  const [newStopInput, setNewStopInput] = useState('');
+  const [stopError, setStopError] = useState('');
   const [error,   setError]   = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -52,6 +61,70 @@ function EditModal({ trip, onClose, onSaved, showToast }) {
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
+  /* Intermediate stop handlers in Edit Modal */
+  const handleAddStop = (stopName) => {
+    setStopError('');
+    const raw = (stopName || newStopInput).trim();
+    if (!raw) {
+      setStopError('Please enter a station/city name.');
+      return;
+    }
+    if (raw.toLowerCase() === form.from.trim().toLowerCase()) {
+      setStopError(`"${raw}" is already the Departure Hub.`);
+      return;
+    }
+    if (raw.toLowerCase() === form.to.trim().toLowerCase()) {
+      setStopError(`"${raw}" is already the Destination Hub.`);
+      return;
+    }
+    if ((form.intermediateStops || []).some((s) => s.toLowerCase() === raw.toLowerCase())) {
+      setStopError(`"${raw}" is already in intermediate stops.`);
+      return;
+    }
+    const updated = [...(form.intermediateStops || []), raw];
+    setForm((f) => ({
+      ...f,
+      intermediateStops: updated,
+      via: updated.join(', '),
+    }));
+    setNewStopInput('');
+  };
+
+  const handleRemoveStop = (idx) => {
+    const updated = (form.intermediateStops || []).filter((_, i) => i !== idx);
+    setForm((f) => ({
+      ...f,
+      intermediateStops: updated,
+      via: updated.join(', '),
+    }));
+  };
+
+  const handleMoveStopUp = (idx) => {
+    if (idx === 0) return;
+    const updated = [...(form.intermediateStops || [])];
+    const tmp = updated[idx - 1];
+    updated[idx - 1] = updated[idx];
+    updated[idx] = tmp;
+    setForm((f) => ({
+      ...f,
+      intermediateStops: updated,
+      via: updated.join(', '),
+    }));
+  };
+
+  const handleMoveStopDown = (idx) => {
+    if (idx >= (form.intermediateStops || []).length - 1) return;
+    const updated = [...(form.intermediateStops || [])];
+    const tmp = updated[idx + 1];
+    updated[idx + 1] = updated[idx];
+    updated[idx] = tmp;
+    setForm((f) => ({
+      ...f,
+      intermediateStops: updated,
+      via: updated.join(', '),
+    }));
+  };
+
   const validate = () => {
     if (!form.journeyDate)                           return 'Please select a journey date.';
     if (form.journeyDate < today)                    return 'Journey date cannot be in the past.';
@@ -59,6 +132,20 @@ function EditModal({ trip, onClose, onSaved, showToast }) {
     if (!form.from.trim())                           return 'Please select the departure location.';
     if (!form.to.trim())                             return 'Please select the destination location.';
     if (form.from.toLowerCase() === form.to.toLowerCase()) return 'Departure and destination cannot be the same.';
+
+    if (form.intermediateStops && form.intermediateStops.length > 0) {
+      const lowerFrom = form.from.toLowerCase();
+      const lowerTo = form.to.toLowerCase();
+      for (const st of form.intermediateStops) {
+        if (st.toLowerCase() === lowerFrom) return `Intermediate stop "${st}" cannot be the same as Departure hub.`;
+        if (st.toLowerCase() === lowerTo) return `Intermediate stop "${st}" cannot be the same as Destination hub.`;
+      }
+      const uniqueStops = new Set(form.intermediateStops.map((s) => s.toLowerCase()));
+      if (uniqueStops.size !== form.intermediateStops.length) {
+        return 'Duplicate intermediate stops detected in route sequence.';
+      }
+    }
+
     if (!form.dep)                                   return 'Please enter departure time.';
     if (!form.arr)                                   return 'Please enter arrival time.';
     if (!form.busName.trim())                        return 'Please enter the bus name.';
@@ -76,18 +163,23 @@ function EditModal({ trip, onClose, onSaved, showToast }) {
     const err = validate();
     if (err) { setError(err); return; }
 
+    const effectiveVia = (form.via && form.via.trim())
+      ? form.via.trim()
+      : ((form.intermediateStops || []).join(', '));
+
     setLoading(true);
     const ok = updateLocalSchedule(trip.tripId, {
-      from:        form.from.trim(),
-      to:          form.to.trim(),
-      via:         form.via.trim(),
-      dep:         form.dep,
-      arr:         form.arr,
-      busName:     form.busName.trim(),
-      busType:     form.busType,
-      seats:       parseInt(form.seats, 10),
-      fare:        parseInt(form.fare, 10),
-      journeyDate: form.journeyDate,
+      from:              form.from.trim(),
+      to:                form.to.trim(),
+      via:               effectiveVia,
+      intermediateStops: form.intermediateStops || [],
+      dep:               form.dep,
+      arr:               form.arr,
+      busName:           form.busName.trim(),
+      busType:           form.busType,
+      seats:             parseInt(form.seats, 10),
+      fare:              parseInt(form.fare, 10),
+      journeyDate:       form.journeyDate,
     });
     setLoading(false);
 
@@ -164,16 +256,148 @@ function EditModal({ trip, onClose, onSaved, showToast }) {
             </div>
           </div>
 
-          {/* Via */}
-          <div className="form-group">
-            <label className="form-label">Via (Optional)</label>
-            <input
-              type="text"
-              className="form-control no-icon"
-              placeholder="e.g. Lonavala (Optional)"
-              value={form.via}
-              onChange={set('via')}
-            />
+          {/* Intermediate Bus Stops / Stations */}
+          <div
+            style={{
+              background: '#f8fafc',
+              border: '1.5px solid #cbd5e1',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '1rem',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label className="form-label" style={{ fontWeight: 700, color: '#0f172a', margin: 0 }}>
+                📍 Intermediate Bus Stops / Stations (Optional)
+              </label>
+              <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 700 }}>
+                {(form.intermediateStops || []).length} stops configured
+              </span>
+            </div>
+
+            {stopError && (
+              <div className="alert alert-error" style={{ padding: '4px 8px', fontSize: '0.78rem', marginBottom: '8px' }}>
+                ⚠️ {stopError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '8px' }}>
+              <input
+                type="text"
+                list="edit-sched-cities-dl"
+                className="form-control no-icon"
+                placeholder="Add stop (e.g. Nayudupeta, Nellore, Kavali)..."
+                value={newStopInput}
+                onChange={(e) => {
+                  setNewStopInput(e.target.value);
+                  setStopError('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddStop(newStopInput);
+                  }
+                }}
+                style={{ fontSize: '0.82rem' }}
+              />
+              <datalist id="edit-sched-cities-dl">
+                {approvedCities.map((c) => (
+                  <option key={`edit-dl-${c}`} value={c} />
+                ))}
+              </datalist>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => handleAddStop(newStopInput)}
+                style={{ padding: '6px 10px', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}
+              >
+                + Add
+              </button>
+            </div>
+
+            {(form.intermediateStops || []).length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
+                {form.intermediateStops.map((stop, idx) => (
+                  <div
+                    key={`edit-stop-${idx}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '5px',
+                      padding: '5px 10px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}>
+                      <span style={{ background: '#3b82f6', color: '#fff', borderRadius: '50%', width: '18px', height: '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.68rem', fontWeight: 700 }}>
+                        {idx + 1}
+                      </span>
+                      <span style={{ fontWeight: 600, color: '#1e293b' }}>{stop}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveStopUp(idx)}
+                        disabled={idx === 0}
+                        style={{ background: 'transparent', border: '1px solid #cbd5e1', borderRadius: '3px', width: '22px', height: '22px', cursor: idx === 0 ? 'not-allowed' : 'pointer', fontSize: '0.68rem' }}
+                        title="Move Earlier"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveStopDown(idx)}
+                        disabled={idx === form.intermediateStops.length - 1}
+                        style={{ background: 'transparent', border: '1px solid #cbd5e1', borderRadius: '3px', width: '22px', height: '22px', cursor: idx === form.intermediateStops.length - 1 ? 'not-allowed' : 'pointer', fontSize: '0.68rem' }}
+                        title="Move Later"
+                      >
+                        ▼
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveStop(idx)}
+                        style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '3px', width: '22px', height: '22px', cursor: 'pointer', color: '#dc2626', fontSize: '0.72rem', fontWeight: 700 }}
+                        title="Remove"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic', marginBottom: '8px', textAlign: 'center' }}>
+                No intermediate stops added yet.
+              </div>
+            )}
+
+            {/* Sequence Diagram */}
+            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 10px', fontSize: '0.78rem' }}>
+              <span style={{ fontWeight: 700, color: '#475569' }}>Route Sequence: </span>
+              <span style={{ color: '#2563eb', fontWeight: 700 }}>{form.from || 'Origin'}</span>
+              {(form.intermediateStops || []).map((s, i) => (
+                <span key={`seq-${i}`} style={{ color: '#0369a1' }}>
+                  {' ➔ '}<strong style={{ color: '#0284c7' }}>{s}</strong>
+                </span>
+              ))}
+              <span style={{ color: '#dc2626', fontWeight: 700 }}>{' ➔ '}{form.to || 'Destination'}</span>
+            </div>
+
+            <div style={{ marginTop: '8px' }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: 2 }}>
+                Via (Synchronized route corridor string):
+              </label>
+              <input
+                type="text"
+                className="form-control no-icon"
+                placeholder="e.g. Nayudupeta, Nellore, Kavali (Optional)"
+                value={form.via}
+                onChange={set('via')}
+                style={{ fontSize: '0.82rem' }}
+              />
+            </div>
           </div>
 
           {/* Dep / Arr */}
@@ -364,14 +588,15 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
   const activeTrips = trips.filter((t) => t.status !== 'COMPLETED' && t.status !== 'CANCELLED');
   const completedTrips = trips.filter((t) => t.status === 'COMPLETED');
 
-  // Filter active trips by approved city corridor
+  // Filter active trips by approved city corridor (supports origin, destination, and intermediate stops!)
   const filteredActive = activeTrips.filter((t) => {
     if (cityFilter === 'all') return true;
     const c = cityFilter.toLowerCase();
-    return (
-      (t.source && t.source.toLowerCase() === c) ||
-      (t.destination && t.destination.toLowerCase() === c)
-    );
+    const inSource = t.source && t.source.toLowerCase() === c;
+    const inDest = t.destination && t.destination.toLowerCase() === c;
+    const inStops = Array.isArray(t.intermediateStops) && t.intermediateStops.some((s) => s.toLowerCase() === c);
+    const inVia = typeof t.via === 'string' && t.via.toLowerCase().includes(c);
+    return inSource || inDest || inStops || inVia;
   });
 
   // Calculate calendar days difference between today and a trip's completion/journey date
@@ -633,9 +858,27 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
                   style={{ borderLeftColor: barColor }}
                 >
                   <div className="card-meta-row" style={{ flex: 1 }}>
-                    <div className="card-route">
-                      {t.source} → {t.destination}
-                      {t.via && <span className="via-tag">Via: {t.via}</span>}
+                    <div className="card-route" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 800 }}>{t.source} → {t.destination}</span>
+                      {Array.isArray(t.intermediateStops) && t.intermediateStops.length > 0 ? (
+                        <span
+                          className="via-tag"
+                          style={{
+                            background: '#eff6ff',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontWeight: 700,
+                            fontSize: '0.72rem',
+                          }}
+                          title={`Intermediate stops: ${t.intermediateStops.join(' ➔ ')}`}
+                        >
+                          📍 {t.intermediateStops.length} Intermediate {t.intermediateStops.length === 1 ? 'Stop' : 'Stops'}: {t.intermediateStops.join(' ➔ ')}
+                        </span>
+                      ) : t.via ? (
+                        <span className="via-tag">Via: {t.via}</span>
+                      ) : null}
                       {t.isNew && <span className="new-tag">NEW</span>}
                     </div>
                     <div className="card-time">
@@ -731,7 +974,25 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
                   <div className="card-meta-row" style={{ flex: 1 }}>
                     <div className="card-route" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '1.05rem', fontWeight: 700 }}>{t.source} → {t.destination}</span>
-                      {t.via && <span className="via-tag">Via: {t.via}</span>}
+                      {Array.isArray(t.intermediateStops) && t.intermediateStops.length > 0 ? (
+                        <span
+                          className="via-tag"
+                          style={{
+                            background: '#eff6ff',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontWeight: 700,
+                            fontSize: '0.72rem',
+                          }}
+                          title={`Intermediate stops: ${t.intermediateStops.join(' ➔ ')}`}
+                        >
+                          📍 {t.intermediateStops.length} Stops: {t.intermediateStops.join(' ➔ ')}
+                        </span>
+                      ) : t.via ? (
+                        <span className="via-tag">Via: {t.via}</span>
+                      ) : null}
                       <span className="badge badge-green" style={{ fontSize: '0.72rem' }}>✓ Completed</span>
                       {daysLabel && (
                         <span style={{ fontSize: '0.72rem', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>

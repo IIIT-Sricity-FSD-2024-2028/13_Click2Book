@@ -489,6 +489,7 @@ export default function CancelTicket({
             s.availableSeats = Math.min((s.totalSeats || s.total_seats || 40), (s.availableSeats || 0) + seatCount);
             s.available_seats = Math.min((s.totalSeats || s.total_seats || 40), (s.available_seats || 0) + seatCount);
             s.revenue = Math.max(0, (s.revenue || 0) - (selectedTicket.total || 0));
+            s.operatorPayout = Math.max(0, (s.operatorPayout || 0) - Math.round((selectedTicket.total || 0) * 0.90));
             updatedSched = true;
           }
         });
@@ -500,6 +501,9 @@ export default function CancelTicket({
       }
 
       window.dispatchEvent(new Event('storage'));
+      try {
+        window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'BOOKING_CANCELLED', payload: { bookingId: bId, status: 'CANCELLED' } } }));
+      } catch {}
       try {
         if (typeof liveSync !== 'undefined' && liveSync.syncBooking) {
           liveSync.syncBooking({ ...selectedTicket, status: 'CANCELLED', booking_status: 'CANCELLED' });

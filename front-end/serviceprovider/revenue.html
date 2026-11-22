@@ -163,17 +163,19 @@
         <thead>
           <tr>
             <th>Booking ID</th>
+            <th>Customer &amp; Passengers</th>
             <th>Bus / Route</th>
             <th>Seat(s)</th>
-            <th class="num">Base Fare</th>
-            <th class="num">Commission</th>
-            <th class="num" style="color:#16a34a;">Your Payout</th>
+            <th class="num">Gross Fare</th>
+            <th style="text-align:center;">Coupon / Discount</th>
+            <th class="num">Commission (10%)</th>
+            <th class="num" style="color:#16a34a;">Your Payout (90%)</th>
             <th>Status</th>
             <th>Date</th>
           </tr>
         </thead>
         <tbody id="ledgerTbody">
-          <tr><td colspan="8" class="empty">No bookings recorded yet.</td></tr>
+          <tr><td colspan="10" class="empty">No bookings recorded yet.</td></tr>
         </tbody>
       </table>
     </div>
@@ -324,11 +326,30 @@
       const seatCount = seatArr.length || 1;
 
       // Find matching bus
-      const matchBus = providerBuses.find(pb => 
+      let matchBus = providerBuses.find(pb => 
         (b.tripId && (pb.id === b.tripId || pb.tripId === b.tripId)) ||
-        (pb.busName && b.busName && pb.busName.toLowerCase() === b.busName.toLowerCase()) ||
+        (pb.busName && b.busName && (pb.busName.toLowerCase() === b.busName.toLowerCase() || pb.busName.toLowerCase().includes(b.busName.toLowerCase()) || b.busName.toLowerCase().includes(pb.busName.toLowerCase()))) ||
         (pb.from && b.from && pb.to && b.to && pb.from.toLowerCase() === b.from.toLowerCase() && pb.to.toLowerCase() === b.to.toLowerCase())
       );
+
+      if (!matchBus) {
+        const newTripId = b.tripId || ('BUS_' + providerBuses.length);
+        matchBus = {
+          id: newTripId,
+          tripId: newTripId,
+          vehicleId: '',
+          busName: b.busName || 'Express Bus',
+          busType: b.busType || 'AC',
+          from: b.from || 'Origin',
+          to: b.to || 'Destination',
+          totalSeats: 40,
+          fare: b.fare || 500,
+          bookedSeats: 0,
+          bookedSeatList: [],
+          revenue: 0,
+        };
+        providerBuses.push(matchBus);
+      }
 
       const fare = b.fare || (matchBus ? matchBus.fare : 500);
       const bFare = b.subtotal || (fare * seatCount) || (b.total ? b.total : 500);
@@ -341,16 +362,26 @@
         matchBus.revenue += bFare;
       }
 
+      const customerName = b.customerName || b.passengerName || (Array.isArray(b.passengers) && b.passengers[0]?.name) || 'Customer';
+      const couponCode = b.couponCode && b.couponCode !== 'NONE' ? b.couponCode : (b.offerCode || null);
+      const couponDiscount = Number(b.discount || b.couponDiscount || 0);
+
       ledgerRows.push({
         bookingId: b.bookingId,
+        customerName: customerName,
+        passengerDetails: Array.isArray(b.passengers) && b.passengers.length > 0
+          ? b.passengers.map(p => p.name || 'Pax').join(', ')
+          : `${seatCount} Passenger${seatCount > 1 ? 's' : ''}`,
         busName: b.busName || (matchBus ? matchBus.busName : 'Bus'),
         route: (b.from && b.to) ? `${b.from} → ${b.to}` : (matchBus ? `${matchBus.from} → ${matchBus.to}` : 'Route'),
         seats: seatArr.join(', ') || '1 Seat',
+        couponCode: couponCode,
+        couponDiscount: couponDiscount,
         baseFare: bFare,
         commission: bComm,
         payout: bPayout,
         status: b.status || 'CONFIRMED',
-        date: b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-IN') : 'Today',
+        date: b.date || b.journeyDate || (b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-IN') : 'Today'),
       });
     });
 
@@ -413,23 +444,31 @@
     // 6. Render Ledger Detail Table
     const ledgerTbody = document.getElementById('ledgerTbody');
     if (!ledgerRows.length) {
-      ledgerTbody.innerHTML = `<tr><td colspan="8" class="empty">No bookings on your buses yet.</td></tr>`;
+      ledgerTbody.innerHTML = `<tr><td colspan="10" class="empty">No bookings on your buses yet.</td></tr>`;
     } else {
       ledgerTbody.innerHTML = ledgerRows.map(l => {
         const isCanc = l.status === 'cancelled' || l.status === 'CANCELLED';
         const stBadge = isCanc 
           ? `<span class="badge badge-cancelled">Cancelled</span>`
           : `<span class="badge badge-confirmed">Confirmed</span>`;
+        const couponCell = l.couponCode
+          ? `<span class="badge" style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;">${l.couponCode} (−${formatInr(l.couponDiscount)})</span>`
+          : `<span style="color:#94a3b8;font-size:.78rem;">None</span>`;
 
         return `
           <tr>
             <td class="mono"><strong>${l.bookingId}</strong></td>
+            <td>
+              <div style="font-weight:700;color:#0f172a;">${l.customerName}</div>
+              <div style="font-size:.72rem;color:#64748b;">${l.passengerDetails}</div>
+            </td>
             <td>
               <div><strong>${l.busName}</strong></div>
               <div style="font-size:.72rem;color:#64748b;">${l.route}</div>
             </td>
             <td><span class="bus-tag">${l.seats}</span></td>
             <td class="num">${formatInr(l.baseFare)}</td>
+            <td style="text-align:center;">${couponCell}</td>
             <td class="num" style="color:#dc2626;">-${formatInr(l.commission)}</td>
             <td class="num" style="color:#16a34a;"><strong>${formatInr(l.payout)}</strong></td>
             <td>${stBadge}</td>

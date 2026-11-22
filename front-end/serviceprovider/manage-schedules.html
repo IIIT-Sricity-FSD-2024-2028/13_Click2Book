@@ -181,7 +181,10 @@
                 '</div>' +
                 '<div class="manage-card-right">' +
                   '<div class="manage-seats" style="color:'+bar+';font-weight:700;">'+t.availableSeats+'/'+t.totalSeats+' seats</div>' +
-                  '<div class="action-icons"><div class="action-icon edit" title="Edit" style="cursor:pointer;">&#9998;</div></div>' +
+                  '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">' +
+                    '<button type="button" style="color:#2563eb;border:1px solid #bfdbfe;background:#eff6ff;padding:4px 8px;border-radius:6px;font-size:.74rem;font-weight:700;cursor:pointer;" onclick="openTrackBusModal(\'' + (t.tripId||'') + '\', \'' + (t.source||'') + '\', \'' + (t.destination||'') + '\', \'' + (t.busName||'') + '\', \'' + (t.vehicleType||'') + '\')">🧭 Track Bus</button>' +
+                    '<div class="action-icons"><div class="action-icon edit" title="Edit" style="cursor:pointer;">&#9998;</div></div>' +
+                  '</div>' +
                 '</div></div>';
             }).join('');
           }
@@ -211,11 +214,19 @@
             } catch(e) { console.warn('localStorage schedules failed:', e); return []; }
           }
 
-          /* 1. Render DB data + localStorage schedules together */
+          /* 1. Render localStorage schedules first + DB data */
           var dbTrips    = buildFromDB();
           var localTrips = buildFromLocalStorage();
-          var allTrips   = dbTrips.concat(localTrips);
+          var allTrips   = localTrips.concat(dbTrips);
           renderCards(allTrips);
+
+          function reloadAll() {
+            var l = buildFromLocalStorage();
+            var d = buildFromDB();
+            renderCards(l.concat(d));
+          }
+          window.addEventListener('storage', reloadAll);
+          window.addEventListener('c2b_sync', reloadAll);
 
           /* 2. Try backend API for fresher data */
           (async function() {
@@ -225,7 +236,7 @@
               var json = await res.json();
               var apiData = json.data || [];
               if (apiData.length && (apiData[0].source || apiData[0].route)) {
-                renderCards(apiData.concat(localTrips));
+                renderCards(localTrips.concat(apiData));
               }
               var b = document.createElement('div');
               b.style.cssText='position:fixed;bottom:12px;right:12px;z-index:9999;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;background:#dcfce7;color:#166534;border:1px solid #86efac;';
@@ -238,6 +249,65 @@
               document.body.appendChild(b); setTimeout(function(){ b.style.opacity='0.4'; }, 5000);
             }
           })();
+
+        });
+
+        /* ── Track Bus Modal & Real Google Maps Support ── */
+        window.openTrackBusModal = function(tripId, source, destination, busName, vehicleType) {
+          var modal = document.getElementById('providerTrackModal');
+          if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'providerTrackModal';
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;';
+            modal.innerHTML = 
+              '<div style="background:#fff;border-radius:16px;max-width:620px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,0.25);overflow:hidden;border:1px solid #e2e8f0;padding:24px;position:relative;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">' +
+                  '<div>' +
+                    '<h3 id="ptmRoute" style="margin:0;font-size:1.2rem;font-weight:800;color:#0f172a;">Route</h3>' +
+                    '<div id="ptmBusMeta" style="font-size:0.8rem;color:#64748b;margin-top:4px;">Bus &middot; Trip</div>' +
+                  '</div>' +
+                  '<button onclick="closeTrackBusModal()" style="border:none;background:#f1f5f9;border-radius:8px;width:32px;height:32px;cursor:pointer;font-weight:700;color:#64748b;">✕</button>' +
+                '</div>' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:10px;background:#dcfce7;border:1px solid #86efac;margin-bottom:14px;">' +
+                  '<div style="font-size:0.82rem;font-weight:800;color:#15803d;" id="ptmStatus">● LIVE · Bus is En Route</div>' +
+                  '<div style="font-size:0.75rem;color:#64748b;" id="ptmEta">ETA: 45 mins</div>' +
+                '</div>' +
+                '<div id="ptmMapContainer" style="height:240px;border-radius:12px;overflow:hidden;background:#f8fafc;border:1px solid #cbd5e1;position:relative;margin-bottom:14px;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;">' +
+                  '<div>' +
+                    '<div style="font-size:1.8rem;margin-bottom:6px;">📍</div>' +
+                    '<div style="font-weight:800;font-size:.88rem;color:#1e293b;">Real Google Maps API View</div>' +
+                    '<div style="font-size:.75rem;color:#64748b;max-width:380px;margin:4px auto 8px;">Set VITE_GOOGLE_MAPS_API_KEY in .env file to enable satellite & street tiles.</div>' +
+                    '<span style="background:#e2e8f0;padding:4px 8px;border-radius:6px;font-size:.72rem;font-family:monospace;font-weight:700;color:#334155;" id="ptmGps">GPS: 13.5684° N, 80.0215° E</span>' +
+                  '</div>' +
+                '</div>' +
+                '<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-bottom:14px;text-align:center;">' +
+                  '<div style="background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #e2e8f0;"><div style="font-size:.68rem;color:#64748b;font-weight:700;text-transform:uppercase;">Next Stop</div><div style="font-weight:800;font-size:.82rem;color:#0f172a;margin-top:2px;" id="ptmStop">Highway Transit Junction</div></div>' +
+                  '<div style="background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #e2e8f0;"><div style="font-size:.68rem;color:#64748b;font-weight:700;text-transform:uppercase;">Speed</div><div style="font-weight:800;font-size:.82rem;color:#2563eb;margin-top:2px;">54 km/h</div></div>' +
+                  '<div style="background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #e2e8f0;"><div style="font-size:.68rem;color:#64748b;font-weight:700;text-transform:uppercase;">Trip Progress</div><div style="font-weight:800;font-size:.82rem;color:#16a34a;margin-top:2px;">52% Done</div></div>' +
+                '</div>' +
+                '<div style="display:flex;justify-content:flex-end;">' +
+                  '<button onclick="closeTrackBusModal()" style="padding:6px 16px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;font-weight:700;cursor:pointer;font-size:.8rem;">Close Tracking</button>' +
+                '</div>' +
+              '</div>';
+            document.body.appendChild(modal);
+          }
+          document.getElementById('ptmRoute').textContent = (source || 'Origin') + ' → ' + (destination || 'Destination');
+          document.getElementById('ptmBusMeta').textContent = (busName || 'Express Bus') + ' (' + (vehicleType || 'AC') + ') · Trip ID: ' + (tripId || 'T001');
+          modal.style.display = 'flex';
+
+          var apiKey = window.VITE_GOOGLE_MAPS_API_KEY || localStorage.getItem('VITE_GOOGLE_MAPS_API_KEY');
+          if (apiKey && window.google && window.google.maps) {
+            var container = document.getElementById('ptmMapContainer');
+            container.innerHTML = '';
+            var map = new window.google.maps.Map(container, { center: { lat: 13.5684, lng: 80.0215 }, zoom: 12 });
+            new window.google.maps.Marker({ position: { lat: 13.5684, lng: 80.0215 }, map: map, title: busName });
+          }
+        };
+
+        window.closeTrackBusModal = function() {
+          var modal = document.getElementById('providerTrackModal');
+          if (modal) modal.style.display = 'none';
+        };
 
         });
     </script>

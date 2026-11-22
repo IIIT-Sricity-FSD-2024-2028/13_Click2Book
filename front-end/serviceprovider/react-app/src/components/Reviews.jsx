@@ -81,7 +81,12 @@ export default function Reviews({ provider, showToast, onNavigate }) {
   // Filtered reviews
   const filteredReviews = useMemo(() => {
     return reviews.filter((r) => {
-      if (filterTrip !== 'ALL' && r.tripId !== filterTrip) return false;
+      if (filterTrip !== 'ALL') {
+        const selectedBus = buses.find((b) => b.id === filterTrip || b.tripId === filterTrip);
+        const matchesTripId = r.tripId === filterTrip;
+        const matchesBusName = selectedBus && r.busName && (r.busName.toLowerCase() === (selectedBus.name || '').toLowerCase() || r.busName.toLowerCase().includes((selectedBus.name || '').toLowerCase()) || (selectedBus.name || '').toLowerCase().includes(r.busName.toLowerCase()));
+        if (!matchesTripId && !matchesBusName) return false;
+      }
       if (filterRating !== 'ALL' && Math.round(r.rating || 5) !== parseInt(filterRating, 10)) return false;
       if (filterStatus === 'PENDING' && r.providerReply) return false;
       if (filterStatus === 'REPLIED' && !r.providerReply) return false;

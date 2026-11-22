@@ -244,8 +244,10 @@ export default function SearchTrips({
       try {
         const localScheds = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
         localScheds.forEach((s) => {
-          if (s.from) cities.add(s.from.trim());
-          if (s.to) cities.add(s.to.trim());
+          const sFrom = (s.from || s.source || '').trim();
+          const sTo = (s.to || s.destination || '').trim();
+          if (sFrom) cities.add(sFrom);
+          if (sTo) cities.add(sTo);
         });
       } catch {}
 
@@ -256,9 +258,11 @@ export default function SearchTrips({
 
     updateCities();
     window.addEventListener('storage', updateCities);
+    window.addEventListener('c2b_sync', updateCities);
     return () => {
       mounted = false;
       window.removeEventListener('storage', updateCities);
+      window.removeEventListener('c2b_sync', updateCities);
     };
   }, []);
 
@@ -391,15 +395,18 @@ export default function SearchTrips({
     // 2. Local schedules created or updated by Provider
     try {
       const localMatches = localSchedules.filter((b) => {
-        if (!b.from || !b.to) return false;
-        if (b.from.toLowerCase() !== targetFrom.toLowerCase() || b.to.toLowerCase() !== targetTo.toLowerCase()) return false;
-        if (b.journeyDate && b.journeyDate !== targetDate) return false;
+        const bFrom = (b.from || b.source || '').trim().toLowerCase();
+        const bTo = (b.to || b.destination || '').trim().toLowerCase();
+        if (!bFrom || !bTo) return false;
+        if (bFrom !== targetFrom.toLowerCase() || bTo !== targetTo.toLowerCase()) return false;
+        const bDate = (b.journeyDate || b.date || '').split('T')[0];
+        if (bDate && bDate !== targetDate) return false;
         return true;
       });
 
       localMatches.forEach((b, idx) => {
         const tid = b.backendTripId || b.tripId || b.id || `LOCAL_${idx}`;
-        const totalSeats = parseInt(b.totalSeats, 10) || 40;
+        const totalSeats = parseInt(b.totalSeats || b.total_seats, 10) || 40;
 
         // Compute actual booked seats for this local bus
         const tripBookings = localBookings.filter((bk) =>
@@ -417,15 +424,15 @@ export default function SearchTrips({
           backendTripId: b.backendTripId || (/^T\d+$/.test(b.tripId) ? b.tripId : null),
           busName: b.busName || b.vehicleName || 'New Schedule Bus',
           vehicleType: b.busType || b.vehicleType || 'AC',
-          providerName: 'Verified Provider',
+          providerName: b.providerName || 'Verified Provider',
           departureTime: b.departureTime || '08:00',
           arrivalTime: b.arrivalTime || '16:00',
           duration: b.duration || calculateJourneyDuration(b.departureTime, b.arrivalTime, '8h 00m'),
           price: parseInt(b.fare, 10) || 550,
           totalSeats,
           availableSeats,
-          rating: 4.5,
-          amenities: ['AC', 'WiFi'],
+          rating: b.rating || 4.5,
+          amenities: b.amenities || ['AC', 'WiFi'],
           vehicleId: b.vehicleId || '',
           providerId: b.providerId || 'P001',
           typeColor: '#ea580c',
@@ -470,6 +477,24 @@ export default function SearchTrips({
       handleSearch(null, sf, st, sd);
     }
   }, []);
+
+  // Live dynamic update of matching buses when provider adds or updates a schedule
+  useEffect(() => {
+    if (step !== 'buses') return;
+
+    const handleLiveScheduleSync = () => {
+      if (fromCity && toCity && travelDate) {
+        handleSearch(null, fromCity, toCity, travelDate);
+      }
+    };
+
+    window.addEventListener('storage', handleLiveScheduleSync);
+    window.addEventListener('c2b_sync', handleLiveScheduleSync);
+    return () => {
+      window.removeEventListener('storage', handleLiveScheduleSync);
+      window.removeEventListener('c2b_sync', handleLiveScheduleSync);
+    };
+  }, [step, fromCity, toCity, travelDate]);
 
   // Fetch occupied seats for vehicle / trip
   const fetchOccupiedSeats = async (bus) => {
@@ -1000,6 +1025,17 @@ export default function SearchTrips({
 
       // 6. Create confirmed booking object with full multi-portal metadata
       const leadPax = passengers[0] || {};
+      const seatCount = selectedSeats.length || 1;
+      const basePrice = Number(selectedBus.price) || 500;
+      const grossFare = paymentDetails.subtotal != null ? Number(paymentDetails.subtotal) : (basePrice * seatCount);
+      const couponCode = paymentDetails.offerCode || paymentDetails.couponCode || null;
+      const couponDiscount = Number(paymentDetails.discount) || 0;
+      const platformCommission = Math.round(grossFare * 0.10);
+      const operatorPayout = Math.max(0, grossFare - platformCommission);
+      const gst = paymentDetails.gst != null ? Number(paymentDetails.gst) : Math.round(grossFare * 0.18);
+      const platformFee = paymentDetails.platformFee != null ? Number(paymentDetails.platformFee) : 25;
+      const totalAmount = Number(paymentDetails.total) || Math.max(0, grossFare + gst + platformFee - couponDiscount);
+
       const newBooking = {
         bookingId,
         booking_id: bookingId,
@@ -1026,10 +1062,18 @@ export default function SearchTrips({
         seat_list: selectedSeats,
         passengerCount: selectedSeats.length,
         paymentMethod: paymentDetails.method,
-        discount: paymentDetails.discount,
-        total: paymentDetails.total,
-        subtotal: paymentDetails.total,
-        amount: paymentDetails.total,
+        couponCode: couponCode || 'NONE',
+        offerCode: couponCode || null,
+        discount: couponDiscount,
+        couponDiscount,
+        grossFare,
+        subtotal: grossFare,
+        gst,
+        platformFee,
+        platformCommission,
+        operatorPayout,
+        total: totalAmount,
+        amount: totalAmount,
         fare: selectedBus.price,
         status: 'CONFIRMED',
         booking_status: 'CONFIRMED',
@@ -1063,7 +1107,8 @@ export default function SearchTrips({
             }
             s.bookedSeats = (s.bookedSeats || 0) + selectedSeats.length;
             s.availableSeats = Math.max(0, (s.totalSeats || 40) - s.bookedSeats);
-            s.revenue = (s.revenue || 0) + paymentDetails.total;
+            s.revenue = (s.revenue || 0) + grossFare;
+            s.operatorPayout = (s.operatorPayout || 0) + operatorPayout;
             updatedSched = true;
           }
         });

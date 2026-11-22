@@ -388,9 +388,11 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
     const refresh = () => setBuses(getSeatData());
     refresh();
     window.addEventListener('storage', refresh);
+    window.addEventListener('c2b_sync', refresh);
     const interval = setInterval(refresh, 3000);
     return () => {
       window.removeEventListener('storage', refresh);
+      window.removeEventListener('c2b_sync', refresh);
       clearInterval(interval);
     };
   }, []);

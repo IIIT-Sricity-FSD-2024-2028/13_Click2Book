@@ -281,6 +281,72 @@ export const API = {
       });
     },
   },
+
+  reviews: {
+    async getByTrip(tripId) {
+      try {
+        const res = await apiFetch(`/reviews?tripId=${encodeURIComponent(tripId)}`);
+        return res?.data || res || [];
+      } catch {
+        const local = JSON.parse(localStorage.getItem('c2b_bus_reviews') || '[]');
+        return tripId ? local.filter((r) => r.tripId === tripId) : local;
+      }
+    },
+    async submit({ tripId, rating, comment, bookingId, seatNumber, busName, route, customerName, customerId, categories }) {
+      const ratingNum = Math.min(5, Math.max(1, parseInt(rating || 5, 10)));
+      const reviews = JSON.parse(localStorage.getItem('c2b_bus_reviews') || '[]');
+      const reviewId = `REV-${Date.now()}`;
+      const newReview = {
+        reviewId,
+        tripId: tripId || 'T001',
+        busName: busName || 'Express Bus',
+        route: route || 'Intercity Route',
+        customerId: customerId || getCustomerId(),
+        customerName: customerName || 'Passenger',
+        bookingId: bookingId || `BK-${Math.floor(10000 + Math.random() * 90000)}`,
+        seatNumber: seatNumber || '1',
+        rating: ratingNum,
+        categories: categories || {
+          punctuality: ratingNum,
+          cleanliness: ratingNum,
+          comfort: ratingNum,
+          staff: ratingNum,
+        },
+        comment: (comment || '').trim() || 'Pleasant journey, on-time bus and clean cabin.',
+        reviewDate: new Date().toISOString(),
+        providerReply: null,
+        repliedAt: null,
+        providerName: 'Kiran Travels',
+        verifiedBooking: true,
+      };
+
+      reviews.unshift(newReview);
+      localStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
+
+      try {
+        await apiFetch('/reviews', {
+          method: 'POST',
+          body: JSON.stringify({
+            customerId: newReview.customerId,
+            tripId: newReview.tripId,
+            rating: newReview.rating,
+            comment: newReview.comment,
+          }),
+        });
+      } catch (err) {
+        console.warn('Backend /reviews note (saved locally):', err?.message);
+      }
+
+      try {
+        window.dispatchEvent(new Event('storage'));
+        window.dispatchEvent(new CustomEvent('c2b_sync', {
+          detail: { type: 'REVIEW_SUBMITTED', review: newReview }
+        }));
+      } catch (e) {}
+
+      return newReview;
+    },
+  },
 };
 
 // Convenient aliases for component compatibility

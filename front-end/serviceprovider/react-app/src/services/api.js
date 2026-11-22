@@ -249,7 +249,9 @@ export async function fetchSchedulesFromAPI() {
         status: statuses[t.tripId] || t.status || 'SCHEDULED',
         completedAt: completions[t.tripId] || t.completedAt || null,
       }));
-      return { data: [...mappedApi, ...localTrips], isLive: true };
+      const localIds = new Set(localTrips.map((lt) => lt.tripId));
+      const extraApi = mappedApi.filter((at) => !localIds.has(at.tripId));
+      return { data: [...localTrips, ...extraApi], isLive: true };
     }
     const localIds = new Set(localTrips.map((lt) => lt.tripId));
     const extraSample = sampleFallback.filter((st) => !localIds.has(st.tripId));
@@ -386,6 +388,7 @@ function _saveToLocalStorage({ tripId, backendTripId, vehicleId, scheduleId, pro
   }
   localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
   try { window.dispatchEvent(new Event('storage')); } catch {}
+  try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'SCHEDULE_UPDATED', payload: item } })); } catch {}
   try { liveSync.syncSchedule(item); } catch {}
 }
 
@@ -425,6 +428,7 @@ export function updateLocalSchedule(tripId, { from, to, via, dep, arr, busName, 
   }
   localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
   try { window.dispatchEvent(new Event('storage')); } catch {}
+  try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'SCHEDULE_UPDATED', payload: schedules[idx === -1 ? schedules.length - 1 : idx] } })); } catch {}
   try { liveSync.syncSchedule(schedules[idx === -1 ? schedules.length - 1 : idx]); } catch {}
   return true;
 }
@@ -633,17 +637,36 @@ export function getSeatData() {
       : typeof b.seats === 'string'
       ? b.seats.split(',').map((s) => s.trim()).filter(Boolean)
       : [];
-    const match = buses.find(
+    let match = buses.find(
       (bus) =>
         (b.tripId && (bus.id === b.tripId || bus.tripId === b.tripId)) ||
-        (b.busName && bus.name?.toLowerCase() === b.busName.toLowerCase()) ||
-        (b.from && b.to && bus.from?.toLowerCase() === b.from.toLowerCase() && bus.to?.toLowerCase() === b.to.toLowerCase())
+        (b.busName && bus.name && (bus.name.toLowerCase() === b.busName.toLowerCase() || bus.name.toLowerCase().includes(b.busName.toLowerCase()) || b.busName.toLowerCase().includes(bus.name.toLowerCase()))) ||
+        (b.from && b.to && bus.from && bus.to && bus.from.toLowerCase() === b.from.toLowerCase() && bus.to.toLowerCase() === b.to.toLowerCase())
     );
+    if (!match) {
+      const isSleeper = (b.busType || '').toLowerCase().includes('sleeper') && !(b.busType || '').toLowerCase().includes('semi');
+      const newTripId = b.tripId || `BUS_${buses.length + 1}`;
+      match = {
+        id:            newTripId,
+        tripId:        newTripId,
+        route:         b.from && b.to ? `${b.from} → ${b.to}` : 'Custom Route',
+        from:          b.from || 'Origin',
+        to:            b.to   || 'Destination',
+        time:          `${b.departureTime || '08:00'} → ${b.arrivalTime || '12:00'}`,
+        name:          b.busName || 'Express Bus',
+        type:          b.busType || 'AC',
+        total:         b.totalSeats || (isSleeper ? 30 : 40),
+        fare:          b.fare || (isSleeper ? 1483 : 650),
+        bookedSeatList: [],
+        passengerMap:   {},
+      };
+      buses.push(match);
+    }
     if (match) {
       match.bookedSeatList.push(...seatArr);
       // Build passenger map keyed by seatId
       const passengerInfo = {
-        name:        b.passengerName || b.name || b.userName || b.customerName || 'Passenger',
+        name:        b.passengerName || b.name || b.userName || b.customerName || (Array.isArray(b.passengers) && b.passengers[0]?.name) || 'Passenger',
         phone:       b.phone || b.mobile || b.contactNumber || b.passengerPhone || '—',
         email:       b.email || b.passengerEmail || '—',
         bookingId:   b.bookingId,
@@ -784,6 +807,28 @@ export async function endTrip(tripId) {
   const completions = JSON.parse(localStorage.getItem('c2b_trip_completions') || '{}');
   completions[tripId] = new Date().toISOString();
   localStorage.setItem('c2b_trip_completions', JSON.stringify(completions));
+
+  try {
+    const bookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+    let changed = false;
+    bookings.forEach((b) => {
+      if (b.tripId === tripId || b.trip_id === tripId) {
+        b.tripStatus = 'COMPLETED';
+        b.completedAt = completions[tripId];
+        changed = true;
+      }
+    });
+    if (changed) {
+      localStorage.setItem('c2b_bookings', JSON.stringify(bookings));
+    }
+  } catch (e) {}
+
+  try {
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new CustomEvent('c2b_sync', {
+      detail: { type: 'TRIP_STATUS_UPDATED', tripId, status: 'COMPLETED' }
+    }));
+  } catch (e) {}
 }
 
 export async function updateLocation(tripId, lat, lng, status, nextStop, providerId) {

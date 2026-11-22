@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { fetchSchedulesFromAPI, updateLocalSchedule, deleteLocalSchedule, getCancelledSchedules, getApprovedCities } from '../services/api';
+import LiveBusTrackerModal from './LiveBusTrackerModal';
 
 const STATUS_COLORS = {
   SCHEDULED: '#3b82f6', IN_PROGRESS: '#f59e0b',
@@ -273,6 +274,7 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
   const [isLive,          setIsLive]          = useState(false);
   const [loading,         setLoading]         = useState(true);
   const [editTrip,        setEditTrip]        = useState(null); // trip being edited
+  const [trackingTrip,    setTrackingTrip]    = useState(null); // trip being tracked on Google Maps
   const [activeTab,       setActiveTab]       = useState('schedules'); // 'schedules' | 'completed' | 'cancelled'
   const [dateFilter,      setDateFilter]      = useState('all'); // 'all' | '1day' | '2days' | '3days' | 'custom'
   const [customDays,      setCustomDays]      = useState('5');
@@ -299,10 +301,12 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
     loadTrips();
     const handleSync = () => { loadTrips(); };
     window.addEventListener('storage', handleSync);
+    window.addEventListener('c2b_sync', handleSync);
     window.addEventListener('focus', handleSync);
     const interval = setInterval(handleSync, 4000);
     return () => {
       window.removeEventListener('storage', handleSync);
+      window.removeEventListener('c2b_sync', handleSync);
       window.removeEventListener('focus', handleSync);
       clearInterval(interval);
     };
@@ -649,6 +653,14 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
                     <div style={{ display: 'flex', gap: '6px', marginTop: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       <button
                         className="btn btn-outline"
+                        style={{ padding: '4px 10px', fontSize: '0.78rem', color: '#2563eb', borderColor: '#bfdbfe', background: '#eff6ff' }}
+                        title="Track live bus GPS, route progress, and telemetry"
+                        onClick={() => setTrackingTrip(t)}
+                      >
+                        🧭 Track Bus
+                      </button>
+                      <button
+                        className="btn btn-outline"
                         style={{ padding: '4px 10px', fontSize: '0.78rem' }}
                         title={isLocal ? 'Edit this schedule' : 'Only locally-added schedules can be edited offline'}
                         onClick={() => {
@@ -814,6 +826,14 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
           showToast={showToast}
         />
       )}
+
+      {/* Real Google Maps Live Bus Tracker Modal (Task 5) */}
+      <LiveBusTrackerModal
+        isOpen={!!trackingTrip}
+        onClose={() => setTrackingTrip(null)}
+        trip={trackingTrip}
+        isProviderView={true}
+      />
     </div>
   );
 }

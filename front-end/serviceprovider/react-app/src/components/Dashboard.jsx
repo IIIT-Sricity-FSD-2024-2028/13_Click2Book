@@ -53,7 +53,13 @@ export default function Dashboard({ provider, onNavigate, showToast }) {
       {/* Stats */}
       <div className="stats-grid">
         {stats.map((s) => (
-          <div key={s.label} className={`stat-card ${s.color}`}>
+          <div
+            key={s.label}
+            className={`stat-card ${s.color}`}
+            onClick={() => s.trend === 'Fleet' && onNavigate('fleet-management')}
+            style={s.trend === 'Fleet' ? { cursor: 'pointer' } : undefined}
+            title={s.trend === 'Fleet' ? 'Click to open Bus Fleet & Route Assignments' : undefined}
+          >
             <div className="stat-header">
               <div className={`stat-icon ${s.color}`}>{s.icon}</div>
               <span className="stat-trend">{s.trend}</span>
@@ -69,6 +75,13 @@ export default function Dashboard({ provider, onNavigate, showToast }) {
         <div className="card-header">
           <h3>Today's Schedule &amp; Fleet Occupancy</h3>
           <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn btn-primary"
+              style={{ padding: '0.45rem 0.95rem', fontSize: '0.82rem', background: '#4f46e5' }}
+              onClick={() => onNavigate('fleet-management')}
+            >
+              🚍 Fleet &amp; Routes
+            </button>
             <button
               className="btn btn-outline"
               style={{ padding: '0.45rem 0.85rem', fontSize: '0.82rem' }}

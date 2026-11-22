@@ -7,6 +7,7 @@ import NotificationDrawer from './components/NotificationDrawer';
 import Toast              from './components/Toast';
 
 import Dashboard          from './components/Dashboard';
+import BusFleetManagement from './components/BusFleetManagement';
 import ManageSchedules    from './components/ManageSchedules';
 import AddSchedule        from './components/AddSchedule';
 import ConfirmTrips       from './components/ConfirmTrips';
@@ -23,7 +24,7 @@ import { liveSync } from './services/liveSync';
 
 /* ── Valid tabs (sync with hash URL, same approach as support agent) ── */
 const VALID_TABS = [
-  'dashboard', 'manage-schedules', 'add-schedule',
+  'dashboard', 'fleet-management', 'manage-schedules', 'add-schedule',
   'confirm-trips', 'seat-management', 'coupons', 'reviews', 'lost-found', 'revenue', 'settings', 'escalations',
 ];
 
@@ -139,6 +140,7 @@ export default function App() {
     const commonProps = { provider, showToast, onNavigate: setActiveTab };
     switch (activeTab) {
       case 'dashboard':        return <Dashboard        {...commonProps} />;
+      case 'fleet-management': return <BusFleetManagement {...commonProps} />;
       case 'manage-schedules': return <ManageSchedules  {...commonProps} />;
       case 'add-schedule':     return <AddSchedule      {...commonProps} />;
       case 'confirm-trips':    return <ConfirmTrips     {...commonProps} />;

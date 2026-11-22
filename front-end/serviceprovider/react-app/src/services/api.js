@@ -2285,60 +2285,25 @@ export function calculateGeoDistance(lat1, lon1, lat2, lon2) {
   return Math.round(R * c);
 }
 
-/* ── Registered Provider Fleet for Step 1 ── */
+/* ── Registered Provider Fleet for Step 1 & Global Fleet Registry ── */
 export function getRegisteredBuses() {
-  return [
-    {
-      vehicleNumber: 'AP 03 TC 1001',
-      busName: 'Volvo A/C Multi-Axle B12',
-      busType: 'Volvo AC',
-      totalSeats: 40,
-      seatingType: '2+2 Pushback / Semi-Sleeper',
-      amenities: ['WiFi', 'AC', 'USB Charging', 'Blankets', 'Emergency Exit'],
-      rating: 4.8,
-      status: 'Active',
-    },
-    {
-      vehicleNumber: 'AP 03 TC 2002',
-      busName: 'Scania Touring HD Luxury',
-      busType: 'AC Seater',
-      totalSeats: 45,
-      seatingType: '2+2 Ergonomic Recliner',
-      amenities: ['AC', 'USB Charging', 'Water Bottle', 'Luggage Compartment'],
-      rating: 4.6,
-      status: 'Active',
-    },
-    {
-      vehicleNumber: 'AP 03 TC 3003',
-      busName: 'Mercedes-Benz Super Luxury',
-      busType: 'Sleeper AC',
-      totalSeats: 36,
-      seatingType: '2+1 Sleeper Berths',
-      amenities: ['AC', 'Personal TV', 'Reading Lights', 'Pillow & Blanket'],
-      rating: 4.9,
-      status: 'Active',
-    },
-    {
-      vehicleNumber: 'AP 03 TC 4004',
-      busName: 'Ashok Leyland Viking Express',
-      busType: 'Non-AC',
-      totalSeats: 48,
-      seatingType: '2+2 Standard Seater',
-      amenities: ['Overhead Luggage Rack', 'Emergency Exits', 'First Aid'],
-      rating: 4.3,
-      status: 'Active',
-    },
-    {
-      vehicleNumber: 'AP 03 TC 5005',
-      busName: 'BharatBenz High-Deck Coach',
-      busType: 'Semi-Sleeper',
-      totalSeats: 40,
-      seatingType: '2+2 Semi-Sleeper Recliners',
-      amenities: ['AC', 'Reclining Seats', 'Ambient Lighting', 'WiFi'],
-      rating: 4.7,
-      status: 'Active',
-    },
-  ];
+  const fleet = getFleetBuses();
+  if (fleet && fleet.length > 0) {
+    return fleet.map((b) => ({
+      vehicleId: b.vehicleId || b.id,
+      vehicleNumber: b.vehicleNumber,
+      busName: b.busName || b.vehicleNumber,
+      busType: b.busType || b.vehicleType || 'Volvo AC',
+      totalSeats: b.totalSeats || 40,
+      seatingType: b.seatingType || `${b.busType || 'AC'} Coach`,
+      amenities: b.amenities || ['WiFi', 'AC', 'Charging point'],
+      rating: b.rating || 4.7,
+      status: b.status || 'Available',
+      assignedRoute: b.assignedRoute || null,
+      seatLayout: b.seatLayout || null,
+    }));
+  }
+  return [];
 }
 
 /* ── Verified Indian Corridor Presets ── */
@@ -2810,6 +2775,978 @@ export function validateRouteProgression(stops = [], sourceName = '', destName =
 
   return { valid: true };
 }
+
+/* ──────────────────────────────────────────────────────────
+   MODULE 1 to 6: PERMANENT BUS REGISTRATION, DYNAMIC SEAT
+   LAYOUT, BUS-TO-ROUTE ASSIGNMENT & ROUND-TRIP SCHEDULING
+   ────────────────────────────────────────────────────────── */
+
+/* ── Dynamic Seat Layout Generator ── */
+export function generateDefaultSeatLayout(busType = 'Seater', totalSeats = 40, rows = 10, cols = 5) {
+  const typeStr = (busType || '').toLowerCase();
+  const isSleeper = typeStr.includes('sleeper') && !typeStr.includes('semi');
+  const count = Number(totalSeats) > 0 ? Number(totalSeats) : 40;
+
+  const rowCount = Math.max(5, Number(rows) || Math.ceil(count / 4));
+  const colCount = Math.max(4, Number(cols) || 5);
+  const aisleCol = isSleeper ? 3 : 3;
+
+  const lowerDeck = [];
+  const upperDeck = [];
+
+  let lowerSeatNum = 1;
+  let upperSeatNum = 1;
+
+  for (let r = 1; r <= rowCount; r++) {
+    for (let c = 1; c <= colCount; c++) {
+      if (c === aisleCol && r < rowCount) {
+        // Gangway / Aisle
+        lowerDeck.push({
+          seatId: `L_R${r}_C${c}`,
+          seatNumber: '',
+          seatType: 'AISLE',
+          deck: 'LOWER',
+          row: r,
+          col: c,
+          isActive: false,
+        });
+        if (isSleeper) {
+          upperDeck.push({
+            seatId: `U_R${r}_C${c}`,
+            seatNumber: '',
+            seatType: 'AISLE',
+            deck: 'UPPER',
+            row: r,
+            col: c,
+            isActive: false,
+          });
+        }
+      } else {
+        // Seat or Berth
+        const isUpperApplicable = isSleeper && upperDeck.filter((s) => s.isActive).length < Math.floor(count / 2);
+        const isLowerApplicable = lowerDeck.filter((s) => s.isActive).length < (isSleeper ? Math.ceil(count / 2) : count);
+
+        if (isLowerApplicable) {
+          const sType = isSleeper ? (c <= 2 ? 'DOUBLE_SLEEPER' : 'SINGLE_SLEEPER') : 'SEATER';
+          lowerDeck.push({
+            seatId: `L_R${r}_C${c}`,
+            seatNumber: isSleeper ? `L${lowerSeatNum}` : `${lowerSeatNum}`,
+            seatType: sType,
+            deck: 'LOWER',
+            row: r,
+            col: c,
+            isActive: true,
+            berthType: 'LOWER',
+          });
+          lowerSeatNum++;
+        } else {
+          lowerDeck.push({
+            seatId: `L_R${r}_C${c}`,
+            seatNumber: '',
+            seatType: 'EMPTY',
+            deck: 'LOWER',
+            row: r,
+            col: c,
+            isActive: false,
+          });
+        }
+
+        if (isSleeper) {
+          if (isUpperApplicable) {
+            const sType = c <= 2 ? 'DOUBLE_SLEEPER' : 'SINGLE_SLEEPER';
+            upperDeck.push({
+              seatId: `U_R${r}_C${c}`,
+              seatNumber: `U${upperSeatNum}`,
+              seatType: sType,
+              deck: 'UPPER',
+              row: r,
+              col: c,
+              isActive: true,
+              berthType: 'UPPER',
+            });
+            upperSeatNum++;
+          } else {
+            upperDeck.push({
+              seatId: `U_R${r}_C${c}`,
+              seatNumber: '',
+              seatType: 'EMPTY',
+              deck: 'UPPER',
+              row: r,
+              col: c,
+              isActive: false,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  const activeLower = lowerDeck.filter((s) => s.isActive).length;
+  const activeUpper = upperDeck.filter((s) => s.isActive).length;
+
+  return {
+    rows: rowCount,
+    cols: colCount,
+    totalSeats: activeLower + activeUpper,
+    lowerBerthsCount: activeLower,
+    upperBerthsCount: activeUpper,
+    hasUpperDeck: isSleeper,
+    lowerDeck,
+    upperDeck: isSleeper ? upperDeck : [],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/* ── 10 Pre-Registered Buses for Scenario 1 ── */
+const INITIAL_FLEET_BUSES = [
+  {
+    vehicleId: 'BUS_1001',
+    providerId: 'P001',
+    vehicleNumber: 'AP 27 AB 1234',
+    busName: 'APSRTC Garuda Plus Multi-Axle',
+    vehicleType: 'Volvo AC',
+    busType: 'Volvo AC',
+    totalSeats: 40,
+    lowerBerths: 20,
+    upperBerths: 20,
+    status: 'Assigned',
+    amenities: ['AC', 'Charging point', 'Wi-Fi', 'Water bottle', 'Reading light', 'Blanket', 'GPS'],
+    rating: 4.8,
+    seatLayout: generateDefaultSeatLayout('Volvo AC', 40, 10, 5),
+    assignedRoute: {
+      assignmentId: 'ASGN_1001_01',
+      vehicleId: 'BUS_1001',
+      routeId: 'R_CHN_BZA',
+      originCity: 'Chennai',
+      destCity: 'Vijayawada',
+      corridorId: 'CORR_CHN_BZA_A',
+      corridorName: 'Corridor A: NH16 Coastal Corridor',
+      distanceKm: 430,
+      durationEst: '6h 45m',
+      intermediateStops: ['Tada', 'Nayudupeta', 'Nellore', 'Kavali', 'Ongole', 'Guntur'],
+      assignedAt: '2026-06-01T00:00:00.000Z',
+      effectiveDate: '2026-06-01',
+      status: 'ACTIVE',
+    },
+    routeHistory: [],
+    roundTripSchedule: {
+      vehicleId: 'BUS_1001',
+      assignmentId: 'ASGN_1001_01',
+      upSchedule: {
+        scheduleId: 'SCH_UP_1001',
+        originCity: 'Chennai',
+        destCity: 'Vijayawada',
+        departureTime: '06:00',
+        arrivalTime: '14:30',
+        operatingDays: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+        intermediateStops: [
+          { stopName: 'Tada', arrivalTime: '07:15', departureTime: '07:25' },
+          { stopName: 'Nayudupeta', arrivalTime: '08:00', departureTime: '08:15' },
+          { stopName: 'Nellore', arrivalTime: '09:30', departureTime: '09:45' },
+          { stopName: 'Kavali', arrivalTime: '10:45', departureTime: '11:00' },
+          { stopName: 'Ongole', arrivalTime: '12:00', departureTime: '12:20' },
+          { stopName: 'Guntur', arrivalTime: '13:40', departureTime: '13:55' },
+        ],
+        active: true,
+      },
+      downSchedule: {
+        scheduleId: 'SCH_DN_1001',
+        originCity: 'Vijayawada',
+        destCity: 'Chennai',
+        departureTime: '20:00',
+        arrivalTime: '04:30',
+        operatingDays: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+        intermediateStops: [
+          { stopName: 'Guntur', arrivalTime: '20:35', departureTime: '20:50' },
+          { stopName: 'Ongole', arrivalTime: '22:10', departureTime: '22:30' },
+          { stopName: 'Kavali', arrivalTime: '23:30', departureTime: '23:45' },
+          { stopName: 'Nellore', arrivalTime: '00:50', departureTime: '01:05' },
+          { stopName: 'Nayudupeta', arrivalTime: '02:20', departureTime: '02:35' },
+          { stopName: 'Tada', arrivalTime: '03:15', departureTime: '03:25' },
+        ],
+        active: true,
+      },
+      fare: 650,
+      validFrom: '2026-06-01',
+      restMinutesBetweenJourneys: 330,
+    },
+    createdAt: '2026-01-15T08:00:00.000Z',
+  },
+  {
+    vehicleId: 'BUS_1002',
+    providerId: 'P001',
+    vehicleNumber: 'AP 03 TC 1001',
+    busName: 'APSRTC Amaravathi Super Luxury',
+    vehicleType: 'Sleeper AC',
+    busType: 'Sleeper AC',
+    totalSeats: 36,
+    lowerBerths: 18,
+    upperBerths: 18,
+    status: 'Assigned',
+    amenities: ['AC', 'Charging point', 'Reading light', 'Blanket', 'GPS'],
+    rating: 4.7,
+    seatLayout: generateDefaultSeatLayout('Sleeper AC', 36, 9, 4),
+    assignedRoute: {
+      assignmentId: 'ASGN_1002_01',
+      vehicleId: 'BUS_1002',
+      routeId: 'R_CHN_GNT',
+      originCity: 'Chennai',
+      destCity: 'Guntur',
+      corridorId: 'CORR_CHN_GNT_A',
+      corridorName: 'Corridor A: NH16 Coastal Corridor',
+      distanceKm: 415,
+      durationEst: '6h 45m',
+      intermediateStops: ['Tada', 'Nayudupeta', 'Nellore', 'Kavali', 'Ongole', 'Chirala', 'Bapatla'],
+      assignedAt: '2026-06-01T00:00:00.000Z',
+      effectiveDate: '2026-06-01',
+      status: 'ACTIVE',
+    },
+    routeHistory: [],
+    roundTripSchedule: {
+      vehicleId: 'BUS_1002',
+      assignmentId: 'ASGN_1002_01',
+      upSchedule: {
+        scheduleId: 'SCH_UP_1002',
+        originCity: 'Chennai',
+        destCity: 'Guntur',
+        departureTime: '21:00',
+        arrivalTime: '05:30',
+        operatingDays: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+        intermediateStops: [
+          { stopName: 'Tada', arrivalTime: '22:15', departureTime: '22:25' },
+          { stopName: 'Nellore', arrivalTime: '00:30', departureTime: '00:45' },
+          { stopName: 'Ongole', arrivalTime: '03:00', departureTime: '03:15' },
+        ],
+        active: true,
+      },
+      downSchedule: {
+        scheduleId: 'SCH_DN_1002',
+        originCity: 'Guntur',
+        destCity: 'Chennai',
+        departureTime: '08:00',
+        arrivalTime: '16:30',
+        operatingDays: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+        intermediateStops: [
+          { stopName: 'Ongole', arrivalTime: '10:00', departureTime: '10:15' },
+          { stopName: 'Nellore', arrivalTime: '12:30', departureTime: '12:45' },
+          { stopName: 'Tada', arrivalTime: '15:00', departureTime: '15:10' },
+        ],
+        active: true,
+      },
+      fare: 750,
+      validFrom: '2026-06-01',
+      restMinutesBetweenJourneys: 150,
+    },
+    createdAt: '2026-01-20T08:00:00.000Z',
+  },
+  {
+    vehicleId: 'BUS_1003',
+    providerId: 'P001',
+    vehicleNumber: 'AP 03 TC 2002',
+    busName: 'APSRTC Rajadhani Express',
+    vehicleType: 'AC Seater',
+    busType: 'AC Seater',
+    totalSeats: 45,
+    lowerBerths: 0,
+    upperBerths: 0,
+    status: 'Assigned',
+    amenities: ['AC', 'Charging point', 'Water bottle', 'GPS'],
+    rating: 4.5,
+    seatLayout: generateDefaultSeatLayout('AC Seater', 45, 10, 5),
+    assignedRoute: {
+      assignmentId: 'ASGN_1003_01',
+      vehicleId: 'BUS_1003',
+      routeId: 'R_BLR_CHN',
+      originCity: 'Bangalore',
+      destCity: 'Chennai',
+      corridorId: 'CORR_BLR_CHN_A',
+      corridorName: 'Corridor A: Golden Quadrilateral Expressway',
+      distanceKm: 345,
+      durationEst: '5h 45m',
+      intermediateStops: ['Hosur', 'Krishnagiri', 'Ambur', 'Vellore', 'Kanchipuram'],
+      assignedAt: '2026-06-01T00:00:00.000Z',
+      effectiveDate: '2026-06-01',
+      status: 'ACTIVE',
+    },
+    routeHistory: [],
+    roundTripSchedule: {
+      vehicleId: 'BUS_1003',
+      assignmentId: 'ASGN_1003_01',
+      upSchedule: {
+        scheduleId: 'SCH_UP_1003',
+        originCity: 'Bangalore',
+        destCity: 'Chennai',
+        departureTime: '14:00',
+        arrivalTime: '20:15',
+        operatingDays: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+        intermediateStops: [
+          { stopName: 'Hosur', arrivalTime: '14:50', departureTime: '15:00' },
+          { stopName: 'Vellore', arrivalTime: '17:30', departureTime: '17:45' },
+        ],
+        active: true,
+      },
+      downSchedule: {
+        scheduleId: 'SCH_DN_1003',
+        originCity: 'Chennai',
+        destCity: 'Bangalore',
+        departureTime: '22:00',
+        arrivalTime: '04:15',
+        operatingDays: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+        intermediateStops: [
+          { stopName: 'Vellore', arrivalTime: '00:15', departureTime: '00:30' },
+          { stopName: 'Hosur', arrivalTime: '03:15', departureTime: '03:25' },
+        ],
+        active: true,
+      },
+      fare: 550,
+      validFrom: '2026-06-01',
+      restMinutesBetweenJourneys: 105,
+    },
+    createdAt: '2026-02-01T08:00:00.000Z',
+  },
+  {
+    vehicleId: 'BUS_1004',
+    providerId: 'P001',
+    vehicleNumber: 'AP 03 TC 3003',
+    busName: 'APSRTC Deluxe Semi-Sleeper',
+    vehicleType: 'Semi-Sleeper',
+    busType: 'Semi-Sleeper',
+    totalSeats: 40,
+    lowerBerths: 0,
+    upperBerths: 0,
+    status: 'Maintenance',
+    amenities: ['Charging point', 'Water bottle', 'GPS'],
+    rating: 4.2,
+    seatLayout: generateDefaultSeatLayout('Semi-Sleeper', 40, 10, 5),
+    assignedRoute: null,
+    routeHistory: [],
+    createdAt: '2026-02-10T08:00:00.000Z',
+  },
+  {
+    vehicleId: 'BUS_1005',
+    providerId: 'P001',
+    vehicleNumber: 'AP 03 TC 4004',
+    busName: 'APSRTC Ultra Deluxe Non-AC',
+    vehicleType: 'Non-AC',
+    busType: 'Non-AC Seater',
+    totalSeats: 48,
+    lowerBerths: 0,
+    upperBerths: 0,
+    status: 'Available',
+    amenities: ['Charging point', 'Overhead Luggage Rack', 'Emergency Exits', 'GPS'],
+    rating: 4.0,
+    seatLayout: generateDefaultSeatLayout('Non-AC', 48, 12, 5),
+    assignedRoute: null,
+    routeHistory: [],
+    createdAt: '2026-02-15T08:00:00.000Z',
+  },
+  {
+    vehicleId: 'BUS_1006',
+    providerId: 'P001',
+    vehicleNumber: 'AP 03 TC 5005',
+    busName: 'APSRTC Garuda Multi-Axle B12',
+    vehicleType: 'Volvo AC',
+    busType: 'Volvo AC',
+    totalSeats: 40,
+    lowerBerths: 0,
+    upperBerths: 0,
+    status: 'Available',
+    amenities: ['AC', 'Wi-Fi', 'Charging point', 'Blanket', 'GPS'],
+    rating: 4.7,
+    seatLayout: generateDefaultSeatLayout('Volvo AC', 40, 10, 5),
+    assignedRoute: null,
+    routeHistory: [],
+    createdAt: '2026-03-01T08:00:00.000Z',
+  },
+  {
+    vehicleId: 'BUS_1007',
+    providerId: 'P001',
+    vehicleNumber: 'AP 03 TC 6006',
+    busName: 'APSRTC Night Rider AC Sleeper',
+    vehicleType: 'Sleeper AC',
+    busType: 'AC Sleeper',
+    totalSeats: 36,
+    lowerBerths: 18,
+    upperBerths: 18,
+    status: 'Available',
+    amenities: ['AC', 'Wi-Fi', 'Blanket', 'Pillow', 'Reading light', 'GPS'],
+    rating: 4.8,
+    seatLayout: generateDefaultSeatLayout('Sleeper AC', 36, 9, 4),
+    assignedRoute: null,
+    routeHistory: [],
+    createdAt: '2026-03-05T08:00:00.000Z',
+  },
+  {
+    vehicleId: 'BUS_1008',
+    providerId: 'P001',
+    vehicleNumber: 'AP 03 TC 7007',
+    busName: 'APSRTC InterCity AC Seater',
+    vehicleType: 'AC Seater',
+    busType: 'AC Seater',
+    totalSeats: 44,
+    lowerBerths: 0,
+    upperBerths: 0,
+    status: 'Available',
+    amenities: ['AC', 'Charging point', 'Water bottle', 'GPS'],
+    rating: 4.4,
+    seatLayout: generateDefaultSeatLayout('AC Seater', 44, 11, 5),
+    assignedRoute: null,
+    routeHistory: [],
+    createdAt: '2026-03-10T08:00:00.000Z',
+  },
+  {
+    vehicleId: 'BUS_1009',
+    providerId: 'P001',
+    vehicleNumber: 'AP 03 TC 8008',
+    busName: 'APSRTC High-Deck Coach',
+    vehicleType: 'Semi-Sleeper',
+    busType: 'Semi-Sleeper',
+    totalSeats: 40,
+    lowerBerths: 0,
+    upperBerths: 0,
+    status: 'Available',
+    amenities: ['AC', 'Charging point', 'Reclining Seats', 'Ambient Lighting', 'GPS'],
+    rating: 4.5,
+    seatLayout: generateDefaultSeatLayout('Semi-Sleeper', 40, 10, 5),
+    assignedRoute: null,
+    routeHistory: [],
+    createdAt: '2026-03-15T08:00:00.000Z',
+  },
+  {
+    vehicleId: 'BUS_1010',
+    providerId: 'P001',
+    vehicleNumber: 'AP 03 TC 9009',
+    busName: 'APSRTC Platinum Executive Coach',
+    vehicleType: 'Luxury',
+    busType: 'Luxury',
+    totalSeats: 36,
+    lowerBerths: 0,
+    upperBerths: 0,
+    status: 'Available',
+    amenities: ['AC', 'Wi-Fi', 'Personal TV', 'Water bottle', 'Blanket', 'GPS'],
+    rating: 4.9,
+    seatLayout: generateDefaultSeatLayout('Luxury', 36, 9, 5),
+    assignedRoute: null,
+    routeHistory: [],
+    createdAt: '2026-03-20T08:00:00.000Z',
+  },
+];
+
+/* ── Initialize Fleet Storage ── */
+export function initFleetStorage() {
+  const existing = localStorage.getItem('c2b_registered_fleet');
+  if (!existing) {
+    localStorage.setItem('c2b_registered_fleet', JSON.stringify(INITIAL_FLEET_BUSES));
+  }
+}
+
+/* ── Get Registered Fleet for Provider (Multi-Provider Isolation) ── */
+export function getFleetBuses(providerId) {
+  initFleetStorage();
+  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
+  const targetId = providerId || loggedId;
+
+  try {
+    const raw = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+    // Filter by providerId to strictly prevent cross-provider access
+    return raw.filter((b) => !b.providerId || b.providerId === targetId);
+  } catch {
+    return INITIAL_FLEET_BUSES;
+  }
+}
+
+/* ── Get Fleet Overview Statistics ── */
+export function getFleetStats(providerId) {
+  const buses = getFleetBuses(providerId);
+  const totalBuses = buses.length;
+  const assignedBuses = buses.filter((b) => b.status === 'Assigned' || b.assignedRoute).length;
+  const availableBuses = buses.filter((b) => b.status === 'Available' && !b.assignedRoute).length;
+  const maintenanceBuses = buses.filter((b) => b.status === 'Maintenance').length;
+
+  return {
+    totalBuses,
+    assignedBuses,
+    availableBuses,
+    maintenanceBuses,
+  };
+}
+
+/* ── Get Bus by ID ── */
+export function getBusById(busId) {
+  initFleetStorage();
+  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  return all.find((b) => b.vehicleId === busId || b.id === busId || b.vehicleNumber === busId) || null;
+}
+
+/* ── Register New Bus (Validates Unique Registration Number) ── */
+export async function registerNewBus(busData) {
+  initFleetStorage();
+  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
+  const cleanRegNum = (busData.vehicleNumber || '').trim().toUpperCase();
+
+  if (!cleanRegNum) {
+    throw new Error('Bus registration number is required.');
+  }
+
+  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+
+  // Validate uniqueness across all buses
+  const duplicate = all.find((b) => b.vehicleNumber.trim().toUpperCase() === cleanRegNum);
+  if (duplicate) {
+    throw new Error(`Bus registration number "${cleanRegNum}" already exists. Registration number must be unique.`);
+  }
+
+  const busId = `BUS_${Date.now()}`;
+  const totalSeats = Number(busData.totalSeats) || 40;
+  const busType = busData.busType || busData.vehicleType || 'Volvo AC';
+
+  // Generate dynamic seat layout if not provided
+  const seatLayout = busData.seatLayout || generateDefaultSeatLayout(busType, totalSeats);
+
+  const newBus = {
+    vehicleId: busId,
+    id: busId,
+    providerId: loggedId,
+    vehicleNumber: cleanRegNum,
+    busName: busData.busName || `${cleanRegNum} (${busType})`,
+    vehicleType: busType,
+    busType,
+    totalSeats,
+    lowerBerths: Number(busData.lowerBerths) || 0,
+    upperBerths: Number(busData.upperBerths) || 0,
+    status: busData.status || 'Available',
+    amenities: Array.isArray(busData.amenities) ? busData.amenities : ['AC', 'Charging point'],
+    photographs: busData.photographs || [],
+    rating: 4.8,
+    seatLayout,
+    assignedRoute: null,
+    routeHistory: [],
+    roundTripSchedule: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  all.unshift(newBus);
+  localStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
+
+  // Sync to backend if online
+  try {
+    await spFetch('/vehicles', {
+      method: 'POST',
+      body: JSON.stringify({
+        providerId: loggedId,
+        vehicleNumber: cleanRegNum,
+        vehicleType: busType,
+        totalSeats,
+        busName: newBus.busName,
+        amenities: newBus.amenities,
+        status: newBus.status,
+      }),
+    });
+  } catch (err) {
+    console.warn('Backend vehicle registration sync note:', err?.message);
+  }
+
+  try { window.dispatchEvent(new Event('storage')); } catch {}
+  try { liveSync.syncVehicle(newBus); } catch {}
+
+  return newBus;
+}
+
+/* ── Save / Update Dynamic Seat Layout Configuration ── */
+export async function saveBusSeatLayout(busId, layoutConfig) {
+  initFleetStorage();
+  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  const idx = all.findIndex((b) => b.vehicleId === busId || b.id === busId);
+
+  if (idx === -1) {
+    throw new Error(`Bus ${busId} not found.`);
+  }
+
+  // Safety check: Restrict structural changes when active future bookings exist
+  const activeBookings = checkBusActiveBookings(all[idx].vehicleNumber);
+  if (activeBookings.length > 0) {
+    // Check if total seats changed
+    if (all[idx].totalSeats !== layoutConfig.totalSeats) {
+      throw new Error(
+        `Cannot change total seat capacity from ${all[idx].totalSeats} to ${layoutConfig.totalSeats}: ` +
+        `This bus has ${activeBookings.length} active passenger reservations on upcoming dates.`
+      );
+    }
+  }
+
+  all[idx].seatLayout = {
+    ...layoutConfig,
+    updatedAt: new Date().toISOString(),
+  };
+  all[idx].totalSeats = layoutConfig.totalSeats;
+  all[idx].updatedAt = new Date().toISOString();
+
+  localStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
+
+  // Sync to backend if online
+  try {
+    await spFetch(`/vehicles/${busId}/seat-layout`, {
+      method: 'PUT',
+      body: JSON.stringify(layoutConfig),
+    });
+  } catch (err) {
+    console.warn('Backend seat layout sync note:', err?.message);
+  }
+
+  try { window.dispatchEvent(new Event('storage')); } catch {}
+  return all[idx];
+}
+
+/* ── Check Active Bookings for a Bus ── */
+export function checkBusActiveBookings(vehicleNumber) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const bookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+    const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+
+    // Find schedules matching this bus
+    const matchingTripIds = new Set(
+      schedules
+        .filter((s) => s.busName?.includes(vehicleNumber) || s.vehicleNumber === vehicleNumber)
+        .map((s) => s.tripId || s.id)
+    );
+
+    return bookings.filter(
+      (b) =>
+        (matchingTripIds.has(b.tripId) || (b.busName && b.busName.includes(vehicleNumber))) &&
+        b.status !== 'CANCELLED' &&
+        (!b.journeyDate || b.journeyDate >= today)
+    );
+  } catch {
+    return [];
+  }
+}
+
+/* ── Assign Bus to Permanent Route Corridor (Module 3) ── */
+export async function assignBusToRoute(busId, routeData) {
+  initFleetStorage();
+  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  const idx = all.findIndex((b) => b.vehicleId === busId || b.id === busId);
+
+  if (idx === -1) {
+    throw new Error(`Bus ${busId} not found.`);
+  }
+
+  const bus = all[idx];
+
+  if (bus.status === 'Maintenance') {
+    throw new Error(`Cannot assign route: Bus ${bus.vehicleNumber} is currently under Maintenance.`);
+  }
+  if (bus.status === 'Inactive') {
+    throw new Error(`Cannot assign route: Bus ${bus.vehicleNumber} is Inactive.`);
+  }
+
+  const assignmentId = `ASGN_${Date.now()}`;
+  const newAssignment = {
+    assignmentId,
+    vehicleId: bus.vehicleId,
+    originCity: routeData.originCity,
+    destCity: routeData.destCity,
+    corridorId: routeData.corridorId,
+    corridorName: routeData.corridorName || `${routeData.originCity} ↔ ${routeData.destCity} Corridor`,
+    distanceKm: Number(routeData.distanceKm) || 350,
+    durationEst: routeData.durationEst || '6h 00m',
+    intermediateStops: Array.isArray(routeData.intermediateStops) ? routeData.intermediateStops : [],
+    effectiveDate: routeData.effectiveDate || new Date().toISOString().split('T')[0],
+    assignedAt: new Date().toISOString(),
+    status: 'ACTIVE',
+  };
+
+  // Archive previous active assignment if changing
+  if (bus.assignedRoute) {
+    bus.routeHistory = [...(bus.routeHistory || []), { ...bus.assignedRoute, status: 'SUPERSEDED' }];
+  }
+
+  bus.assignedRoute = newAssignment;
+  bus.status = 'Assigned';
+  bus.updatedAt = new Date().toISOString();
+
+  localStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
+
+  // Sync to backend
+  try {
+    await spFetch(`/vehicles/${busId}/assign-route`, {
+      method: 'POST',
+      body: JSON.stringify(newAssignment),
+    });
+  } catch (err) {
+    console.warn('Backend assign-route sync note:', err?.message);
+  }
+
+  try { window.dispatchEvent(new Event('storage')); } catch {}
+  return bus;
+}
+
+/* ── Change Route Assignment with Booking Conflict Check (Module 6) ── */
+export async function changeBusRoute(busId, newRouteData, confirmationOptions = {}) {
+  initFleetStorage();
+  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  const idx = all.findIndex((b) => b.vehicleId === busId || b.id === busId);
+
+  if (idx === -1) {
+    throw new Error(`Bus ${busId} not found.`);
+  }
+
+  const bus = all[idx];
+
+  // Conflict Check: Look for active future bookings on existing route
+  const activeBookings = checkBusActiveBookings(bus.vehicleNumber);
+  if (activeBookings.length > 0 && !confirmationOptions.forceConfirm) {
+    return {
+      success: false,
+      hasConflicts: true,
+      conflictCount: activeBookings.length,
+      bookings: activeBookings,
+      currentRoute: `${bus.assignedRoute?.originCity || 'Origin'} ↔ ${bus.assignedRoute?.destCity || 'Dest'}`,
+      message:
+        `Warning: Bus ${bus.vehicleNumber} has ${activeBookings.length} confirmed passenger bookings on upcoming journeys. ` +
+        `Reassigning will affect future passengers. Please confirm or provide an effective transition date.`,
+    };
+  }
+
+  return {
+    success: true,
+    data: await assignBusToRoute(busId, newRouteData),
+  };
+}
+
+/* ── Save Round-Trip Schedules: UP and DOWN (Module 4 & 5) ── */
+export async function saveRoundTripSchedules(busId, scheduleConfig) {
+  initFleetStorage();
+  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  const idx = all.findIndex((b) => b.vehicleId === busId || b.id === busId);
+
+  if (idx === -1) {
+    throw new Error(`Bus ${busId} not found.`);
+  }
+
+  const bus = all[idx];
+  if (!bus.assignedRoute) {
+    throw new Error(`Please assign bus ${bus.vehicleNumber} to a permanent route corridor first.`);
+  }
+
+  const { upSchedule, downSchedule, fare } = scheduleConfig;
+
+  // Turnaround rest time calculation
+  const [uh, um] = (upSchedule.arrivalTime || '14:30').split(':').map(Number);
+  const [dh, dm] = (downSchedule.departureTime || '20:00').split(':').map(Number);
+  let restMinutes = (dh * 60 + dm) - (uh * 60 + um);
+  if (restMinutes < 0) restMinutes += 24 * 60;
+
+  const roundTripData = {
+    vehicleId: bus.vehicleId,
+    assignmentId: bus.assignedRoute.assignmentId,
+    upSchedule: {
+      scheduleId: `SCH_UP_${Date.now()}`,
+      originCity: bus.assignedRoute.originCity,
+      destCity: bus.assignedRoute.destCity,
+      departureTime: upSchedule.departureTime,
+      arrivalTime: upSchedule.arrivalTime,
+      operatingDays: upSchedule.operatingDays || ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+      intermediateStops: upSchedule.intermediateStops || [],
+      active: true,
+    },
+    downSchedule: {
+      scheduleId: `SCH_DN_${Date.now()}`,
+      originCity: bus.assignedRoute.destCity,
+      destCity: bus.assignedRoute.originCity,
+      departureTime: downSchedule.departureTime,
+      arrivalTime: downSchedule.arrivalTime,
+      operatingDays: downSchedule.operatingDays || ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+      // Intermediate stops in REVERSE order for DOWN journey
+      intermediateStops: downSchedule.intermediateStops || [...(upSchedule.intermediateStops || [])].reverse(),
+      active: true,
+    },
+    fare: Number(fare) || 650,
+    validFrom: scheduleConfig.validFrom || new Date().toISOString().split('T')[0],
+    restMinutesBetweenJourneys: restMinutes,
+  };
+
+  bus.roundTripSchedule = roundTripData;
+  bus.updatedAt = new Date().toISOString();
+
+  localStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
+
+  // Generate actual bookable recurring schedule instances into c2b_bus_schedules (Module 5)
+  generateRecurringJourneyInstances(bus, roundTripData);
+
+  // Sync to backend
+  try {
+    await spFetch(`/vehicles/${busId}/schedules`, {
+      method: 'POST',
+      body: JSON.stringify(roundTripData),
+    });
+  } catch (err) {
+    console.warn('Backend save-schedules sync note:', err?.message);
+  }
+
+  try { window.dispatchEvent(new Event('storage')); } catch {}
+  return bus;
+}
+
+/* ── Generate Journey Instances for Operating Dates (Module 5) ── */
+function generateRecurringJourneyInstances(bus, roundTripData) {
+  const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+  const today = new Date();
+  const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+  // Clean any stale unbooked schedules for this bus
+  const cleanSchedules = schedules.filter(
+    (s) => s.vehicleNumber !== bus.vehicleNumber || s.bookedSeats > 0
+  );
+
+  // Generate instances for the next 7 days
+  for (let i = 0; i < 7; i++) {
+    const curDate = new Date(today);
+    curDate.setDate(today.getDate() + i);
+    const dateStr = curDate.toISOString().split('T')[0];
+    const dayOfWeek = dayNames[curDate.getDay()];
+
+    // Generate UP Journey
+    if (roundTripData.upSchedule.operatingDays.includes(dayOfWeek)) {
+      const upTripId = `T_UP_${bus.vehicleNumber.replace(/\W/g, '')}_${dateStr.replace(/-/g, '')}`;
+      cleanSchedules.push({
+        id: upTripId,
+        tripId: upTripId,
+        vehicleId: bus.vehicleId,
+        vehicleNumber: bus.vehicleNumber,
+        providerId: bus.providerId || 'P001',
+        from: roundTripData.upSchedule.originCity,
+        to: roundTripData.upSchedule.destCity,
+        corridorId: bus.assignedRoute?.corridorId,
+        corridorName: bus.assignedRoute?.corridorName,
+        departureTime: roundTripData.upSchedule.departureTime,
+        arrivalTime: roundTripData.upSchedule.arrivalTime,
+        journeyDate: dateStr,
+        busName: bus.busName,
+        busType: bus.busType,
+        totalSeats: bus.totalSeats,
+        availableSeats: bus.totalSeats,
+        bookedSeats: 0,
+        fare: roundTripData.fare,
+        revenue: 0,
+        status: 'SCHEDULED',
+        direction: 'UP',
+        intermediateStops: (roundTripData.upSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s),
+        via: (roundTripData.upSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s).join(', '),
+        allStops: [
+          roundTripData.upSchedule.originCity,
+          ...(roundTripData.upSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s),
+          roundTripData.upSchedule.destCity,
+        ],
+        isPrimaryRoute: true,
+        addedAt: new Date().toISOString(),
+      });
+    }
+
+    // Generate DOWN Journey (Reverse Route)
+    if (roundTripData.downSchedule.operatingDays.includes(dayOfWeek)) {
+      const downTripId = `T_DN_${bus.vehicleNumber.replace(/\W/g, '')}_${dateStr.replace(/-/g, '')}`;
+      cleanSchedules.push({
+        id: downTripId,
+        tripId: downTripId,
+        vehicleId: bus.vehicleId,
+        vehicleNumber: bus.vehicleNumber,
+        providerId: bus.providerId || 'P001',
+        from: roundTripData.downSchedule.originCity,
+        to: roundTripData.downSchedule.destCity,
+        corridorId: bus.assignedRoute?.corridorId,
+        corridorName: bus.assignedRoute?.corridorName,
+        departureTime: roundTripData.downSchedule.departureTime,
+        arrivalTime: roundTripData.downSchedule.arrivalTime,
+        journeyDate: dateStr,
+        busName: bus.busName,
+        busType: bus.busType,
+        totalSeats: bus.totalSeats,
+        availableSeats: bus.totalSeats,
+        bookedSeats: 0,
+        fare: roundTripData.fare,
+        revenue: 0,
+        status: 'SCHEDULED',
+        direction: 'DOWN',
+        intermediateStops: (roundTripData.downSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s),
+        via: (roundTripData.downSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s).join(', '),
+        allStops: [
+          roundTripData.downSchedule.originCity,
+          ...(roundTripData.downSchedule.intermediateStops || []).map((s) => s.stopName || s.name || s),
+          roundTripData.downSchedule.destCity,
+        ],
+        isPrimaryRoute: true,
+        addedAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  localStorage.setItem('c2b_bus_schedules', JSON.stringify(cleanSchedules));
+}
+
+/* ── Update Bus Operating Status (Available, Maintenance, Inactive) ── */
+export async function updateBusStatus(busId, newStatus) {
+  initFleetStorage();
+  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  const idx = all.findIndex((b) => b.vehicleId === busId || b.id === busId);
+
+  if (idx === -1) {
+    throw new Error(`Bus ${busId} not found.`);
+  }
+
+  all[idx].status = newStatus;
+  all[idx].updatedAt = new Date().toISOString();
+
+  localStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
+
+  // Sync to backend
+  try {
+    await spFetch(`/vehicles/${busId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: newStatus }),
+    });
+  } catch (err) {
+    console.warn('Backend update-status sync note:', err?.message);
+  }
+
+  try { window.dispatchEvent(new Event('storage')); } catch {}
+  return all[idx];
+}
+
+/* ── Delete Registered Bus (Safe Deletion Check) ── */
+export async function deleteBus(busId) {
+  initFleetStorage();
+  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  const idx = all.findIndex((b) => b.vehicleId === busId || b.id === busId);
+
+  if (idx === -1) {
+    throw new Error(`Bus ${busId} not found.`);
+  }
+
+  const bus = all[idx];
+
+  // Prevent deleting bus with active bookings
+  const activeBookings = checkBusActiveBookings(bus.vehicleNumber);
+  if (activeBookings.length > 0) {
+    throw new Error(`Cannot delete bus ${bus.vehicleNumber}: It has ${activeBookings.length} upcoming active passenger bookings.`);
+  }
+
+  all.splice(idx, 1);
+  localStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
+
+  // Sync to backend
+  try {
+    await spFetch(`/vehicles/${busId}`, { method: 'DELETE' });
+  } catch (err) {
+    console.warn('Backend delete vehicle sync note:', err?.message);
+  }
+
+  try { window.dispatchEvent(new Event('storage')); } catch {}
+  return true;
+}
+
 
 
 

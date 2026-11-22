@@ -10,6 +10,24 @@ export class VehicleService {
   constructor(private readonly vehicleRepo: VehicleRepository) {}
 
   create(dto: CreateVehicleDto) {
+    // 1. Strict Indian Vehicle Registration Plate Format Validation
+    const cleanNumber = (dto.vehicleNumber || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const plateRegex = /^[A-Z]{2}[0-9]{1,2}[A-Z]{1,3}[0-9]{4}$/;
+    if (!plateRegex.test(cleanNumber)) {
+      throw new BadRequestException(
+        `Invalid bus registration number "${dto.vehicleNumber}". Must match standard Indian vehicle plate format: State (2 letters) + RTO (1-2 digits) + Series (1-3 letters) + 4 digits (e.g., AP 27 AB 1234 or TS 08 XY 9012). Arbitrary text or irregular formats are strictly not permitted.`,
+      );
+    }
+
+    // 2. Total Passenger Capacity Validation (Must be > 10 and < 80)
+    const seats = Number(dto.totalSeats);
+    if (isNaN(seats) || seats <= 10 || seats >= 80) {
+      throw new BadRequestException(
+        `Total passenger capacity must be more than 10 and less than 80 seats (between 11 and 79 seats). Given: ${dto.totalSeats}`,
+      );
+    }
+
+    // 3. Uniqueness Check
     const existing = this.vehicleRepo.findByRegistration(dto.vehicleNumber);
     if (existing) {
       throw new ConflictException(`Bus with registration number "${dto.vehicleNumber}" is already registered.`);

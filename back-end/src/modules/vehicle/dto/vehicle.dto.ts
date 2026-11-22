@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsEnum, IsNumber, IsOptional, Min, Length, IsArray, IsBoolean } from 'class-validator';
+import { IsString, IsEnum, IsNumber, IsOptional, Min, Max, Matches, Length, IsArray, IsBoolean } from 'class-validator';
 import { VehicleType } from '../enums/vehicle-type.enum';
 
 export class CreateVehicleDto {
@@ -8,15 +8,20 @@ export class CreateVehicleDto {
   providerId: string;
 
   @ApiProperty({ example: 'AP 27 AB 1234' })
-  @IsString() @Length(4, 25)
+  @IsString()
+  @Matches(/^[A-Z]{2}[ -]?[0-9]{1,2}[ -]?[A-Z]{1,3}[ -]?[0-9]{4}$/, {
+    message: 'Bus registration number must match standard Indian vehicle plate format (e.g. AP 27 AB 1234 or TS 08 XY 9012)',
+  })
   vehicleNumber: string;
 
   @ApiProperty({ enum: VehicleType, example: VehicleType.AC })
   @IsEnum(VehicleType)
   vehicleType: VehicleType;
 
-  @ApiProperty({ example: 40 })
-  @IsNumber() @Min(1)
+  @ApiProperty({ example: 40, description: 'Must be more than 10 and less than 80 passengers (11 - 79)' })
+  @IsNumber()
+  @Min(11, { message: 'Total passenger capacity must be more than 10 (at least 11 seats)' })
+  @Max(79, { message: 'Total passenger capacity must be less than 80 (maximum 79 seats)' })
   totalSeats: number;
 
   @ApiPropertyOptional({ example: 40 })

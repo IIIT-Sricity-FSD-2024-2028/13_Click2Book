@@ -13,18 +13,22 @@ import {
   discoverRouteCorridors,
   getCityCoords,
   getApprovedCities,
+  validateVehicleNumberPlate,
+  normalizeVehiclePlate,
 } from '../services/api';
 import RouteCorridorMap from './RouteCorridorMap';
 import OsmLocationSelector from './OsmLocationSelector';
+import BusSeatLayout from './BusSeatLayout';
 
 const BUS_TYPES = [
-  'Volvo AC',
   'AC Sleeper',
   'Non-AC Sleeper',
   'AC Seater',
   'Non-AC Seater',
   'Semi-Sleeper',
-  'Luxury',
+  'Volvo AC',
+  'Luxury Sleeper',
+  'Luxury Seater',
 ];
 
 const AMENITY_OPTIONS = [
@@ -75,23 +79,15 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
   const [regForm, setRegForm] = useState({
     vehicleNumber: '',
     busName: '',
-    busType: 'Volvo AC',
+    busType: 'AC Sleeper',
     totalSeats: 40,
     lowerBerths: 20,
     upperBerths: 20,
     status: 'Available',
-    amenities: ['AC', 'Charging point', 'Wi-Fi', 'GPS'],
+    amenities: ['AC', 'Charging point', 'Wi-Fi', 'GPS', 'Blanket', 'Pillow'],
   });
   const [regError, setRegError] = useState('');
   const [regLoading, setRegLoading] = useState(false);
-
-  // ── Seat Layout Editor State ──
-  const [layoutDeck, setLayoutDeck] = useState('LOWER'); // 'LOWER' | 'UPPER'
-  const [layoutRows, setLayoutRows] = useState(10);
-  const [layoutCols, setLayoutCols] = useState(5);
-  const [seatLayoutData, setSeatLayoutData] = useState(() => generateDefaultSeatLayout('Volvo AC', 40, 10, 5));
-  const [editingSeatId, setEditingSeatId] = useState(null);
-  const [editingSeatNumber, setEditingSeatNumber] = useState('');
 
   // ── Route Assignment State ──
   const [assignBusId, setAssignBusId] = useState('');
@@ -205,46 +201,65 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
   }, [upArrTime, downDepTime]);
 
   /* ─────────────────────────────────────────────────────────────
-     MODULE 1: Register Bus Handler
+     MODULE 1: Register Bus Handler (Strict Indian Plate & Passenger Validation)
      ───────────────────────────────────────────────────────────── */
   const handleRegisterBusSubmit = async (e) => {
     e.preventDefault();
     setRegError('');
-    const regNum = (regForm.vehicleNumber || '').trim().toUpperCase();
 
-    if (!regNum) {
-      setRegError('Bus registration number is required (e.g. AP 27 AB 1234).');
+    // 1. Strict Indian Registration Number Plate Format Validation
+    const plateCheck = validateVehicleNumberPlate(regForm.vehicleNumber);
+    if (!plateCheck.valid) {
+      setRegError(plateCheck.message);
       return;
     }
+
+    // 2. Total Passenger Capacity Validation (Must be > 10 and < 80)
+    const seatsNum = Number(regForm.totalSeats);
+    if (isNaN(seatsNum) || seatsNum <= 10 || seatsNum >= 80) {
+      setRegError(
+        `Total passenger capacity must be more than 10 and less than 80 passengers (between 11 and 79 seats). Given: ${regForm.totalSeats}`
+      );
+      return;
+    }
+
+    const isSleeper =
+      regForm.busType.toLowerCase().includes('sleeper') &&
+      !regForm.busType.toLowerCase().includes('semi');
+    const half = Math.ceil(seatsNum / 2);
+    const lowerBerths = isSleeper ? half : 0;
+    const upperBerths = isSleeper ? (seatsNum - half) : 0;
+
+    const seatLayout = generateDefaultSeatLayout(regForm.busType, seatsNum);
 
     setRegLoading(true);
     try {
       const newBus = await registerNewBus({
-        vehicleNumber: regNum,
-        busName: regForm.busName || `${regNum} (${regForm.busType})`,
+        vehicleNumber: plateCheck.normalized,
+        busName: regForm.busName || `${plateCheck.normalized} (${regForm.busType})`,
         busType: regForm.busType,
         vehicleType: regForm.busType,
-        totalSeats: seatLayoutData.totalSeats || Number(regForm.totalSeats) || 40,
-        lowerBerths: seatLayoutData.lowerBerthsCount || Number(regForm.lowerBerths) || 0,
-        upperBerths: seatLayoutData.upperBerthsCount || Number(regForm.upperBerths) || 0,
+        totalSeats: seatsNum,
+        lowerBerths,
+        upperBerths,
         amenities: regForm.amenities,
         status: regForm.status || 'Available',
-        seatLayout: seatLayoutData,
+        seatLayout,
       });
 
       refreshFleet();
-      showToast(`Bus ${newBus.vehicleNumber} registered successfully!`, 'success');
+      showToast(`Bus ${newBus.vehicleNumber} (${regForm.busType}) registered successfully!`, 'success');
 
       // Reset form
       setRegForm({
         vehicleNumber: '',
         busName: '',
-        busType: 'Volvo AC',
+        busType: 'AC Sleeper',
         totalSeats: 40,
         lowerBerths: 20,
         upperBerths: 20,
         status: 'Available',
-        amenities: ['AC', 'Charging point', 'Wi-Fi', 'GPS'],
+        amenities: ['AC', 'Charging point', 'Wi-Fi', 'GPS', 'Blanket', 'Pillow'],
       });
 
       setSubTab('overview');
@@ -253,88 +268,6 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
     } finally {
       setRegLoading(false);
     }
-  };
-
-  /* ─────────────────────────────────────────────────────────────
-     MODULE 2: Dynamic Seat Layout Editor Helpers
-     ───────────────────────────────────────────────────────────── */
-  const handleRegenerateGrid = (rows, cols, type) => {
-    const newLayout = generateDefaultSeatLayout(type || regForm.busType, regForm.totalSeats, rows, cols);
-    setSeatLayoutData(newLayout);
-    setLayoutRows(rows);
-    setLayoutCols(cols);
-  };
-
-  const handleCellClick = (deckKey, seatId) => {
-    setSeatLayoutData((prev) => {
-      const copy = { ...prev };
-      const deckList = deckKey === 'LOWER' ? [...copy.lowerDeck] : [...copy.upperDeck];
-      const idx = deckList.findIndex((s) => s.seatId === seatId);
-      if (idx === -1) return prev;
-
-      const current = deckList[idx];
-      // Cycle: SEATER -> SLEEPER -> SINGLE_SLEEPER -> DOUBLE_SLEEPER -> AISLE -> EMPTY -> SEATER
-      let nextType = 'SEATER';
-      let isActive = true;
-
-      if (current.seatType === 'SEATER') nextType = 'SLEEPER';
-      else if (current.seatType === 'SLEEPER') nextType = 'SINGLE_SLEEPER';
-      else if (current.seatType === 'SINGLE_SLEEPER') nextType = 'DOUBLE_SLEEPER';
-      else if (current.seatType === 'DOUBLE_SLEEPER') {
-        nextType = 'AISLE';
-        isActive = false;
-      } else if (current.seatType === 'AISLE') {
-        nextType = 'EMPTY';
-        isActive = false;
-      } else {
-        nextType = 'SEATER';
-        isActive = true;
-      }
-
-      deckList[idx] = {
-        ...current,
-        seatType: nextType,
-        isActive,
-      };
-
-      if (deckKey === 'LOWER') copy.lowerDeck = deckList;
-      else copy.upperDeck = deckList;
-
-      // Recalculate totals
-      const activeLower = copy.lowerDeck.filter((s) => s.isActive).length;
-      const activeUpper = copy.upperDeck.filter((s) => s.isActive).length;
-      copy.totalSeats = activeLower + activeUpper;
-      copy.lowerBerthsCount = activeLower;
-      copy.upperBerthsCount = activeUpper;
-
-      return copy;
-    });
-  };
-
-  const handleAutoNumberSeats = () => {
-    setSeatLayoutData((prev) => {
-      const copy = { ...prev };
-      let lNum = 1;
-      let uNum = 1;
-
-      copy.lowerDeck = copy.lowerDeck.map((s) => {
-        if (!s.isActive) return { ...s, seatNumber: '' };
-        const isSleeper = s.seatType.includes('SLEEPER');
-        const num = isSleeper ? `L${lNum}` : `${lNum}`;
-        lNum++;
-        return { ...s, seatNumber: num };
-      });
-
-      copy.upperDeck = copy.upperDeck.map((s) => {
-        if (!s.isActive) return { ...s, seatNumber: '' };
-        const num = `U${uNum}`;
-        uNum++;
-        return { ...s, seatNumber: num };
-      });
-
-      return copy;
-    });
-    showToast('Seat numbers auto-generated successfully!', 'info');
   };
 
   /* ─────────────────────────────────────────────────────────────
@@ -891,7 +824,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-         TAB 2: REGISTER BUS & DYNAMIC SEAT LAYOUT EDITOR (Module 1 & 2)
+         TAB 2: REGISTER BUS & DYNAMIC SEAT LAYOUT (Module 1 & 2)
          ───────────────────────────────────────────────────────────── */}
       {subTab === 'register' && (
         <div className="card" style={{ marginBottom: '1.5rem' }}>
@@ -900,7 +833,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
               Register New Bus &amp; Configure Dynamic Seat Layout
             </h4>
             <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#64748b' }}>
-              Register your physical coach with verified registration number, vehicle class, and customized seat/berth layout.
+              Register your physical coach with official vehicle plate validation, certified passenger capacity, and authentic seat layout.
             </p>
           </div>
 
@@ -911,16 +844,29 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
               {/* Form Row: Reg Number & Bus Display Name */}
               <div className="form-row" style={{ marginBottom: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label">Bus Registration Number * (Unique)</label>
+                  <label className="form-label">
+                    Bus Registration Number * (Indian Transport Plate Format)
+                  </label>
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="e.g. AP 27 AB 1234 or AP 03 TC 1001"
+                    placeholder="e.g. AP 27 AB 1234 or TS 08 XY 9012"
                     value={regForm.vehicleNumber}
-                    onChange={(e) => setRegForm({ ...regForm, vehicleNumber: e.target.value.toUpperCase() })}
+                    onChange={(e) => {
+                      setRegForm({ ...regForm, vehicleNumber: e.target.value.toUpperCase() });
+                      setRegError('');
+                    }}
+                    onBlur={(e) => {
+                      const res = validateVehicleNumberPlate(e.target.value);
+                      if (res.valid) {
+                        setRegForm((prev) => ({ ...prev, vehicleNumber: res.normalized }));
+                      }
+                    }}
                     required
                   />
-                  <span className="form-hint">* Official transport department registration plate number.</span>
+                  <span className="form-hint" style={{ color: '#0369a1', fontWeight: 600 }}>
+                    * Format: State (2 letters) + RTO (1-2 digits) + Series (1-3 letters) + 4 digits (e.g. AP 27 AB 1234 or TS 08 XY 9012). Only official plate format allowed.
+                  </span>
                 </div>
 
                 <div className="form-group">
@@ -944,38 +890,63 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                     value={regForm.busType}
                     onChange={(e) => {
                       const t = e.target.value;
-                      setRegForm({ ...regForm, busType: t });
-                      handleRegenerateGrid(layoutRows, layoutCols, t);
+                      const isSleeper = t.toLowerCase().includes('sleeper') && !t.toLowerCase().includes('semi');
+                      const tot = Number(regForm.totalSeats) || 40;
+                      const half = Math.ceil(tot / 2);
+                      setRegForm({
+                        ...regForm,
+                        busType: t,
+                        lowerBerths: isSleeper ? half : 0,
+                        upperBerths: isSleeper ? (tot - half) : 0,
+                      });
                     }}
                     style={{ cursor: 'pointer' }}
                   >
-                    {BUS_TYPES.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
+                    <optgroup label="🛏️ Sleeper Buses (Lower & Upper Decks, 2+1 Berth Layout)">
+                      <option value="AC Sleeper">AC Sleeper (2+1 Lower & Upper Berth)</option>
+                      <option value="Non-AC Sleeper">Non-AC Sleeper (2+1 Lower & Upper Berth)</option>
+                      <option value="Luxury Sleeper">Luxury Sleeper Multi-Axle</option>
+                    </optgroup>
+                    <optgroup label="💺 Seater & Semi-Sleeper Buses (Single Deck, 2+2 Layout)">
+                      <option value="AC Seater">AC Seater (2+2 Pushback)</option>
+                      <option value="Non-AC Seater">Non-AC Seater (2+2 Highback)</option>
+                      <option value="Semi-Sleeper">Semi-Sleeper (2+2 Reclining Chairs)</option>
+                      <option value="Volvo AC">Volvo AC Multi-Axle Executive</option>
+                      <option value="Luxury Seater">Luxury Seater Coach</option>
+                    </optgroup>
                   </select>
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Total Passenger Capacity (Seats/Berths) *</label>
+                  <label className="form-label">Total Passenger Capacity (Seats / Berths) *</label>
                   <input
                     type="number"
                     className="form-control"
                     value={regForm.totalSeats}
                     onChange={(e) => {
-                      const num = parseInt(e.target.value, 10) || 40;
-                      setRegForm({ ...regForm, totalSeats: num });
-                      handleRegenerateGrid(layoutRows, layoutCols, regForm.busType);
+                      const num = parseInt(e.target.value, 10);
+                      const isSleeper = regForm.busType.toLowerCase().includes('sleeper') && !regForm.busType.toLowerCase().includes('semi');
+                      const half = Math.ceil((num || 0) / 2);
+                      setRegForm({
+                        ...regForm,
+                        totalSeats: e.target.value,
+                        lowerBerths: isSleeper ? half : 0,
+                        upperBerths: isSleeper ? (num - half) : 0,
+                      });
+                      setRegError('');
                     }}
-                    min={1}
-                    max={100}
+                    min={11}
+                    max={79}
                     required
                   />
-                  <span className="form-hint">Matches total active seats in the layout below.</span>
+                  <span className="form-hint" style={{ color: '#059669', fontWeight: 600 }}>
+                    * Capacity requirement: must be more than 10 and less than 80 passengers (between 11 and 79 seats).
+                  </span>
                 </div>
               </div>
 
               {/* Lower / Upper Berths Configuration for Sleepers */}
-              {regForm.busType.toLowerCase().includes('sleeper') && (
+              {regForm.busType.toLowerCase().includes('sleeper') && !regForm.busType.toLowerCase().includes('semi') && (
                 <div className="form-row" style={{ marginBottom: '1rem', background: '#f8fafc', padding: 10, borderRadius: 8 }}>
                   <div className="form-group">
                     <label className="form-label">Lower Berths Count</label>
@@ -984,7 +955,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                       className="form-control"
                       value={regForm.lowerBerths}
                       onChange={(e) => setRegForm({ ...regForm, lowerBerths: parseInt(e.target.value, 10) || 0 })}
-                      min={0}
+                      min={1}
                     />
                   </div>
                   <div className="form-group">
@@ -1042,224 +1013,43 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
               </div>
 
               {/* ─────────────────────────────────────────────────────────────
-                 MODULE 2: Interactive Dynamic Seat Layout Editor
+                 MODULE 2: Dynamic Coach Seat Layout (from previous BusSeatLayout)
                  ───────────────────────────────────────────────────────────── */}
               <div
                 style={{
                   background: '#f8fafc',
                   border: '1.5px solid #cbd5e1',
-                  borderRadius: 10,
+                  borderRadius: 12,
                   padding: 16,
                   marginBottom: '1.5rem',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
                   <div>
-                    <h5 style={{ margin: '0 0 2px', fontSize: '0.94rem', fontWeight: 800, color: '#0f172a' }}>
-                      💺 Dynamic Seat Layout Editor
+                    <h5 style={{ margin: '0 0 2px', fontSize: '0.98rem', fontWeight: 800, color: '#0f172a' }}>
+                      💺 Dynamic Coach Seat Layout ({regForm.busType} &bull; {regForm.totalSeats} Passengers)
                     </h5>
-                    <p style={{ margin: 0, fontSize: '0.74rem', color: '#64748b' }}>
-                      Click any cell to toggle: Seater &bull; Sleeper &bull; Aisle &bull; Empty.
+                    <p style={{ margin: 0, fontSize: '0.76rem', color: '#64748b' }}>
+                      {regForm.busType.toLowerCase().includes('sleeper') && !regForm.busType.toLowerCase().includes('semi')
+                        ? 'Lower & Upper Deck Sleeper Berths with Pillow Headrests, Driver Steering Wheel & Gangway'
+                        : 'Single Deck 2+2 Upright Chairs with Cushion, Headrests, Armrests & Gangway'}
                     </p>
                   </div>
-
-                  {/* Deck Tabs */}
-                  {seatLayoutData.hasUpperDeck && (
-                    <div style={{ display: 'flex', gap: 4, background: '#e2e8f0', padding: 3, borderRadius: 6 }}>
-                      <button
-                        type="button"
-                        onClick={() => setLayoutDeck('LOWER')}
-                        style={{
-                          background: layoutDeck === 'LOWER' ? '#ffffff' : 'transparent',
-                          color: layoutDeck === 'LOWER' ? '#0f172a' : '#64748b',
-                          border: 'none',
-                          borderRadius: 4,
-                          padding: '4px 10px',
-                          fontSize: '0.74rem',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Lower Deck ({seatLayoutData.lowerBerthsCount || 0})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setLayoutDeck('UPPER')}
-                        style={{
-                          background: layoutDeck === 'UPPER' ? '#ffffff' : 'transparent',
-                          color: layoutDeck === 'UPPER' ? '#0f172a' : '#64748b',
-                          border: 'none',
-                          borderRadius: 4,
-                          padding: '4px 10px',
-                          fontSize: '0.74rem',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Upper Deck ({seatLayoutData.upperBerthsCount || 0})
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Controls: Rows / Cols & Auto-number */}
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.74rem' }}>
-                      <span>Rows:</span>
-                      <select
-                        value={layoutRows}
-                        onChange={(e) => {
-                          const r = parseInt(e.target.value, 10);
-                          handleRegenerateGrid(r, layoutCols, regForm.busType);
-                        }}
-                        style={{ padding: '3px 6px', fontSize: '0.74rem' }}
-                      >
-                        {[6, 7, 8, 9, 10, 11, 12, 13, 14].map((n) => (
-                          <option key={n} value={n}>{n}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.74rem' }}>
-                      <span>Cols:</span>
-                      <select
-                        value={layoutCols}
-                        onChange={(e) => {
-                          const c = parseInt(e.target.value, 10);
-                          handleRegenerateGrid(layoutRows, c, regForm.busType);
-                        }}
-                        style={{ padding: '3px 6px', fontSize: '0.74rem' }}
-                      >
-                        {[4, 5, 6].map((n) => (
-                          <option key={n} value={n}>{n}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      onClick={handleAutoNumberSeats}
-                      style={{ padding: '4px 8px', fontSize: '0.72rem' }}
-                    >
-                      🔢 Auto-Number
-                    </button>
+                  <div style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '4px 12px', borderRadius: 6, fontSize: '0.76rem', fontWeight: 700 }}>
+                    {regForm.busType.toLowerCase().includes('sleeper') && !regForm.busType.toLowerCase().includes('semi')
+                      ? `🛏️ Lower: ${Math.ceil((Number(regForm.totalSeats) || 40) / 2)} berths | Upper: ${(Number(regForm.totalSeats) || 40) - Math.ceil((Number(regForm.totalSeats) || 40) / 2)} berths`
+                      : `💺 ${regForm.totalSeats || 40} Passenger Chairs`}
                   </div>
                 </div>
 
-                {/* Seat Layout Visual Canvas */}
-                <div
-                  style={{
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: 8,
-                    padding: 16,
-                    maxWidth: 580,
-                    margin: '0 auto',
-                    overflowX: 'auto',
-                  }}
-                >
-                  {/* Front Driver Cabin Bar */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      background: '#f1f5f9',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: 6,
-                      padding: '6px 12px',
-                      marginBottom: 12,
-                    }}
-                  >
-                    <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#64748b' }}>
-                      FRONT CABIN (DRIVER &bull; ENTRANCE)
-                    </span>
-                    <span style={{ fontSize: '1.1rem' }}>☸️</span>
-                  </div>
-
-                  {/* Seat Grid */}
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: `repeat(${seatLayoutData.cols}, 1fr)`,
-                      gap: 8,
-                      alignItems: 'center',
-                    }}
-                  >
-                    {(layoutDeck === 'LOWER' ? seatLayoutData.lowerDeck : seatLayoutData.upperDeck).map((seat) => {
-                      const isAisle = seat.seatType === 'AISLE';
-                      const isEmpty = seat.seatType === 'EMPTY';
-                      const isSleeper = seat.seatType.includes('SLEEPER');
-
-                      return (
-                        <div
-                          key={seat.seatId}
-                          onClick={() => handleCellClick(layoutDeck, seat.seatId)}
-                          style={{
-                            height: isSleeper ? 56 : 42,
-                            background: isAisle
-                              ? '#f8fafc'
-                              : isEmpty
-                              ? '#f1f5f9'
-                              : isSleeper
-                              ? '#eff6ff'
-                              : '#ffffff',
-                            border: isAisle
-                              ? '1px dashed #cbd5e1'
-                              : isEmpty
-                              ? '1px solid #e2e8f0'
-                              : '1.5px solid #3b82f6',
-                            borderRadius: 6,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            transition: 'all 0.12s ease',
-                            userSelect: 'none',
-                            position: 'relative',
-                          }}
-                          title={`Click to cycle type (Current: ${seat.seatType})`}
-                        >
-                          {isAisle ? (
-                            <span style={{ fontSize: '0.66rem', color: '#94a3b8' }}>Aisle</span>
-                          ) : isEmpty ? (
-                            <span style={{ fontSize: '0.66rem', color: '#cbd5e1' }}>Empty</span>
-                          ) : (
-                            <>
-                              <span style={{ fontSize: '0.76rem', fontWeight: 800, color: '#1e40af' }}>
-                                {seat.seatNumber || '—'}
-                              </span>
-                              <span style={{ fontSize: '0.6rem', color: '#64748b' }}>
-                                {isSleeper ? 'Sleeper' : 'Seat'}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Grid Summary */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      fontSize: '0.72rem',
-                      color: '#64748b',
-                      marginTop: 12,
-                      paddingTop: 8,
-                      borderTop: '1px solid #f1f5f9',
-                    }}
-                  >
-                    <span>
-                      Active Layout Capacity: <strong>{seatLayoutData.totalSeats} seats</strong>
-                    </span>
-                    <span>
-                      Deck: <strong>{layoutDeck}</strong> ({layoutDeck === 'LOWER' ? seatLayoutData.lowerBerthsCount : seatLayoutData.upperBerthsCount} active)
-                    </span>
-                  </div>
+                {/* Embedded previous BusSeatLayout component */}
+                <div style={{ background: '#ffffff', borderRadius: 10, padding: 14, border: '1px solid #e2e8f0' }}>
+                  <BusSeatLayout
+                    busType={regForm.busType}
+                    totalSeats={Number(regForm.totalSeats) || 40}
+                    fare={650}
+                    isPreview={true}
+                  />
                 </div>
               </div>
 
@@ -1898,18 +1688,21 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                 )}
               </div>
 
-              {/* Seat Layout Preview */}
-              {selectedBus.seatLayout && (
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#0f172a', marginBottom: 6 }}>
-                    💺 Configured Seat Layout Preview ({selectedBus.seatLayout.totalSeats} seats)
-                  </div>
-                  <div style={{ background: '#f8fafc', padding: 10, borderRadius: 8, border: '1px solid #e2e8f0', fontSize: '0.75rem', color: '#475569' }}>
-                    <div>Dimensions: {selectedBus.seatLayout.rows} Rows &times; {selectedBus.seatLayout.cols} Columns</div>
-                    <div>Lower Deck Seats: {selectedBus.seatLayout.lowerBerthsCount} &bull; Upper Deck Berths: {selectedBus.seatLayout.upperBerthsCount || 0}</div>
-                  </div>
+              {/* Dynamic Seat Layout Visualization from BusSeatLayout */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#0f172a', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>💺 Dynamic Coach Seat Layout ({selectedBus.totalSeats || 40} Seats)</span>
+                  <span style={{ fontSize: '0.74rem', color: '#2563eb', fontWeight: 700 }}>{selectedBus.busType || selectedBus.vehicleType}</span>
                 </div>
-              )}
+                <div style={{ background: '#f8fafc', padding: 12, borderRadius: 10, border: '1px solid #e2e8f0', overflowX: 'auto' }}>
+                  <BusSeatLayout
+                    busType={selectedBus.busType || selectedBus.vehicleType}
+                    totalSeats={selectedBus.totalSeats || 40}
+                    fare={selectedBus.roundTripSchedule?.fare || 650}
+                    isPreview={true}
+                  />
+                </div>
+              </div>
 
               {/* Amenities */}
               <div style={{ marginBottom: 14 }}>

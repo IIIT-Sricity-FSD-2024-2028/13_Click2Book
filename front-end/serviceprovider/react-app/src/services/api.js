@@ -2781,6 +2781,47 @@ export function validateRouteProgression(stops = [], sourceName = '', destName =
    LAYOUT, BUS-TO-ROUTE ASSIGNMENT & ROUND-TRIP SCHEDULING
    ────────────────────────────────────────────────────────── */
 
+/* ── Indian Vehicle Registration Number Plate Validation & Normalization ── */
+export function validateVehicleNumberPlate(rawNumber) {
+  if (!rawNumber || typeof rawNumber !== 'string') {
+    return {
+      valid: false,
+      message: 'Bus registration number is required.',
+      normalized: '',
+    };
+  }
+
+  const clean = rawNumber.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+  // Format: State (2 letters) + RTO (1-2 digits) + Series (1-3 letters) + Sequence (4 digits)
+  // e.g., AP 27 AB 1234, TS 08 XY 9012, DL 01 A 1234, KA 05 MN 4545
+  const plateRegex = /^([A-Z]{2})([0-9]{1,2})([A-Z]{1,3})([0-9]{4})$/;
+  const match = clean.match(plateRegex);
+
+  if (!match) {
+    return {
+      valid: false,
+      message:
+        `Invalid bus registration number "${rawNumber}". Must strictly follow standard Indian vehicle plate format: State (2 letters) + RTO (1-2 digits) + Series (1-3 letters) + 4 digits (e.g., AP 27 AB 1234 or TS 08 XY 9012). Non-standard numbers or arbitrary names are strictly prohibited.`,
+      normalized: rawNumber.trim().toUpperCase(),
+    };
+  }
+
+  const [, state, rto, series, num] = match;
+  const normalized = `${state} ${rto.padStart(2, '0')} ${series} ${num}`;
+
+  return {
+    valid: true,
+    message: '',
+    normalized,
+  };
+}
+
+export function normalizeVehiclePlate(rawNumber) {
+  const res = validateVehicleNumberPlate(rawNumber);
+  return res.valid ? res.normalized : (rawNumber || '').trim().toUpperCase();
+}
+
 /* ── Dynamic Seat Layout Generator ── */
 export function generateDefaultSeatLayout(busType = 'Seater', totalSeats = 40, rows = 10, cols = 5) {
   const typeStr = (busType || '').toLowerCase();
@@ -3278,27 +3319,41 @@ export function getBusById(busId) {
   return all.find((b) => b.vehicleId === busId || b.id === busId || b.vehicleNumber === busId) || null;
 }
 
-/* ── Register New Bus (Validates Unique Registration Number) ── */
+/* ── Register New Bus (Validates Unique Registration Number & Indian Plate Format) ── */
 export async function registerNewBus(busData) {
   initFleetStorage();
   const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
-  const cleanRegNum = (busData.vehicleNumber || '').trim().toUpperCase();
 
-  if (!cleanRegNum) {
-    throw new Error('Bus registration number is required.');
+  // 1. Validate Registration Number Format strictly against official Indian Vehicle Plate Format
+  const plateCheck = validateVehicleNumberPlate(busData.vehicleNumber);
+  if (!plateCheck.valid) {
+    throw new Error(plateCheck.message);
+  }
+  const cleanRegNum = plateCheck.normalized;
+
+  // 2. Validate Total Passenger Capacity: must be > 10 and < 80
+  const totalSeats = Number(busData.totalSeats);
+  if (isNaN(totalSeats) || totalSeats <= 10 || totalSeats >= 80) {
+    throw new Error(
+      `Total passenger capacity must be more than 10 and less than 80 seats (between 11 and 79 seats). Given: ${busData.totalSeats}`
+    );
   }
 
   const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
 
-  // Validate uniqueness across all buses
-  const duplicate = all.find((b) => b.vehicleNumber.trim().toUpperCase() === cleanRegNum);
+  // 3. Validate uniqueness across all buses (ignoring spaces / hyphens)
+  const duplicate = all.find(
+    (b) => (b.vehicleNumber || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanRegNum.replace(/[^A-Z0-9]/g, '')
+  );
   if (duplicate) {
     throw new Error(`Bus registration number "${cleanRegNum}" already exists. Registration number must be unique.`);
   }
 
   const busId = `BUS_${Date.now()}`;
-  const totalSeats = Number(busData.totalSeats) || 40;
-  const busType = busData.busType || busData.vehicleType || 'Volvo AC';
+  const busType = busData.busType || busData.vehicleType || 'AC Sleeper';
+  const isSleeper = busType.toLowerCase().includes('sleeper') && !busType.toLowerCase().includes('semi');
+  const lowerBerths = isSleeper ? Math.ceil(totalSeats / 2) : 0;
+  const upperBerths = isSleeper ? (totalSeats - lowerBerths) : 0;
 
   // Generate dynamic seat layout if not provided
   const seatLayout = busData.seatLayout || generateDefaultSeatLayout(busType, totalSeats);
@@ -3312,8 +3367,8 @@ export async function registerNewBus(busData) {
     vehicleType: busType,
     busType,
     totalSeats,
-    lowerBerths: Number(busData.lowerBerths) || 0,
-    upperBerths: Number(busData.upperBerths) || 0,
+    lowerBerths: Number(busData.lowerBerths) || lowerBerths,
+    upperBerths: Number(busData.upperBerths) || upperBerths,
     status: busData.status || 'Available',
     amenities: Array.isArray(busData.amenities) ? busData.amenities : ['AC', 'Charging point'],
     photographs: busData.photographs || [],

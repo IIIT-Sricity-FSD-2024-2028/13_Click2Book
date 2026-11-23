@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getSeatData, getFleetBuses } from '../services/api';
+import { getSeatData, getFleetBuses, getTripBookings } from '../services/api';
 import BusSeatLayout from './BusSeatLayout';
 
 /* ── localStorage key for blocked seats ── */
@@ -480,22 +480,300 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
 
   /* ── Load & refresh buses ── */
   useEffect(() => {
-    const refresh = () => {
+    let timer = null;
+    const refresh = async () => {
       try {
+        // 1. Proactively synchronize unified state from backend /api/sync/state
+        try {
+          const syncRes = await fetch('/api/sync/state');
+          const syncJson = await syncRes.json();
+          const serverBookings = syncJson?.data?.bookings || (Array.isArray(syncJson?.bookings) ? syncJson.bookings : []);
+          if (Array.isArray(serverBookings) && serverBookings.length > 0) {
+            const cur = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+            const curMap = new Map();
+            cur.forEach((b) => {
+              const bId = b.bookingId || b.booking_id || b.id;
+              if (bId) curMap.set(bId, b);
+            });
+            let changed = false;
+            serverBookings.forEach((sb) => {
+              const sbId = sb.bookingId || sb.booking_id || sb.id;
+              if (sbId) {
+                const existing = curMap.get(sbId);
+                const isCancelled =
+                  sb.bookingStatus === 'CANCELLED' ||
+                  sb.status === 'CANCELLED' ||
+                  sb.booking_status === 'CANCELLED';
+
+                if (isCancelled) {
+                  if (!existing || existing.status !== 'CANCELLED' || existing.bookingStatus !== 'CANCELLED') {
+                    curMap.set(sbId, { ...existing, ...sb, status: 'CANCELLED', booking_status: 'CANCELLED', bookingStatus: 'CANCELLED' });
+                    changed = true;
+                  }
+                } else if (!existing) {
+                  curMap.set(sbId, sb);
+                  changed = true;
+                } else if (!existing.passengers && sb.passengers) {
+                  curMap.set(sbId, { ...existing, ...sb });
+                  changed = true;
+                }
+              }
+            });
+            if (changed) {
+              localStorage.setItem('c2b_bookings', JSON.stringify(Array.from(curMap.values())));
+            }
+          }
+        } catch {
+          // Fallback gracefully
+        }
+
         const data = getSeatData(provider?.id);
-        setBuses(Array.isArray(data) ? data : []);
+        const baseBuses = Array.isArray(data) ? data : [];
+        const merged = await Promise.all(baseBuses.map(async (bus) => {
+          const tripIds = [
+            bus.backendTripId,
+            bus.tripId,
+            bus.id,
+          ].filter(Boolean);
+          let bookings = [];
+          for (const tripId of [...new Set(tripIds)]) {
+            const found = await getTripBookings(tripId);
+            if (Array.isArray(found)) {
+              bookings = [...bookings, ...found];
+            }
+          }
+          const activeBookings = bookings
+            .filter((b) => (b.bookingStatus === 'CONFIRMED' || b.bookingStatus === 'PENDING') &&
+                           b.bookingStatus !== 'CANCELLED' && b.status !== 'CANCELLED');
+
+          let localBookings = [];
+          try {
+            localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+          } catch {}
+
+          const seatNumbers = [];
+          const customerSeatGroups = new Map();
+          const normalizeBookedSeat = (rawSeat) => {
+            const seatId = String(rawSeat || '').trim().toUpperCase();
+            if (/^\d+$/.test(seatId)) return seatId;
+            const sleeperMatch = seatId.match(/^([LU])(\d+)$/);
+            if (sleeperMatch) {
+              const half = Math.ceil(Number(bus.total || 40) / 2);
+              return sleeperMatch[1] === 'L'
+                ? String(parseInt(sleeperMatch[2], 10))
+                : String(half + parseInt(sleeperMatch[2], 10));
+            }
+            const seaterMatch = seatId.match(/^([A-Z])(\d+)$/);
+            if (seaterMatch) {
+              const row = seaterMatch[1].charCodeAt(0) - 65;
+              const col = parseInt(seaterMatch[2], 10);
+              return String(row * 4 + col);
+            }
+            return seatId;
+          };
+
+          // Merge local confirmed bookings with backend bookings.
+          const busPlate = String(bus.vehicleNumber || bus.plateNumber || '')
+            .trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+          const busDate = String(bus.journeyDate || bus.date || '').split('T')[0];
+          const cleanCity = (value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+
+          localBookings.forEach((booking) => {
+            if (
+              booking.status === 'CANCELLED' ||
+              booking.booking_status === 'CANCELLED' ||
+              booking.bookingStatus === 'CANCELLED'
+            ) return;
+            const bookingDate = String(booking.date || booking.journeyDate || '').split('T')[0];
+            if (bookingDate && busDate && bookingDate !== busDate) return;
+
+            const bookingPlate = String(booking.vehicleNumber || booking.plateNumber || '')
+              .trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const bookingTrip = String(booking.tripId || booking.backendTripId || '').trim();
+            const matchesTrip = tripIds.some((tripId) => tripId === bookingTrip);
+            const matchesPlate = busPlate && bookingPlate && (busPlate === bookingPlate || busPlate.includes(bookingPlate) || bookingPlate.includes(busPlate));
+            const matchesName = String(booking.busName || '').trim().toLowerCase() &&
+              String(bus.name || bus.busName || '').trim().toLowerCase() &&
+              (String(booking.busName).trim().toLowerCase() === String(bus.name || bus.busName).trim().toLowerCase() ||
+               String(bus.name || bus.busName).trim().toLowerCase().includes(String(booking.busName).trim().toLowerCase()));
+
+            const bFrom = cleanCity(booking.from);
+            const bTo = cleanCity(booking.to);
+            const busFrom = cleanCity(bus.from);
+            const busTo = cleanCity(bus.to);
+            let matchesRoute = false;
+            if (bFrom && bTo && busFrom && busTo) {
+              if (bFrom === busFrom && bTo === busTo) {
+                matchesRoute = true;
+              } else {
+                const stops = [
+                  busFrom,
+                  ...(bus.assignedRoute?.intermediateStops || []).map(cleanCity),
+                  busTo,
+                ];
+                const fIdx = stops.indexOf(bFrom);
+                const tIdx = stops.indexOf(bTo);
+                if (fIdx !== -1 && tIdx !== -1) {
+                  const isUp = fIdx < tIdx;
+                  matchesRoute = (isUp && (bus.direction || 'UP') === 'UP') || (!isUp && (bus.direction || 'UP') === 'DOWN');
+                }
+              }
+            }
+
+            if (!matchesTrip && !matchesPlate && !matchesName && !matchesRoute) return;
+
+            const rawSeats = Array.isArray(booking.seat_list)
+              ? booking.seat_list
+              : Array.isArray(booking.seats)
+              ? booking.seats
+              : typeof booking.seats === 'string'
+              ? booking.seats.split(',')
+              : booking.seatNumber != null
+              ? [booking.seatNumber]
+              : [];
+            const customerKey = String(booking.customerId || booking.customer_id || '').trim();
+            rawSeats.map((seat) => String(seat).trim()).filter(Boolean).forEach((seat) => {
+              const normalizedSeat = normalizeBookedSeat(seat);
+              if (!seatNumbers.includes(normalizedSeat)) seatNumbers.push(normalizedSeat);
+              if (customerKey) {
+                if (!customerSeatGroups.has(customerKey)) customerSeatGroups.set(customerKey, new Set());
+                customerSeatGroups.get(customerKey).add(normalizedSeat);
+              }
+            });
+          });
+
+          (Array.isArray(bus.bookedSeatList) ? bus.bookedSeatList : []).forEach((seat) => {
+            const normalized = normalizeBookedSeat(seat);
+            if (normalized && !seatNumbers.includes(normalized)) seatNumbers.push(normalized);
+          });
+
+          activeBookings.forEach((booking) => {
+            const seat = normalizeBookedSeat(booking.seatNumber);
+            if (!seat) return;
+            if (!seatNumbers.includes(seat)) seatNumbers.push(seat);
+            const customerKey = String(booking.customerId || booking.customer_id || '').trim();
+            if (!customerKey) return;
+            if (!customerSeatGroups.has(customerKey)) customerSeatGroups.set(customerKey, new Set());
+            customerSeatGroups.get(customerKey).add(seat);
+          });
+
+          const passengerMap = {};
+          seatNumbers.forEach((seat) => {
+            const booking = bookings.find((b) =>
+              normalizeBookedSeat(b.seatNumber) === normalizeBookedSeat(seat)
+            );
+            const customerId = String(booking?.customerId || booking?.customer_id || '').trim();
+            const local = localBookings.find((b) => {
+              const sameCustomer = !customerId ||
+                String(b.customerId || b.customer_id || '') === customerId;
+              if (!sameCustomer) return false;
+              const localTrip = String(b.tripId || b.backendTripId || '').trim();
+              const localPlate = String(b.vehicleNumber || b.plateNumber || '')
+                .trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+              const localName = String(b.busName || '').trim().toLowerCase();
+              const busName = String(bus.name || bus.busName || '').trim().toLowerCase();
+              return tripIds.includes(localTrip) ||
+                (busPlate && localPlate === busPlate) ||
+                (busName && localName === busName);
+            });
+            const matchingPassenger = Array.isArray(local?.passengers)
+              ? local.passengers.find((p) => {
+                  const pSeat = String(p.seat || p.seatNumber || '').trim().toUpperCase();
+                  return pSeat === seat.toUpperCase() || normalizeBookedSeat(pSeat) === normalizeBookedSeat(seat);
+                })
+              : null;
+            const customerSeats = [...(customerSeatGroups.get(customerId) || new Set())];
+            passengerMap[seat] = {
+              name: matchingPassenger?.name || local?.passengerName || local?.customerName ||
+                booking?.passengerName ||
+                (Array.isArray(booking?.passengers) ? booking.passengers.find((p) => {
+                  const pSeat = String(p.seat || p.seatNumber || '').trim().toUpperCase();
+                  return pSeat === seat.toUpperCase() || normalizeBookedSeat(pSeat) === normalizeBookedSeat(seat);
+                })?.name : null) ||
+                `Customer ${customerId || 'Passenger'}`,
+              gender: matchingPassenger?.gender || local?.gender || booking?.passengers?.find?.((p) => {
+                const pSeat = String(p.seat || p.seatNumber || '').trim().toUpperCase();
+                return pSeat === seat.toUpperCase() || normalizeBookedSeat(pSeat) === normalizeBookedSeat(seat);
+              })?.gender || 'General',
+              age: matchingPassenger?.age || local?.age ||
+                booking?.passengers?.find?.((p) => {
+                  const pSeat = String(p.seat || p.seatNumber || '').trim().toUpperCase();
+                  return pSeat === seat.toUpperCase() || normalizeBookedSeat(pSeat) === normalizeBookedSeat(seat);
+                })?.age || '—',
+              phone: matchingPassenger?.phone || local?.phone || booking?.phone || '—',
+              email: matchingPassenger?.email || local?.email || booking?.email || '—',
+              bookingId: local?.primaryBackendId || local?.bookingId || booking?.bookingId || '—',
+              bookingDate: local?.bookingDate || local?.createdAt || booking?.bookingDate || '—',
+              fare: local?.fare || local?.total || '—',
+              status: booking?.bookingStatus || 'CONFIRMED',
+              seats: customerSeats.length > 0 ? customerSeats : [seat],
+              from: local?.from || bus.from,
+              to: local?.to || bus.to,
+            };
+          });
+
+          const bookedVisualSeats = new Set(seatNumbers);
+          seatNumbers.forEach((seat) => {
+            const n = parseInt(seat, 10);
+            if (!Number.isFinite(n)) return;
+            bookedVisualSeats.add(String(n));
+            const half = Math.ceil(Number(bus.total || 40) / 2);
+            if (n <= half) {
+              bookedVisualSeats.add(`L${n}`);
+            } else {
+              bookedVisualSeats.add(`U${n - half}`);
+            }
+            const row = String.fromCharCode(65 + Math.floor((n - 1) / 4));
+            const col = ((n - 1) % 4) + 1;
+            bookedVisualSeats.add(`${row}${col}`);
+          });
+
+          const expandedPassengerMap = { ...(bus.passengerMap || {}) };
+          Object.entries(passengerMap).forEach(([seat, passenger]) => {
+            const n = parseInt(seat, 10);
+            expandedPassengerMap[seat] = passenger;
+            if (Number.isFinite(n)) {
+              const half = Math.ceil(Number(bus.total || 40) / 2);
+              if (n <= half) expandedPassengerMap[`L${n}`] = passenger;
+              else expandedPassengerMap[`U${n - half}`] = passenger;
+              const row = String.fromCharCode(65 + Math.floor((n - 1) / 4));
+              const col = ((n - 1) % 4) + 1;
+              expandedPassengerMap[`${row}${col}`] = passenger;
+            }
+          });
+
+          const distinctSeats = new Set(seatNumbers.map(normalizeBookedSeat).filter(Boolean));
+          const bookedCount = distinctSeats.size;
+
+          return {
+            ...bus,
+            bookedSeatList: Array.from(bookedVisualSeats),
+            passengerMap: expandedPassengerMap,
+            bookedCount,
+            actualBookedCount: bookedCount,
+          };
+        }));
+        setBuses(merged);
       } catch (err) {
         console.error('Error refreshing seat data:', err);
       }
     };
+
     refresh();
+    timer = setInterval(refresh, 3000);
     window.addEventListener('storage', refresh);
     window.addEventListener('c2b_sync', refresh);
     window.addEventListener('focus', refresh);
+    const handleVisChange = () => {
+      if (!document.hidden) refresh();
+    };
+    document.addEventListener('visibilitychange', handleVisChange);
     return () => {
+      if (timer) clearInterval(timer);
       window.removeEventListener('storage', refresh);
       window.removeEventListener('c2b_sync', refresh);
       window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', handleVisChange);
     };
   }, [provider?.id]);
 
@@ -528,6 +806,8 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
   /* ── Filter logic ── */
   const filtered = buses.filter((bus) => {
     if (!bus) return false;
+    const tripStatus = String(bus.status || bus.tripStatus || 'SCHEDULED').toUpperCase();
+    if (tripStatus === 'COMPLETED' || tripStatus === 'CANCELLED') return false;
 
     // Strict alignment with BusFleetManagement: only display assigned fleet coaches
     if (fleetBuses.length > 0) {

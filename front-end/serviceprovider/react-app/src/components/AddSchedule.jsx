@@ -655,6 +655,7 @@ export default function AddSchedule({ provider, onNavigate, showToast }) {
         arr: info.arrTime,
         busName: form.busName.trim(),
         busType: form.busType,
+        vehicleNumber: form.vehicleNumber,
         seats: parseInt(form.seats, 10),
         fare: parseInt(form.fare, 10),
       };

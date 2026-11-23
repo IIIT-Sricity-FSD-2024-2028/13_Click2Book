@@ -28,8 +28,8 @@ export class BookingController {
   }
 
   @Get()
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Get all bookings (Admin)' })
+  @Roles(Role.ADMIN, Role.PROVIDER)
+  @ApiOperation({ summary: 'Get all bookings (Admin or Provider)' })
   @ApiQuery({ name: 'status', required: false, enum: BookingStatus })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
   findAll(@Query('status') status?: BookingStatus) {
@@ -43,6 +43,15 @@ export class BookingController {
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
   findByCustomer(@Param('customerId') customerId: string) {
     return this.bookingService.findByCustomer(customerId);
+  }
+
+  @Get('trip/:tripId')
+  @Roles(Role.PROVIDER, Role.ADMIN)
+  @ApiOperation({ summary: 'Get active bookings for a trip (Provider)' })
+  @ApiParam({ name: 'tripId', example: 'T001' })
+  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  findByTrip(@Param('tripId') tripId: string) {
+    return this.bookingService.findByTrip(tripId);
   }
 
   @Get(':id')

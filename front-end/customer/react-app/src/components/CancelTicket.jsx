@@ -412,16 +412,19 @@ export default function CancelTicket({
         const allBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
         let found = false;
         allBookings.forEach((b) => {
-          if (b.bookingId === bId || b.booking_id === bId) {
+          const checkId = b.bookingId || b.booking_id || b.id;
+          if (checkId === bId || (bId && String(checkId).startsWith(`${bId}-`))) {
             found = true;
             if (isPartial) {
               b.status = 'PARTIALLY_CANCELLED';
               b.booking_status = 'PARTIALLY_CANCELLED';
+              b.bookingStatus = 'PARTIALLY_CANCELLED';
               b.cancelledSeatIds = successfulCancels.map((c) => c.id);
               b.remainingSeatIds = failedCancels.map((f) => f.id);
             } else {
               b.status = 'CANCELLED';
               b.booking_status = 'CANCELLED';
+              b.bookingStatus = 'CANCELLED';
               b.cancelled_at = new Date().toISOString();
             }
           }
@@ -433,6 +436,7 @@ export default function CancelTicket({
             booking_id: bId,
             status: isPartial ? 'PARTIALLY_CANCELLED' : 'CANCELLED',
             booking_status: isPartial ? 'PARTIALLY_CANCELLED' : 'CANCELLED',
+            bookingStatus: isPartial ? 'PARTIALLY_CANCELLED' : 'CANCELLED',
             cancelled_at: new Date().toISOString(),
           });
         }
@@ -506,7 +510,12 @@ export default function CancelTicket({
       } catch {}
       try {
         if (typeof liveSync !== 'undefined' && liveSync.syncBooking) {
-          liveSync.syncBooking({ ...selectedTicket, status: 'CANCELLED', booking_status: 'CANCELLED' });
+          liveSync.syncBooking({
+            ...selectedTicket,
+            status: isPartial ? 'PARTIALLY_CANCELLED' : 'CANCELLED',
+            booking_status: isPartial ? 'PARTIALLY_CANCELLED' : 'CANCELLED',
+            bookingStatus: isPartial ? 'PARTIALLY_CANCELLED' : 'CANCELLED',
+          });
         }
       } catch {}
 

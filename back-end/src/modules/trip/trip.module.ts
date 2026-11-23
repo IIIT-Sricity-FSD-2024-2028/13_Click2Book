@@ -7,10 +7,18 @@ import { VehicleModule } from '../vehicle/vehicle.module';
 import { SeatModule } from '../seat/seat.module';
 import { RouteModule } from '../route/route.module';
 import { ProviderModule } from '../provider/provider.module';
+import { BookingModule } from '../booking/booking.module';
 
 @Module({
   // forwardRef: ProviderModule also imports TripModule (for the provider revenue endpoint).
-  imports: [ScheduleModule, VehicleModule, SeatModule, RouteModule, forwardRef(() => ProviderModule)],
+  imports: [
+    ScheduleModule,
+    VehicleModule,
+    SeatModule,
+    RouteModule,
+    forwardRef(() => ProviderModule),
+    forwardRef(() => BookingModule),
+  ],
   controllers: [TripController],
   providers: [TripService, TripRepository],
   exports: [TripService, TripRepository],

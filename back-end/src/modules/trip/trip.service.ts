@@ -5,6 +5,8 @@ import { VehicleRepository } from '../vehicle/vehicle.repository';
 import { SeatRepository } from '../seat/seat.repository';
 import { RouteRepository } from '../route/route.repository';
 import { ProviderRepository } from '../provider/provider.repository';
+import { BookingRepository } from '../booking/booking.repository';
+import { BookingStatus } from '../booking/enums/booking-status.enum';
 import { Trip } from './interfaces/trip.interface';
 import { CreateTripDto, UpdateTripStatusDto } from './dto/trip.dto';
 import { TripStatus } from './enums/trip-status.enum';
@@ -20,6 +22,8 @@ export class TripService {
     private readonly routeRepo: RouteRepository,
     @Inject(forwardRef(() => ProviderRepository))
     private readonly providerRepo: ProviderRepository,
+    @Inject(forwardRef(() => BookingRepository))
+    private readonly bookingRepo: BookingRepository,
   ) {}
 
   create(dto: CreateTripDto) {
@@ -49,6 +53,11 @@ export class TripService {
       const vehicle = this.vehicleRepo.findById(t.vehicleId);
       const route = schedule ? this.routeRepo.findById(schedule.routeId) : null;
       const provider = schedule ? this.providerRepo.findById(schedule.providerId) : null;
+      const activeBookings = this.bookingRepo.findByTrip(t.tripId).filter(
+        (b) => b.bookingStatus === BookingStatus.PENDING || b.bookingStatus === BookingStatus.CONFIRMED,
+      ).length;
+      const totalSeats = vehicle?.totalSeats || 40;
+      const remainingSeats = Math.max(0, totalSeats - activeBookings);
       return {
         ...t,
         source: route?.source || 'Origin',
@@ -61,9 +70,9 @@ export class TripService {
         journeyDate: schedule?.journeyDate || new Date().toISOString().split('T')[0],
         busName: vehicle?.busName || 'Express Bus',
         vehicleType: vehicle?.vehicleType || 'AC',
-        totalSeats: vehicle?.totalSeats || 40,
-        availableSeats: vehicle?.remainingSeats ?? 40,
-        remainingSeats: vehicle?.remainingSeats ?? 40,
+        totalSeats,
+        availableSeats: remainingSeats,
+        remainingSeats,
         fare: schedule?.fare || 500,
         price: schedule?.fare || 500,
         providerId: schedule?.providerId || 'P001',
@@ -83,6 +92,22 @@ export class TripService {
     const h = Math.floor(mins / 60);
     const m = mins % 60;
     return `${h}h ${m > 0 ? m + 'm' : ''}`.trim();
+  }
+
+  private routeSegmentsOverlap(
+    fullRouteStops: string[],
+    searchFrom: string,
+    searchTo: string,
+    bookingFrom: string,
+    bookingTo: string,
+  ): boolean {
+    const startA = fullRouteStops.indexOf(searchFrom);
+    const endA = fullRouteStops.indexOf(searchTo);
+    const startB = fullRouteStops.indexOf(bookingFrom);
+    const endB = fullRouteStops.indexOf(bookingTo);
+    if ([startA, endA, startB, endB].some((index) => index < 0)) return true;
+    return Math.min(startA, endA) < Math.max(startB, endB) &&
+      Math.min(startB, endB) < Math.max(startA, endA);
   }
 
   // Search trips by source, destination, date, and departure time
@@ -118,13 +143,16 @@ export class TripService {
 
     const results = allTrips
       .map(trip => {
+        if (trip.tripStatus === TripStatus.COMPLETED || trip.tripStatus === TripStatus.CANCELLED) {
+          return null;
+        }
         const schedule = this.scheduleRepo.findById(trip.scheduleId);
         if (!schedule) return null;
         const route = this.routeRepo.findById(schedule.routeId);
         if (!route) return null;
 
         const vehicle = this.vehicleRepo.findById(trip.vehicleId);
-        if (!vehicle || vehicle.remainingSeats <= 0) return null;
+        if (!vehicle) return null;
         // Only approved providers may appear in — or be booked from — search results.
         const provider = this.providerRepo.findById(schedule.providerId);
         if (!provider || !provider.approved) return null;
@@ -158,6 +186,27 @@ export class TripService {
 
         if (!directMatch && !intermediateMatch) return null;
 
+        const overlappingSeatNumbers = new Set(
+          this.bookingRepo.findByTrip(trip.tripId)
+            .filter((b) =>
+              b.bookingStatus === BookingStatus.PENDING ||
+              b.bookingStatus === BookingStatus.CONFIRMED,
+            )
+            .filter((b) => {
+              if (!b.from || !b.to) return true;
+              return this.routeSegmentsOverlap(
+                fullRouteStops,
+                srcNorm,
+                dstNorm,
+                norm(b.from),
+                norm(b.to),
+              );
+            })
+            .map((b) => b.seatNumber),
+        );
+        const remainingSeats = Math.max(0, (vehicle.totalSeats || 40) - overlappingSeatNumbers.size);
+        if (remainingSeats <= 0) return null;
+
         // If journeyDate is specified on schedule, match against requested date.
         // Seed schedules (SCH001-SCH027) serve as daily recurring templates for any searched date.
         const isSeedSchedule = /^SCH0(0[1-9]|1[0-9]|2[0-7])$/.test(schedule.scheduleId);
@@ -188,7 +237,7 @@ export class TripService {
           journeyDate:    date || schedule.journeyDate,   // show user's requested date
           fare:           schedule.fare,
           price:          schedule.fare,
-          availableSeats: vehicle.remainingSeats,
+          availableSeats: remainingSeats,
           totalSeats:     vehicle.totalSeats,
           vehicleType:    vehicle.vehicleType,
           amenities:      v.amenities || [],

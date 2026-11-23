@@ -176,10 +176,54 @@ export default function BusSeatLayout({
   const getSeatVisuals = (seatId) => {
     if (!seatId) return null;
 
-    const isBooked   = !isPreview && Array.isArray(bookedSeatList) && bookedSeatList.includes(seatId);
-    const isBlocked  = !isPreview && Array.isArray(blockedSeats) && blockedSeats.includes(seatId);
+    const visualSeatCandidates = (rawSeatId) => {
+      const value = String(rawSeatId || '').trim().toUpperCase();
+      if (!value) return [];
+      const candidates = new Set([value]);
+      if (/^\d+$/.test(value)) {
+        const num = parseInt(value, 10);
+        candidates.add(String(num));
+        if (isSleeper) {
+          const half = Math.ceil(seatCount / 2);
+          candidates.add(num <= half ? `L${num}` : `U${num - half}`);
+        } else {
+          const row = String.fromCharCode(65 + Math.floor((num - 1) / 4));
+          const col = ((num - 1) % 4) + 1;
+          candidates.add(`${row}${col}`);
+        }
+      } else if (/^L(\d+)$/i.test(value)) {
+        candidates.add(String(parseInt(value.slice(1), 10)));
+      } else if (/^U(\d+)$/i.test(value)) {
+        const num = Math.ceil(seatCount / 2) + parseInt(value.slice(1), 10);
+        candidates.add(String(num));
+      } else if (/^([A-Z])(\d+)$/i.test(value)) {
+        const match = value.match(/^([A-Z])(\d+)$/);
+        const row = match[1].charCodeAt(0) - 65;
+        const col = parseInt(match[2], 10);
+        candidates.add(String(row * 4 + col));
+      }
+      return Array.from(candidates);
+    };
+
+    const isBooked = !isPreview &&
+      Array.isArray(bookedSeatList) &&
+      visualSeatCandidates(seatId).some((candidate) =>
+        bookedSeatList.some((booked) =>
+          visualSeatCandidates(booked).includes(candidate)
+        )
+      );
+    const isBlocked = !isPreview && Array.isArray(blockedSeats) &&
+      visualSeatCandidates(seatId).some((candidate) =>
+        blockedSeats.some((blocked) =>
+          visualSeatCandidates(blocked).includes(candidate)
+        )
+      );
     const isSelected = !isPreview && activeSeat === seatId;
-    const passenger  = (passengerMap && typeof passengerMap === 'object') ? (passengerMap[seatId] || null) : null;
+    const passenger = (passengerMap && typeof passengerMap === 'object')
+      ? visualSeatCandidates(seatId)
+          .map((candidate) => passengerMap[candidate])
+          .find(Boolean) || null
+      : null;
     const isFemale   = passenger?.gender?.toLowerCase() === 'female';
 
     let fillColor, pillowColor, strokeColor;

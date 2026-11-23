@@ -202,7 +202,11 @@ class LiveSyncClient {
         body: JSON.stringify(booking),
       });
     } catch {}
-    this.broadcast('BOOKING_CREATED', booking);
+    const isCancelled =
+      booking?.status === 'CANCELLED' ||
+      booking?.booking_status === 'CANCELLED' ||
+      booking?.bookingStatus === 'CANCELLED';
+    this.broadcast(isCancelled ? 'BOOKING_CANCELLED' : 'BOOKING_CREATED', booking);
   }
 
   async syncVehicle(bus) {
@@ -243,7 +247,35 @@ class LiveSyncClient {
       const res = await fetch(`${this.apiBase}/sync/state`);
       const json = await res.json();
       if (json.success && json.data) {
-        const { trips, tripStatuses, customSchedules } = json.data;
+        const { trips, tripStatuses, customSchedules, vehicles } = json.data;
+        if (Array.isArray(vehicles) && vehicles.length > 0) {
+          const fleet = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+          let fleetChanged = false;
+          vehicles.forEach((vehicle) => {
+            const plate = String(vehicle.vehicleNumber || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const idx = fleet.findIndex((bus) => {
+              const busPlate = String(bus.vehicleNumber || bus.regNo || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+              return (
+                (vehicle.vehicleId && bus.vehicleId === vehicle.vehicleId) ||
+                (plate && busPlate === plate)
+              );
+            });
+            if (idx >= 0) {
+              fleet[idx] = {
+                ...fleet[idx],
+                ...vehicle,
+                vehicleNumber: vehicle.vehicleNumber || fleet[idx].vehicleNumber,
+                seatLayout: vehicle.seatLayout || fleet[idx].seatLayout,
+              };
+            } else {
+              fleet.unshift(vehicle);
+            }
+            fleetChanged = true;
+          });
+          if (fleetChanged) {
+            localStorage.setItem('c2b_registered_fleet', JSON.stringify(fleet));
+          }
+        }
         if (customSchedules && Array.isArray(customSchedules) && customSchedules.length > 0) {
           const current = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
           const currentIds = new Set(current.map((s) => s.id || s.tripId));
@@ -253,6 +285,12 @@ class LiveSyncClient {
             if (!currentIds.has(csId)) {
               current.unshift(cs);
               updated = true;
+            } else {
+              const idx = current.findIndex((s) => (s.id || s.tripId) === csId);
+              if (idx >= 0) {
+                current[idx] = { ...current[idx], ...cs };
+                updated = true;
+              }
             }
           });
           if (updated) {
@@ -266,7 +304,7 @@ class LiveSyncClient {
           localStorage.setItem('c2b_trip_statuses', JSON.stringify(localStatuses));
           window.dispatchEvent(new Event('storage'));
         }
-        const { vehicles, bookings } = json.data;
+        const { bookings } = json.data;
         if (vehicles && Array.isArray(vehicles) && vehicles.length > 0) {
           const currentFleet = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
           const deletedBuses = JSON.parse(localStorage.getItem('c2b_deleted_buses') || '[]');

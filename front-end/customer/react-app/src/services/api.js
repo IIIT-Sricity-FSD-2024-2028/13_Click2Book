@@ -128,10 +128,12 @@ export const API = {
   },
 
   bookings: {
-    async create(tripId, seatNumber, offerCode = null) {
+    async create(tripId, seatNumber, offerCode = null, segment = null) {
       const customerId = getCustomerId();
       const body = { customerId, tripId, seatNumber: Number(seatNumber) };
       if (offerCode) body.offerCode = offerCode;
+      if (segment?.from) body.from = segment.from;
+      if (segment?.to) body.to = segment.to;
       return apiFetch('/bookings', {
         method: 'POST',
         body: JSON.stringify(body),

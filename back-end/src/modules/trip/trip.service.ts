@@ -42,7 +42,8 @@ export class TripService {
   }
 
   findAll(status?: TripStatus) {
-    const rawTrips = status ? this.tripRepo.findByStatus(status) : this.tripRepo.findAll();
+    const rawTrips = (status ? this.tripRepo.findByStatus(status) : this.tripRepo.findAll())
+      .filter((t) => Boolean(this.vehicleRepo.findById(t.vehicleId)));
     const enriched = rawTrips.map((t) => {
       const schedule = this.scheduleRepo.findById(t.scheduleId);
       const vehicle = this.vehicleRepo.findById(t.vehicleId);
@@ -87,8 +88,20 @@ export class TripService {
   // Search trips by source, destination, date, and departure time
   search(source: string, destination: string, date: string) {
     const allTrips = this.tripRepo.findAll();
-    const src = source.trim().toLowerCase();
-    const dst = destination.trim().toLowerCase();
+    const src = (source || '').trim().toLowerCase();
+    const dst = (destination || '').trim().toLowerCase();
+
+    const norm = (c: string) => {
+      const s = (c || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (['visakhapatnam', 'vishakapatnam', 'vishakapatanam', 'vizag', 'vskp'].includes(s)) return 'visakhapatnam';
+      if (['chennai', 'madras'].includes(s)) return 'chennai';
+      if (['bangalore', 'bengaluru'].includes(s)) return 'bangalore';
+      if (['hyderabad', 'secunderabad'].includes(s)) return 'hyderabad';
+      if (['vijayawada', 'bezawada'].includes(s)) return 'vijayawada';
+      return s;
+    };
+    const srcNorm = norm(src);
+    const dstNorm = norm(dst);
 
     const todayStr = new Date().toISOString().split('T')[0];
     const now = new Date();
@@ -96,18 +109,58 @@ export class TripService {
     const curM = String(now.getMinutes()).padStart(2, '0');
     const nowTime = `${curH}:${curM}`;
 
+    const NH16_COASTAL_UP = [
+      'chennai', 'tada', 'sricity', 'nayudupeta', 'gudur', 'nellore', 'kavali',
+      'ongole', 'chilakaluripet', 'guntur', 'vijayawada', 'eluru', 'tadepalligudem',
+      'tanuku', 'rajahmundry', 'samalkot', 'kakinada', 'annavaram', 'tuni', 'anakapalle', 'visakhapatnam'
+    ];
+    const NH16_COASTAL_DN = [...NH16_COASTAL_UP].reverse();
+
     const results = allTrips
       .map(trip => {
         const schedule = this.scheduleRepo.findById(trip.scheduleId);
         if (!schedule) return null;
         const route = this.routeRepo.findById(schedule.routeId);
         if (!route) return null;
-        if (src && !route.source.toLowerCase().includes(src)) return null;
-        if (dst && !route.destination.toLowerCase().includes(dst)) return null;
+
+        const vehicle = this.vehicleRepo.findById(trip.vehicleId);
+        if (!vehicle || vehicle.remainingSeats <= 0) return null;
+        // Only approved providers may appear in — or be booked from — search results.
+        const provider = this.providerRepo.findById(schedule.providerId);
+        if (!provider || !provider.approved) return null;
+
+        const rSrc = norm(route.source);
+        const rDst = norm(route.destination);
+        const directSMatch = !srcNorm || rSrc.includes(srcNorm) || route.source.toLowerCase().includes(src);
+        const directDMatch = !dstNorm || rDst.includes(dstNorm) || route.destination.toLowerCase().includes(dst);
+        const directMatch = directSMatch && directDMatch;
+
+        // Build complete stop sequence for intermediate stop matching
+        const viaStr = (schedule as any)?.via || (route as any)?.via || '';
+        const viaList = viaStr
+          ? viaStr.split(',').map((s: string) => norm(s.trim()))
+          : [];
+        const assignedStops = (vehicle?.assignedRoute?.intermediateStops || []).map((s: string) => norm(s));
+        
+        let intermediateStopsList = viaList.length > 0 ? viaList : assignedStops;
+        if (intermediateStopsList.length === 0) {
+          if (rSrc === 'chennai' && rDst === 'visakhapatnam') {
+            intermediateStopsList = NH16_COASTAL_UP.slice(1, -1);
+          } else if (rSrc === 'visakhapatnam' && rDst === 'chennai') {
+            intermediateStopsList = NH16_COASTAL_DN.slice(1, -1);
+          }
+        }
+
+        const fullRouteStops = [rSrc, ...intermediateStopsList, rDst];
+        const fIdx = srcNorm ? fullRouteStops.indexOf(srcNorm) : 0;
+        const tIdx = dstNorm ? fullRouteStops.indexOf(dstNorm) : fullRouteStops.length - 1;
+        const intermediateMatch = fIdx !== -1 && tIdx !== -1 && fIdx < tIdx;
+
+        if (!directMatch && !intermediateMatch) return null;
 
         // If journeyDate is specified on schedule, match against requested date.
-        // Seed schedules (SCH001-SCH025) serve as daily recurring templates for any searched date.
-        const isSeedSchedule = /^SCH0(0[1-9]|1[0-9]|2[0-5])$/.test(schedule.scheduleId);
+        // Seed schedules (SCH001-SCH027) serve as daily recurring templates for any searched date.
+        const isSeedSchedule = /^SCH0(0[1-9]|1[0-9]|2[0-7])$/.test(schedule.scheduleId);
         if (!isSeedSchedule && schedule.journeyDate && date && schedule.journeyDate !== date) {
           return null;
         }
@@ -118,12 +171,6 @@ export class TripService {
             return null;
           }
         }
-
-        const vehicle = this.vehicleRepo.findById(trip.vehicleId);
-        if (!vehicle || vehicle.remainingSeats <= 0) return null;
-        // Only approved providers may appear in — or be booked from — search results.
-        const provider = this.providerRepo.findById(schedule.providerId);
-        if (!provider || !provider.approved) return null;
 
         const v = vehicle as any;
         return {
@@ -139,17 +186,19 @@ export class TripService {
           arrivalTime:    schedule.arrivalTime,
           duration:       this.calcDuration(schedule.departureTime, schedule.arrivalTime),
           journeyDate:    date || schedule.journeyDate,   // show user's requested date
+          fare:           schedule.fare,
           price:          schedule.fare,
           availableSeats: vehicle.remainingSeats,
           totalSeats:     vehicle.totalSeats,
           vehicleType:    vehicle.vehicleType,
           amenities:      v.amenities || [],
-          boardingPoint:  v.boardingPoint || route.source,
-          droppingPoint:  v.droppingPoint || route.destination,
-          rating:         v.rating || 4.0,
+          boardingPoint:  intermediateMatch ? (source || route.source) : (v.boardingPoint || route.source),
+          droppingPoint:  intermediateMatch ? (destination || route.destination) : (v.droppingPoint || route.destination),
+          rating:         v.rating || 4.8,
           tripStatus:     trip.tripStatus,
           distance:       route.distance,
-          via:            (schedule as any).via || (route as any).via || undefined,
+          via:            viaStr || undefined,
+          seatLayout:     vehicle.seatLayout || null,
         };
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)

@@ -135,11 +135,20 @@ export class VehicleController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Delete vehicle (Admin only)' })
+  @Roles(Role.PROVIDER, Role.ADMIN)
+  @ApiOperation({ summary: 'Delete vehicle (Provider/Admin)' })
   @ApiParam({ name: 'id', example: 'V001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
+  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
   remove(@Param('id') id: string) {
     return this.vehicleService.remove(id);
+  }
+
+  @Delete()
+  @Roles(Role.PROVIDER, Role.ADMIN)
+  @ApiOperation({ summary: 'Delete all vehicles / clear fleet for provider' })
+  @ApiQuery({ name: 'providerId', required: false, example: 'P001' })
+  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  removeAll(@Query('providerId') providerId?: string) {
+    return this.vehicleService.removeAll(providerId);
   }
 }

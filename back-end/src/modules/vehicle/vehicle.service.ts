@@ -238,12 +238,14 @@ export class VehicleService {
   }
 
   remove(id: string) {
-    const bus = this.vehicleRepo.findById(id);
-    if (!bus) throw new NotFoundException(`Vehicle ${id} not found`);
-    if (bus.status === 'Assigned' && bus.assignedRoute) {
-      throw new BadRequestException('Cannot delete bus while it is actively assigned to a route. Remove route assignment first.');
-    }
-    this.vehicleRepo.remove(id);
-    return successResponse('Vehicle removed successfully');
+    const bus = this.vehicleRepo.findById(id) || this.vehicleRepo.findByRegistration(id);
+    if (!bus) return successResponse('Vehicle already removed or not found');
+    this.vehicleRepo.remove(bus.vehicleId);
+    return successResponse('Vehicle removed successfully', { vehicleId: bus.vehicleId, vehicleNumber: bus.vehicleNumber });
+  }
+
+  removeAll(providerId?: string) {
+    const count = this.vehicleRepo.removeAll(providerId);
+    return successResponse(`${count} vehicle(s) removed successfully`);
   }
 }

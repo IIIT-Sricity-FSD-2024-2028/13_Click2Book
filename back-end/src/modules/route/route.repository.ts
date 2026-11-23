@@ -255,6 +255,20 @@ export class RouteRepository {
     { routeId: 'R248', source: 'Ranchi', destination: 'Patna', distance: 330 },
     { routeId: 'R249', source: 'Ranchi', destination: 'Jamshedpur', distance: 130 },
     { routeId: 'R250', source: 'Jamshedpur', destination: 'Ranchi', distance: 130 },
+    {
+      routeId: 'R251',
+      source: 'Chennai',
+      destination: 'Visakhapatnam',
+      distance: 790,
+      via: 'Tada, SriCity, Nayudupeta, Gudur, Nellore, Kavali, Ongole, Chilakaluripet, Guntur, Vijayawada, Eluru, Tadepalligudem, Tanuku, Rajahmundry, Samalkot, Kakinada, Annavaram, Tuni, Anakapalle',
+    },
+    {
+      routeId: 'R252',
+      source: 'Visakhapatnam',
+      destination: 'Chennai',
+      distance: 790,
+      via: 'Anakapalle, Tuni, Annavaram, Kakinada, Samalkot, Rajahmundry, Tanuku, Tadepalligudem, Eluru, Vijayawada, Guntur, Chilakaluripet, Ongole, Kavali, Nellore, Gudur, Nayudupeta, SriCity, Tada',
+    },
   ];
 
   create(data: Omit<Route, 'routeId'>): Route {
@@ -270,10 +284,22 @@ export class RouteRepository {
   }
 
   findBySourceAndDestination(source: string, destination: string): Route[] {
+    const norm = (c: string) => {
+      const s = (c || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (['visakhapatnam', 'vishakapatnam', 'vishakapatanam', 'vizag', 'vskp'].includes(s)) return 'visakhapatnam';
+      if (['chennai', 'madras'].includes(s)) return 'chennai';
+      if (['bangalore', 'bengaluru'].includes(s)) return 'bangalore';
+      if (['hyderabad', 'secunderabad'].includes(s)) return 'hyderabad';
+      if (['vijayawada', 'bezawada'].includes(s)) return 'vijayawada';
+      return s;
+    };
+    const sNorm = norm(source);
+    const dNorm = norm(destination);
+
     return this.routes.filter(
       (r) =>
-        r.source.toLowerCase() === source.toLowerCase() &&
-        r.destination.toLowerCase() === destination.toLowerCase(),
+        (r.source.toLowerCase() === source.toLowerCase() || norm(r.source) === sNorm) &&
+        (r.destination.toLowerCase() === destination.toLowerCase() || norm(r.destination) === dNorm),
     );
   }
 

@@ -46,6 +46,10 @@ export class ScheduleRepository {
     { scheduleId: 'SCH024', routeId: 'R002', providerId: 'P001', departureTime: '21:00', arrivalTime: '11:00', journeyDate: '2026-06-01', arrivalTimeToDestination: '11:00', fare: 1350 },
     // Hyderabad → Bangalore (R004) — KPN Tours, 3rd provider on this route
     { scheduleId: 'SCH025', routeId: 'R004', providerId: 'P002', departureTime: '09:00', arrivalTime: '18:00', journeyDate: '2026-06-01', arrivalTimeToDestination: '18:00', fare: 520 },
+    // Chennai → Visakhapatnam (R251) — APSRTC (P001)
+    { scheduleId: 'SCH026', routeId: 'R251', providerId: 'P001', departureTime: '19:30', arrivalTime: '09:00', journeyDate: '2026-06-01', arrivalTimeToDestination: '09:00', fare: 850 },
+    // Visakhapatnam → Chennai (R252) — APSRTC (P001)
+    { scheduleId: 'SCH027', routeId: 'R252', providerId: 'P001', departureTime: '20:00', arrivalTime: '09:30', journeyDate: '2026-06-01', arrivalTimeToDestination: '09:30', fare: 850 },
   ];
 
   create(data: Omit<Schedule, 'scheduleId'>): Schedule {

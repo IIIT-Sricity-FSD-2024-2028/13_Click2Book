@@ -122,13 +122,32 @@ export class SyncService implements OnModuleDestroy {
 
   // Register booking created by customer
   registerBooking(booking: any) {
+    try {
+      if (booking && (booking.bookingId || booking.id)) {
+        const id = booking.bookingId || booking.id;
+        const exists = this.bookingRepo.findById(id);
+        if (!exists) {
+          this.bookingRepo.createWithId({
+            bookingId: id,
+            customerId: booking.customerId || booking.customer_id || 'C001',
+            tripId: booking.tripId || booking.backendTripId || 'T001',
+            seatNumber: typeof booking.seatNumber === 'number' ? booking.seatNumber : 1,
+            bookingDate: (booking.bookingDate || booking.date || booking.journeyDate || new Date().toISOString().split('T')[0]),
+            bookingStatus: (booking.status || booking.bookingStatus || 'CONFIRMED') as any,
+            offerId: booking.offerId || booking.offerCode || booking.couponCode,
+          });
+        }
+      }
+    } catch (e) {
+      // Non-blocking fallback for custom sync payloads
+    }
     this.emit('BOOKING_CREATED', booking);
     return booking;
   }
 
   // Get consolidated real-time state for all actors
   getState() {
-    const rawTrips = this.tripRepo.findAll();
+    const rawTrips = this.tripRepo.findAll().filter((t) => Boolean(this.vehicleRepo.findById(t.vehicleId)));
     const enrichedTrips = rawTrips.map((t) => {
       const schedule = this.scheduleRepo.findById(t.scheduleId);
       const vehicle = this.vehicleRepo.findById(t.vehicleId);
@@ -162,6 +181,7 @@ export class SyncService implements OnModuleDestroy {
     return {
       trips: [...this.customSchedules, ...enrichedTrips],
       bookings: this.bookingRepo.findAll(),
+      vehicles: this.vehicleRepo.findAll(),
       payments: this.paymentRepo.findAll(),
       routes: this.routeRepo.findAll(),
       providers: this.providerRepo.findAll(),

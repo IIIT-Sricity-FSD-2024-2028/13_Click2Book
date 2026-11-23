@@ -9,6 +9,7 @@ import {
   saveRoundTripSchedules,
   updateBusStatus,
   deleteBus,
+  clearAllBuses,
   unassignBusRoute,
   generateDefaultSeatLayout,
   discoverRouteCorridors,
@@ -537,52 +538,59 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
   }, []);
 
   /* ─────────────────────────────────────────────────────────────
-     Delete Bus Handler (Protected: Cannot be deleted if in trip or has active bookings)
+     Delete Bus Handler (Permanently removes bus & persists across refresh)
      ───────────────────────────────────────────────────────────── */
   const handleDeleteBus = async (bus) => {
     if (!bus) return;
 
-    // 1. Strict Validation: Bus cannot be deleted if currently running an active trip
     const liveTrip = isBusInActiveTrip(bus.vehicleNumber);
-    if (liveTrip) {
-      showToast(
-        `⛔ Cannot delete bus ${bus.vehicleNumber}! It is currently in a trip (${liveTrip.from} → ${liveTrip.to}, Trip ID: ${liveTrip.tripId}). Buses currently in a trip cannot be deleted.`,
-        'error'
-      );
-      return;
-    }
-
-    // 2. Strict Validation: Bus cannot be deleted if upcoming confirmed bookings exist
     const activeBookings = checkBusActiveBookings(bus.vehicleNumber);
-    if (activeBookings && activeBookings.length > 0) {
-      showToast(
-        `⛔ Cannot delete bus ${bus.vehicleNumber}! It has ${activeBookings.length} upcoming passenger bookings. Please complete or cancel bookings before deleting.`,
-        'error'
-      );
-      return;
-    }
 
-    // 3. Confirm Deletion
-    const isAssigned = bus.assignedRoute || bus.status === 'Assigned';
-    const confirmMsg = isAssigned
-      ? `Are you sure you want to permanently delete bus "${bus.vehicleNumber}" (${bus.busName})?\n\nThis bus is currently assigned to route "${bus.assignedRoute?.originCity} ↔ ${bus.assignedRoute?.destCity}". Deleting it will also remove this permanent route assignment.`
-      : `Are you sure you want to delete bus "${bus.vehicleNumber}" (${bus.busName}) from your fleet?`;
+    let confirmMsg = `Are you sure you want to permanently delete bus "${bus.vehicleNumber}" (${bus.busName})?\n\nDeleting this bus will remove it permanently, clear its schedules, and it will not reappear after refresh.`;
+    if (liveTrip || (activeBookings && activeBookings.length > 0)) {
+      confirmMsg = `⚠️ Notice: Bus "${bus.vehicleNumber}" has active trips or bookings.\n\nAre you sure you want to delete this bus anyway? Deleting it will cancel its trips and bookings permanently.`;
+    }
 
     if (!window.confirm(confirmMsg)) {
       return;
     }
 
     try {
-      await deleteBus(bus.vehicleId);
+      const bId = bus.vehicleId || bus.id || bus.vehicleNumber;
+      await deleteBus(bId);
       refreshFleet();
-      try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'BUS_DELETED', busId: bus.vehicleId } })); } catch {}
+      try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'BUS_DELETED', busId: bId, vehicleNumber: bus.vehicleNumber } })); } catch {}
       try { window.dispatchEvent(new Event('storage')); } catch {}
       if (assignBusId === bus.vehicleId) setAssignBusId('');
       if (scheduleBusId === bus.vehicleId) setScheduleBusId('');
       if (showBusDetailsModal) setShowBusDetailsModal(false);
-      showToast(`Bus ${bus.vehicleNumber} successfully deleted from your fleet and all associated schedules removed.`, 'success');
+      showToast(`Bus ${bus.vehicleNumber} successfully deleted from your fleet.`, 'success');
     } catch (err) {
       showToast(err.message || 'Failed to delete bus.', 'error');
+    }
+  };
+
+  /* ─────────────────────────────────────────────────────────────
+     Clear All Buses Handler (Resets fleet to start completely fresh)
+     ───────────────────────────────────────────────────────────── */
+  const handleClearAllBuses = async () => {
+    if (buses.length === 0) {
+      showToast('No buses to clear. Fleet is already empty.', 'info');
+      return;
+    }
+
+    const confirmMsg = `Are you sure you want to remove ALL ${buses.length} buses from your fleet?\n\nThis will clear all registered buses and schedules, allowing you to start completely fresh. This action cannot be undone.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      await clearAllBuses(providerId);
+      refreshFleet();
+      setAssignBusId('');
+      setScheduleBusId('');
+      setShowBusDetailsModal(false);
+      showToast('All buses cleared successfully. Fleet is now fresh and ready.', 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to clear fleet.', 'error');
     }
   };
 
@@ -1296,7 +1304,28 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {buses.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={handleClearAllBuses}
+              style={{
+                padding: '8px 14px',
+                fontWeight: 700,
+                fontSize: '0.84rem',
+                color: '#dc2626',
+                borderColor: '#fca5a5',
+                background: '#fff5f5',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+              title="Clear all buses from fleet to start fresh"
+            >
+              🧹 Clear Fleet / Start Fresh
+            </button>
+          )}
           <button
             type="button"
             className="btn btn-primary"

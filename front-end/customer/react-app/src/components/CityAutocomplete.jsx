@@ -1,6 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin } from 'lucide-react';
 
+const CITY_ALIASES = {
+  vishakapatnam: 'Visakhapatnam',
+  vishakapatanam: 'Visakhapatnam',
+  visakhapatnam: 'Visakhapatnam',
+  vizag: 'Visakhapatnam',
+  visakha: 'Visakhapatnam',
+  vskp: 'Visakhapatnam',
+  madras: 'Chennai',
+  chennai: 'Chennai',
+  bengaluru: 'Bangalore',
+  bangalore: 'Bangalore',
+  secunderabad: 'Hyderabad',
+  hyderabad: 'Hyderabad',
+  bezawada: 'Vijayawada',
+  vijayawada: 'Vijayawada',
+  puducherry: 'Pondicherry',
+  pondicherry: 'Pondicherry',
+  cochin: 'Kochi',
+  trivandrum: 'Thiruvananthapuram',
+  bombay: 'Mumbai',
+  calcutta: 'Kolkata',
+};
+
+function normalizeQuery(q) {
+  return (q || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 export default function CityAutocomplete({
   id,
   value,
@@ -24,11 +51,34 @@ export default function CityAutocomplete({
     setInputValue(value || '');
   }, [value]);
 
-  // Filter options based on typed input
+  // Filter options based on typed input (with alias & phonetic tolerance)
   const filteredOptions = React.useMemo(() => {
-    const q = (inputValue || '').trim().toLowerCase();
-    if (!q) return options;
-    return options.filter((c) => c.toLowerCase().includes(q));
+    const raw = (inputValue || '').trim().toLowerCase();
+    if (!raw) return options;
+    const cleanQ = normalizeQuery(raw);
+    const aliasedTarget = CITY_ALIASES[cleanQ] || CITY_ALIASES[raw];
+
+    const results = options.filter((c) => {
+      const cLow = c.toLowerCase();
+      const cClean = normalizeQuery(cLow);
+      if (cLow.includes(raw) || cClean.includes(cleanQ)) return true;
+      if (aliasedTarget && cLow === aliasedTarget.toLowerCase()) return true;
+      for (const [alias, canonical] of Object.entries(CITY_ALIASES)) {
+        if (canonical.toLowerCase() === cLow && (alias.includes(cleanQ) || cleanQ.includes(alias))) {
+          return true;
+        }
+      }
+      return false;
+    });
+
+    if (aliasedTarget) {
+      const canonicalOpt = options.find((c) => c.toLowerCase() === aliasedTarget.toLowerCase());
+      if (canonicalOpt && !results.includes(canonicalOpt)) {
+        results.unshift(canonicalOpt);
+      }
+    }
+
+    return results;
   }, [options, inputValue]);
 
   // Close dropdown on outside click
@@ -44,17 +94,26 @@ export default function CityAutocomplete({
   }, [inputValue, options, value]);
 
   const handleBlurValidation = () => {
-    const q = (inputValue || '').trim().toLowerCase();
-    if (!q) {
+    const raw = (inputValue || '').trim().toLowerCase();
+    if (!raw) {
       onChange('');
       setInputValue('');
       return;
     }
-    // Check if typed text matches an available option exactly (case-insensitive)
-    const exactMatch = options.find((c) => c.toLowerCase() === q);
+    const cleanQ = normalizeQuery(raw);
+    const aliasedTarget = CITY_ALIASES[cleanQ] || CITY_ALIASES[raw];
+
+    // Check if typed text matches an available option directly
+    const exactMatch = options.find(
+      (c) => c.toLowerCase() === raw || normalizeQuery(c.toLowerCase()) === cleanQ
+    );
     if (exactMatch) {
       setInputValue(exactMatch);
       onChange(exactMatch);
+    } else if (aliasedTarget) {
+      const canonicalMatch = options.find((c) => c.toLowerCase() === aliasedTarget.toLowerCase()) || aliasedTarget;
+      setInputValue(canonicalMatch);
+      onChange(canonicalMatch);
     } else if (requireValidOption) {
       // Revert to current selected value
       setInputValue(value || '');

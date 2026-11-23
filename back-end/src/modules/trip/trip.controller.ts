@@ -21,30 +21,42 @@ export class TripController {
 
   @Get('search')
   @ApiOperation({ summary: 'Search trips — dedicated search endpoint' })
-  @ApiQuery({ name: 'source', required: true,  example: 'Mumbai' })
-  @ApiQuery({ name: 'destination', required: true, example: 'Pune' })
+  @ApiQuery({ name: 'source', required: false,  example: 'Chennai' })
+  @ApiQuery({ name: 'destination', required: false, example: 'Visakhapatnam' })
+  @ApiQuery({ name: 'from', required: false, example: 'Chennai' })
+  @ApiQuery({ name: 'to', required: false, example: 'Visakhapatnam' })
   @ApiQuery({ name: 'date', required: false,   example: '2026-06-01' })
   search(
-    @Query('source') source: string,
-    @Query('destination') destination: string,
+    @Query('source') source?: string,
+    @Query('destination') destination?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
     @Query('date') date?: string,
   ) {
-    return this.tripService.search(source, destination, date || '');
+    const src = source || from || '';
+    const dest = destination || to || '';
+    return this.tripService.search(src, dest, date || '');
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all trips OR search by source/destination/date' })
   @ApiQuery({ name: 'source', required: false, example: 'Hyderabad' })
   @ApiQuery({ name: 'destination', required: false, example: 'Chennai' })
+  @ApiQuery({ name: 'from', required: false, example: 'Hyderabad' })
+  @ApiQuery({ name: 'to', required: false, example: 'Chennai' })
   @ApiQuery({ name: 'date', required: false, example: '2026-06-01' })
   @ApiQuery({ name: 'status', required: false, enum: TripStatus })
   findAll(
     @Query('source') source?: string,
     @Query('destination') destination?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
     @Query('date') date?: string,
     @Query('status') status?: TripStatus,
   ) {
-    if (source && destination) return this.tripService.search(source, destination, date || '');
+    const src = source || from;
+    const dest = destination || to;
+    if (src && dest) return this.tripService.search(src, dest, date || '');
     return this.tripService.findAll(status);
   }
 

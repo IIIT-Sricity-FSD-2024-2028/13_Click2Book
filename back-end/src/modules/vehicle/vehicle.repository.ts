@@ -1,221 +1,95 @@
 import { Injectable } from '@nestjs/common';
-import { Vehicle, BusSeatLayoutConfig, RouteAssignment, RoundTripSchedule, BusStatus } from './interfaces/vehicle.interface';
+import { Vehicle, BusSeatLayoutConfig, SeatLayoutItem, RouteAssignment, RoundTripSchedule, BusStatus } from './interfaces/vehicle.interface';
 import { generateId } from '../../common/utils/id.util';
 import { VehicleType } from './enums/vehicle-type.enum';
 
+export function buildDefaultLayout(isSleeper: boolean, totalSeats: number): BusSeatLayoutConfig {
+  const half = Math.ceil(totalSeats / 2);
+  const upperHalf = totalSeats - half;
+  const lowerDeck: SeatLayoutItem[] = [];
+  const upperDeck: SeatLayoutItem[] = [];
+
+  if (isSleeper) {
+    const lowerRows = Math.ceil(half / 3);
+    for (let r = 0; r < lowerRows; r++) {
+      const n1 = r * 3 + 1;
+      const n2 = r * 3 + 2;
+      const n3 = r * 3 + 3;
+      if (n1 <= half) {
+        lowerDeck.push({ seatId: `L${n1}`, seatNumber: `L${n1}`, seatType: 'DOUBLE_SLEEPER', deck: 'LOWER', row: r + 1, col: 1, isActive: true, berthType: 'LOWER' });
+      }
+      if (n2 <= half) {
+        lowerDeck.push({ seatId: `L${n2}`, seatNumber: `L${n2}`, seatType: 'DOUBLE_SLEEPER', deck: 'LOWER', row: r + 1, col: 2, isActive: true, berthType: 'LOWER' });
+      }
+      if (n3 <= half) {
+        lowerDeck.push({ seatId: `L${n3}`, seatNumber: `L${n3}`, seatType: 'SINGLE_SLEEPER', deck: 'LOWER', row: r + 1, col: 4, isActive: true, berthType: 'LOWER' });
+      }
+    }
+
+    const upperRows = Math.ceil(upperHalf / 3);
+    for (let r = 0; r < upperRows; r++) {
+      const n1 = r * 3 + 1;
+      const n2 = r * 3 + 2;
+      const n3 = r * 3 + 3;
+      if (n1 <= upperHalf) {
+        upperDeck.push({ seatId: `U${n1}`, seatNumber: `U${n1}`, seatType: 'DOUBLE_SLEEPER', deck: 'UPPER', row: r + 1, col: 1, isActive: true, berthType: 'UPPER' });
+      }
+      if (n2 <= upperHalf) {
+        upperDeck.push({ seatId: `U${n2}`, seatNumber: `U${n2}`, seatType: 'DOUBLE_SLEEPER', deck: 'UPPER', row: r + 1, col: 2, isActive: true, berthType: 'UPPER' });
+      }
+      if (n3 <= upperHalf) {
+        upperDeck.push({ seatId: `U${n3}`, seatNumber: `U${n3}`, seatType: 'SINGLE_SLEEPER', deck: 'UPPER', row: r + 1, col: 4, isActive: true, berthType: 'UPPER' });
+      }
+    }
+
+    return {
+      rows: Math.max(lowerRows, upperRows),
+      cols: 4,
+      totalSeats,
+      lowerBerthsCount: half,
+      upperBerthsCount: upperHalf,
+      hasUpperDeck: true,
+      lowerDeck,
+      upperDeck,
+      updatedAt: new Date().toISOString(),
+    };
+  } else {
+    const rows = Math.ceil(totalSeats / 4);
+    for (let r = 0; r < rows; r++) {
+      const letter = String.fromCharCode(65 + (r % 26));
+      for (let c = 1; c <= 4; c++) {
+        const seatIdx = r * 4 + c;
+        if (seatIdx <= totalSeats) {
+          lowerDeck.push({
+            seatId: `${letter}${c}`,
+            seatNumber: `${letter}${c}`,
+            seatType: 'SEATER',
+            deck: 'LOWER',
+            row: r + 1,
+            col: c <= 2 ? c : c + 1,
+            isActive: true,
+          });
+        }
+      }
+    }
+
+    return {
+      rows,
+      cols: 5,
+      totalSeats,
+      lowerBerthsCount: totalSeats,
+      upperBerthsCount: 0,
+      hasUpperDeck: false,
+      lowerDeck,
+      upperDeck: [],
+      updatedAt: new Date().toISOString(),
+    };
+  }
+}
+
 @Injectable()
 export class VehicleRepository {
-  private vehicles: Vehicle[] = [
-    // APSRTC Provider (P001) - Initial Registered Buses
-    {
-      vehicleId: 'V001',
-      providerId: 'P001',
-      vehicleNumber: 'AP 27 AB 1234',
-      vehicleType: VehicleType.VOLVO,
-      busName: 'APSRTC Garuda Plus Multi-Axle',
-      totalSeats: 40,
-      remainingSeats: 38,
-      lowerBerths: 20,
-      upperBerths: 20,
-      status: 'Assigned',
-      amenities: ['AC', 'Charging point', 'Wi-Fi', 'Water bottle', 'Reading light', 'Blanket', 'GPS'],
-      rating: 4.8,
-      assignedRoute: {
-        assignmentId: 'ASGN_V001_01',
-        vehicleId: 'V001',
-        routeId: 'R010',
-        originCity: 'Chennai',
-        destCity: 'Vijayawada',
-        corridorId: 'CORR_CHN_BZA_A',
-        corridorName: 'Corridor A: NH16 Coastal Corridor',
-        distanceKm: 430,
-        durationEst: '6h 45m',
-        intermediateStops: ['Tada', 'Nayudupeta', 'Nellore', 'Kavali', 'Ongole', 'Guntur'],
-        assignedAt: '2026-06-01T00:00:00.000Z',
-        effectiveDate: '2026-06-01',
-        status: 'ACTIVE',
-      },
-      roundTripSchedule: {
-        vehicleId: 'V001',
-        assignmentId: 'ASGN_V001_01',
-        upSchedule: {
-          scheduleId: 'SCH_UP_V001',
-          originCity: 'Chennai',
-          destCity: 'Vijayawada',
-          departureTime: '06:00',
-          arrivalTime: '14:30',
-          operatingDays: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
-          intermediateStops: [
-            { stopName: 'Tada', arrivalTime: '07:15', departureTime: '07:25' },
-            { stopName: 'Nayudupeta', arrivalTime: '08:00', departureTime: '08:15' },
-            { stopName: 'Nellore', arrivalTime: '09:30', departureTime: '09:45' },
-            { stopName: 'Kavali', arrivalTime: '10:45', departureTime: '11:00' },
-            { stopName: 'Ongole', arrivalTime: '12:00', departureTime: '12:20' },
-            { stopName: 'Guntur', arrivalTime: '13:40', departureTime: '13:55' },
-          ],
-          active: true,
-        },
-        downSchedule: {
-          scheduleId: 'SCH_DN_V001',
-          originCity: 'Vijayawada',
-          destCity: 'Chennai',
-          departureTime: '20:00',
-          arrivalTime: '04:30',
-          operatingDays: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
-          intermediateStops: [
-            { stopName: 'Guntur', arrivalTime: '20:35', departureTime: '20:50' },
-            { stopName: 'Ongole', arrivalTime: '22:10', departureTime: '22:30' },
-            { stopName: 'Kavali', arrivalTime: '23:30', departureTime: '23:45' },
-            { stopName: 'Nellore', arrivalTime: '00:50', departureTime: '01:05' },
-            { stopName: 'Nayudupeta', arrivalTime: '02:20', departureTime: '02:35' },
-            { stopName: 'Tada', arrivalTime: '03:15', departureTime: '03:25' },
-          ],
-          active: true,
-        },
-        fare: 650,
-        validFrom: '2026-06-01',
-        restMinutesBetweenJourneys: 330,
-      },
-    },
-    {
-      vehicleId: 'V002',
-      providerId: 'P001',
-      vehicleNumber: 'AP 03 TC 1001',
-      vehicleType: VehicleType.SLEEPER,
-      busName: 'APSRTC Amaravathi Super Luxury',
-      totalSeats: 36,
-      remainingSeats: 32,
-      lowerBerths: 18,
-      upperBerths: 18,
-      status: 'Assigned',
-      amenities: ['AC', 'Charging point', 'Reading light', 'Blanket', 'GPS'],
-      rating: 4.6,
-      assignedRoute: {
-        assignmentId: 'ASGN_V002_01',
-        vehicleId: 'V002',
-        routeId: 'R001',
-        originCity: 'Chennai',
-        destCity: 'Guntur',
-        corridorId: 'CORR_CHN_GNT_A',
-        corridorName: 'Corridor A: NH16 Coastal Corridor',
-        distanceKm: 415,
-        durationEst: '6h 45m',
-        intermediateStops: ['Tada', 'Nayudupeta', 'Nellore', 'Kavali', 'Ongole', 'Chirala', 'Bapatla'],
-        assignedAt: '2026-06-01T00:00:00.000Z',
-        effectiveDate: '2026-06-01',
-        status: 'ACTIVE',
-      },
-    },
-    {
-      vehicleId: 'V003',
-      providerId: 'P001',
-      vehicleNumber: 'AP 03 TC 2002',
-      vehicleType: VehicleType.AC_SEATER,
-      busName: 'APSRTC Rajadhani Express',
-      totalSeats: 45,
-      remainingSeats: 40,
-      status: 'Available',
-      amenities: ['AC', 'Charging point', 'Water bottle', 'GPS'],
-      rating: 4.4,
-    },
-    {
-      vehicleId: 'V004',
-      providerId: 'P001',
-      vehicleNumber: 'AP 03 TC 3003',
-      vehicleType: VehicleType.SEMI_SLEEPER,
-      busName: 'APSRTC Deluxe Semi-Sleeper',
-      totalSeats: 40,
-      remainingSeats: 35,
-      status: 'Maintenance',
-      amenities: ['Charging point', 'Water bottle', 'GPS'],
-      rating: 4.2,
-    },
-    {
-      vehicleId: 'V005',
-      providerId: 'P001',
-      vehicleNumber: 'AP 03 TC 4004',
-      vehicleType: VehicleType.NON_AC,
-      busName: 'APSRTC Ultra Deluxe Non-AC',
-      totalSeats: 48,
-      remainingSeats: 45,
-      status: 'Available',
-      amenities: ['Charging point', 'GPS'],
-      rating: 4.0,
-    },
-    {
-      vehicleId: 'V006',
-      providerId: 'P001',
-      vehicleNumber: 'AP 03 TC 5005',
-      vehicleType: VehicleType.VOLVO,
-      busName: 'APSRTC Garuda Multi-Axle B12',
-      totalSeats: 40,
-      remainingSeats: 36,
-      status: 'Available',
-      amenities: ['AC', 'Wi-Fi', 'Charging point', 'Blanket', 'GPS'],
-      rating: 4.7,
-    },
-    {
-      vehicleId: 'V007',
-      providerId: 'P001',
-      vehicleNumber: 'AP 03 TC 6006',
-      vehicleType: VehicleType.SLEEPER,
-      busName: 'APSRTC Night Rider AC Sleeper',
-      totalSeats: 36,
-      remainingSeats: 30,
-      status: 'Available',
-      amenities: ['AC', 'Wi-Fi', 'Blanket', 'Pillow', 'Reading light', 'GPS'],
-      rating: 4.8,
-    },
-    {
-      vehicleId: 'V008',
-      providerId: 'P001',
-      vehicleNumber: 'AP 03 TC 7007',
-      vehicleType: VehicleType.AC_SEATER,
-      busName: 'APSRTC InterCity AC Seater',
-      totalSeats: 44,
-      remainingSeats: 40,
-      status: 'Available',
-      amenities: ['AC', 'Charging point', 'Water bottle', 'GPS'],
-      rating: 4.3,
-    },
-    {
-      vehicleId: 'V009',
-      providerId: 'P001',
-      vehicleNumber: 'AP 03 TC 8008',
-      vehicleType: VehicleType.SEMI_SLEEPER,
-      busName: 'APSRTC High-Deck Coach',
-      totalSeats: 40,
-      remainingSeats: 38,
-      status: 'Available',
-      amenities: ['AC', 'Charging point', 'Reclining Seats', 'GPS'],
-      rating: 4.5,
-    },
-    {
-      vehicleId: 'V010',
-      providerId: 'P001',
-      vehicleNumber: 'AP 03 TC 9009',
-      vehicleType: VehicleType.LUXURY,
-      busName: 'APSRTC Platinum Executive Coach',
-      totalSeats: 36,
-      remainingSeats: 36,
-      status: 'Available',
-      amenities: ['AC', 'Wi-Fi', 'Personal TV', 'Water bottle', 'Blanket', 'GPS'],
-      rating: 4.9,
-    },
-    // Other providers
-    {
-      vehicleId: 'V011',
-      providerId: 'P002',
-      vehicleNumber: 'KA 01 AB 9999',
-      vehicleType: VehicleType.VOLVO,
-      busName: 'KPN Tours Volvo Multi-Axle',
-      totalSeats: 40,
-      remainingSeats: 35,
-      status: 'Available',
-      amenities: ['AC', 'Wi-Fi', 'Charging point'],
-      rating: 4.6,
-    },
-  ];
+  private vehicles: Vehicle[] = [];
 
   create(data: Omit<Vehicle, 'vehicleId' | 'remainingSeats'> & { remainingSeats?: number }): Vehicle {
     const vehicle: Vehicle = {
@@ -230,14 +104,35 @@ export class VehicleRepository {
     return vehicle;
   }
 
-  findAll(): Vehicle[] { return this.vehicles; }
-  findById(vehicleId: string): Vehicle | undefined { return this.vehicles.find(v => v.vehicleId === vehicleId); }
-  findByProvider(providerId: string): Vehicle[] { return this.vehicles.filter(v => v.providerId === providerId); }
+  private ensureLayout(v: Vehicle): Vehicle {
+    if (!v.seatLayout) {
+      const isSl =
+        v.vehicleType === VehicleType.SLEEPER ||
+        v.vehicleType === VehicleType.VOLVO ||
+        (v.busName || '').toLowerCase().includes('sleeper');
+      v.seatLayout = buildDefaultLayout(isSl, v.totalSeats || 40);
+    }
+    return v;
+  }
+
+  findAll(): Vehicle[] {
+    return this.vehicles.map((v) => this.ensureLayout(v));
+  }
+
+  findById(vehicleId: string): Vehicle | undefined {
+    const v = this.vehicles.find((v) => v.vehicleId === vehicleId);
+    return v ? this.ensureLayout(v) : undefined;
+  }
+
+  findByProvider(providerId: string): Vehicle[] {
+    return this.vehicles.filter((v) => v.providerId === providerId).map((v) => this.ensureLayout(v));
+  }
 
   findByRegistration(vehicleNumber: string): Vehicle | undefined {
-    return this.vehicles.find(
+    const v = this.vehicles.find(
       (v) => v.vehicleNumber.trim().toLowerCase() === vehicleNumber.trim().toLowerCase()
     );
+    return v ? this.ensureLayout(v) : undefined;
   }
 
   saveSeatLayout(vehicleId: string, layout: BusSeatLayoutConfig): Vehicle | undefined {
@@ -303,9 +198,26 @@ export class VehicleRepository {
   }
 
   remove(vehicleId: string): boolean {
-    const i = this.vehicles.findIndex(v => v.vehicleId === vehicleId);
+    const cleanId = (vehicleId || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const i = this.vehicles.findIndex(
+      (v) =>
+        v.vehicleId.toLowerCase() === cleanId ||
+        v.vehicleNumber.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanId
+    );
     if (i === -1) return false;
     this.vehicles.splice(i, 1);
     return true;
+  }
+
+  removeAll(providerId?: string): number {
+    if (!providerId) {
+      const count = this.vehicles.length;
+      this.vehicles = [];
+      return count;
+    }
+    const cleanP = providerId.trim().toLowerCase();
+    const initial = this.vehicles.length;
+    this.vehicles = this.vehicles.filter((v) => (v.providerId || '').toLowerCase() !== cleanP);
+    return initial - this.vehicles.length;
   }
 }

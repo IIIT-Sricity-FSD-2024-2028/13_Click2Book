@@ -108,6 +108,14 @@ function PassengerDrawer({ seat, passenger, onClose, onBlock, onUnblock, isBlock
               <span className="pax-field-label">👤 Name</span>
               <span className="pax-field-value">{passenger.name}</span>
             </div>
+            {(passenger.gender || (passenger.age && passenger.age !== '—')) && (
+              <div className="pax-field">
+                <span className="pax-field-label">👥 Gender / Age</span>
+                <span className="pax-field-value">
+                  {passenger.gender || '—'}{passenger.age && passenger.age !== '—' ? `, ${passenger.age} yrs` : ''}
+                </span>
+              </div>
+            )}
             <div className="pax-field">
               <span className="pax-field-label">📞 Phone</span>
               <span className="pax-field-value">{passenger.phone}</span>
@@ -132,10 +140,12 @@ function PassengerDrawer({ seat, passenger, onClose, onBlock, onUnblock, isBlock
                   : '—'}
               </span>
             </div>
-            {passenger.seats && passenger.seats.length > 0 && (
+            {passenger.seats && (
               <div className="pax-field">
                 <span className="pax-field-label">🪑 All Seats</span>
-                <span className="pax-field-value">{passenger.seats.join(', ')}</span>
+                <span className="pax-field-value">
+                  {Array.isArray(passenger.seats) ? passenger.seats.join(', ') : passenger.seats}
+                </span>
               </div>
             )}
             {(passenger.from || passenger.boardingPoint) && (passenger.to || passenger.droppingPoint) && (
@@ -190,7 +200,13 @@ function TripSeatModal({ bus, onClose, showToast }) {
 
   const isBooked   = (seatId) => bookedSeatList.includes(seatId);
   const isBlocked  = (seatId) => blockedSeats.includes(seatId);
-  const passenger  = activeSeat ? (passengerMap[activeSeat] || null) : null;
+  const passenger = activeSeat
+    ? (passengerMap[activeSeat] ||
+       passengerMap[String(activeSeat).toUpperCase()] ||
+       passengerMap[String(activeSeat).toLowerCase()] ||
+       Object.entries(passengerMap).find(([k]) => String(k).toUpperCase() === String(activeSeat).toUpperCase())?.[1] ||
+       null)
+    : null;
 
   const handleSeatClick = (seat) => {
     const id = typeof seat === 'object' ? seat.seatId : seat;

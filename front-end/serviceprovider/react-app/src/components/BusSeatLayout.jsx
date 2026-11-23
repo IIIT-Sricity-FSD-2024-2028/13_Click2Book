@@ -21,7 +21,8 @@ function SteeringWheelIcon() {
    Pillow headrest: small vertical rect on the right end.
 ───────────────────────────────────────────────────────────────────────── */
 function SleeperBerthSvg({ seatId, pillowColor, strokeColor, fillColor }) {
-  const clipId = `clip_sl_${seatId.replace(/\W/g, '_')}`;
+  const safeId = String(seatId || '').replace(/\W/g, '_');
+  const clipId = `clip_sl_${safeId}`;
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -175,10 +176,10 @@ export default function BusSeatLayout({
   const getSeatVisuals = (seatId) => {
     if (!seatId) return null;
 
-    const isBooked   = !isPreview && bookedSeatList.includes(seatId);
-    const isBlocked  = !isPreview && blockedSeats.includes(seatId);
+    const isBooked   = !isPreview && Array.isArray(bookedSeatList) && bookedSeatList.includes(seatId);
+    const isBlocked  = !isPreview && Array.isArray(blockedSeats) && blockedSeats.includes(seatId);
     const isSelected = !isPreview && activeSeat === seatId;
-    const passenger  = passengerMap[seatId] || null;
+    const passenger  = (passengerMap && typeof passengerMap === 'object') ? (passengerMap[seatId] || null) : null;
     const isFemale   = passenger?.gender?.toLowerCase() === 'female';
 
     let fillColor, pillowColor, strokeColor;

@@ -27,6 +27,53 @@ const VALID_TABS = [
   'confirm-trips', 'seat-management', 'coupons', 'reviews', 'lost-found', 'revenue', 'settings', 'escalations',
 ];
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('Page render error caught by ErrorBoundary:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="card" style={{ padding: '2.5rem', textAlign: 'center', margin: '2rem auto', maxWidth: 640 }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
+          <h3 style={{ color: '#dc2626', marginBottom: '0.5rem' }}>View Error Recovered</h3>
+          <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+            {this.state.error?.message || 'A temporary rendering issue occurred in this view.'}
+          </p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.reload();
+              }}
+            >
+              🔄 Reload View
+            </button>
+            <button
+              className="btn btn-outline"
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.hash = 'fleet-management';
+              }}
+            >
+              🚍 Go to Fleet
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function getTabFromHash() {
   const hash = window.location.hash.replace('#', '');
   if (hash === 'add-schedule') return 'fleet-management';
@@ -183,7 +230,9 @@ export default function App() {
             onToggleNotifications={() => setNotifOpen((o) => !o)}
           />
           <div className="content-body">
-            {renderPage()}
+            <ErrorBoundary>
+              {renderPage()}
+            </ErrorBoundary>
           </div>
         </div>
       </div>

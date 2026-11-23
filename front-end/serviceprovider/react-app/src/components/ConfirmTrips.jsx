@@ -310,14 +310,14 @@ export default function ConfirmTrips({ provider, onNavigate, showToast }) {
 
   // Filter trips by category
   const filteredTrips = trips.filter((item) => {
-    if (category === 'All') return true;
-
     const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
-    const tripId = item?.trip?.tripId;
-    const currentStatus = (statuses[tripId] || item?.trip?.tripStatus || 'SCHEDULED').toUpperCase();
+    const tripId = item?.trip?.tripId || item?.tripId || item?.id;
+    const currentStatus = (statuses[tripId] || item?.trip?.tripStatus || item?.status || 'SCHEDULED').toUpperCase();
 
     // Cancelled trips should never appear in Confirm Trips
     if (currentStatus === 'CANCELLED') return false;
+
+    if (category === 'All') return true;
 
     if (category === 'Completed') {
       return currentStatus === 'COMPLETED';

@@ -227,7 +227,7 @@ function TripSeatModal({ bus, onClose, showToast }) {
               }}>{type}</span>
             </div>
             <div className="modal-sub">
-              📍 {route} &nbsp;·&nbsp; 🕐 {time} &nbsp;·&nbsp; 💺 {total} Seats &nbsp;·&nbsp; ₹{fare.toLocaleString('en-IN')} / seat
+              📍 {route} &nbsp;·&nbsp; 🕐 {time} &nbsp;·&nbsp; 💺 {total} Seats &nbsp;·&nbsp; ₹{Number(fare || 650).toLocaleString('en-IN')} / seat
             </div>
           </div>
           <button className="modal-close" onClick={onClose}>✕</button>
@@ -350,12 +350,12 @@ function BusTripCard({ bus, onView }) {
             )}
             {journeyDate && (
               <span style={{ marginLeft: '0.5rem', color: '#94a3b8', fontSize: '0.78rem' }}>
-                · {new Date(journeyDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                · {fmtDate(journeyDate)}
               </span>
             )}
           </div>
           <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>
-            🕐 {bus.time} &nbsp;·&nbsp; ₹{bus.fare?.toLocaleString('en-IN')} / seat
+            🕐 {bus.time} &nbsp;·&nbsp; ₹{Number(bus.fare || 650).toLocaleString('en-IN')} / seat
           </div>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -415,30 +415,40 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
 
   /* ── Load & refresh buses ── */
   useEffect(() => {
-    const refresh = () => setBuses(getSeatData());
+    const refresh = () => {
+      try {
+        const data = getSeatData(provider?.id);
+        setBuses(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error refreshing seat data:', err);
+      }
+    };
     refresh();
     window.addEventListener('storage', refresh);
     window.addEventListener('c2b_sync', refresh);
+    window.addEventListener('focus', refresh);
     const interval = setInterval(refresh, 2000);
     return () => {
       window.removeEventListener('storage', refresh);
       window.removeEventListener('c2b_sync', refresh);
+      window.removeEventListener('focus', refresh);
       clearInterval(interval);
     };
-  }, []);
+  }, [provider?.id]);
 
   /* ── Derive available bus types for dropdown ── */
-  const busTypes = ['ALL', ...Array.from(new Set(buses.map((b) => b.type).filter(Boolean)))];
+  const busTypes = ['ALL', ...Array.from(new Set(buses.map((b) => b?.type).filter(Boolean)))];
 
   /* ── Derive live modal bus dynamically from buses state ── */
   const activeModalBus = useMemo(() => {
     if (!selectedBusId) return null;
-    return buses.find((b) => b.id === selectedBusId || b.tripId === selectedBusId) || null;
+    return buses.find((b) => b?.id === selectedBusId || b?.tripId === selectedBusId) || null;
   }, [buses, selectedBusId]);
 
   /* ── Filter logic ── */
   const filtered = buses.filter((bus) => {
-    const q = search.toLowerCase();
+    if (!bus) return false;
+    const q = (search || '').toLowerCase();
     const matchSearch =
       !q ||
       bus.name?.toLowerCase().includes(q) ||
@@ -455,10 +465,10 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
 
   /* ── Summary stats ── */
   const totalBuses   = filtered.length;
-  const totalBooked  = filtered.reduce((acc, b) => acc + (b.bookedCount != null ? b.bookedCount : (b.bookedSeatList || []).length), 0);
-  const totalSeats   = filtered.reduce((acc, b) => acc + (b.total || 0), 0);
+  const totalBooked  = filtered.reduce((acc, b) => acc + (b?.bookedCount != null ? Number(b.bookedCount) : (Array.isArray(b?.bookedSeatList) ? b.bookedSeatList.length : 0)), 0);
+  const totalSeats   = filtered.reduce((acc, b) => acc + Number(b?.total || 0), 0);
   const allBlocked   = loadAllBlocked();
-  const totalBlocked = filtered.reduce((acc, b) => acc + (allBlocked[b.tripId] || []).length, 0);
+  const totalBlocked = filtered.reduce((acc, b) => acc + (Array.isArray(allBlocked?.[b?.tripId]) ? allBlocked[b.tripId].length : 0), 0);
 
   return (
     <div>

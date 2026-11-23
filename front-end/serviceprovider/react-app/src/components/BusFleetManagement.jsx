@@ -206,7 +206,13 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
   useEffect(() => {
     refreshFleet();
     window.addEventListener('storage', refreshFleet);
-    return () => window.removeEventListener('storage', refreshFleet);
+    window.addEventListener('c2b_sync', refreshFleet);
+    window.addEventListener('focus', refreshFleet);
+    return () => {
+      window.removeEventListener('storage', refreshFleet);
+      window.removeEventListener('c2b_sync', refreshFleet);
+      window.removeEventListener('focus', refreshFleet);
+    };
   }, [providerId]);
 
   // Filtered buses in Overview
@@ -429,24 +435,24 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
     if (cleanOrig && cleanDest && cleanOrig.toLowerCase() === cleanDest.toLowerCase()) {
       errors.push('Origin and Destination cannot be the same city');
     }
+    if (buses.length === 0) {
+      errors.push('No registered bus available to assign');
+    }
+    if (!assignBusId && buses.length > 0) {
+      errors.push('Please select a registered bus to assign');
+    }
     if (discoveredCorridors.length === 0) {
       errors.push('No route corridors discovered');
     }
-    if (!selectedCorridorId && discoveredCorridors.length === 0) {
+    if (!selectedCorridorId && discoveredCorridors.length > 0) {
       errors.push('Please select a route corridor');
-    }
-    if (selectedStationIds.length === 0 && orderedCorridorStations.length === 0) {
-      errors.push('At least one intermediate station halt must be assigned');
-    }
-    if (buses.length === 0) {
-      errors.push('No registered bus available to assign');
     }
 
     return {
       isValid: errors.length === 0,
       errors,
     };
-  }, [assignOrigin, assignDest, discoveredCorridors, selectedCorridorId, selectedStationIds, orderedCorridorStations, buses]);
+  }, [assignOrigin, assignDest, discoveredCorridors, selectedCorridorId, buses, assignBusId]);
 
   // Strict validation for Modal 2 Change Route
   const changeRouteValidation = useMemo(() => {
@@ -526,6 +532,8 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
     try {
       await deleteBus(bus.vehicleId);
       refreshFleet();
+      try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'BUS_DELETED', busId: bus.vehicleId } })); } catch {}
+      try { window.dispatchEvent(new Event('storage')); } catch {}
       if (assignBusId === bus.vehicleId) setAssignBusId('');
       if (scheduleBusId === bus.vehicleId) setScheduleBusId('');
       if (showBusDetailsModal) setShowBusDetailsModal(false);
@@ -557,6 +565,8 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
     try {
       await unassignBusRoute(bus.vehicleId);
       refreshFleet();
+      try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'ROUTE_UNASSIGNED', busId: bus.vehicleId } })); } catch {}
+      try { window.dispatchEvent(new Event('storage')); } catch {}
       if (scheduleBusId === bus.vehicleId) setScheduleBusId('');
       if (showBusDetailsModal) setShowBusDetailsModal(false);
       showToast(`Bus ${bus.vehicleNumber} successfully unassigned from route. Schedules removed.`, 'success');
@@ -600,6 +610,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
     setRegLoading(true);
     try {
       const newBus = await registerNewBus({
+        providerId,
         vehicleNumber: plateCheck.normalized,
         busName: regForm.busName || `${plateCheck.normalized} (${regForm.busType})`,
         busType: regForm.busType,
@@ -613,6 +624,8 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
       });
 
       refreshFleet();
+      try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'BUS_REGISTERED', busId: newBus.vehicleId } })); } catch {}
+      try { window.dispatchEvent(new Event('storage')); } catch {}
       showToast(`Bus ${newBus.vehicleNumber} (${regForm.busType}) registered successfully!`, 'success');
 
       // Reset form
@@ -835,7 +848,8 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
   useEffect(() => {
     if (!assignBusId && buses.length > 0) {
       const unassigned = buses.find((b) => !b.assignedRoute && b.status !== 'Maintenance');
-      setAssignBusId(unassigned ? unassigned.vehicleId : buses[0].vehicleId);
+      const chosen = unassigned ? (unassigned.vehicleId || unassigned.id) : (buses[0].vehicleId || buses[0].id);
+      if (chosen) setAssignBusId(chosen);
     }
   }, [buses, assignBusId]);
 
@@ -880,8 +894,8 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
     let busToAssign = assignBusId;
     if (!busToAssign && buses.length > 0) {
       const unassigned = buses.find((b) => !b.assignedRoute && b.status !== 'Maintenance');
-      busToAssign = unassigned ? unassigned.vehicleId : buses[0].vehicleId;
-      setAssignBusId(busToAssign);
+      busToAssign = unassigned ? (unassigned.vehicleId || unassigned.id) : (buses[0].vehicleId || buses[0].id);
+      if (busToAssign) setAssignBusId(busToAssign);
     }
     if (!busToAssign) {
       setAssignError('Please select or register a bus to assign.');
@@ -898,7 +912,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
       return;
     }
 
-    const corridor = discoveredCorridors.find((c) => c.corridorId === corrId);
+    const corridor = discoveredCorridors.find((c) => c.corridorId === corrId) || discoveredCorridors[0];
     if (!corridor) {
       setAssignError('Selected corridor not found.');
       return;
@@ -910,6 +924,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
       setSelectedStationIds(orderedCorridorStations.map((s) => s.id));
     }
 
+    setAssignLoading(true);
     try {
       await assignBusToRoute(busToAssign, {
         originCity: assignOrigin,
@@ -923,12 +938,16 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
       });
 
       refreshFleet();
+      try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'FLEET_ASSIGNED', busId: busToAssign } })); } catch {}
+      try { window.dispatchEvent(new Event('storage')); } catch {}
       setScheduleBusId(busToAssign);
-      const targetBus = buses.find((b) => b.vehicleId === busToAssign);
+      const targetBus = buses.find((b) => (b.vehicleId || b.id) === busToAssign);
       showToast(`Bus ${targetBus?.vehicleNumber || ''} permanently assigned to ${assignOrigin} ↔ ${assignDest} with ${assignedStops.length} intermediate stations!`, 'success');
       setSubTab('assigned-table');
     } catch (err) {
       setAssignError(err.message || 'Failed to assign bus to route.');
+    } finally {
+      setAssignLoading(false);
     }
   };
 
@@ -1020,6 +1039,8 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
       });
 
       refreshFleet();
+      try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'SCHEDULES_SAVED', busId: scheduleBusId } })); } catch {}
+      try { window.dispatchEvent(new Event('storage')); } catch {}
       setScheduleSuccess(
         `✅ UP and DOWN round-trip schedules saved for ${currentScheduleBus.vehicleNumber} (Operating window: ${scheduleStartDate} to ${scheduleEndDate})! Recurring schedules generated.`
       );
@@ -1173,6 +1194,8 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
       }
 
       refreshFleet();
+      try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'ROUTE_CHANGED', busId: selectedBus.vehicleId } })); } catch {}
+      try { window.dispatchEvent(new Event('storage')); } catch {}
       setShowChangeRouteModal(false);
       showToast(`Route for ${selectedBus.vehicleNumber} successfully updated to ${changeOrigin} ↔ ${changeDest} with ${assignedStops.length} intermediate stops!`, 'success');
     } catch (err) {
@@ -1186,6 +1209,8 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
     try {
       await updateBusStatus(bus.vehicleId, nextStatus);
       refreshFleet();
+      try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'STATUS_UPDATED', busId: bus.vehicleId } })); } catch {}
+      try { window.dispatchEvent(new Event('storage')); } catch {}
       showToast(`Bus ${bus.vehicleNumber} status updated to ${nextStatus}.`, 'info');
     } catch (err) {
       showToast(err.message || 'Status update failed', 'error');
@@ -2018,12 +2043,15 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                 {buses.length === 0 && (
                   <option value="" disabled>No registered buses found — please register a bus first</option>
                 )}
-                {buses.map((b) => (
-                  <option key={b.vehicleId} value={b.vehicleId} disabled={b.status === 'Maintenance'}>
-                    {b.vehicleNumber} &bull; {b.busName} ({b.totalSeats} seats) &bull; [{b.status}]
-                    {b.assignedRoute ? ` — Already on ${b.assignedRoute.originCity} ↔ ${b.assignedRoute.destCity}` : ''}
-                  </option>
-                ))}
+                {buses.map((b) => {
+                  const bId = b.vehicleId || b.id;
+                  return (
+                    <option key={bId} value={bId} disabled={b.status === 'Maintenance'}>
+                      {b.vehicleNumber} &bull; {b.busName} ({b.totalSeats} seats) &bull; [{b.status}]
+                      {b.assignedRoute ? ` — Already on ${b.assignedRoute.originCity} ↔ ${b.assignedRoute.destCity}` : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 

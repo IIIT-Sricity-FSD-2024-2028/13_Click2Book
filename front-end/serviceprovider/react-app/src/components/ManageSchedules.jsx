@@ -562,7 +562,7 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
 
   const loadTrips = () => {
     setLoading(true);
-    fetchSchedulesFromAPI().then(({ data, isLive: live }) => {
+    fetchSchedulesFromAPI(provider?.id).then(({ data, isLive: live }) => {
       setTrips(data);
       setIsLive(live);
       setCancelledTrips(getCancelledSchedules());
@@ -572,7 +572,7 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
 
   useEffect(() => {
     loadTrips();
-  }, []);
+  }, [provider?.id]);
 
   // Sync when window refocuses or storage updates, plus polling for auto-start and bookings
   useEffect(() => {
@@ -581,18 +581,20 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
     window.addEventListener('storage', handleSync);
     window.addEventListener('c2b_sync', handleSync);
     window.addEventListener('focus', handleSync);
-    const interval = setInterval(handleSync, 4000);
+    const interval = setInterval(handleSync, 3000);
     return () => {
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('c2b_sync', handleSync);
       window.removeEventListener('focus', handleSync);
       clearInterval(interval);
     };
-  }, []);
+  }, [provider?.id]);
 
   const handleSaved = () => {
     setEditTrip(null);
     loadTrips(); // refresh list after save
+    try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'SCHEDULE_SAVED' } })); } catch {}
+    try { window.dispatchEvent(new Event('storage')); } catch {}
   };
 
   // Delete/Cancel Trip handler

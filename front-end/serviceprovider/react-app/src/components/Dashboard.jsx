@@ -24,12 +24,10 @@ export default function Dashboard({ provider, onNavigate, showToast }) {
     window.addEventListener('storage', refresh);
     window.addEventListener('c2b_sync', refresh);
     window.addEventListener('focus', refresh);
-    const interval = setInterval(refresh, 3000);
     return () => {
       window.removeEventListener('storage', refresh);
       window.removeEventListener('c2b_sync', refresh);
       window.removeEventListener('focus', refresh);
-      clearInterval(interval);
     };
   }, [provider?.id]);
 

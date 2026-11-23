@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ConflictException, BadRequestException, 
 import { VehicleRepository } from './vehicle.repository';
 import { CreateVehicleDto, UpdateVehicleDto, SaveSeatLayoutDto, AssignRouteDto, ChangeRouteDto, SaveRoundTripScheduleDto } from './dto/vehicle.dto';
 import { successResponse } from '../../common/utils/response.util';
-import { BusStatus } from './interfaces/vehicle.interface';
+import { BusStatus, BusSeatLayoutConfig } from './interfaces/vehicle.interface';
 import { generateId } from '../../common/utils/id.util';
 
 @Injectable()
@@ -90,7 +90,19 @@ export class VehicleService {
       throw new ForbiddenException('You do not have permission to modify this bus seat layout.');
     }
 
-    const updated = this.vehicleRepo.saveSeatLayout(id, dto);
+    const layoutConfig: BusSeatLayoutConfig = {
+      rows: dto.rows,
+      cols: dto.cols,
+      totalSeats: dto.totalSeats,
+      lowerBerthsCount: dto.lowerBerthsCount ?? 0,
+      upperBerthsCount: dto.upperBerthsCount ?? 0,
+      hasUpperDeck: Boolean(dto.hasUpperDeck),
+      lowerDeck: dto.lowerDeck || [],
+      upperDeck: dto.upperDeck || [],
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updated = this.vehicleRepo.saveSeatLayout(id, layoutConfig);
     return successResponse('Seat layout saved successfully', updated);
   }
 

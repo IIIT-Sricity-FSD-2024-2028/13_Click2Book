@@ -17,11 +17,11 @@ export interface BusSeatLayoutConfig {
   rows: number;
   cols: number;
   totalSeats: number;
-  lowerBerthsCount: number;
-  upperBerthsCount: number;
+  lowerBerthsCount?: number;
+  upperBerthsCount?: number;
   hasUpperDeck: boolean;
   lowerDeck: SeatLayoutItem[];
-  upperDeck: SeatLayoutItem[];
+  upperDeck?: SeatLayoutItem[];
   updatedAt?: string;
 }
 

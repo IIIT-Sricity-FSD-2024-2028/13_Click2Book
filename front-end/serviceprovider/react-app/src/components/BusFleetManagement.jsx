@@ -117,6 +117,9 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
     upperBerths: 20,
     status: 'Available',
     amenities: ['AC', 'Charging point', 'Wi-Fi', 'GPS', 'Blanket', 'Pillow'],
+    autoAssignRoute: true,
+    originCity: 'Chennai',
+    destCity: 'Vijayawada',
   });
   const [regError, setRegError] = useState('');
   const [regLoading, setRegLoading] = useState(false);
@@ -180,9 +183,19 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
   const [scheduleStartDate, setScheduleStartDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [scheduleEndDate, setScheduleEndDate] = useState(() => {
     const d = new Date();
-    d.setDate(d.getDate() + 14);
+    d.setDate(d.getDate() + 30);
     return d.toISOString().split('T')[0];
   });
+  const handleStartDateChange = (val) => {
+    setScheduleStartDate(val);
+    if (val) {
+      const d = new Date(val);
+      if (!isNaN(d.getTime())) {
+        d.setDate(d.getDate() + 30);
+        setScheduleEndDate(d.toISOString().split('T')[0]);
+      }
+    }
+  };
   const [upDepTime, setUpDepTime] = useState('06:00');
   const [upArrTime, setUpArrTime] = useState('14:30');
   const [upDays, setUpDays] = useState(['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']);
@@ -436,23 +449,53 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
       errors.push('Origin and Destination cannot be the same city');
     }
     if (buses.length === 0) {
-      errors.push('No registered bus available to assign');
+      errors.push('No registered bus available in fleet. Please register a bus first.');
     }
-    if (!assignBusId && buses.length > 0) {
+    const effectiveBusId = assignBusId || (buses.length > 0 ? (buses.find(b => !b.assignedRoute && b.status !== 'Maintenance') || buses[0])?.vehicleId || buses[0]?.id : '');
+    if (!effectiveBusId && buses.length > 0) {
       errors.push('Please select a registered bus to assign');
     }
-    if (discoveredCorridors.length === 0) {
-      errors.push('No route corridors discovered');
-    }
-    if (!selectedCorridorId && discoveredCorridors.length > 0) {
-      errors.push('Please select a route corridor');
-    }
+    const effectiveCorridorId = selectedCorridorId || (discoveredCorridors.length > 0 ? discoveredCorridors[0].corridorId : '');
 
     return {
-      isValid: errors.length === 0,
+      isValid: errors.length === 0 && Boolean(cleanOrig) && Boolean(cleanDest) && cleanOrig.toLowerCase() !== cleanDest.toLowerCase() && buses.length > 0,
       errors,
+      effectiveBusId,
+      effectiveCorridorId,
     };
   }, [assignOrigin, assignDest, discoveredCorridors, selectedCorridorId, buses, assignBusId]);
+
+  // Quick 1-click corridor assignment handler
+  const handleQuickAssign = async (bus, origin = 'Chennai', dest = 'Vijayawada') => {
+    if (!bus) return;
+    try {
+      const corridors = await discoverRouteCorridors(origin, dest);
+      const corr = (corridors && corridors[0]) || {
+        corridorId: `CORR_${origin}_${dest}`,
+        name: `${origin} ↔ ${dest} Corridor`,
+        distance: 430,
+        duration: '6h 30m',
+      };
+      const stops = getOrderedCorridorStations(corr, origin, dest, '06:00');
+      await assignBusToRoute(bus.vehicleId, {
+        originCity: origin,
+        destCity: dest,
+        corridorId: corr.corridorId,
+        corridorName: corr.name,
+        distanceKm: corr.distance || 430,
+        durationEst: corr.duration || '6h 30m',
+        intermediateStops: stops.map((s) => s.name),
+        intermediateStopDetails: stops,
+      });
+      refreshFleet();
+      try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'FLEET_ASSIGNED', busId: bus.vehicleId } })); } catch {}
+      try { window.dispatchEvent(new Event('storage')); } catch {}
+      showToast(`Bus ${bus.vehicleNumber} successfully assigned to ${origin} ↔ ${dest}! Daily UP/DOWN schedules are now active in Manage Schedules.`, 'success');
+      setSubTab('assigned-table');
+    } catch (err) {
+      showToast(err.message || 'Quick assignment failed.', 'error');
+    }
+  };
 
   // Strict validation for Modal 2 Change Route
   const changeRouteValidation = useMemo(() => {
@@ -623,10 +666,45 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
         seatLayout,
       });
 
+      // Immediate Route Assignment if selected (Default behavior)
+      let wasAssigned = false;
+      if (regForm.autoAssignRoute && regForm.originCity && regForm.destCity) {
+        try {
+          const corridors = await discoverRouteCorridors(regForm.originCity, regForm.destCity);
+          const chosenCorr = (corridors && corridors[0]) || {
+            corridorId: `CORR_${regForm.originCity}_${regForm.destCity}`,
+            name: `${regForm.originCity} ↔ ${regForm.destCity} Corridor`,
+            distance: 430,
+            duration: '6h 30m',
+          };
+          const stops = getOrderedCorridorStations(chosenCorr, regForm.originCity, regForm.destCity, '06:00');
+          await assignBusToRoute(newBus.vehicleId, {
+            originCity: regForm.originCity,
+            destCity: regForm.destCity,
+            corridorId: chosenCorr.corridorId,
+            corridorName: chosenCorr.name,
+            distanceKm: chosenCorr.distance || 430,
+            durationEst: chosenCorr.duration || '6h 30m',
+            intermediateStops: stops.map((s) => s.name),
+            intermediateStopDetails: stops,
+          });
+          wasAssigned = true;
+        } catch (assignErr) {
+          console.warn('Auto route assignment note:', assignErr);
+        }
+      }
+
       refreshFleet();
       try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'BUS_REGISTERED', busId: newBus.vehicleId } })); } catch {}
       try { window.dispatchEvent(new Event('storage')); } catch {}
-      showToast(`Bus ${newBus.vehicleNumber} (${regForm.busType}) registered successfully!`, 'success');
+
+      if (wasAssigned) {
+        showToast(`Bus ${newBus.vehicleNumber} registered & assigned to ${regForm.originCity} ↔ ${regForm.destCity}! UP & DOWN schedules are now active in Manage Schedules.`, 'success');
+        setSubTab('assigned-table');
+      } else {
+        showToast(`Bus ${newBus.vehicleNumber} (${regForm.busType}) registered successfully!`, 'success');
+        setSubTab('overview');
+      }
 
       // Reset form
       setRegForm({
@@ -638,9 +716,10 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
         upperBerths: 20,
         status: 'Available',
         amenities: ['AC', 'Charging point', 'Wi-Fi', 'GPS', 'Blanket', 'Pillow'],
+        autoAssignRoute: true,
+        originCity: 'Chennai',
+        destCity: 'Vijayawada',
       });
-
-      setSubTab('overview');
     } catch (err) {
       setRegError(err.message || 'Failed to register bus.');
     } finally {
@@ -974,27 +1053,21 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
       setScheduleError('Please enter valid DOWN journey departure and arrival times.');
       return;
     }
-    if (upDays.length === 0 || downDays.length === 0) {
-      setScheduleError('Please select operating days for both UP and DOWN journeys.');
-      return;
-    }
 
     // Validate that buses cannot run in the past or present time
     const todayStr = new Date().toISOString().split('T')[0];
     const now = new Date();
     const curHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-    const todayDayName = dayNames[now.getDay()];
 
     if (scheduleStartDate < todayStr) {
       setScheduleError(`Schedule start date (${scheduleStartDate}) cannot be in the past.`);
       return;
     }
     if (scheduleStartDate === todayStr) {
-      if (upDays.includes(todayDayName) && upDepTime <= curHHMM) {
+      if (upDepTime <= curHHMM) {
         showToast(`Notice: UP departure (${upDepTime}) is earlier than current clock (${curHHMM}) for today. Journey will be active in Confirm Trips.`, 'info');
       }
-      if (downDays.includes(todayDayName) && downDepTime <= curHHMM) {
+      if (downDepTime <= curHHMM) {
         showToast(`Notice: DOWN departure (${downDepTime}) is earlier than current clock (${curHHMM}) for today.`, 'info');
       }
     }
@@ -1004,31 +1077,24 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
       return;
     }
 
-    const invalidDownDays = downDays.filter((d) => !availableDownDays.includes(d));
-    if (invalidDownDays.length > 0) {
-      setScheduleError(
-        `Cannot schedule: Bus is not at destination on ${invalidDownDays.join(', ')}. Please select only available days (${availableDownDays.join(', ')}).`
-      );
-      return;
-    }
-
     setScheduleLoading(true);
     try {
       const intermediateList = currentScheduleBus.assignedRoute.intermediateStops || [];
       const intermediateDetails = currentScheduleBus.assignedRoute.intermediateStopDetails || [];
+      const allSevenDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
       await saveRoundTripSchedules(scheduleBusId, {
         upSchedule: {
           departureTime: upDepTime,
           arrivalTime: upArrTime,
-          operatingDays: upDays,
+          operatingDays: allSevenDays,
           intermediateStops: intermediateList.map((stop) => ({ stopName: stop })),
           intermediateStopDetails: upStationTimetable,
         },
         downSchedule: {
           departureTime: downDepTime,
           arrivalTime: downArrTime,
-          operatingDays: downDays,
+          operatingDays: allSevenDays,
           // Reverses intermediate stops automatically for DOWN journey
           intermediateStops: [...intermediateList].reverse().map((stop) => ({ stopName: stop })),
           intermediateStopDetails: downStationTimetable,
@@ -1561,19 +1627,61 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                           >
                             ⏱️ Schedules
                           </button>
+                          {onNavigate && (
+                            <>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={() => onNavigate('manage-schedules')}
+                                style={{ padding: '4px 10px', fontSize: '0.74rem', color: '#0369a1', borderColor: '#bae6fd', background: '#f0f9ff' }}
+                                title="Open UP/DOWN active daily schedules in Manage Schedules"
+                              >
+                                📅 Manage Schedules
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={() => onNavigate('seat-management')}
+                                style={{ padding: '4px 10px', fontSize: '0.74rem', color: '#0f766e', borderColor: '#99f6e4', background: '#f0fdfa' }}
+                                title="View real-time seat occupancy and passenger charts in Seat Management"
+                              >
+                                💺 View Seats
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={() => onNavigate('confirm-trips')}
+                                style={{ padding: '4px 10px', fontSize: '0.74rem', color: '#4338ca', borderColor: '#c7d2fe', background: '#eef2ff' }}
+                                title="View dispatch status and confirmed trips in Confirm Trips"
+                              >
+                                🏁 Confirm Trips
+                              </button>
+                            </>
+                          )}
                         </>
                       ) : (
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={() => {
-                            setAssignBusId(bus.vehicleId);
-                            setSubTab('assign-route');
-                          }}
-                          style={{ padding: '4px 12px', fontSize: '0.74rem' }}
-                        >
-                          🛣️ Assign Route
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => {
+                              setAssignBusId(bus.vehicleId);
+                              setSubTab('assign-route');
+                            }}
+                            style={{ padding: '4px 12px', fontSize: '0.74rem' }}
+                          >
+                            🛣️ Assign Route
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            onClick={() => handleQuickAssign(bus, 'Chennai', 'Vijayawada')}
+                            style={{ padding: '4px 10px', fontSize: '0.74rem', color: '#16a34a', borderColor: '#86efac', background: '#f0fdf4' }}
+                            title="Quick assign to Chennai ↔ Vijayawada Corridor and start schedules"
+                          >
+                            ⚡ Quick Assign
+                          </button>
+                        </>
                       )}
 
                       <button
@@ -1804,6 +1912,68 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                 </div>
               </div>
 
+              {/* Route Corridor Assignment on Registration */}
+              <div
+                style={{
+                  background: '#f0fdf4',
+                  border: '1.5px solid #86efac',
+                  borderRadius: 12,
+                  padding: 16,
+                  marginBottom: '1.5rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: regForm.autoAssignRoute ? 12 : 0 }}>
+                  <input
+                    type="checkbox"
+                    id="regAutoAssignRoute"
+                    checked={regForm.autoAssignRoute}
+                    onChange={(e) => setRegForm({ ...regForm, autoAssignRoute: e.target.checked })}
+                    style={{ marginTop: 3, cursor: 'pointer', width: 16, height: 16 }}
+                  />
+                  <div>
+                    <label htmlFor="regAutoAssignRoute" style={{ fontWeight: 800, color: '#166534', fontSize: '0.92rem', cursor: 'pointer' }}>
+                      🛣️ Assign to Route Corridor Immediately Upon Registration (Recommended)
+                    </label>
+                    <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: '#15803d' }}>
+                      Automatically binds this coach to a corridor and generates continuous daily UP/DOWN round-trip schedules. The bus will immediately appear in <strong>Manage Schedules</strong>, <strong>Confirm Trips</strong>, and <strong>Seat Management</strong>!
+                    </p>
+                  </div>
+                </div>
+
+                {regForm.autoAssignRoute && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 10, background: '#ffffff', padding: 12, borderRadius: 8, border: '1px solid #bbf7d0' }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1e293b' }}>
+                        Origin City *
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="e.g. Chennai"
+                        value={regForm.originCity}
+                        onChange={(e) => setRegForm({ ...regForm, originCity: e.target.value })}
+                        required={regForm.autoAssignRoute}
+                        style={{ fontSize: '0.82rem' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1e293b' }}>
+                        Destination City *
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="e.g. Vijayawada"
+                        value={regForm.destCity}
+                        onChange={(e) => setRegForm({ ...regForm, destCity: e.target.value })}
+                        required={regForm.autoAssignRoute}
+                        style={{ fontSize: '0.82rem' }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* ─────────────────────────────────────────────────────────────
                  MODULE 2: Dynamic Coach Seat Layout (from previous BusSeatLayout)
                  ───────────────────────────────────────────────────────────── */}
@@ -1875,7 +2045,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
       {subTab === 'assigned-table' && (
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <div className="card-header" style={{ padding: '14px 18px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
               <div>
                 <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>
                   Assigned Buses Table ({assignedBusesList.length} Active Assignments)
@@ -1884,14 +2054,47 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                   Buses with persistent corridor bindings and active UP/DOWN round-trip schedule definitions.
                 </p>
               </div>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => setSubTab('assign-route')}
-                style={{ padding: '6px 14px', fontSize: '0.8rem' }}
-              >
-                + Assign Another Bus
-              </button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {onNavigate && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() => onNavigate('manage-schedules')}
+                      style={{ padding: '6px 12px', fontSize: '0.78rem', color: '#0369a1', borderColor: '#bae6fd', background: '#f0f9ff' }}
+                      title="Jump to Manage Schedules"
+                    >
+                      📅 Manage Schedules
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() => onNavigate('seat-management')}
+                      style={{ padding: '6px 12px', fontSize: '0.78rem', color: '#0f766e', borderColor: '#99f6e4', background: '#f0fdfa' }}
+                      title="Jump to Seat Management"
+                    >
+                      💺 Seat Management
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() => onNavigate('confirm-trips')}
+                      style={{ padding: '6px 12px', fontSize: '0.78rem', color: '#4338ca', borderColor: '#c7d2fe', background: '#eef2ff' }}
+                      title="Jump to Confirm Trips"
+                    >
+                      🏁 Confirm Trips
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setSubTab('assign-route')}
+                  style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+                >
+                  + Assign Another Bus
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1963,6 +2166,37 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                           </td>
                           <td style={{ padding: '10px', textAlign: 'right' }}>
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                              {onNavigate && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline"
+                                    onClick={() => onNavigate('manage-schedules')}
+                                    style={{ padding: '3px 8px', fontSize: '0.72rem', color: '#0369a1', borderColor: '#bae6fd', background: '#f0f9ff' }}
+                                    title="View in Manage Schedules"
+                                  >
+                                    📅 Schedules
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline"
+                                    onClick={() => onNavigate('seat-management')}
+                                    style={{ padding: '3px 8px', fontSize: '0.72rem', color: '#0f766e', borderColor: '#99f6e4', background: '#f0fdfa' }}
+                                    title="View in Seat Management"
+                                  >
+                                    💺 Seats
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline"
+                                    onClick={() => onNavigate('confirm-trips')}
+                                    style={{ padding: '3px 8px', fontSize: '0.72rem', color: '#4338ca', borderColor: '#c7d2fe', background: '#eef2ff' }}
+                                    title="View in Confirm Trips"
+                                  >
+                                    🏁 Confirm
+                                  </button>
+                                </>
+                              )}
                               <button
                                 type="button"
                                 className="btn btn-outline"
@@ -2594,7 +2828,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                         className="form-control"
                         min={todayStr}
                         value={scheduleStartDate}
-                        onChange={(e) => setScheduleStartDate(e.target.value)}
+                        onChange={(e) => handleStartDateChange(e.target.value)}
                       />
                       <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 3 }}>
                         Buses cannot be scheduled for past dates or past clock times.
@@ -2611,8 +2845,8 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                         value={scheduleEndDate}
                         onChange={(e) => setScheduleEndDate(e.target.value)}
                       />
-                      <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 3 }}>
-                        Generates recurring journey instances across this window.
+                      <div style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: 600, marginTop: 3 }}>
+                        ⚡ Automatically generates continuous 30-day daily round-trip schedules.
                       </div>
                     </div>
                   </div>
@@ -2747,49 +2981,23 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                       )}
                     </div>
 
-                    {/* Operating Days */}
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                        <label className="form-label" style={{ fontSize: '0.76rem', margin: 0 }}>Operating Days *</label>
-                        <span style={{ fontSize: '0.68rem', color: '#15803d', fontWeight: 600 }}>{upDays.length} days active</span>
-                      </div>
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        {WEEKDAYS.map((d) => {
-                          const isAvail = availableUpDays.includes(d.id);
-                          const isSel = upDays.includes(d.id);
-                          return (
-                            <button
-                              key={d.id}
-                              type="button"
-                              disabled={!isAvail}
-                              title={!isAvail ? `🔒 ${d.fullName} Locked: Bus has other trip assignments on this day` : `Toggle ${d.fullName}`}
-                              onClick={() => {
-                                if (!isAvail) return;
-                                if (isSel) {
-                                  if (upDays.length > 1) setUpDays(upDays.filter((x) => x !== d.id));
-                                } else {
-                                  setUpDays([...upDays, d.id]);
-                                }
-                              }}
-                              style={{
-                                background: !isAvail ? '#f1f5f9' : isSel ? '#16a34a' : '#ffffff',
-                                color: !isAvail ? '#94a3b8' : isSel ? '#ffffff' : '#334155',
-                                border: !isAvail ? '1px solid #cbd5e1' : isSel ? '1px solid #15803d' : '1px solid #cbd5e1',
-                                borderRadius: 4,
-                                padding: '3px 8px',
-                                fontSize: '0.72rem',
-                                fontWeight: 700,
-                                cursor: !isAvail ? 'not-allowed' : 'pointer',
-                                opacity: !isAvail ? 0.6 : 1,
-                              }}
-                            >
-                              {!isAvail ? '🔒 ' : isSel ? '✓ ' : ''}{d.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div style={{ fontSize: '0.67rem', color: '#64748b', marginTop: 3 }}>
-                        Select origin departure days for continuous schedule cycling.
+                    {/* Continuous 30-Day Automated Schedule Banner */}
+                    <div style={{ marginTop: 12, padding: '10px 14px', background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: '1.15rem' }}>🔄</span>
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '0.82rem', color: '#166534' }}>
+                              Continuous 30-Day Daily Outbound Service (UP)
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: '#15803d', marginTop: 2 }}>
+                              Runs automatically every day from <strong>{scheduleStartDate}</strong> to <strong>{scheduleEndDate}</strong> (All 7 days/week).
+                            </div>
+                          </div>
+                        </div>
+                        <span style={{ background: '#16a34a', color: '#ffffff', fontWeight: 800, fontSize: '0.72rem', padding: '3px 9px', borderRadius: 6 }}>
+                          ✓ 7 Days / 30 Days Auto
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -2921,52 +3129,23 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                       )}
                     </div>
 
-                    {/* Operating Days */}
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                        <label className="form-label" style={{ fontSize: '0.76rem', margin: 0 }}>Operating Days *</label>
-                        <span style={{ fontSize: '0.68rem', color: '#b45309', fontWeight: 600 }}>{downDays.length} days active</span>
-                      </div>
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        {WEEKDAYS.map((d) => {
-                          const isAvail = availableDownDays.includes(d.id);
-                          const isSel = downDays.includes(d.id);
-                          const lockReason = !isAvail
-                            ? `🔒 ${d.fullName} Locked: Bus is not at destination on this day (UP arrives on ${availableDownDays.join(', ')})`
-                            : `Toggle ${d.fullName}`;
-                          return (
-                            <button
-                              key={d.id}
-                              type="button"
-                              disabled={!isAvail}
-                              title={lockReason}
-                              onClick={() => {
-                                if (!isAvail) return;
-                                if (isSel) {
-                                  if (downDays.length > 1) setDownDays(downDays.filter((x) => x !== d.id));
-                                } else {
-                                  setDownDays([...downDays, d.id]);
-                                }
-                              }}
-                              style={{
-                                background: !isAvail ? '#f1f5f9' : isSel ? '#d97706' : '#ffffff',
-                                color: !isAvail ? '#94a3b8' : isSel ? '#ffffff' : '#334155',
-                                border: !isAvail ? '1px solid #cbd5e1' : isSel ? '1px solid #b45309' : '1px solid #cbd5e1',
-                                borderRadius: 4,
-                                padding: '3px 8px',
-                                fontSize: '0.72rem',
-                                fontWeight: 700,
-                                cursor: !isAvail ? 'not-allowed' : 'pointer',
-                                opacity: !isAvail ? 0.6 : 1,
-                              }}
-                            >
-                              {!isAvail ? '🔒 ' : isSel ? '✓ ' : ''}{d.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div style={{ fontSize: '0.67rem', color: '#b45309', marginTop: 3 }}>
-                        🔒 Days locked to physical bus arrivals at destination ({availableDownDays.join(', ')}).
+                    {/* Continuous 30-Day Automated Return Schedule Banner */}
+                    <div style={{ marginTop: 12, padding: '10px 14px', background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: '1.15rem' }}>🔄</span>
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '0.82rem', color: '#92400e' }}>
+                              Continuous 30-Day Daily Return Service (DOWN)
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: '#b45309', marginTop: 2 }}>
+                              Runs automatically every day from <strong>{scheduleStartDate}</strong> to <strong>{scheduleEndDate}</strong> (All 7 days/week).
+                            </div>
+                          </div>
+                        </div>
+                        <span style={{ background: '#d97706', color: '#ffffff', fontWeight: 800, fontSize: '0.72rem', padding: '3px 9px', borderRadius: 6 }}>
+                          ✓ 7 Days / 30 Days Auto
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -3121,13 +3300,13 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
                     type="button"
                     className="btn btn-primary"
                     onClick={handleSaveRoundTripSchedules}
-                    disabled={scheduleLoading || !turnaroundInfo.isValid || upDays.length === 0 || downDays.length === 0}
+                    disabled={scheduleLoading || !turnaroundInfo.isValid}
                     style={{
                       padding: '9px 24px',
                       fontWeight: 800,
                       fontSize: '0.9rem',
-                      opacity: (!turnaroundInfo.isValid || upDays.length === 0 || downDays.length === 0) ? 0.5 : 1,
-                      cursor: (!turnaroundInfo.isValid || upDays.length === 0 || downDays.length === 0) ? 'not-allowed' : 'pointer',
+                      opacity: (!turnaroundInfo.isValid) ? 0.5 : 1,
+                      cursor: (!turnaroundInfo.isValid) ? 'not-allowed' : 'pointer',
                     }}
                   >
                     {scheduleLoading ? 'Saving Schedules…' : '🚀 Save & Publish Round-Trip Schedules'}

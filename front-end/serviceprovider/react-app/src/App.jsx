@@ -139,7 +139,7 @@ export default function App() {
       }
     };
     runAutoStart();
-    const interval = setInterval(runAutoStart, 4000);
+    const interval = setInterval(runAutoStart, 15000);
     return () => clearInterval(interval);
   }, [showToast]);
 

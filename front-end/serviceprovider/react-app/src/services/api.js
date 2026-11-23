@@ -18,12 +18,24 @@ const getHost = () => {
 
 const API_BASE = () => `http://${getHost()}:3000/api`;
 
+function createTimeoutSignal(ms = 2500, existingSignal) {
+  if (existingSignal) return existingSignal;
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(ms);
+  }
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+}
+
 async function spFetch(path, options = {}) {
   const url = path.startsWith('/api') ? path : `/api${path}`;
+  const timeoutMs = options.timeout || 2500;
   let res;
   try {
     res = await fetch(url, {
       ...options,
+      signal: createTimeoutSignal(timeoutMs, options.signal),
       headers: {
         'Content-Type': 'application/json',
         'x-role': 'PROVIDER',
@@ -33,6 +45,7 @@ async function spFetch(path, options = {}) {
   } catch {
     res = await fetch(`http://${getHost()}:3000/api${path}`, {
       ...options,
+      signal: createTimeoutSignal(timeoutMs, options.signal),
       headers: {
         'Content-Type': 'application/json',
         'x-role': 'PROVIDER',
@@ -148,9 +161,19 @@ export function getDashboardData(providerId) {
   // Guarantee that every assigned bus appears in Dashboard schedule table
   assignedFleet.forEach((bus) => {
     const cleanP = String(bus.vehicleNumber || bus.regNo || bus.vehicleId || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const bOrig = (bus.assignedRoute?.originCity || bus.originCity || '').toLowerCase().trim();
+    const bDest = (bus.assignedRoute?.destCity || bus.destCity || '').toLowerCase().trim();
+
     const hasTrip = buses.some((b) => {
       const bCode = String(b.id || b.tripId || b.name || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-      return cleanP && bCode.includes(cleanP);
+      const matchesPlate = cleanP && bCode.includes(cleanP);
+      if (!matchesPlate) return false;
+      if (bOrig && bDest) {
+        const bFrom = (b.from || '').toLowerCase().trim();
+        const bTo = (b.to || '').toLowerCase().trim();
+        return (bFrom === bOrig && bTo === bDest) || (bFrom === bDest && bTo === bOrig);
+      }
+      return true;
     });
     if (!hasTrip) {
       const orig = bus.assignedRoute?.originCity || bus.originCity || 'Chennai';
@@ -232,99 +255,120 @@ export function getDashboardData(providerId) {
 }
 
 /* ── Helper: Ensure recurring journey instances are generated for assigned fleet, including TODAY's journey ── */
+let isEnsuringFleet = false;
 export function ensureTodayJourneysForAssignedFleet(assignedFleet) {
+  if (isEnsuringFleet) return false;
   if (!assignedFleet || !assignedFleet.length) return false;
-  const todayStr = new Date().toISOString().split('T')[0];
+  isEnsuringFleet = true;
+  try {
+    const todayStr = new Date().toISOString().split('T')[0];
 
-  const clean = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const cleanName = (s) => String(s || '').toLowerCase().trim();
+    const clean = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const cleanName = (s) => String(s || '').toLowerCase().trim();
 
-  let modified = false;
-  const raw = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-  const cancelledList = JSON.parse(localStorage.getItem('c2b_cancelled_schedules') || '[]');
-  const cancelledIds = JSON.parse(localStorage.getItem('c2b_cancelled_trip_ids') || '[]');
-  const cancelledIdSet = new Set([...cancelledIds, ...cancelledList.map((c) => c.tripId)]);
-  const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    let modified = false;
+    let fleetModified = false;
+    const raw = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const cancelledList = JSON.parse(localStorage.getItem('c2b_cancelled_schedules') || '[]');
+    const cancelledIds = JSON.parse(localStorage.getItem('c2b_cancelled_trip_ids') || '[]');
+    const cancelledIdSet = new Set([...cancelledIds, ...cancelledList.map((c) => c.tripId)]);
+    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
 
-  assignedFleet.forEach((bus) => {
-    // If bus is assigned, make sure it has assignedRoute
-    if (!bus.assignedRoute) {
-      let orig = bus.originCity || bus.origin || bus.from || '';
-      let dest = bus.destCity || bus.destination || bus.to || '';
-      if (!orig || !dest) {
-        if (bus.route) {
-          const parts = bus.route.split(/→|↔|-|\bto\b/i).map((s) => s.trim()).filter(Boolean);
-          if (parts.length >= 2) {
-            orig = parts[0];
-            dest = parts[1];
+    assignedFleet.forEach((bus) => {
+      // If bus is assigned, make sure it has assignedRoute
+      if (!bus.assignedRoute) {
+        let orig = bus.originCity || bus.origin || bus.from || '';
+        let dest = bus.destCity || bus.destination || bus.to || '';
+        if (!orig || !dest) {
+          if (bus.route) {
+            const parts = bus.route.split(/→|↔|-|\bto\b/i).map((s) => s.trim()).filter(Boolean);
+            if (parts.length >= 2) {
+              orig = parts[0];
+              dest = parts[1];
+            }
           }
         }
+        if (!orig) orig = 'Chennai';
+        if (!dest) dest = 'Vijayawada';
+        bus.assignedRoute = {
+          originCity: orig,
+          destCity: dest,
+          corridorName: `${orig} ↔ ${dest} Corridor`,
+          intermediateStops: [],
+          intermediateStopDetails: [],
+          durationEst: '6h 30m',
+          distanceKm: 430,
+        };
+        bus.status = 'Assigned';
+        fleetModified = true;
       }
-      if (!orig) orig = 'Chennai';
-      if (!dest) dest = 'Vijayawada';
-      bus.assignedRoute = {
-        originCity: orig,
-        destCity: dest,
-        corridorName: `${orig} ↔ ${dest} Corridor`,
-        intermediateStops: [],
-        intermediateStopDetails: [],
-        durationEst: '6h 30m',
-        distanceKm: 430,
-      };
-      bus.status = 'Assigned';
-    }
 
-    const busPlate = clean(bus.vehicleNumber || bus.regNo || bus.vehicleId || 'BUS');
-    const busId = clean(bus.vehicleId || bus.id);
-    const busName = cleanName(bus.busName || bus.vehicleNumber);
-
-    const matchesBus = (s) => {
-      const sPlate = clean(s.vehicleNumber);
-      const sId = clean(s.vehicleId);
-      const sName = cleanName(s.busName);
-      const sTripId = String(s.id || s.tripId || '');
-      return (
-        (busPlate && sPlate === busPlate) ||
-        (busId && sId === busId) ||
-        (busName && sName === busName) ||
-        (busPlate && sTripId.includes(busPlate)) ||
-        (busId && sTripId.includes(busId))
-      );
-    };
-
-    // Check if this bus has active primary schedules matching current assigned route
-    const hasCurrentRouteTrips = raw.some((s) => {
-      if (s.isSegment) return false;
-      if (!matchesBus(s)) return false;
-
-      // Check if it matches the current route
+      const busPlate = clean(bus.vehicleNumber || bus.regNo || bus.vehicleId || 'BUS');
+      const busId = clean(bus.vehicleId || bus.id);
+      const busName = cleanName(bus.busName || bus.vehicleNumber);
       const orig = cleanName(bus.assignedRoute?.originCity);
       const dest = cleanName(bus.assignedRoute?.destCity);
-      const sFrom = cleanName(s.from);
-      const sTo = cleanName(s.to);
-      const isUpMatch = sFrom === orig && sTo === dest;
-      const isDownMatch = sFrom === dest && sTo === orig;
-      return isUpMatch || isDownMatch;
-    });
 
-    const hasTodayTrip = raw.some((s) => {
-      if (s.isSegment) return false;
-      return matchesBus(s) && (s.journeyDate || '').split('T')[0] === todayStr;
-    });
+      const matchesBus = (s) => {
+        const sPlate = clean(s.vehicleNumber);
+        const sId = clean(s.vehicleId);
+        const sName = cleanName(s.busName);
+        const sTripId = String(s.id || s.tripId || '');
+        return (
+          (busPlate && sPlate === busPlate) ||
+          (busId && sId === busId) ||
+          (busName && sName === busName) ||
+          (busPlate && sTripId.includes(busPlate)) ||
+          (busId && sTripId.includes(busId))
+        );
+      };
 
-    // Check if both UP & DOWN trips for today were explicitly deleted/cancelled by operator
-    const upTripId = `T_UP_${busPlate}_${todayStr.replace(/-/g, '')}`;
-    const downTripId = `T_DN_${busPlate}_${todayStr.replace(/-/g, '')}`;
-    const isUpCancelled = cancelledIdSet.has(upTripId) || statuses[upTripId] === 'CANCELLED';
-    const isDownCancelled = cancelledIdSet.has(downTripId) || statuses[downTripId] === 'CANCELLED';
+      // Check if this bus has active primary schedules matching current assigned route
+      const hasCurrentRouteTrips = raw.some((s) => {
+        if (s.isSegment) return false;
+        if (!matchesBus(s)) return false;
 
-    // If both today's trips were explicitly deleted and the bus already has route trips, respect deletion
-    if (hasCurrentRouteTrips && isUpCancelled && isDownCancelled) {
-      return;
-    }
+        // Check if it matches the current route
+        const sFrom = cleanName(s.from);
+        const sTo = cleanName(s.to);
+        const isUpMatch = sFrom === orig && sTo === dest;
+        const isDownMatch = sFrom === dest && sTo === orig;
+        return isUpMatch || isDownMatch;
+      });
 
-    // If no trips for current route, or missing today's trip, generate!
-    if (!hasCurrentRouteTrips || !hasTodayTrip) {
+      const hasTodayTrip = raw.some((s) => {
+        if (s.isSegment) return false;
+        if (!matchesBus(s)) return false;
+        const sFrom = cleanName(s.from);
+        const sTo = cleanName(s.to);
+        const isRouteMatch = (sFrom === orig && sTo === dest) || (sFrom === dest && sTo === orig);
+        return isRouteMatch && (s.journeyDate || '').split('T')[0] === todayStr;
+      });
+
+      const hasFutureOrTodayTrips = raw.some((s) => {
+        if (s.isSegment) return false;
+        if (!matchesBus(s)) return false;
+        const sFrom = cleanName(s.from);
+        const sTo = cleanName(s.to);
+        const isRouteMatch = (sFrom === orig && sTo === dest) || (sFrom === dest && sTo === orig);
+        const jDate = (s.journeyDate || '').split('T')[0];
+        return isRouteMatch && jDate >= todayStr;
+      });
+
+      // Check if UP or DOWN trips for today were explicitly deleted/cancelled by operator
+      const upTripId = `T_UP_${busPlate}_${todayStr.replace(/-/g, '')}`;
+      const downTripId = `T_DN_${busPlate}_${todayStr.replace(/-/g, '')}`;
+      const isUpCancelled = cancelledIdSet.has(upTripId) || statuses[upTripId] === 'CANCELLED';
+      const isDownCancelled = cancelledIdSet.has(downTripId) || statuses[downTripId] === 'CANCELLED';
+
+      // If route trips already exist and future/today trips or cancellations exist, do not regenerate on read
+      if (hasCurrentRouteTrips && (hasFutureOrTodayTrips || hasTodayTrip || isUpCancelled || isDownCancelled)) {
+        return;
+      }
+
+      // If no trips for current route, generate 30 days of upcoming schedules silently
+      const d30 = new Date();
+      d30.setDate(d30.getDate() + 30);
       const sched = bus.roundTripSchedule || {
         vehicleId: bus.vehicleId || bus.id,
         upSchedule: {
@@ -345,13 +389,99 @@ export function ensureTodayJourneysForAssignedFleet(assignedFleet) {
         },
         fare: 650,
         validFrom: todayStr,
+        validUntil: d30.toISOString().split('T')[0],
       };
-      generateRecurringJourneyInstances(bus, sched);
+      if (!sched.validUntil) {
+        sched.validUntil = d30.toISOString().split('T')[0];
+      }
+      generateRecurringJourneyInstances(bus, sched, false);
       modified = true;
-    }
-  });
+    });
 
-  return modified;
+    if (fleetModified) {
+      try {
+        const allFleet = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+        assignedFleet.forEach((b) => {
+          const idx = allFleet.findIndex((x) => x.vehicleId === b.vehicleId || x.id === b.id || x.vehicleNumber === b.vehicleNumber);
+          if (idx >= 0) allFleet[idx] = { ...allFleet[idx], ...b };
+        });
+        localStorage.setItem('c2b_registered_fleet', JSON.stringify(allFleet));
+      } catch {}
+    }
+
+    return modified;
+  } finally {
+    isEnsuringFleet = false;
+  }
+}
+
+/* ── Deduplicate schedules helper: strictly enforces exactly 1 UP and 1 DOWN trip per bus per date ── */
+export function deduplicateSchedules(schedules) {
+  if (!Array.isArray(schedules)) return [];
+  const clean = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const cleanName = (s) => String(s || '').toLowerCase().trim();
+  const seenIds = new Set();
+  const seenSlots = new Set();
+
+  const result = [];
+  for (const s of schedules) {
+    if (!s || s.isSegment) continue;
+    const tid = String(s.id || s.tripId || '').trim();
+    if (!tid) continue;
+    if (/^T00\d/.test(tid) || /^BUS_10\d\d$/.test(s.vehicleId || '')) continue;
+
+    // Check ID uniqueness
+    if (seenIds.has(tid)) continue;
+
+    // Check unique slot: (bus + journeyDate + direction)
+    const plate = clean(s.vehicleNumber || s.vehicleId || s.busName || '');
+    const jDate = (s.journeyDate || '').split('T')[0];
+    const direction = s.direction || (cleanName(s.from) + '_' + cleanName(s.to));
+
+    if (plate && jDate) {
+      const slotKey = `${plate}_${jDate}_${direction}`;
+      if (seenSlots.has(slotKey)) continue; // Discard duplicate trip for the same bus on the same date!
+      seenSlots.add(slotKey);
+    }
+
+    seenIds.add(tid);
+    result.push(s);
+  }
+  return result;
+}
+
+/* ── Safe LocalStorage Helper for Schedules (Prevents QuotaExceededError & Duplication) ── */
+export function safeSaveSchedules(schedules) {
+  try {
+    const todayStr = new Date().toISOString().split('T')[0];
+    // Strictly deduplicate and strip legacy mock trips
+    const cleaned = deduplicateSchedules(schedules);
+
+    try {
+      localStorage.setItem('c2b_bus_schedules', JSON.stringify(cleaned));
+      return true;
+    } catch (quotaErr) {
+      console.warn('LocalStorage quota exceeded on c2b_bus_schedules, performing aggressive prune...', quotaErr);
+      // Prune past unbooked trips to recover storage quota
+      const pruned = cleaned.filter((s) => {
+        const jDate = (s.journeyDate || '').split('T')[0];
+        if (jDate && jDate < todayStr && !s.bookedSeats) return false;
+        return true;
+      });
+      localStorage.setItem('c2b_bus_schedules', JSON.stringify(pruned));
+      return true;
+    }
+  } catch (criticalErr) {
+    console.error('Critical quota error saving c2b_bus_schedules:', criticalErr);
+    try {
+      // Keep only active upcoming schedules for today and future
+      const todayStr = new Date().toISOString().split('T')[0];
+      const raw = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+      const minimal = deduplicateSchedules(raw).filter((s) => !s.isSegment && (s.journeyDate || '').split('T')[0] >= todayStr);
+      localStorage.setItem('c2b_bus_schedules', JSON.stringify(minimal));
+    } catch {}
+    return false;
+  }
 }
 
 /* ── Schedules ── */
@@ -374,31 +504,46 @@ export function getLocalSchedules(providerId) {
     const clean = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     const cleanName = (s) => String(s || '').toLowerCase().trim();
 
-    const assignedPlateSet = new Set(assignedFleet.map((b) => clean(b.vehicleNumber || b.regNo || b.vehicleId)).filter(Boolean));
-    const assignedNameSet = new Set(assignedFleet.map((b) => cleanName(b.busName)).filter(Boolean));
-    const assignedIdSet = new Set(assignedFleet.map((b) => clean(b.vehicleId || b.id)).filter(Boolean));
-
     const raw = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    // Automatic purge of stored duplicates in localStorage
+    const dedupedRaw = deduplicateSchedules(raw);
+    if (dedupedRaw.length !== raw.length) {
+      safeSaveSchedules(dedupedRaw);
+    }
     // Filter out subsegments, legacy mock schedules, and schedules for unassigned buses
     const primaryOnly = raw.filter((s) => {
-      if (s.isSegment) return false;
+      if (!s || s.isSegment) return false;
       const tripId = s.id || s.tripId || '';
       // Purge legacy mock IDs like T001.. or BUS_1001..
       if (/^T00\d/.test(tripId) || /^BUS_10\d\d$/.test(s.vehicleId || '')) return false;
 
-      // Must belong to an assigned fleet bus
+      // Must belong strictly to an assigned fleet bus from Bus Fleet Management
       const sPlate = clean(s.vehicleNumber);
       const sName = cleanName(s.busName);
       const sId = clean(s.vehicleId);
 
-      const matchesPlate = sPlate && assignedPlateSet.has(sPlate);
-      const matchesName = sName && assignedNameSet.has(sName);
-      const matchesId = sId && assignedIdSet.has(sId);
-      const matchesTripId =
-        Array.from(assignedPlateSet).some((p) => p && tripId.includes(p)) ||
-        Array.from(assignedIdSet).some((id) => id && tripId.includes(id));
+      const matchingBus = assignedFleet.find((b) =>
+        (b.vehicleNumber && sPlate && clean(b.vehicleNumber) === sPlate) ||
+        (b.vehicleId && sId && clean(b.vehicleId) === sId) ||
+        (b.vehicleNumber && tripId.includes(clean(b.vehicleNumber))) ||
+        (b.vehicleId && tripId.includes(clean(b.vehicleId))) ||
+        (b.busName && sName && cleanName(b.busName) === sName)
+      );
 
-      return matchesPlate || matchesName || matchesId || matchesTripId;
+      if (!matchingBus) return false;
+
+      // Also ensure that the schedule matches the current assigned corridor for this bus
+      const bOrig = cleanName(matchingBus.assignedRoute?.originCity);
+      const bDest = cleanName(matchingBus.assignedRoute?.destCity);
+      const sFrom = cleanName(s.from || s.source);
+      const sTo = cleanName(s.to || s.destination);
+      if (bOrig && bDest && sFrom && sTo) {
+        const isUp = (sFrom === bOrig && sTo === bDest);
+        const isDown = (sFrom === bDest && sTo === bOrig);
+        if (!isUp && !isDown) return false;
+      }
+
+      return true;
     });
 
     const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
@@ -480,65 +625,108 @@ export function getLocalSchedules(providerId) {
     // Guarantee that EVERY assigned bus in assignedFleet is shown (unless deleted)
     const todayStr = new Date().toISOString().split('T')[0];
     const cancelledIds = JSON.parse(localStorage.getItem('c2b_cancelled_trip_ids') || '[]');
+    let schedulesAdded = false;
+    const rawToPersist = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+
     assignedFleet.forEach((bus) => {
       const bPlate = clean(bus.vehicleNumber || bus.regNo || bus.vehicleId);
+      const bOrig = cleanName(bus.assignedRoute?.originCity || 'Chennai');
+      const bDest = cleanName(bus.assignedRoute?.destCity || 'Vijayawada');
+
       const hasTrips = mapped.some((m) => {
         const mPlate = clean(m.vehicleNumber);
-        return (bPlate && mPlate === bPlate) || (bPlate && m.tripId.includes(bPlate));
+        const matchesPlate = (bPlate && mPlate === bPlate) || (bPlate && m.tripId.includes(bPlate));
+        if (!matchesPlate) return false;
+        const mFrom = cleanName(m.source || m.from);
+        const mTo = cleanName(m.destination || m.to);
+        const matchesRoute = (mFrom === bOrig && mTo === bDest) || (mFrom === bDest && mTo === bOrig);
+        const isUpcoming = (m.journeyDate || '').split('T')[0] >= todayStr;
+        return matchesRoute && isUpcoming && m.status !== 'CANCELLED' && m.status !== 'COMPLETED';
       });
+
       if (!hasTrips) {
         const upTripId = `T_UP_${bPlate}_${todayStr.replace(/-/g, '')}`;
         const downTripId = `T_DN_${bPlate}_${todayStr.replace(/-/g, '')}`;
+        const origCity = bus.assignedRoute?.originCity || 'Chennai';
+        const destCity = bus.assignedRoute?.destCity || 'Vijayawada';
+        const corridor = bus.assignedRoute?.corridorName || `${origCity} ↔ ${destCity} Corridor`;
+        const fare = Number(bus.roundTripSchedule?.fare || 650);
+        const totalSeats = Number(bus.totalSeats || 40);
+
         if (!cancelledIds.includes(upTripId) && statuses[upTripId] !== 'CANCELLED') {
-          mapped.push({
+          const upItem = {
             id: upTripId,
             tripId: upTripId,
-            source: bus.assignedRoute?.originCity || 'Chennai',
-            destination: bus.assignedRoute?.destCity || 'Vijayawada',
-            corridorName: bus.assignedRoute?.corridorName || `${bus.assignedRoute?.originCity || 'Chennai'} ↔ ${bus.assignedRoute?.destCity || 'Vijayawada'} Corridor`,
+            source: origCity,
+            destination: destCity,
+            from: origCity,
+            to: destCity,
+            corridorName: corridor,
+            corridorId: bus.assignedRoute?.corridorId || null,
             direction: 'UP',
             departureTime: bus.roundTripSchedule?.upSchedule?.departureTime || '08:00',
             arrivalTime: bus.roundTripSchedule?.upSchedule?.arrivalTime || '14:30',
             journeyDate: todayStr,
             vehicleNumber: bus.vehicleNumber,
+            vehicleId: bus.vehicleId,
             busName: bus.busName,
             busType: bus.busType || bus.vehicleType || 'AC Sleeper',
             vehicleType: bus.busType || bus.vehicleType || 'AC Sleeper',
-            totalSeats: bus.totalSeats || 40,
-            availableSeats: bus.totalSeats || 40,
+            totalSeats,
+            availableSeats: totalSeats,
             bookedSeats: 0,
-            fare: bus.roundTripSchedule?.fare || 650,
+            fare,
             revenue: 0,
             status: statuses[upTripId] || 'SCHEDULED',
             isNew: true,
-          });
+            intermediateStops: bus.assignedRoute?.intermediateStops || [],
+            allStops: [origCity, ...(bus.assignedRoute?.intermediateStops || []), destCity],
+          };
+          mapped.push(upItem);
+          rawToPersist.push(upItem);
+          schedulesAdded = true;
         }
         if (!cancelledIds.includes(downTripId) && statuses[downTripId] !== 'CANCELLED') {
-          mapped.push({
+          const dnItem = {
             id: downTripId,
             tripId: downTripId,
-            source: bus.assignedRoute?.destCity || 'Vijayawada',
-            destination: bus.assignedRoute?.originCity || 'Chennai',
-            corridorName: bus.assignedRoute?.corridorName || `${bus.assignedRoute?.originCity || 'Chennai'} ↔ ${bus.assignedRoute?.destCity || 'Vijayawada'} Corridor`,
+            source: destCity,
+            destination: origCity,
+            from: destCity,
+            to: origCity,
+            corridorName: corridor,
+            corridorId: bus.assignedRoute?.corridorId || null,
             direction: 'DOWN',
             departureTime: bus.roundTripSchedule?.downSchedule?.departureTime || '16:30',
             arrivalTime: bus.roundTripSchedule?.downSchedule?.arrivalTime || '23:00',
             journeyDate: todayStr,
             vehicleNumber: bus.vehicleNumber,
+            vehicleId: bus.vehicleId,
             busName: bus.busName,
             busType: bus.busType || bus.vehicleType || 'AC Sleeper',
             vehicleType: bus.busType || bus.vehicleType || 'AC Sleeper',
-            totalSeats: bus.totalSeats || 40,
-            availableSeats: bus.totalSeats || 40,
+            totalSeats,
+            availableSeats: totalSeats,
             bookedSeats: 0,
-            fare: bus.roundTripSchedule?.fare || 650,
+            fare,
             revenue: 0,
             status: statuses[downTripId] || 'SCHEDULED',
             isNew: true,
-          });
+            intermediateStops: [...(bus.assignedRoute?.intermediateStops || [])].reverse(),
+            allStops: [destCity, ...[...(bus.assignedRoute?.intermediateStops || [])].reverse(), origCity],
+          };
+          mapped.push(dnItem);
+          rawToPersist.push(dnItem);
+          schedulesAdded = true;
         }
       }
     });
+
+    if (schedulesAdded) {
+      try {
+        safeSaveSchedules(rawToPersist);
+      } catch {}
+    }
 
     return mapped;
   } catch (e) { return []; }
@@ -841,86 +1029,7 @@ function _saveToLocalStorage({
     cleanSchedules.push(primaryItem);
   }
 
-  // Multi-Stop Route Segment Generator:
-  // If intermediate stations exist, generate all bookable sub-route pairs on this same bus.
-  if (fullStops.length > 2) {
-    let totalMins = 360;
-    try {
-      const [dh, dm] = (dep || '08:00').split(':').map(Number);
-      const [ah, am] = (arr || '14:00').split(':').map(Number);
-      let diff = (ah * 60 + am) - (dh * 60 + dm);
-      if (diff < 0) diff += 24 * 60;
-      if (diff > 0) totalMins = diff;
-    } catch {}
-
-    const intervals = fullStops.length - 1;
-    const minsPerHop = Math.round(totalMins / intervals);
-
-    const getTimeAtStop = (stopIdx) => {
-      try {
-        const [dh, dm] = (dep || '08:00').split(':').map(Number);
-        const stopMinutes = (dh * 60 + dm) + (stopIdx * minsPerHop);
-        const h = Math.floor((stopMinutes / 60) % 24);
-        const m = Math.floor(stopMinutes % 60);
-        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-      } catch { return dep; }
-    };
-
-    const baseFare = Number(fare) || 500;
-
-    for (let i = 0; i < fullStops.length - 1; i++) {
-      for (let j = i + 1; j < fullStops.length; j++) {
-        // Skip the main full route since primaryItem covers it
-        if (i === 0 && j === fullStops.length - 1) continue;
-
-        const segFrom = fullStops[i];
-        const segTo = fullStops[j];
-        const subStops = fullStops.slice(i + 1, j);
-        const segVia = subStops.join(', ');
-        const segDep = getTimeAtStop(i);
-        const segArr = getTimeAtStop(j);
-        const hopCount = j - i;
-        const segFare = baseFare; // Flat standard price for every intermediate station hop
-
-        cleanSchedules.push({
-          id: `${effectiveId}_SEG_${i}_${j}`,
-          tripId: effectiveId, // Links to canonical trip so all customer bookings match this bus!
-          segmentId: `${effectiveId}_SEG_${i}_${j}`,
-          parentTripId: effectiveId,
-          isSegment: true,
-          backendTripId: canonicalId,
-          vehicleId: vehicleId || existingItem?.vehicleId || null,
-          vehicleNumber: effVehicleNumber,
-          scheduleId: scheduleId || existingItem?.scheduleId || null,
-          providerId: providerId || existingItem?.providerId || 'P001',
-          from: segFrom,
-          to: segTo,
-          via: segVia,
-          intermediateStops: subStops,
-          allStops: fullStops,
-          departureTime: segDep,
-          arrivalTime: segArr,
-          journeyDate: journeyDate || existingItem?.journeyDate,
-          busName: busName || existingItem?.busName || 'Assigned Fleet Bus',
-          busType: busType || existingItem?.busType || 'AC',
-          vehicleType: busType || existingItem?.vehicleType || 'AC',
-          totalSeats: Number(seats) || existingItem?.totalSeats || 40,
-          availableSeats: Number(seats) || existingItem?.availableSeats || 40,
-          bookedSeats: 0,
-          fare: segFare,
-          revenue: 0,
-          operatorPayout: 0,
-          direction: effDirection,
-          corridorId: effCorridorId,
-          corridorName: effCorridorName,
-          status: 'SCHEDULED',
-          addedAt: new Date().toISOString(),
-        });
-      }
-    }
-  }
-
-  localStorage.setItem('c2b_bus_schedules', JSON.stringify(cleanSchedules));
+  safeSaveSchedules(cleanSchedules);
   try { window.dispatchEvent(new Event('storage')); } catch {}
   try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'SCHEDULE_UPDATED', payload: primaryItem } })); } catch {}
   try { liveSync.syncSchedule(primaryItem); } catch {}
@@ -1309,22 +1418,38 @@ export function getSeatData(providerId) {
   // Ensure recurring journey instances are generated for assigned fleet, including today's trips
   ensureTodayJourneysForAssignedFleet(assignedFleet);
 
-  // 2. Read schedules from c2b_bus_schedules (filter out segments and legacy mock IDs)
+  // 2. Read schedules from c2b_bus_schedules (filter out segments, cancellations, and past dates)
   let localSchedules = [];
   try {
     localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
   } catch { localSchedules = []; }
 
-  const cleanSchedules = localSchedules.filter((s) => {
-    if (s.isSegment) return false;
+  // Immediately deduplicate stored schedules to eliminate any 980 duplicates from storage
+  const dedupedLocal = deduplicateSchedules(localSchedules);
+  if (dedupedLocal.length !== localSchedules.length) {
+    safeSaveSchedules(dedupedLocal);
+  }
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const cancelledList = JSON.parse(localStorage.getItem('c2b_cancelled_schedules') || '[]');
+  const cancelledIds = JSON.parse(localStorage.getItem('c2b_cancelled_trip_ids') || '[]');
+  const cancelledIdSet = new Set([...cancelledIds, ...cancelledList.map((c) => c.tripId)]);
+  const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+
+  const cleanSchedules = dedupedLocal.filter((s) => {
+    if (!s || s.isSegment) return false;
     if (/^BUS_10\d\d$/.test(s.vehicleId || s.id || '')) return false;
     if (/^T00\d$/.test(s.id || s.tripId || '')) return false;
     if (s.providerId && targetId && s.providerId !== targetId && targetId !== 'P001' && s.providerId !== 'P001') return false;
+    const sId = s.id || s.tripId;
+    if (cancelledIdSet.has(sId) || statuses[sId] === 'CANCELLED') return false;
+    const sDate = (s.journeyDate || '').split('T')[0];
+    if (sDate && sDate < todayStr) return false; // Exclude past expired dates
     return Boolean(s.from && s.to && s.from !== 'Origin' && s.to !== 'Destination');
   });
 
   const trips = [];
-  const addedScheduleIds = new Set();
+  const seenSlots = new Set();
   const clean = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   const cleanName = (s) => String(s || '').toLowerCase().trim();
 
@@ -1336,8 +1461,10 @@ export function getSeatData(providerId) {
     const bPlate = clean(bus.vehicleNumber || bus.regNo || bus.vehicleId);
     const bId = clean(bus.vehicleId || bus.id);
     const bName = cleanName(bus.busName);
+    const bOrig = cleanName(bus.assignedRoute?.originCity);
+    const bDest = cleanName(bus.assignedRoute?.destCity);
 
-    // Find real schedules belonging to this bus
+    // Find real schedules belonging to this bus matching its assigned corridor
     const busSchedules = cleanSchedules.filter((s) => {
       const sPlate = clean(s.vehicleNumber);
       const sId = clean(s.vehicleId);
@@ -1347,13 +1474,31 @@ export function getSeatData(providerId) {
       const idMatch = bId && sId && sId === bId;
       const nameMatch = bName && sName && sName === bName;
       const tripIdMatch = (bPlate && sTripId.includes(bPlate)) || (bId && sTripId.includes(bId));
-      return vMatch || idMatch || nameMatch || tripIdMatch;
+      if (!vMatch && !idMatch && !nameMatch && !tripIdMatch) return false;
+      if (bOrig && bDest) {
+        const sFrom = cleanName(s.from);
+        const sTo = cleanName(s.to);
+        const matchesRoute = (sFrom === bOrig && sTo === bDest) || (sFrom === bDest && sTo === bOrig);
+        if (!matchesRoute) return false;
+      }
+      return true;
     });
 
     if (busSchedules.length > 0) {
       busSchedules.forEach((s) => {
         const sId = s.id || s.tripId;
-        addedScheduleIds.add(sId);
+        const sDate = (s.journeyDate || '').split('T')[0];
+        const sDir = s.direction || 'UP';
+        const slotKey = `${bPlate}_${sDate}_${sDir}`;
+
+        // Strictly enforce 1 UP trip and 1 DOWN trip per day per assigned bus (No 980 duplicates!)
+        if (seenSlots.has(slotKey)) return;
+        seenSlots.add(slotKey);
+
+        // Validate departure and arrival timetable
+        const depTime = s.departureTime || (sDir === 'UP' ? (bus.roundTripSchedule?.upSchedule?.departureTime || '08:00') : (bus.roundTripSchedule?.downSchedule?.departureTime || '16:30'));
+        const arrTime = s.arrivalTime || (sDir === 'UP' ? (bus.roundTripSchedule?.upSchedule?.arrivalTime || '14:30') : (bus.roundTripSchedule?.downSchedule?.arrivalTime || '23:00'));
+
         trips.push({
           id: sId,
           tripId: s.tripId || sId,
@@ -1367,11 +1512,11 @@ export function getSeatData(providerId) {
           route: `${s.from} → ${s.to}`,
           from: s.from,
           to: s.to,
-          time: `${s.departureTime || '08:00'} → ${s.arrivalTime || '14:30'}`,
-          departureTime: s.departureTime || '08:00',
-          arrivalTime: s.arrivalTime || '14:30',
-          journeyDate: s.journeyDate || '',
-          direction: s.direction || 'UP',
+          time: `${depTime} → ${arrTime}`,
+          departureTime: depTime,
+          arrivalTime: arrTime,
+          journeyDate: sDate,
+          direction: sDir,
           seatLayout: bus.seatLayout || generateDefaultSeatLayout(bus.busType, total),
           assignedRoute: bus.assignedRoute,
           bookedSeatList: [],
@@ -1448,40 +1593,7 @@ export function getSeatData(providerId) {
     }
   });
 
-  // 4. Also include any remaining primary provider schedules not already represented
-  cleanSchedules.forEach((s) => {
-    const sId = s.id || s.tripId;
-    if (!addedScheduleIds.has(sId) && s.from && s.to) {
-      const isSleeper = (s.busType || '').toLowerCase().includes('sleeper') && !(s.busType || '').toLowerCase().includes('semi');
-      const total = Number(s.totalSeats || (isSleeper ? 30 : 40));
-      trips.push({
-        id: sId,
-        tripId: s.tripId || sId,
-        backendTripId: s.backendTripId || sId,
-        vehicleId: s.vehicleId,
-        vehicleNumber: s.vehicleNumber,
-        name: s.busName || (s.vehicleNumber ? `${s.vehicleNumber} (${s.busType || 'Bus'})` : 'Scheduled Bus'),
-        type: s.busType || 'AC Seater',
-        total,
-        fare: Number(s.fare || (isSleeper ? 1483 : 650)),
-        route: `${s.from} → ${s.to}`,
-        from: s.from,
-        to: s.to,
-        time: `${s.departureTime || '08:00'} → ${s.arrivalTime || '14:30'}`,
-        departureTime: s.departureTime || '08:00',
-        arrivalTime: s.arrivalTime || '14:30',
-        journeyDate: s.journeyDate || '',
-        direction: s.direction || '',
-        seatLayout: s.seatLayout || generateDefaultSeatLayout(s.busType, total),
-        bookedSeatList: [],
-        passengerMap: {},
-        bookedCount: 0,
-        actualBookedCount: 0,
-      });
-    }
-  });
-
-  // 5. Populate live bookings from c2b_bookings into the real trips (NO MOCK BUSES EVER INVENTED)
+  // 4. Populate live bookings from c2b_bookings into the real trips (NO MOCK BUSES EVER INVENTED)
   let localBookings = [];
   try {
     localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
@@ -1654,11 +1766,21 @@ function getLocalTripsForConfirm(localStatuses, providerId) {
     const assignedNameSet = new Set(assignedFleet.map((b) => cleanName(b.busName)).filter(Boolean));
     const assignedIdSet = new Set(assignedFleet.map((b) => clean(b.vehicleId || b.id)).filter(Boolean));
 
-    const localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const raw = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const localSchedules = deduplicateSchedules(raw);
+    if (localSchedules.length !== raw.length) {
+      safeSaveSchedules(localSchedules);
+    }
+
+    const cancelledIds = JSON.parse(localStorage.getItem('c2b_cancelled_trip_ids') || '[]');
+    const cancelledList = JSON.parse(localStorage.getItem('c2b_cancelled_schedules') || '[]');
+    const cancelledSet = new Set([...cancelledIds, ...cancelledList.map((c) => c?.tripId).filter(Boolean)]);
+
     const assignedSchedules = localSchedules.filter((s) => {
-      if (s.isSegment) return false;
+      if (!s || s.isSegment) return false;
       const tripId = s.tripId || s.id || '';
       if (/^T00\d/.test(tripId) || /^BUS_10\d\d$/.test(s.vehicleId || '')) return false;
+      if (cancelledSet.has(tripId) || localStatuses[tripId] === 'CANCELLED') return false;
 
       const sPlate = clean(s.vehicleNumber);
       const sName = cleanName(s.busName);
@@ -1674,12 +1796,17 @@ function getLocalTripsForConfirm(localStatuses, providerId) {
       return matchesPlate || matchesName || matchesId || matchesTripId;
     });
 
-    const mapped = assignedSchedules.map((s, idx) => {
+    const mapped = [];
+    const seenSlots = new Set();
+
+    assignedSchedules.forEach((s, idx) => {
       const tripId = s.tripId || s.id || `LOCAL_T_${idx + 1}`;
       const status = localStatuses[tripId] || s.status || 'SCHEDULED';
       const sPlate = clean(s.vehicleNumber);
       const sId = clean(s.vehicleId);
       const sName = cleanName(s.busName);
+      const sDate = (s.journeyDate || '').split('T')[0] || new Date().toISOString().split('T')[0];
+      const sDir = s.direction || 'UP';
 
       const parentBus = assignedFleet.find((b) =>
         (b.vehicleNumber && sPlate && clean(b.vehicleNumber) === sPlate) ||
@@ -1690,8 +1817,21 @@ function getLocalTripsForConfirm(localStatuses, providerId) {
 
       const vehicleNumber = s.vehicleNumber || parentBus?.vehicleNumber || s.vehicleId || `BUS-${idx + 1}`;
       const busName = s.busName || parentBus?.busName || 'Assigned Fleet Bus';
+      const safePlate = clean(vehicleNumber);
 
-      return {
+      // Strictly enforce 1 UP trip and 1 DOWN trip per day per assigned coach
+      const slotKey = `${safePlate}_${sDate}_${sDir}`;
+      if (seenSlots.has(slotKey)) return;
+      seenSlots.add(slotKey);
+
+      const depTime = s.departureTime || (sDir === 'UP'
+        ? (parentBus?.roundTripSchedule?.upSchedule?.departureTime || '08:00')
+        : (parentBus?.roundTripSchedule?.downSchedule?.departureTime || '16:30'));
+      const arrTime = s.arrivalTime || (sDir === 'UP'
+        ? (parentBus?.roundTripSchedule?.upSchedule?.arrivalTime || '14:30')
+        : (parentBus?.roundTripSchedule?.downSchedule?.arrivalTime || '23:00'));
+
+      mapped.push({
         trip: {
           tripId,
           tripStatus: status,
@@ -1699,18 +1839,18 @@ function getLocalTripsForConfirm(localStatuses, providerId) {
         },
         schedule: {
           scheduleId: s.scheduleId || tripId,
-          journeyDate: s.journeyDate || (s.addedAt ? s.addedAt.split('T')[0] : new Date().toISOString().split('T')[0]),
-          departureTime: s.departureTime || '08:00',
-          arrivalTime: s.arrivalTime || '12:00',
-          via: s.via || '',
-          from: s.from || parentBus?.assignedRoute?.originCity || 'Origin',
-          to: s.to || parentBus?.assignedRoute?.destCity || 'Destination',
+          journeyDate: sDate,
+          departureTime: depTime,
+          arrivalTime: arrTime,
+          via: s.via || (parentBus?.assignedRoute?.intermediateStops || []).join(', ') || '',
+          from: s.from || (sDir === 'UP' ? parentBus?.assignedRoute?.originCity : parentBus?.assignedRoute?.destCity) || 'Origin',
+          to: s.to || (sDir === 'UP' ? parentBus?.assignedRoute?.destCity : parentBus?.assignedRoute?.originCity) || 'Destination',
           corridorName: s.corridorName || parentBus?.assignedRoute?.corridorName,
-          direction: s.direction || 'UP',
+          direction: sDir,
         },
         route: {
-          source: s.from || parentBus?.assignedRoute?.originCity || 'Origin',
-          destination: s.to || parentBus?.assignedRoute?.destCity || 'Destination',
+          source: s.from || (sDir === 'UP' ? parentBus?.assignedRoute?.originCity : parentBus?.assignedRoute?.destCity) || 'Origin',
+          destination: s.to || (sDir === 'UP' ? parentBus?.assignedRoute?.destCity : parentBus?.assignedRoute?.originCity) || 'Destination',
           corridorName: s.corridorName || parentBus?.assignedRoute?.corridorName,
         },
         vehicle: {
@@ -1718,26 +1858,34 @@ function getLocalTripsForConfirm(localStatuses, providerId) {
           busName,
           busType: s.busType || parentBus?.busType || 'AC',
         },
-      };
+      });
     });
 
-    // Guarantee every assigned bus has trips in Confirm Trips (unless deleted)
+    // Guarantee every assigned bus has today's canonical trips in Confirm Trips if missing
     const todayStr = new Date().toISOString().split('T')[0];
-    const cancelledIds = JSON.parse(localStorage.getItem('c2b_cancelled_trip_ids') || '[]');
-    assignedFleet.forEach((bus, bIdx) => {
+    assignedFleet.forEach((bus) => {
       const bPlate = clean(bus.vehicleNumber || bus.regNo || bus.vehicleId);
-      const hasTrips = mapped.some((m) => {
+      const bOrig = cleanName(bus.assignedRoute?.originCity || 'Chennai');
+      const bDest = cleanName(bus.assignedRoute?.destCity || 'Vijayawada');
+
+      const hasTodayTrips = mapped.some((m) => {
         const mPlate = clean(m.vehicle?.vehicleNumber || m.trip?.vehicleId);
-        return (bPlate && mPlate === bPlate) || (bPlate && m.trip?.tripId?.includes(bPlate));
+        const matchesPlate = (bPlate && mPlate === bPlate) || (bPlate && m.trip?.tripId?.includes(bPlate));
+        if (!matchesPlate) return false;
+        const mDate = (m.schedule?.journeyDate || '').split('T')[0];
+        return mDate === todayStr;
       });
-      if (!hasTrips) {
+
+      if (!hasTodayTrips) {
         const upTripId = `T_UP_${bPlate}_${todayStr.replace(/-/g, '')}`;
         const downTripId = `T_DN_${bPlate}_${todayStr.replace(/-/g, '')}`;
         const orig = bus.assignedRoute?.originCity || 'Chennai';
         const dest = bus.assignedRoute?.destCity || 'Vijayawada';
         const corr = bus.assignedRoute?.corridorName || `${orig} ↔ ${dest} Corridor`;
 
-        if (!cancelledIds.includes(upTripId) && localStatuses[upTripId] !== 'CANCELLED') {
+        const upSlot = `${bPlate}_${todayStr}_UP`;
+        if (!seenSlots.has(upSlot) && !cancelledSet.has(upTripId) && localStatuses[upTripId] !== 'CANCELLED') {
+          seenSlots.add(upSlot);
           mapped.push({
             trip: {
               tripId: upTripId,
@@ -1749,7 +1897,7 @@ function getLocalTripsForConfirm(localStatuses, providerId) {
               journeyDate: todayStr,
               departureTime: bus.roundTripSchedule?.upSchedule?.departureTime || '08:00',
               arrivalTime: bus.roundTripSchedule?.upSchedule?.arrivalTime || '14:30',
-              via: '',
+              via: (bus.assignedRoute?.intermediateStops || []).join(', '),
               from: orig,
               to: dest,
               corridorName: corr,
@@ -1763,7 +1911,10 @@ function getLocalTripsForConfirm(localStatuses, providerId) {
             },
           });
         }
-        if (!cancelledIds.includes(downTripId) && localStatuses[downTripId] !== 'CANCELLED') {
+
+        const dnSlot = `${bPlate}_${todayStr}_DOWN`;
+        if (!seenSlots.has(dnSlot) && !cancelledSet.has(downTripId) && localStatuses[downTripId] !== 'CANCELLED') {
+          seenSlots.add(dnSlot);
           mapped.push({
             trip: {
               tripId: downTripId,
@@ -1775,7 +1926,7 @@ function getLocalTripsForConfirm(localStatuses, providerId) {
               journeyDate: todayStr,
               departureTime: bus.roundTripSchedule?.downSchedule?.departureTime || '16:30',
               arrivalTime: bus.roundTripSchedule?.downSchedule?.arrivalTime || '23:00',
-              via: '',
+              via: [...(bus.assignedRoute?.intermediateStops || [])].reverse().join(', '),
               from: dest,
               to: orig,
               corridorName: corr,
@@ -1810,32 +1961,35 @@ export async function fetchLiveTrips(providerId) {
     return { data: [], isLive: false };
   }
 
-  const assignedPlateSet = new Set(assignedFleet.map((b) => (b.vehicleNumber || '').toUpperCase()).filter(Boolean));
-  const assignedNameSet = new Set(assignedFleet.map((b) => (b.busName || '').toLowerCase()).filter(Boolean));
-  const assignedIdSet = new Set(assignedFleet.map((b) => (b.vehicleId || b.id || '').toUpperCase()).filter(Boolean));
+  const clean = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const cleanName = (s) => String(s || '').toLowerCase().trim();
+
+  const assignedPlateSet = new Set(assignedFleet.map((b) => clean(b.vehicleNumber || b.regNo || b.vehicleId)).filter(Boolean));
+  const assignedNameSet = new Set(assignedFleet.map((b) => cleanName(b.busName)).filter(Boolean));
+  const assignedIdSet = new Set(assignedFleet.map((b) => clean(b.vehicleId || b.id)).filter(Boolean));
 
   const localStatuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
   const localTrips = getLocalTripsForConfirm(localStatuses, targetId);
 
   try {
-    const schedules = await spFetch(`/schedules?providerId=${encodeURIComponent(targetId)}`);
+    const schedules = await spFetch(`/schedules?providerId=${encodeURIComponent(targetId)}`, { timeout: 1500 });
     const scheduleIds = (schedules || []).map((s) => s.scheduleId);
-    const allTrips = await spFetch('/trips');
+    const allTrips = await spFetch('/trips', { timeout: 1500 });
     let myTrips = (allTrips || []).filter((t) => scheduleIds.includes(t.scheduleId));
     if (!myTrips.length) myTrips = allTrips || [];
 
     // Filter to only trips belonging to assigned fleet buses
     myTrips = myTrips.filter((t) => {
-      const vNum = (t.vehicleNumber || t.vehicle?.vehicleNumber || '').toUpperCase();
-      const bName = (t.busName || t.vehicle?.busName || '').toLowerCase();
-      const vId = (t.vehicleId || t.vehicle?.vehicleId || '').toUpperCase();
-      return assignedPlateSet.has(vNum) || assignedNameSet.has(bName) || assignedIdSet.has(vId);
+      const vNum = clean(t.vehicleNumber || t.vehicle?.vehicleNumber);
+      const bName = cleanName(t.busName || t.vehicle?.busName);
+      const vId = clean(t.vehicleId || t.vehicle?.vehicleId);
+      return (vNum && assignedPlateSet.has(vNum)) || (bName && assignedNameSet.has(bName)) || (vId && assignedIdSet.has(vId));
     });
 
     const detailed = await Promise.all(
       myTrips.map(async (trip) => {
         try {
-          const res = await spFetch(`/trips/${trip.tripId}`);
+          const res = await spFetch(`/trips/${trip.tripId}`, { timeout: 1500 });
           if (res && res.trip) return res;
           return {
             trip: {
@@ -1883,19 +2037,33 @@ export async function fetchLiveTrips(providerId) {
   }
 }
 
+export async function confirmTrip(tripId) {
+  const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+  statuses[tripId] = 'CONFIRMED';
+  localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+  notifyChange('TRIP_STATUS_UPDATED', { tripId, status: 'CONFIRMED' });
+
+  try {
+    await spFetch(`/trips/${tripId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ tripStatus: 'CONFIRMED' }),
+      timeout: 1500,
+    });
+  } catch {}
+}
+
 export async function startTrip(tripId) {
-  try { await spFetch(`/trips/${tripId}/confirm`, { method: 'PATCH' }); } catch {}
   const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
   statuses[tripId] = 'IN_PROGRESS';
   localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+  notifyChange('TRIP_STATUS_UPDATED', { tripId, status: 'IN_PROGRESS' });
+
+  try {
+    await spFetch(`/trips/${tripId}/confirm`, { method: 'PATCH', timeout: 1500 });
+  } catch {}
 }
 
 export async function endTrip(tripId) {
-  try {
-    await spFetch(`/trips/${tripId}/complete`, { method: 'PATCH' });
-  } catch {
-    try { await spFetch(`/trips/${tripId}/status`, { method: 'PATCH', body: JSON.stringify({ tripStatus: 'COMPLETED' }) }); } catch {}
-  }
   const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
   statuses[tripId] = 'COMPLETED';
   localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
@@ -1919,19 +2087,42 @@ export async function endTrip(tripId) {
     }
   } catch (e) {}
 
+  notifyChange('TRIP_STATUS_UPDATED', { tripId, status: 'COMPLETED' });
+
   try {
-    window.dispatchEvent(new Event('storage'));
-    window.dispatchEvent(new CustomEvent('c2b_sync', {
-      detail: { type: 'TRIP_STATUS_UPDATED', tripId, status: 'COMPLETED' }
-    }));
-  } catch (e) {}
+    await spFetch(`/trips/${tripId}/complete`, { method: 'PATCH', timeout: 1500 });
+  } catch {
+    try {
+      await spFetch(`/trips/${tripId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ tripStatus: 'COMPLETED' }),
+        timeout: 1500,
+      });
+    } catch {}
+  }
 }
 
 export async function updateLocation(tripId, lat, lng, status, nextStop, providerId) {
-  await spFetch(`/tracking/${tripId}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ providerId, lat, lng, status, ...(nextStop ? { nextStop } : {}) }),
-  });
+  try {
+    const allTracking = JSON.parse(localStorage.getItem('c2b_live_tracking') || '{}');
+    allTracking[tripId] = {
+      lat,
+      lng,
+      status: status || 'EN_ROUTE',
+      nextStop: nextStop || '',
+      updatedAt: new Date().toISOString(),
+    };
+    localStorage.setItem('c2b_live_tracking', JSON.stringify(allTracking));
+    notifyChange('TRACKING_UPDATED', { tripId, lat, lng, status, nextStop });
+  } catch {}
+
+  try {
+    await spFetch(`/tracking/${tripId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ providerId, lat, lng, status, ...(nextStop ? { nextStop } : {}) }),
+      timeout: 1500,
+    });
+  } catch {}
 }
 
 /* ── Lost & Found ── */
@@ -4637,16 +4828,12 @@ export function initFleetStorage() {
     } catch {}
   }
 
-  // Also purge legacy mock schedules from c2b_bus_schedules
+  // Also purge legacy mock schedules, duplicates, and bloated subsegments from c2b_bus_schedules
   try {
     const rawSched = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-    const cleanedSched = rawSched.filter(
-      (s) =>
-        !/^(T00\d|T_UP_AP27AB1234|T_DN_AP27AB1234|T_UP_AP03TC1001|T_DN_AP03TC1001)/.test(s.id || s.tripId || '') &&
-        !/^BUS_10\d\d$/.test(s.vehicleId || '')
-    );
+    const cleanedSched = deduplicateSchedules(rawSched);
     if (cleanedSched.length !== rawSched.length) {
-      localStorage.setItem('c2b_bus_schedules', JSON.stringify(cleanedSched));
+      safeSaveSchedules(cleanedSched);
     }
   } catch {}
 }
@@ -4943,7 +5130,11 @@ export async function assignBusToRoute(busId, routeData) {
     },
     fare: bus.roundTripSchedule?.fare || 650,
     validFrom: newAssignment.effectiveDate || new Date().toISOString().split('T')[0],
-    validUntil: bus.roundTripSchedule?.validUntil || '',
+    validUntil: bus.roundTripSchedule?.validUntil || (() => {
+      const d = new Date(newAssignment.effectiveDate || new Date());
+      d.setDate(d.getDate() + 30);
+      return d.toISOString().split('T')[0];
+    })(),
     restMinutesBetweenJourneys: restMinutes,
   };
 
@@ -5134,7 +5325,7 @@ export async function saveRoundTripSchedules(busId, scheduleConfig) {
 }
 
 /* ── Generate Journey Instances for Operating Dates (Module 5) ── */
-function generateRecurringJourneyInstances(bus, roundTripData) {
+function generateRecurringJourneyInstances(bus, roundTripData, dispatchEvents = true) {
   const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
   const cancelledList = JSON.parse(localStorage.getItem('c2b_cancelled_schedules') || '[]');
   const cancelledIds = JSON.parse(localStorage.getItem('c2b_cancelled_trip_ids') || '[]');
@@ -5153,30 +5344,35 @@ function generateRecurringJourneyInstances(bus, roundTripData) {
   const busPlate = cleanCode(bus.vehicleNumber);
   const busId = cleanCode(bus.vehicleId);
   const bName = cleanName(bus.busName);
+  const busPlateStr = (bus.vehicleNumber || bus.regNo || bus.vehicleId || 'BUS').replace(/\W/g, '');
 
-  const cleanSchedules = schedules.filter((s) => {
+  const cleanSchedules = deduplicateSchedules(schedules).filter((s) => {
     const sPlate = cleanCode(s.vehicleNumber);
     const sId = cleanCode(s.vehicleId);
     const sName = cleanName(s.busName);
-    const isThisBus = (busPlate && sPlate === busPlate) || (busId && sId === busId) || (bName && sName === bName);
+    const sTripId = cleanCode(s.id || s.tripId || '');
+    const isThisBus =
+      (busPlate && sPlate === busPlate) ||
+      (busId && sId === busId) ||
+      (bName && sName === bName) ||
+      (busPlateStr && sTripId.includes(busPlateStr)) ||
+      (busId && sTripId.includes(busId));
     return !isThisBus || (s.bookedSeats > 0);
   });
 
-  // Determine window dates: ALWAYS start from today so today's trip is generated
-  const startWindow = new Date(today);
+  // Determine window dates: start from validFrom (selected date) or today for the upcoming 30 days
+  const startWindow = roundTripData.validFrom ? new Date(roundTripData.validFrom) : new Date(today);
   const endWindow = roundTripData.validUntil ? new Date(roundTripData.validUntil) : null;
   const numDays = endWindow
     ? Math.max(1, Math.min(30, Math.round((endWindow - startWindow) / (1000 * 60 * 60 * 24)) + 1))
-    : 7;
+    : 30;
 
   const routeDurMins = parseDurationToMinutes(bus.assignedRoute?.durationEst);
   const existingStatuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
 
-  const busPlateStr = (bus.vehicleNumber || bus.regNo || bus.vehicleId || 'BUS').replace(/\W/g, '');
-  const upDays = roundTripData.upSchedule?.operatingDays || ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-  const downDays = roundTripData.downSchedule?.operatingDays || ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  const seenSlotsInRun = new Set();
 
-  // Generate instances across the operating window
+  // Generate instances across the 30-day operating window: automated continuous daily round-trip cycling
   for (let i = 0; i < numDays; i++) {
     const curDate = new Date(startWindow);
     curDate.setDate(startWindow.getDate() + i);
@@ -5188,204 +5384,139 @@ function generateRecurringJourneyInstances(bus, roundTripData) {
     const dayOfWeek = dayNames[curDate.getDay()];
     const isToday = dateStr === todayStr;
 
-    // Auto-compute arrivals for UP and DOWN journeys
-    const upTimeline = computeArrivalTime(roundTripData.upSchedule?.departureTime || '08:00', routeDurMins, dateStr);
-    const downTimeline = computeArrivalTime(roundTripData.downSchedule?.departureTime || '16:30', routeDurMins, dateStr);
+    // Validate and format departure/arrival timetables
+    const rawUpDep = roundTripData.upSchedule?.departureTime || '08:00';
+    const upTimeline = computeArrivalTime(rawUpDep, routeDurMins, dateStr);
+    const upDepTime = rawUpDep;
+    const upArrTime = roundTripData.upSchedule?.arrivalTime || upTimeline?.arrTime || '14:30';
 
-    // Multi-stop route segment generator for intermediate station booking
-    const addSubSegments = (parentTrip, fullStops, depTime, arrTime, baseFare) => {
-      if (!fullStops || fullStops.length <= 2) return;
-      let totalMins = 360;
-      try {
-        const [dh, dm] = (depTime || '08:00').split(':').map(Number);
-        const [ah, am] = (arrTime || '14:00').split(':').map(Number);
-        let diff = (ah * 60 + am) - (dh * 60 + dm);
-        if (diff < 0) diff += 24 * 60;
-        if (diff > 0) totalMins = diff;
-      } catch {}
-      const intervals = fullStops.length - 1;
-      const minsPerHop = Math.round(totalMins / intervals);
+    const rawDownDep = roundTripData.downSchedule?.departureTime || '16:30';
+    const downTimeline = computeArrivalTime(rawDownDep, routeDurMins, dateStr);
+    const downDepTime = rawDownDep;
+    const downArrTime = roundTripData.downSchedule?.arrivalTime || downTimeline?.arrTime || '23:00';
 
-      const getTimeAtStop = (stopIdx) => {
-        try {
-          const [dh, dm] = (depTime || '08:00').split(':').map(Number);
-          const stopMinutes = (dh * 60 + dm) + (stopIdx * minsPerHop);
-          const h = Math.floor((stopMinutes / 60) % 24);
-          const m = Math.floor(stopMinutes % 60);
-          return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-        } catch { return depTime; }
+    // Generate UP Journey for each upcoming date
+    const upTripId = `T_UP_${busPlateStr}_${dateStr.replace(/-/g, '')}`;
+    const upSlot = `${busPlateStr}_${dateStr}_UP`;
+    const isUpCancelled = cancelledIdSet.has(upTripId) || existingStatuses[upTripId] === 'CANCELLED';
+
+    // DO NOT resurrect if explicitly cancelled/deleted by operator, and avoid duplicate slots
+    if (!isUpCancelled && !seenSlotsInRun.has(upSlot)) {
+      seenSlotsInRun.add(upSlot);
+      const upFullStops = [
+        roundTripData.upSchedule?.originCity || bus.assignedRoute?.originCity || 'Chennai',
+        ...(roundTripData.upSchedule?.intermediateStops || []).map((s) => s.stopName || s.name || s),
+        roundTripData.upSchedule?.destCity || bus.assignedRoute?.destCity || 'Vijayawada',
+      ];
+
+      // Auto status: if today and departure time has already arrived/passed, mark IN_PROGRESS
+      const upStatus = existingStatuses[upTripId] || (isToday && upDepTime <= curHHMM ? 'IN_PROGRESS' : 'SCHEDULED');
+      if (isToday && upDepTime <= curHHMM && !existingStatuses[upTripId]) {
+        existingStatuses[upTripId] = 'IN_PROGRESS';
+      }
+
+      const upTripItem = {
+        id: upTripId,
+        tripId: upTripId,
+        vehicleId: bus.vehicleId,
+        vehicleNumber: bus.vehicleNumber,
+        providerId: bus.providerId || 'P001',
+        from: roundTripData.upSchedule?.originCity || bus.assignedRoute?.originCity || 'Chennai',
+        to: roundTripData.upSchedule?.destCity || bus.assignedRoute?.destCity || 'Vijayawada',
+        corridorId: bus.assignedRoute?.corridorId,
+        corridorName: bus.assignedRoute?.corridorName,
+        departureTime: upDepTime,
+        arrivalTime: upArrTime,
+        arrivalDate: upTimeline?.arrDateStr || dateStr,
+        estimatedDuration: bus.assignedRoute?.durationEst || '6h 30m',
+        isOvernight: upTimeline?.isNextDay || false,
+        journeyDate: dateStr,
+        dayOfWeek: dayOfWeek,
+        busName: bus.busName,
+        busType: bus.busType,
+        vehicleType: bus.busType || bus.vehicleType,
+        seatLayout: bus.seatLayout,
+        totalSeats: bus.totalSeats,
+        availableSeats: bus.totalSeats,
+        bookedSeats: 0,
+        fare: roundTripData.fare || 650,
+        revenue: 0,
+        status: upStatus,
+        direction: 'UP',
+        intermediateStops: (roundTripData.upSchedule?.intermediateStops || []).map((s) => s.stopName || s.name || s),
+        via: (roundTripData.upSchedule?.intermediateStops || []).map((s) => s.stopName || s.name || s).join(', '),
+        allStops: upFullStops,
+        isPrimaryRoute: true,
+        addedAt: new Date().toISOString(),
       };
-
-      for (let i = 0; i < fullStops.length - 1; i++) {
-        for (let j = i + 1; j < fullStops.length; j++) {
-          if (i === 0 && j === fullStops.length - 1) continue;
-          const segFrom = fullStops[i];
-          const segTo = fullStops[j];
-          const subStops = fullStops.slice(i + 1, j);
-          const segVia = subStops.join(', ');
-          const segDep = getTimeAtStop(i);
-          const segArr = getTimeAtStop(j);
-          const hopCount = j - i;
-          const segFare = Number(baseFare || 650); // Uniform standard price for every intermediate station
-
-          cleanSchedules.push({
-            id: `${parentTrip.id}_SEG_${i}_${j}`,
-            tripId: parentTrip.id,
-            segmentId: `${parentTrip.id}_SEG_${i}_${j}`,
-            parentTripId: parentTrip.id,
-            isSegment: true,
-            vehicleId: parentTrip.vehicleId,
-            vehicleNumber: parentTrip.vehicleNumber,
-            providerId: parentTrip.providerId || 'P001',
-            from: segFrom,
-            to: segTo,
-            via: segVia,
-            intermediateStops: subStops,
-            allStops: fullStops,
-            departureTime: segDep,
-            arrivalTime: segArr,
-            arrivalDate: parentTrip.arrivalDate || parentTrip.journeyDate,
-            journeyDate: parentTrip.journeyDate,
-            busName: parentTrip.busName,
-            busType: parentTrip.busType,
-            vehicleType: parentTrip.vehicleType || parentTrip.busType,
-            seatLayout: parentTrip.seatLayout,
-            totalSeats: parentTrip.totalSeats,
-            availableSeats: parentTrip.totalSeats,
-            bookedSeats: 0,
-            fare: segFare,
-            revenue: 0,
-            status: parentTrip.status || 'SCHEDULED',
-            direction: parentTrip.direction,
-            addedAt: new Date().toISOString(),
-          });
-        }
-      }
-    };
-
-    // Generate UP Journey (Always generate if today or operating day)
-    if (upDays.includes(dayOfWeek) || isToday) {
-      const upTripId = `T_UP_${busPlateStr}_${dateStr.replace(/-/g, '')}`;
-      const isUpCancelled = cancelledIdSet.has(upTripId) || existingStatuses[upTripId] === 'CANCELLED';
-
-      // DO NOT resurrect if explicitly cancelled/deleted by operator
-      if (!isUpCancelled) {
-        const upFullStops = [
-          roundTripData.upSchedule?.originCity || bus.assignedRoute?.originCity || 'Chennai',
-          ...(roundTripData.upSchedule?.intermediateStops || []).map((s) => s.stopName || s.name || s),
-          roundTripData.upSchedule?.destCity || bus.assignedRoute?.destCity || 'Vijayawada',
-        ];
-
-        // Auto status: if today and departure time has already arrived/passed, mark IN_PROGRESS
-        const upDepTime = roundTripData.upSchedule?.departureTime || '08:00';
-        const upArrTime = roundTripData.upSchedule?.arrivalTime || '14:30';
-        const upStatus = existingStatuses[upTripId] || (isToday && upDepTime <= curHHMM ? 'IN_PROGRESS' : 'SCHEDULED');
-        if (isToday && upDepTime <= curHHMM && !existingStatuses[upTripId]) {
-          existingStatuses[upTripId] = 'IN_PROGRESS';
-        }
-
-        const upTripItem = {
-          id: upTripId,
-          tripId: upTripId,
-          vehicleId: bus.vehicleId,
-          vehicleNumber: bus.vehicleNumber,
-          providerId: bus.providerId || 'P001',
-          from: roundTripData.upSchedule?.originCity || bus.assignedRoute?.originCity || 'Chennai',
-          to: roundTripData.upSchedule?.destCity || bus.assignedRoute?.destCity || 'Vijayawada',
-          corridorId: bus.assignedRoute?.corridorId,
-          corridorName: bus.assignedRoute?.corridorName,
-          departureTime: upDepTime,
-          arrivalTime: upArrTime,
-          arrivalDate: upTimeline?.arrDateStr || dateStr,
-          estimatedDuration: bus.assignedRoute?.durationEst || '6h 30m',
-          isOvernight: upTimeline?.isNextDay || false,
-          journeyDate: dateStr,
-          busName: bus.busName,
-          busType: bus.busType,
-          vehicleType: bus.busType || bus.vehicleType,
-          seatLayout: bus.seatLayout,
-          totalSeats: bus.totalSeats,
-          availableSeats: bus.totalSeats,
-          bookedSeats: 0,
-          fare: roundTripData.fare || 650,
-          revenue: 0,
-          status: upStatus,
-          direction: 'UP',
-          intermediateStops: (roundTripData.upSchedule?.intermediateStops || []).map((s) => s.stopName || s.name || s),
-          via: (roundTripData.upSchedule?.intermediateStops || []).map((s) => s.stopName || s.name || s).join(', '),
-          allStops: upFullStops,
-          isPrimaryRoute: true,
-          addedAt: new Date().toISOString(),
-        };
-        cleanSchedules.push(upTripItem);
-        addSubSegments(upTripItem, upFullStops, upDepTime, upArrTime, roundTripData.fare);
-      }
+      cleanSchedules.push(upTripItem);
     }
 
-    // Generate DOWN Journey (Always generate if today or operating day)
-    if (downDays.includes(dayOfWeek) || isToday) {
-      const downTripId = `T_DN_${busPlateStr}_${dateStr.replace(/-/g, '')}`;
-      const isDownCancelled = cancelledIdSet.has(downTripId) || existingStatuses[downTripId] === 'CANCELLED';
+    // Generate DOWN Journey for each upcoming date
+    const downTripId = `T_DN_${busPlateStr}_${dateStr.replace(/-/g, '')}`;
+    const downSlot = `${busPlateStr}_${dateStr}_DOWN`;
+    const isDownCancelled = cancelledIdSet.has(downTripId) || existingStatuses[downTripId] === 'CANCELLED';
 
-      // DO NOT resurrect if explicitly cancelled/deleted by operator
-      if (!isDownCancelled) {
-        const downFullStops = [
-          roundTripData.downSchedule?.originCity || bus.assignedRoute?.destCity || 'Vijayawada',
-          ...(roundTripData.downSchedule?.intermediateStops || []).map((s) => s.stopName || s.name || s),
-          roundTripData.downSchedule?.destCity || bus.assignedRoute?.originCity || 'Chennai',
-        ];
+    // DO NOT resurrect if explicitly cancelled/deleted by operator, and avoid duplicate slots
+    if (!isDownCancelled && !seenSlotsInRun.has(downSlot)) {
+      seenSlotsInRun.add(downSlot);
+      const downFullStops = [
+        roundTripData.downSchedule?.originCity || bus.assignedRoute?.destCity || 'Vijayawada',
+        ...(roundTripData.downSchedule?.intermediateStops || []).map((s) => s.stopName || s.name || s),
+        roundTripData.downSchedule?.destCity || bus.assignedRoute?.originCity || 'Chennai',
+      ];
 
-        // Auto status: if today and departure time has already arrived/passed, mark IN_PROGRESS
-        const downDepTime = roundTripData.downSchedule?.departureTime || '16:30';
-        const downArrTime = roundTripData.downSchedule?.arrivalTime || '23:00';
-        const downStatus = existingStatuses[downTripId] || (isToday && downDepTime <= curHHMM ? 'IN_PROGRESS' : 'SCHEDULED');
-        if (isToday && downDepTime <= curHHMM && !existingStatuses[downTripId]) {
-          existingStatuses[downTripId] = 'IN_PROGRESS';
-        }
-
-        const downTripItem = {
-          id: downTripId,
-          tripId: downTripId,
-          vehicleId: bus.vehicleId,
-          vehicleNumber: bus.vehicleNumber,
-          providerId: bus.providerId || 'P001',
-          from: roundTripData.downSchedule?.originCity || bus.assignedRoute?.destCity || 'Vijayawada',
-          to: roundTripData.downSchedule?.destCity || bus.assignedRoute?.originCity || 'Chennai',
-          corridorId: bus.assignedRoute?.corridorId,
-          corridorName: bus.assignedRoute?.corridorName,
-          departureTime: downDepTime,
-          arrivalTime: downArrTime,
-          arrivalDate: downTimeline?.arrDateStr || dateStr,
-          estimatedDuration: bus.assignedRoute?.durationEst || '6h 30m',
-          isOvernight: downTimeline?.isNextDay || false,
-          journeyDate: dateStr,
-          busName: bus.busName,
-          busType: bus.busType,
-          vehicleType: bus.busType || bus.vehicleType,
-          seatLayout: bus.seatLayout,
-          totalSeats: bus.totalSeats,
-          availableSeats: bus.totalSeats,
-          bookedSeats: 0,
-          fare: roundTripData.fare || 650,
-          revenue: 0,
-          status: downStatus,
-          direction: 'DOWN',
-          intermediateStops: (roundTripData.downSchedule?.intermediateStops || []).map((s) => s.stopName || s.name || s),
-          via: (roundTripData.downSchedule?.intermediateStops || []).map((s) => s.stopName || s.name || s).join(', '),
-          allStops: downFullStops,
-          isPrimaryRoute: true,
-          addedAt: new Date().toISOString(),
-        };
-        cleanSchedules.push(downTripItem);
-        addSubSegments(downTripItem, downFullStops, downDepTime, downArrTime, roundTripData.fare);
+      // Auto status: if today and departure time has already arrived/passed, mark IN_PROGRESS
+      const downStatus = existingStatuses[downTripId] || (isToday && downDepTime <= curHHMM ? 'IN_PROGRESS' : 'SCHEDULED');
+      if (isToday && downDepTime <= curHHMM && !existingStatuses[downTripId]) {
+        existingStatuses[downTripId] = 'IN_PROGRESS';
       }
+
+      const downTripItem = {
+        id: downTripId,
+        tripId: downTripId,
+        vehicleId: bus.vehicleId,
+        vehicleNumber: bus.vehicleNumber,
+        providerId: bus.providerId || 'P001',
+        from: roundTripData.downSchedule?.originCity || bus.assignedRoute?.destCity || 'Vijayawada',
+        to: roundTripData.downSchedule?.destCity || bus.assignedRoute?.originCity || 'Chennai',
+        corridorId: bus.assignedRoute?.corridorId,
+        corridorName: bus.assignedRoute?.corridorName,
+        departureTime: downDepTime,
+        arrivalTime: downArrTime,
+        arrivalDate: downTimeline?.arrDateStr || dateStr,
+        estimatedDuration: bus.assignedRoute?.durationEst || '6h 30m',
+        isOvernight: downTimeline?.isNextDay || false,
+        journeyDate: dateStr,
+        dayOfWeek: dayOfWeek,
+        busName: bus.busName,
+        busType: bus.busType,
+        vehicleType: bus.busType || bus.vehicleType,
+        seatLayout: bus.seatLayout,
+        totalSeats: bus.totalSeats,
+        availableSeats: bus.totalSeats,
+        bookedSeats: 0,
+        fare: roundTripData.fare || 650,
+        revenue: 0,
+        status: downStatus,
+        direction: 'DOWN',
+        intermediateStops: (roundTripData.downSchedule?.intermediateStops || []).map((s) => s.stopName || s.name || s),
+        via: (roundTripData.downSchedule?.intermediateStops || []).map((s) => s.stopName || s.name || s).join(', '),
+        allStops: downFullStops,
+        isPrimaryRoute: true,
+        addedAt: new Date().toISOString(),
+      };
+      cleanSchedules.push(downTripItem);
     }
   }
 
-  localStorage.setItem('c2b_trip_statuses', JSON.stringify(existingStatuses));
-  localStorage.setItem('c2b_bus_schedules', JSON.stringify(cleanSchedules));
-  try { window.dispatchEvent(new Event('storage')); } catch {}
-  try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'SCHEDULES_GENERATED', busId: bus.vehicleId } })); } catch {}
+  try { localStorage.setItem('c2b_trip_statuses', JSON.stringify(existingStatuses)); } catch {}
+  const dedupedFinal = deduplicateSchedules(cleanSchedules);
+  safeSaveSchedules(dedupedFinal);
+  if (dispatchEvents) {
+    try { window.dispatchEvent(new Event('storage')); } catch {}
+    try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'SCHEDULES_GENERATED', busId: bus.vehicleId } })); } catch {}
+  }
 }
 
 /* ── Update Bus Operating Status (Available, Maintenance, Inactive) ── */

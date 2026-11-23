@@ -1,18 +1,33 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getSeatData } from '../services/api';
+import { getSeatData, getFleetBuses } from '../services/api';
 import BusSeatLayout from './BusSeatLayout';
 
 /* ── localStorage key for blocked seats ── */
 const BLOCKED_KEY = 'c2b_blocked_seats';
 
-/* ── Format date helper ── */
+/* ── Format date helper with Day of Week ── */
 function fmtDate(raw) {
   if (!raw || raw === '—') return '—';
   try {
-    return new Date(raw).toLocaleString('en-IN', {
-      day: '2-digit', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    });
+    let d;
+    if (String(raw).includes('T')) {
+      d = new Date(raw);
+    } else {
+      const parts = String(raw).split('-').map(Number);
+      if (parts.length === 3) {
+        d = new Date(parts[0], parts[1] - 1, parts[2]);
+      } else {
+        d = new Date(raw);
+      }
+    }
+    if (isNaN(d.getTime())) return raw;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayName = days[d.getDay()];
+    const mName = months[d.getMonth()];
+    const dateNum = String(d.getDate()).padStart(2, '0');
+    const yr = d.getFullYear();
+    return `${dateNum} ${mName} ${yr} (${dayName})`;
   } catch { return raw; }
 }
 
@@ -318,14 +333,34 @@ function BusTripCard({ bus, onView }) {
 
   /* Journey date — read from raw schedule if available */
   const journeyDate = bus.journeyDate || '';
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isToday = (journeyDate || '').split('T')[0] === todayStr;
 
   return (
     <div className="seat-mg-card" onClick={() => onView(bus)} style={{ cursor: 'pointer' }}>
       {/* ── Card Header ── */}
       <div className="seat-mg-header">
         <div>
-          <div className="seat-mg-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            🚍 {bus.name}
+          <div className="seat-mg-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span>🚍 {bus.name}</span>
+            {bus.vehicleNumber && (
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#1e40af', background: '#dbeafe', padding: '2px 7px', borderRadius: 4 }}>
+                {bus.vehicleNumber}
+              </span>
+            )}
+            {isToday && (
+              <span style={{
+                background: '#dcfce7',
+                color: '#15803d',
+                border: '1px solid #86efac',
+                fontSize: '0.7rem',
+                fontWeight: 800,
+                padding: '2px 8px',
+                borderRadius: 4,
+              }}>
+                🌟 Today's Trip
+              </span>
+            )}
             <span style={{
               background: '#fff7ed', color: '#ea580c',
               fontSize: '0.7rem', fontWeight: 700,
@@ -349,8 +384,8 @@ function BusTripCard({ bus, onView }) {
               </span>
             )}
             {journeyDate && (
-              <span style={{ marginLeft: '0.5rem', color: '#94a3b8', fontSize: '0.78rem' }}>
-                · {fmtDate(journeyDate)}
+              <span style={{ marginLeft: '0.5rem', color: '#475569', fontSize: '0.78rem', fontWeight: 600 }}>
+                · 📅 {fmtDate(journeyDate)}
               </span>
             )}
           </div>
@@ -412,6 +447,20 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
   const [selectedBusId, setSelectedBusId] = useState(null);
   const [search, setSearch]             = useState('');
   const [filterType, setFilterType]     = useState('ALL');
+  const [busNumberFilter, setBusNumberFilter] = useState('all');
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const [datePreset, setDatePreset]     = useState('today');
+  const [specificDate, setSpecificDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Fleet buses from BusFleetManagement — this is the single source of truth for assigned fleet
+  const fleetBuses = useMemo(() => {
+    try {
+      const all = getFleetBuses(provider?.id) || [];
+      return all.filter((b) => b.assignedRoute || b.status === 'Assigned' || b.route);
+    } catch {
+      return [];
+    }
+  }, [provider?.id]);
 
   /* ── Load & refresh buses ── */
   useEffect(() => {
@@ -427,17 +476,29 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
     window.addEventListener('storage', refresh);
     window.addEventListener('c2b_sync', refresh);
     window.addEventListener('focus', refresh);
-    const interval = setInterval(refresh, 2000);
     return () => {
       window.removeEventListener('storage', refresh);
       window.removeEventListener('c2b_sync', refresh);
       window.removeEventListener('focus', refresh);
-      clearInterval(interval);
     };
   }, [provider?.id]);
 
   /* ── Derive available bus types for dropdown ── */
   const busTypes = ['ALL', ...Array.from(new Set(buses.map((b) => b?.type).filter(Boolean)))];
+
+  /* ── Extract unique bus plate numbers for Bus Number filter ── */
+  const uniqueBusNumbers = useMemo(() => {
+    const set = new Set();
+    fleetBuses.forEach((b) => {
+      const plate = b.vehicleNumber || b.regNo;
+      if (plate && plate !== '—') set.add(String(plate).trim().toUpperCase());
+    });
+    buses.forEach((b) => {
+      const plate = b.vehicleNumber || (b.name ? b.name.match(/[A-Z]{2}\s?[0-9]{2}\s?[A-Z]{1,2}\s?[0-9]{4}/i)?.[0] : null);
+      if (plate && plate !== '—') set.add(String(plate).trim().toUpperCase());
+    });
+    return Array.from(set).sort();
+  }, [fleetBuses, buses]);
 
   /* ── Derive live modal bus dynamically from buses state ── */
   const activeModalBus = useMemo(() => {
@@ -445,13 +506,33 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
     return buses.find((b) => b?.id === selectedBusId || b?.tripId === selectedBusId) || null;
   }, [buses, selectedBusId]);
 
+  const cleanCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const cleanName = (s) => String(s || '').toLowerCase().trim();
+
   /* ── Filter logic ── */
   const filtered = buses.filter((bus) => {
     if (!bus) return false;
+
+    // Strict alignment with BusFleetManagement: only display assigned fleet coaches
+    if (fleetBuses.length > 0) {
+      const bPlate = cleanCode(bus.vehicleNumber);
+      const bId = cleanCode(bus.vehicleId || bus.id);
+      const bName = cleanName(bus.name || bus.busName);
+      const bTripId = cleanCode(bus.tripId);
+      const belongsToFleet = fleetBuses.some((fb) => {
+        const fp = cleanCode(fb.vehicleNumber);
+        const fi = cleanCode(fb.vehicleId || fb.id);
+        const fn = cleanName(fb.busName);
+        return (fp && bPlate === fp) || (fi && bId === fi) || (fn && bName === fn) || (fp && bTripId.includes(fp));
+      });
+      if (!belongsToFleet) return false;
+    }
+
     const q = (search || '').toLowerCase();
     const matchSearch =
       !q ||
       bus.name?.toLowerCase().includes(q) ||
+      bus.vehicleNumber?.toLowerCase().includes(q) ||
       bus.route?.toLowerCase().includes(q) ||
       bus.from?.toLowerCase().includes(q) ||
       bus.to?.toLowerCase().includes(q);
@@ -460,15 +541,88 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
       filterType === 'ALL' ||
       (bus.type || '').toLowerCase().includes(filterType.toLowerCase());
 
-    return matchSearch && matchType;
+    if (!matchSearch || !matchType) return false;
+
+    // Bus Number filter
+    if (busNumberFilter !== 'all') {
+      const bPlate = cleanCode(bus.vehicleNumber || bus.name);
+      const target = cleanCode(busNumberFilter);
+      if (!bPlate.includes(target)) return false;
+    }
+
+    // Date filter: exclude past expired dates from active monitoring
+    const jDate = (bus.journeyDate || '').split('T')[0];
+    if (jDate && jDate < todayStr) return false;
+
+    if (specificDate) {
+      if (jDate !== specificDate) return false;
+    } else if (datePreset !== 'all') {
+      if (datePreset === 'today') {
+        if (jDate !== todayStr) return false;
+      } else if (datePreset === 'tomorrow') {
+        const tom = new Date();
+        tom.setDate(tom.getDate() + 1);
+        const tomStr = tom.toISOString().split('T')[0];
+        if (jDate !== tomStr) return false;
+      } else if (datePreset === '3days') {
+        if (jDate) {
+          const now = new Date();
+          const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+          const parts = jDate.split('-').map(Number);
+          const tripMidnight = parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]).getTime() : new Date(jDate).getTime();
+          const dayDiff = Math.round((tripMidnight - todayMidnight) / (1000 * 60 * 60 * 24));
+          if (dayDiff < 0 || dayDiff > 3) return false;
+        }
+      } else if (datePreset === '7days') {
+        if (jDate) {
+          const now = new Date();
+          const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+          const parts = jDate.split('-').map(Number);
+          const tripMidnight = parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]).getTime() : new Date(jDate).getTime();
+          const dayDiff = Math.round((tripMidnight - todayMidnight) / (1000 * 60 * 60 * 24));
+          if (dayDiff < 0 || dayDiff > 7) return false;
+        }
+      } else if (datePreset === '30days') {
+        if (jDate) {
+          const now = new Date();
+          const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+          const parts = jDate.split('-').map(Number);
+          const tripMidnight = parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]).getTime() : new Date(jDate).getTime();
+          const dayDiff = Math.round((tripMidnight - todayMidnight) / (1000 * 60 * 60 * 24));
+          if (dayDiff < 0 || dayDiff > 30) return false;
+        }
+      }
+    }
+
+    return true;
   });
 
+  /* ── Priority Sorting: Today's buses first, then date ascending, then departure time ── */
+  const sortedBuses = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      // 1. PRIORITY 1: TODAY'S BUSES FIRST
+      const isTodayA = (a.journeyDate || '').split('T')[0] === todayStr ? 0 : 1;
+      const isTodayB = (b.journeyDate || '').split('T')[0] === todayStr ? 0 : 1;
+      if (isTodayA !== isTodayB) return isTodayA - isTodayB;
+
+      // 2. Upcoming dates ascending
+      const dateA = (a.journeyDate || '').split('T')[0];
+      const dateB = (b.journeyDate || '').split('T')[0];
+      if (dateA !== dateB) return dateA.localeCompare(dateB);
+
+      // 3. Departure times ascending
+      const timeA = a.departureTime || a.time || '';
+      const timeB = b.departureTime || b.time || '';
+      return timeA.localeCompare(timeB);
+    });
+  }, [filtered, todayStr]);
+
   /* ── Summary stats ── */
-  const totalBuses   = filtered.length;
-  const totalBooked  = filtered.reduce((acc, b) => acc + (b?.bookedCount != null ? Number(b.bookedCount) : (Array.isArray(b?.bookedSeatList) ? b.bookedSeatList.length : 0)), 0);
-  const totalSeats   = filtered.reduce((acc, b) => acc + Number(b?.total || 0), 0);
+  const totalBuses   = sortedBuses.length;
+  const totalBooked  = sortedBuses.reduce((acc, b) => acc + (b?.bookedCount != null ? Number(b.bookedCount) : (Array.isArray(b?.bookedSeatList) ? b.bookedSeatList.length : 0)), 0);
+  const totalSeats   = sortedBuses.reduce((acc, b) => acc + Number(b?.total || 0), 0);
   const allBlocked   = loadAllBlocked();
-  const totalBlocked = filtered.reduce((acc, b) => acc + (Array.isArray(allBlocked?.[b?.tripId]) ? allBlocked[b.tripId].length : 0), 0);
+  const totalBlocked = sortedBuses.reduce((acc, b) => acc + (Array.isArray(allBlocked?.[b?.tripId]) ? allBlocked[b.tripId].length : 0), 0);
 
   return (
     <div>
@@ -510,42 +664,277 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
         </div>
       )}
 
+      {/* ── Fleet Management Assigned Coaches Hub Banner ── */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)',
+          border: '1.5px solid #bfdbfe',
+          borderRadius: '10px',
+          padding: '12px 16px',
+          marginBottom: '1.25rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: '1.2rem' }}>🚍</span>
+            <span style={{ fontWeight: 800, color: '#1e40af', fontSize: '0.94rem' }}>
+              Fleet Management Assigned Coaches ({fleetBuses.length} Active {fleetBuses.length === 1 ? 'Coach' : 'Coaches'})
+            </span>
+          </div>
+          <p style={{ margin: '3px 0 8px', fontSize: '0.76rem', color: '#475569' }}>
+            Only coaches assigned in Bus Fleet Management operate continuous round-trip schedules. Click a coach to filter seat availability.
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => setBusNumberFilter('all')}
+              style={{
+                background: busNumberFilter === 'all' ? '#1d4ed8' : '#ffffff',
+                color: busNumberFilter === 'all' ? '#ffffff' : '#1e40af',
+                border: `1.5px solid ${busNumberFilter === 'all' ? '#1d4ed8' : '#93c5fd'}`,
+                borderRadius: '6px',
+                padding: '4px 10px',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              All Fleet Coaches ({fleetBuses.length})
+            </button>
+            {fleetBuses.map((b) => {
+              const bKey = b.vehicleNumber || b.vehicleId;
+              const isSel = busNumberFilter === bKey;
+              const orig = b.assignedRoute?.originCity || 'Chennai';
+              const dest = b.assignedRoute?.destCity || 'Vijayawada';
+              return (
+                <button
+                  key={b.vehicleId || b.id || b.vehicleNumber}
+                  type="button"
+                  onClick={() => setBusNumberFilter(isSel ? 'all' : bKey)}
+                  style={{
+                    background: isSel ? '#1d4ed8' : '#ffffff',
+                    color: isSel ? '#ffffff' : '#1e40af',
+                    border: `1.5px solid ${isSel ? '#1d4ed8' : '#bfdbfe'}`,
+                    borderRadius: '6px',
+                    padding: '4px 10px',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                  }}
+                  title={`View seat layouts for ${b.busName} (${b.vehicleNumber})`}
+                >
+                  <span>🚌 {b.vehicleNumber}</span>
+                  <span style={{ opacity: 0.85, fontSize: '0.7rem' }}>({orig} ↔ {dest})</span>
+                  {isSel && <span>✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {onNavigate && (
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => onNavigate('fleet-management')}
+            style={{ padding: '6px 14px', fontSize: '0.8rem', background: '#ffffff', borderColor: '#93c5fd', color: '#1e40af', fontWeight: 700 }}
+          >
+            ⚙️ Manage in Fleet ➔
+          </button>
+        )}
+      </div>
+
       {/* ── Filter Row ── */}
       <div style={{
         display: 'flex', gap: '0.75rem', flexWrap: 'wrap',
         marginBottom: '1.25rem', alignItems: 'center',
+        background: '#ffffff', padding: '10px 14px', borderRadius: 8,
+        border: '1px solid #e5e7eb', boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
       }}>
+        {/* Search */}
         <input
           type="text"
           className="form-control"
-          placeholder="🔍 Search by bus name or route…"
+          placeholder="🔍 Search plate, bus name, route…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ flex: '1 1 240px', maxWidth: 360 }}
+          style={{ flex: '1 1 180px', maxWidth: 200, fontSize: '0.84rem' }}
         />
-        <select
-          className="form-control"
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          style={{ flex: '0 0 auto', minWidth: 160 }}
-        >
-          {busTypes.map((t) => (
-            <option key={t} value={t}>
-              {t === 'ALL' ? 'All Types' : t}
-            </option>
-          ))}
-        </select>
-        {(search || filterType !== 'ALL') && (
+
+        {/* Bus Number Filter */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <label htmlFor="seatBusFilter" style={{ fontSize: '0.84rem', fontWeight: 600, color: '#374151' }}>
+            Bus Number:
+          </label>
+          <select
+            id="seatBusFilter"
+            className="form-control"
+            value={busNumberFilter}
+            onChange={(e) => setBusNumberFilter(e.target.value)}
+            style={{
+              padding: '6px 10px',
+              borderRadius: '7px',
+              border: '1.5px solid #93c5fd',
+              background: '#eff6ff',
+              fontSize: '0.84rem',
+              fontWeight: 700,
+              color: '#1e40af',
+              cursor: 'pointer',
+              outline: 'none',
+            }}
+          >
+            <option value="all">All Bus Numbers ({uniqueBusNumbers.length})</option>
+            {uniqueBusNumbers.map((plate) => (
+              <option key={plate} value={plate}>
+                🚍 {plate}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Quick Date Pills */}
+        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {[
+            { id: 'today', label: '🌟 Today' },
+            { id: 'tomorrow', label: '🌅 Tomorrow' },
+            { id: '3days', label: '📆 Next 3 Days' },
+            { id: '7days', label: '🗓️ Next 7 Days' },
+            { id: '30days', label: '📅 Next 30 Days' },
+            { id: 'all', label: '🌐 All Upcoming' },
+          ].map((pill) => {
+            const isSelected = datePreset === pill.id && (pill.id !== 'today' || specificDate === todayStr);
+            return (
+              <button
+                key={pill.id}
+                type="button"
+                onClick={() => {
+                  setDatePreset(pill.id);
+                  if (pill.id === 'today') {
+                    setSpecificDate(todayStr);
+                  } else {
+                    setSpecificDate('');
+                  }
+                }}
+                style={{
+                  padding: '4px 9px',
+                  borderRadius: '20px',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  border: isSelected ? '1.5px solid #10b981' : '1.5px solid #d1d5db',
+                  background: isSelected ? '#ecfdf5' : '#ffffff',
+                  color: isSelected ? '#065f46' : '#4b5563',
+                  cursor: 'pointer',
+                }}
+              >
+                {pill.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Date Dropdown & Picker */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <select
+            id="seatDateFilter"
+            className="form-control"
+            value={datePreset}
+            onChange={(e) => {
+              const val = e.target.value;
+              setDatePreset(val);
+              if (val === 'today') {
+                setSpecificDate(todayStr);
+              } else if (val !== 'custom') {
+                setSpecificDate('');
+              }
+            }}
+            style={{
+              padding: '6px 10px',
+              borderRadius: '7px',
+              border: '1.5px solid #10b981',
+              background: '#ecfdf5',
+              fontSize: '0.84rem',
+              fontWeight: 700,
+              color: '#065f46',
+              cursor: 'pointer',
+              outline: 'none',
+            }}
+          >
+            <option value="today">🌟 Today Only ({todayStr})</option>
+            <option value="tomorrow">🌅 Tomorrow</option>
+            <option value="3days">📆 Next 3 Days</option>
+            <option value="7days">🗓️ Next 7 Days (1 Week)</option>
+            <option value="30days">📅 Next 30 Days (Continuous)</option>
+            <option value="all">🌐 All Upcoming Dates (Today First)</option>
+            <option value="custom">📅 Pick Date…</option>
+          </select>
+
+          {(datePreset === 'custom' || (specificDate && specificDate !== todayStr)) && (
+            <input
+              type="date"
+              value={specificDate}
+              onChange={(e) => {
+                setSpecificDate(e.target.value);
+                if (e.target.value) setDatePreset('custom');
+              }}
+              style={{
+                padding: '5px 8px',
+                fontSize: '0.82rem',
+                border: '1.5px solid #10b981',
+                borderRadius: '6px',
+                outline: 'none',
+                fontWeight: 600,
+                color: '#065f46',
+                background: '#ffffff',
+              }}
+            />
+          )}
+        </div>
+
+        {/* Bus Type */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <label htmlFor="seatTypeFilter" style={{ fontSize: '0.84rem', fontWeight: 600, color: '#374151' }}>
+            Type:
+          </label>
+          <select
+            id="seatTypeFilter"
+            className="form-control"
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            style={{ flex: '0 0 auto', minWidth: 100, fontSize: '0.84rem' }}
+          >
+            {busTypes.map((t) => (
+              <option key={t} value={t}>
+                {t === 'ALL' ? 'All Types' : t}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {(search || filterType !== 'ALL' || busNumberFilter !== 'all' || (datePreset !== 'today' && datePreset !== 'all') || (specificDate && specificDate !== todayStr)) && (
           <button
             className="btn btn-outline"
-            style={{ fontSize: '0.8rem' }}
-            onClick={() => { setSearch(''); setFilterType('ALL'); }}
+            style={{ fontSize: '0.78rem', padding: '5px 10px' }}
+            onClick={() => {
+              setSearch('');
+              setFilterType('ALL');
+              setBusNumberFilter('all');
+              setDatePreset('today');
+              setSpecificDate(todayStr);
+            }}
           >
-            ✕ Clear
+            Reset Filters
           </button>
         )}
         <div style={{ marginLeft: 'auto', fontSize: '0.82rem', color: '#6b7280' }}>
-          Showing {filtered.length} of {buses.length} trips
+          Showing <strong>{sortedBuses.length}</strong> of {buses.length} trips
         </div>
       </div>
 
@@ -576,7 +965,7 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
         </div>
       )}
 
-      {buses.length > 0 && filtered.length === 0 && (
+      {buses.length > 0 && sortedBuses.length === 0 && (
         <div className="empty-state">
           <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>🔍</div>
           <h3 style={{ marginBottom: '0.5rem', color: '#374151' }}>No matching trips</h3>
@@ -585,9 +974,9 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
       )}
 
       {/* ── Bus Trip Cards Grid ── */}
-      {filtered.length > 0 && (
+      {sortedBuses.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-          {filtered.map((bus) => (
+          {sortedBuses.map((bus) => (
             <BusTripCard
               key={bus.id}
               bus={bus}

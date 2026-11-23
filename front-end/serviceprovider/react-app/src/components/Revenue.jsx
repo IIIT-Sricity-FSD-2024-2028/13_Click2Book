@@ -149,15 +149,13 @@ export default function Revenue({ provider, onNavigate, showToast }) {
     loadRevenue();
     window.addEventListener('storage', loadRevenue);
     window.addEventListener('c2b_sync', loadRevenue);
-    const interval = setInterval(loadRevenue, 4000);
     return () => {
       window.removeEventListener('storage', loadRevenue);
       window.removeEventListener('c2b_sync', loadRevenue);
-      clearInterval(interval);
     };
   }, [providerId]);
 
-  if (loading) return <div className="empty-state" style={{ paddingTop: '4rem' }}><p>⏳ Loading revenue data…</p></div>;
+  if (loading && rows.length === 0) return <div className="empty-state" style={{ paddingTop: '4rem' }}><p>⏳ Loading revenue data…</p></div>;
 
   const fmtInr = (n) => `₹${Number(n).toLocaleString('en-IN')}`;
 

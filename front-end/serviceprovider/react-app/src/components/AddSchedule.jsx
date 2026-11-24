@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { saveSchedule } from '../services/api';
+import { saveSchedule, fetchMyBuses } from '../services/api';
 
 const BUS_TYPES = ['Sleeper AC', 'Semi-Sleeper', 'AC Seater', 'Volvo AC', 'Non-AC', 'Luxury'];
 
@@ -18,6 +18,20 @@ export default function AddSchedule({ onNavigate, showToast }) {
   const [loading, setLoading] = useState(false);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  // Buses this provider already owns on the backend (including ones the Super Admin added).
+  const [buses, setBuses] = useState([]);
+  const [vehicleId, setVehicleId] = useState('');
+  useEffect(() => {
+    fetchMyBuses().then(setBuses);
+  }, []);
+  const pickBus = (e) => {
+    const bus = buses.find((b) => b.vehicleId === e.target.value);
+    setVehicleId(bus ? bus.vehicleId : '');
+    if (bus) {
+      setForm((f) => ({ ...f, busName: bus.busName || bus.vehicleNumber, busType: bus.vehicleType, seats: String(bus.totalSeats) }));
+    }
+  };
 
   const validate = () => {
     const now = new Date();
@@ -59,12 +73,14 @@ export default function AddSchedule({ onNavigate, showToast }) {
         dep: form.dep, arr: form.arr,
         busName: form.busName.trim(), busType: form.busType,
         seats: parseInt(form.seats, 10), fare: parseInt(form.fare, 10),
+        vehicleId: vehicleId || undefined,
       });
       const viaText = form.via ? ` (Via ${form.via})` : '';
       const msg = `✅ ${form.busName} (${form.seats} Seats, ₹${form.fare}) for ${form.journeyDate} (${form.dep} → ${form.arr}) from ${form.from} → ${form.to}${viaText} added ${result.isLive ? 'successfully!' : 'locally (backend offline).'}`;
       setSuccess(msg);
       showToast(`Schedule added for ${form.from} → ${form.to}!`, result.isLive ? 'success' : 'info');
       setForm({ journeyDate: today, from: '', to: '', via: '', dep: '', arr: '', busName: '', busType: '', seats: '', fare: '' });
+      setVehicleId('');
       setTimeout(() => onNavigate('manage-schedules'), 2000);
     } catch (e) {
       setError(e.message || 'Failed to save schedule.');
@@ -140,16 +156,28 @@ export default function AddSchedule({ onNavigate, showToast }) {
 
           {/* Bus Name */}
           <div className="form-group">
+            <label className="form-label">Use One of My Buses</label>
+            <select className="form-control no-icon" value={vehicleId} onChange={pickBus} style={{ cursor: 'pointer' }}>
+              <option value="">-- New bus (enter details below) --</option>
+              {buses.map((b) => (
+                <option key={b.vehicleId} value={b.vehicleId}>
+                  {(b.busName || b.vehicleNumber)} · {b.vehicleNumber} · {b.vehicleType} · {b.totalSeats} seats
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
             <label className="form-label">Bus Name / Vehicle Name</label>
-            <input type="text" className="form-control no-icon" placeholder="e.g. Intercity Express, Volvo AC" value={form.busName} onChange={set('busName')} />
+            <input type="text" className="form-control no-icon" placeholder="e.g. Intercity Express, Volvo AC" value={form.busName} onChange={set('busName')} disabled={!!vehicleId} />
           </div>
 
           {/* Bus Type */}
           <div className="form-group">
             <label className="form-label">Bus Type</label>
-            <select className="form-control no-icon" value={form.busType} onChange={set('busType')} style={{ cursor: 'pointer' }}>
+            <select className="form-control no-icon" value={form.busType} onChange={set('busType')} style={{ cursor: 'pointer' }} disabled={!!vehicleId}>
               <option value="">-- Select Bus Type --</option>
-              {BUS_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              {[...new Set([...BUS_TYPES, form.busType].filter(Boolean))].map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
 
@@ -157,7 +185,7 @@ export default function AddSchedule({ onNavigate, showToast }) {
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Total Seats</label>
-              <input type="number" className="form-control no-icon" placeholder="e.g. 40" min="1" max="100" value={form.seats} onChange={set('seats')} />
+              <input type="number" className="form-control no-icon" placeholder="e.g. 40" min="1" max="100" value={form.seats} onChange={set('seats')} disabled={!!vehicleId} />
             </div>
             <div className="form-group">
               <label className="form-label">Fare Per Seat (₹)</label>

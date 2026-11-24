@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards, Headers } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiHeader } from '@nestjs/swagger';
 import { ProviderService } from './provider.service';
 import { CreateProviderDto, UpdateProviderDto } from './dto/provider.dto';
@@ -13,8 +13,10 @@ export class ProviderController {
   constructor(private readonly providerService: ProviderService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Register a new service provider (Public)' })
-  create(@Body() dto: CreateProviderDto) { return this.providerService.create(dto); }
+  @ApiOperation({ summary: 'Register a new service provider (Public). Created by an ADMIN it is approved and active at once.' })
+  create(@Body() dto: CreateProviderDto, @Headers('x-role') role?: string) {
+    return this.providerService.create(dto, role === Role.ADMIN);
+  }
 
   @Get()
   @Roles(Role.ADMIN)

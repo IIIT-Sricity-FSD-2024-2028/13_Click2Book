@@ -49,7 +49,9 @@ export async function loginProvider(email, password) {
     if (data.role !== 'PROVIDER') throw new Error('Not a provider account');
     return { success: true, data };
   } catch (err) {
-    // Offline fallback
+    // The backend answered and refused (wrong password, awaiting approval, inactive): show its reason.
+    // Only a network failure (backend unreachable) falls back to the offline demo accounts.
+    if (!(err instanceof TypeError)) throw err;
     const providers = [
       { id: 'P001', name: 'APSRTC Travels',  email: 'apsrtc@gmail.com',   password: 'Apsrtc@123'  },
       { id: 'P002', name: 'KPN Tours',        email: 'kpn@gmail.com',      password: 'Kpn@123'     },
@@ -289,11 +291,13 @@ export async function saveSchedule(payload) {
     })();
 
     const cleanVehicleNum = (((busName || 'BUS').replace(/[^A-Za-z0-9]/g, '').toUpperCase()) + '0000').slice(0, 10);
-    let vehicleId = null;
+    // A bus picked from "My Buses" is used as-is; otherwise look up / create one by name.
+    let vehicleId = payload.vehicleId || null;
 
-    try {
+    if (!vehicleId) try {
       const vehList = await spFetch('/vehicles', {});
-      const existingVeh = (Array.isArray(vehList) ? vehList : []).find((v) =>
+      // Only reuse a bus that belongs to this provider.
+      const existingVeh = (Array.isArray(vehList) ? vehList : []).filter((v) => v.providerId === providerId).find((v) =>
         v.vehicleNumber?.toUpperCase() === cleanVehicleNum.toUpperCase() ||
         (v.busName && busName && v.busName.toLowerCase() === busName.toLowerCase()) ||
         v.vehicleNumber?.toUpperCase() === busName.toUpperCase()
@@ -648,6 +652,18 @@ function getLocalTripsForConfirm(localStatuses) {
 }
 
 /* ── Confirm Trips / Live Trips ── */
+/** This provider's buses from the backend (includes buses the Super Admin added for them). */
+export async function fetchMyBuses() {
+  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId');
+  const providerId = (loggedId && /^P\d+$/.test(loggedId)) ? loggedId : 'P001';
+  try {
+    const list = await spFetch(`/vehicles?providerId=${encodeURIComponent(providerId)}`);
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchLiveTrips(providerId) {
   const localStatuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
   const localTrips = getLocalTripsForConfirm(localStatuses);
@@ -656,8 +672,8 @@ export async function fetchLiveTrips(providerId) {
     const schedules = await spFetch(`/schedules?providerId=${encodeURIComponent(providerId)}`);
     const scheduleIds = (schedules || []).map((s) => s.scheduleId);
     const allTrips = await spFetch('/trips');
-    let myTrips = (allTrips || []).filter((t) => scheduleIds.includes(t.scheduleId));
-    if (!myTrips.length) myTrips = allTrips || [];
+    // Only this provider's own trips (a provider with none sees an empty list, not everyone else's).
+    const myTrips = (allTrips || []).filter((t) => scheduleIds.includes(t.scheduleId));
 
     const detailed = await Promise.all(
       myTrips.map(async (trip) => {
@@ -729,8 +745,13 @@ export async function updateLostFoundStatus(itemId, status, foundNote) {
 /* ── Revenue ── */
 export async function fetchRevenue(providerId) {
   try {
-    const data = await spFetch(`/revenue?providerId=${encodeURIComponent(providerId)}`);
-    return { data, isLive: true };
+    // Ledger-based earnings (money in paise) plus the transfers Click2Book has made to this provider.
+    const id = encodeURIComponent(providerId);
+    const [revenue, transfers] = await Promise.all([
+      spFetch(`/providers/${id}/revenue`),
+      spFetch(`/admin/payouts/transfers?providerId=${id}`).catch(() => []),
+    ]);
+    return { data: { ...revenue, transfers }, isLive: true };
   } catch {
     // Fallback: compute from localStorage bookings
     const localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');

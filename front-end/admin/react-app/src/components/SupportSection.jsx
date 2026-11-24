@@ -10,6 +10,7 @@ export default function SupportSection({ onAction, busy = false }) {
   const [requests, setRequests] = useState([]);
   const [error, setError] = useState('');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [agentSearch, setAgentSearch] = useState('');
   const load = useCallback(() => Promise.all([apiFetch('/support-staff'), apiFetch('/support-ticket'), apiFetch('/support-requests')])
     .then(([agents, items, requestItems]) => { setStaff(agents); setTickets(items); setRequests(requestItems); setError(''); })
     .catch((cause) => setError(cause.message)), []);
@@ -31,7 +32,8 @@ export default function SupportSection({ onAction, busy = false }) {
     if (ok) load();
   };
   const toggleAgent = async (agent) => {
-    const status = (agent.status || 'ACTIVE') === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    const status = String(agent.status || 'ACTIVE').toUpperCase() === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    if (status === 'INACTIVE' && !window.confirm(`Deactivate ${agent.name}? They will lose access to support operations.`)) return;
     const ok = await onAction(() => apiFetch(`/support-staff/${agent.supporterId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }), `Agent ${agent.name} ${status.toLowerCase()}.`, 'Failed to update agent status.');
     if (ok) load();
   };
@@ -43,6 +45,7 @@ export default function SupportSection({ onAction, busy = false }) {
         <div className="section-header" style={{ marginBottom: '20px' }}>
           <h2 className="section-title" style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>Support Agent Directory</h2>
           <p style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>Manage agents and review their account status</p>
+          <input aria-label="Search support agents" placeholder="Search agents" value={agentSearch} onChange={(event) => setAgentSearch(event.target.value)} style={{ ...inputStyle, marginTop: 10 }} />
         </div>
         {error && <p className="admin-notice" role="alert">{error}</p>}
         <form onSubmit={createAgent} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
@@ -52,7 +55,7 @@ export default function SupportSection({ onAction, busy = false }) {
           <button type="submit" disabled={busy} style={{ padding: '8px 14px', borderRadius: '8px', border: 'none', fontSize: '13px', fontWeight: 600, background: '#0B2447', color: '#fff', cursor: busy ? 'default' : 'pointer' }}>Add Support Agent</button>
         </form>
         <DataTable headers={['Agent ID', 'Name', 'Email', 'Role', 'Status', 'Joined', 'Action']} emptyText="No support agents found.">
-          {staff.map((agent) => (
+          {staff.filter((agent) => `${agent.supporterId} ${agent.name} ${agent.email}`.toLowerCase().includes(agentSearch.toLowerCase())).map((agent) => (
             <tr key={agent.supporterId} style={{ borderBottom: '1px solid #f1f5f9' }}>
               <td style={{ padding: '14px 18px', fontSize: '13px', fontWeight: 700, color: '#0B2447' }}>{agent.supporterId}</td>
               <td style={{ padding: '14px 18px', fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>{agent.name}</td>
@@ -60,7 +63,7 @@ export default function SupportSection({ onAction, busy = false }) {
               <td style={{ padding: '14px 18px', fontSize: '13px', color: '#334155' }}>{humanize(agent.role || 'support')}</td>
               <td style={{ padding: '14px 18px' }}><StatusBadge status={(agent.status || 'ACTIVE').toLowerCase()} /></td>
               <td style={{ padding: '14px 18px', fontSize: '13px', color: '#64748b' }}>{displayDate(agent.createdAt)}</td>
-              <td style={{ padding: '14px 18px' }}><button type="button" disabled={busy} onClick={() => toggleAgent(agent)}>{(agent.status || 'ACTIVE') === 'ACTIVE' ? 'Deactivate' : 'Activate'}</button></td>
+              <td style={{ padding: '14px 18px' }}><button type="button" disabled={busy} onClick={() => toggleAgent(agent)}>{String(agent.status || 'ACTIVE').toUpperCase() === 'ACTIVE' ? 'Deactivate' : 'Activate'}</button></td>
             </tr>
           ))}
         </DataTable>

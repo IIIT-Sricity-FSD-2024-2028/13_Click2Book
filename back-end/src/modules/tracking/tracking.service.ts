@@ -1,5 +1,8 @@
 import {
-  Injectable, NotFoundException, BadRequestException, ForbiddenException,
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { TrackingRepository } from './tracking.repository';
 import { TripRepository } from '../trip/trip.repository';
@@ -30,7 +33,9 @@ export class TrackingService {
     const trip = this.tripRepo.findById(tripId);
     if (!trip) throw new NotFoundException(`Trip ${tripId} not found`);
     if (trip.tripStatus !== TripStatus.IN_PROGRESS)
-      throw new BadRequestException('Trip is not in progress — start the trip before sending location updates');
+      throw new BadRequestException(
+        'Trip is not in progress — start the trip before sending location updates',
+      );
 
     const vehicle = this.vehicleRepo.findById(trip.vehicleId);
     if (!vehicle || vehicle.providerId !== dto.providerId)
@@ -50,15 +55,26 @@ export class TrackingService {
     if (!trip) throw new NotFoundException(`Trip ${tripId} not found`);
 
     if (role === Role.CUSTOMER) {
-      if (!customerId) throw new BadRequestException('customerId is required to view tracking as a customer');
+      if (!customerId)
+        throw new BadRequestException(
+          'customerId is required to view tracking as a customer',
+        );
       const holdsBooking = this.bookingRepo
         .findByTrip(tripId)
-        .some(b => b.customerId === customerId && b.bookingStatus !== BookingStatus.CANCELLED);
-      if (!holdsBooking) throw new ForbiddenException('You do not have a booking on this trip');
+        .some(
+          (b) =>
+            b.customerId === customerId &&
+            b.bookingStatus !== BookingStatus.CANCELLED,
+        );
+      if (!holdsBooking)
+        throw new ForbiddenException('You do not have a booking on this trip');
     }
 
     const location = this.trackingRepo.findByTrip(tripId);
-    if (!location) throw new NotFoundException(`No location has been reported yet for trip ${tripId}`);
+    if (!location)
+      throw new NotFoundException(
+        `No location has been reported yet for trip ${tripId}`,
+      );
     return successResponse('Current location', location);
   }
 
@@ -66,18 +82,30 @@ export class TrackingService {
     const trip = this.tripRepo.findById(tripId);
     if (!trip) throw new NotFoundException(`Trip ${tripId} not found`);
     if (trip.tripStatus !== TripStatus.IN_PROGRESS)
-      throw new BadRequestException('ETA is only available once the trip has departed');
+      throw new BadRequestException(
+        'ETA is only available once the trip has departed',
+      );
 
     const schedule = this.scheduleRepo.findById(trip.scheduleId);
-    if (!schedule) throw new NotFoundException(`Schedule for trip ${tripId} not found`);
+    if (!schedule)
+      throw new NotFoundException(`Schedule for trip ${tripId} not found`);
     const route = this.routeRepo.findById(schedule.routeId);
-    if (!route) throw new NotFoundException(`Route for trip ${tripId} not found`);
+    if (!route)
+      throw new NotFoundException(`Route for trip ${tripId} not found`);
 
     const totalHours = route.distance / AVG_SPEED_KMPH;
-    const departure = new Date(`${schedule.journeyDate}T${schedule.departureTime}`);
-    const elapsedHours = Math.max((Date.now() - departure.getTime()) / 3_600_000, 0);
+    const departure = new Date(
+      `${schedule.journeyDate}T${schedule.departureTime}`,
+    );
+    const elapsedHours = Math.max(
+      (Date.now() - departure.getTime()) / 3_600_000,
+      0,
+    );
     const remainingHours = Math.max(totalHours - elapsedHours, 0);
-    const percentComplete = totalHours > 0 ? Math.min(100, Math.round((elapsedHours / totalHours) * 100)) : 100;
+    const percentComplete =
+      totalHours > 0
+        ? Math.min(100, Math.round((elapsedHours / totalHours) * 100))
+        : 100;
 
     return successResponse('Estimated arrival', {
       tripId,

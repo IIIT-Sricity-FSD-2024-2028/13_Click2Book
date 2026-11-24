@@ -22,9 +22,10 @@ export class SupportTicketService {
     }
 
     const config = this.revenueSplitService.getActiveConfig();
-    const costApplied = dto.category === TicketCategory.SOS
-      ? 0
-      : (config.supportCostWeights[dto.category] ?? 0);
+    const costApplied =
+      dto.category === TicketCategory.SOS
+        ? 0
+        : (config.supportCostWeights[dto.category] ?? 0);
 
     const ticket = this.repo.create({
       bookingId: dto.bookingId,
@@ -40,7 +41,10 @@ export class SupportTicketService {
   }
 
   findByBooking(bookingId: string) {
-    return successResponse('Support tickets for booking', this.repo.findByBooking(bookingId));
+    return successResponse(
+      'Support tickets for booking',
+      this.repo.findByBooking(bookingId),
+    );
   }
 
   findAll(status?: 'open' | 'resolved', category?: TicketCategory) {
@@ -52,7 +56,11 @@ export class SupportTicketService {
 
   resolve(ticketId: string) {
     const ticket = this.repo.findById(ticketId);
-    if (!ticket) throw new NotFoundException(`Support ticket ${ticketId} not found`);
-    return successResponse('Support ticket resolved', this.repo.update(ticketId, { status: 'resolved' }));
+    if (!ticket)
+      throw new NotFoundException(`Support ticket ${ticketId} not found`);
+    return successResponse(
+      'Support ticket resolved',
+      this.repo.update(ticketId, { status: 'resolved' }),
+    );
   }
 }

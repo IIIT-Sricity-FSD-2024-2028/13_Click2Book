@@ -9,7 +9,13 @@ import { ScheduleModule } from '../schedule/schedule.module';
 import { RouteModule } from '../route/route.module';
 
 @Module({
-  imports: [TripModule, VehicleModule, BookingModule, ScheduleModule, RouteModule],
+  imports: [
+    TripModule,
+    VehicleModule,
+    BookingModule,
+    ScheduleModule,
+    RouteModule,
+  ],
   controllers: [TrackingController],
   providers: [TrackingService, TrackingRepository],
   exports: [TrackingService, TrackingRepository],

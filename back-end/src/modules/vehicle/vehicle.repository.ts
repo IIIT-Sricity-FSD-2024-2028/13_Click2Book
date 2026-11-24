@@ -1,9 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { Vehicle, BusSeatLayoutConfig, SeatLayoutItem, RouteAssignment, RoundTripSchedule, BusStatus } from './interfaces/vehicle.interface';
+import {
+  Vehicle,
+  BusSeatLayoutConfig,
+  SeatLayoutItem,
+  RouteAssignment,
+  RoundTripSchedule,
+  BusStatus,
+} from './interfaces/vehicle.interface';
 import { generateId } from '../../common/utils/id.util';
 import { VehicleType } from './enums/vehicle-type.enum';
 
-export function buildDefaultLayout(isSleeper: boolean, totalSeats: number): BusSeatLayoutConfig {
+export function buildDefaultLayout(
+  isSleeper: boolean,
+  totalSeats: number,
+): BusSeatLayoutConfig {
   const half = Math.ceil(totalSeats / 2);
   const upperHalf = totalSeats - half;
   const lowerDeck: SeatLayoutItem[] = [];
@@ -16,13 +26,40 @@ export function buildDefaultLayout(isSleeper: boolean, totalSeats: number): BusS
       const n2 = r * 3 + 2;
       const n3 = r * 3 + 3;
       if (n1 <= half) {
-        lowerDeck.push({ seatId: `L${n1}`, seatNumber: `L${n1}`, seatType: 'DOUBLE_SLEEPER', deck: 'LOWER', row: r + 1, col: 1, isActive: true, berthType: 'LOWER' });
+        lowerDeck.push({
+          seatId: `L${n1}`,
+          seatNumber: `L${n1}`,
+          seatType: 'DOUBLE_SLEEPER',
+          deck: 'LOWER',
+          row: r + 1,
+          col: 1,
+          isActive: true,
+          berthType: 'LOWER',
+        });
       }
       if (n2 <= half) {
-        lowerDeck.push({ seatId: `L${n2}`, seatNumber: `L${n2}`, seatType: 'DOUBLE_SLEEPER', deck: 'LOWER', row: r + 1, col: 2, isActive: true, berthType: 'LOWER' });
+        lowerDeck.push({
+          seatId: `L${n2}`,
+          seatNumber: `L${n2}`,
+          seatType: 'DOUBLE_SLEEPER',
+          deck: 'LOWER',
+          row: r + 1,
+          col: 2,
+          isActive: true,
+          berthType: 'LOWER',
+        });
       }
       if (n3 <= half) {
-        lowerDeck.push({ seatId: `L${n3}`, seatNumber: `L${n3}`, seatType: 'SINGLE_SLEEPER', deck: 'LOWER', row: r + 1, col: 4, isActive: true, berthType: 'LOWER' });
+        lowerDeck.push({
+          seatId: `L${n3}`,
+          seatNumber: `L${n3}`,
+          seatType: 'SINGLE_SLEEPER',
+          deck: 'LOWER',
+          row: r + 1,
+          col: 4,
+          isActive: true,
+          berthType: 'LOWER',
+        });
       }
     }
 
@@ -32,13 +69,40 @@ export function buildDefaultLayout(isSleeper: boolean, totalSeats: number): BusS
       const n2 = r * 3 + 2;
       const n3 = r * 3 + 3;
       if (n1 <= upperHalf) {
-        upperDeck.push({ seatId: `U${n1}`, seatNumber: `U${n1}`, seatType: 'DOUBLE_SLEEPER', deck: 'UPPER', row: r + 1, col: 1, isActive: true, berthType: 'UPPER' });
+        upperDeck.push({
+          seatId: `U${n1}`,
+          seatNumber: `U${n1}`,
+          seatType: 'DOUBLE_SLEEPER',
+          deck: 'UPPER',
+          row: r + 1,
+          col: 1,
+          isActive: true,
+          berthType: 'UPPER',
+        });
       }
       if (n2 <= upperHalf) {
-        upperDeck.push({ seatId: `U${n2}`, seatNumber: `U${n2}`, seatType: 'DOUBLE_SLEEPER', deck: 'UPPER', row: r + 1, col: 2, isActive: true, berthType: 'UPPER' });
+        upperDeck.push({
+          seatId: `U${n2}`,
+          seatNumber: `U${n2}`,
+          seatType: 'DOUBLE_SLEEPER',
+          deck: 'UPPER',
+          row: r + 1,
+          col: 2,
+          isActive: true,
+          berthType: 'UPPER',
+        });
       }
       if (n3 <= upperHalf) {
-        upperDeck.push({ seatId: `U${n3}`, seatNumber: `U${n3}`, seatType: 'SINGLE_SLEEPER', deck: 'UPPER', row: r + 1, col: 4, isActive: true, berthType: 'UPPER' });
+        upperDeck.push({
+          seatId: `U${n3}`,
+          seatNumber: `U${n3}`,
+          seatType: 'SINGLE_SLEEPER',
+          deck: 'UPPER',
+          row: r + 1,
+          col: 4,
+          isActive: true,
+          berthType: 'UPPER',
+        });
       }
     }
 
@@ -91,11 +155,18 @@ export function buildDefaultLayout(isSleeper: boolean, totalSeats: number): BusS
 export class VehicleRepository {
   private vehicles: Vehicle[] = [];
 
-  create(data: Omit<Vehicle, 'vehicleId' | 'remainingSeats'> & { remainingSeats?: number }): Vehicle {
+  create(
+    data: Omit<Vehicle, 'vehicleId' | 'remainingSeats'> & {
+      remainingSeats?: number;
+    },
+  ): Vehicle {
     const vehicle: Vehicle = {
       vehicleId: generateId('V'),
       ...data,
-      remainingSeats: data.remainingSeats !== undefined ? data.remainingSeats : data.totalSeats,
+      remainingSeats:
+        data.remainingSeats !== undefined
+          ? data.remainingSeats
+          : data.totalSeats,
       status: data.status || 'Available',
       routeHistory: [],
       createdAt: new Date().toISOString(),
@@ -125,17 +196,24 @@ export class VehicleRepository {
   }
 
   findByProvider(providerId: string): Vehicle[] {
-    return this.vehicles.filter((v) => v.providerId === providerId).map((v) => this.ensureLayout(v));
+    return this.vehicles
+      .filter((v) => v.providerId === providerId)
+      .map((v) => this.ensureLayout(v));
   }
 
   findByRegistration(vehicleNumber: string): Vehicle | undefined {
     const v = this.vehicles.find(
-      (v) => v.vehicleNumber.trim().toLowerCase() === vehicleNumber.trim().toLowerCase()
+      (v) =>
+        v.vehicleNumber.trim().toLowerCase() ===
+        vehicleNumber.trim().toLowerCase(),
     );
     return v ? this.ensureLayout(v) : undefined;
   }
 
-  saveSeatLayout(vehicleId: string, layout: BusSeatLayoutConfig): Vehicle | undefined {
+  saveSeatLayout(
+    vehicleId: string,
+    layout: BusSeatLayoutConfig,
+  ): Vehicle | undefined {
     const v = this.findById(vehicleId);
     if (!v) return undefined;
     v.seatLayout = {
@@ -145,11 +223,17 @@ export class VehicleRepository {
     return v;
   }
 
-  assignRoute(vehicleId: string, routeData: RouteAssignment): Vehicle | undefined {
+  assignRoute(
+    vehicleId: string,
+    routeData: RouteAssignment,
+  ): Vehicle | undefined {
     const v = this.findById(vehicleId);
     if (!v) return undefined;
     if (v.assignedRoute) {
-      v.routeHistory = [...(v.routeHistory || []), { ...v.assignedRoute, status: 'SUPERSEDED' }];
+      v.routeHistory = [
+        ...(v.routeHistory || []),
+        { ...v.assignedRoute, status: 'SUPERSEDED' },
+      ];
     }
     v.assignedRoute = {
       ...routeData,
@@ -160,11 +244,17 @@ export class VehicleRepository {
     return v;
   }
 
-  changeRoute(vehicleId: string, newRouteData: RouteAssignment): Vehicle | undefined {
+  changeRoute(
+    vehicleId: string,
+    newRouteData: RouteAssignment,
+  ): Vehicle | undefined {
     return this.assignRoute(vehicleId, newRouteData);
   }
 
-  saveRoundTripSchedules(vehicleId: string, scheduleData: RoundTripSchedule): Vehicle | undefined {
+  saveRoundTripSchedules(
+    vehicleId: string,
+    scheduleData: RoundTripSchedule,
+  ): Vehicle | undefined {
     const v = this.findById(vehicleId);
     if (!v) return undefined;
     v.roundTripSchedule = scheduleData;
@@ -179,30 +269,37 @@ export class VehicleRepository {
   }
 
   decrementSeat(vehicleId: string): boolean {
-    const v = this.vehicles.find(v => v.vehicleId === vehicleId);
+    const v = this.vehicles.find((v) => v.vehicleId === vehicleId);
     if (!v || v.remainingSeats <= 0) return false;
     v.remainingSeats--;
     return true;
   }
 
   incrementSeat(vehicleId: string): void {
-    const v = this.vehicles.find(v => v.vehicleId === vehicleId);
+    const v = this.vehicles.find((v) => v.vehicleId === vehicleId);
     if (v && v.remainingSeats < v.totalSeats) v.remainingSeats++;
   }
 
   update(vehicleId: string, data: Partial<Vehicle>): Vehicle | undefined {
-    const i = this.vehicles.findIndex(v => v.vehicleId === vehicleId);
+    const i = this.vehicles.findIndex((v) => v.vehicleId === vehicleId);
     if (i === -1) return undefined;
-    this.vehicles[i] = { ...this.vehicles[i], ...data, updatedAt: new Date().toISOString() };
+    this.vehicles[i] = {
+      ...this.vehicles[i],
+      ...data,
+      updatedAt: new Date().toISOString(),
+    };
     return this.vehicles[i];
   }
 
   remove(vehicleId: string): boolean {
-    const cleanId = (vehicleId || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanId = (vehicleId || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
     const i = this.vehicles.findIndex(
       (v) =>
         v.vehicleId.toLowerCase() === cleanId ||
-        v.vehicleNumber.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanId
+        v.vehicleNumber.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanId,
     );
     if (i === -1) return false;
     this.vehicles.splice(i, 1);
@@ -217,7 +314,9 @@ export class VehicleRepository {
     }
     const cleanP = providerId.trim().toLowerCase();
     const initial = this.vehicles.length;
-    this.vehicles = this.vehicles.filter((v) => (v.providerId || '').toLowerCase() !== cleanP);
+    this.vehicles = this.vehicles.filter(
+      (v) => (v.providerId || '').toLowerCase() !== cleanP,
+    );
     return initial - this.vehicles.length;
   }
 }

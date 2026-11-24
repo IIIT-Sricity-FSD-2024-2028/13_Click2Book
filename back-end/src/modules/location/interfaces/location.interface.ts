@@ -49,4 +49,3 @@ export interface LocationRequest {
   decidedBy?: string;
   rejectionReason?: string;
 }
-

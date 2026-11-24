@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { loginProvider } from '../services/api';
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, initialError = '' }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [remember, setRemember] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(initialError);
   const [loading, setLoading] = useState(false);
 
   const validate = () => {
@@ -32,11 +32,13 @@ export default function Login({ onLogin }) {
       sessionStorage.setItem('c2b_userEmail',   user.email);
       sessionStorage.setItem('c2b_loggedInId',  user.id);
       sessionStorage.setItem('c2b_role',        'PROVIDER');
+      sessionStorage.setItem('c2b_sessionVersion', String(user.sessionVersion ?? 0));
       if (remember) {
         localStorage.setItem('c2b_loggedIn',    'true');
         localStorage.setItem('c2b_userName',    user.name);
         localStorage.setItem('c2b_userEmail',   user.email);
         localStorage.setItem('c2b_loggedInId',  user.id);
+        localStorage.setItem('c2b_sessionVersion', String(user.sessionVersion ?? 0));
       }
       onLogin(user);
     } catch (err) {

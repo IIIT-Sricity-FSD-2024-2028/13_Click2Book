@@ -4,7 +4,13 @@ import { LoggerService } from '../logger/logger.service';
 
 /** Query-string keys that must never be logged */
 const SENSITIVE_QUERY_KEYS = new Set([
-  'password', 'token', 'secret', 'api_key', 'apikey', 'auth', 'authorization',
+  'password',
+  'token',
+  'secret',
+  'api_key',
+  'apikey',
+  'auth',
+  'authorization',
 ]);
 
 /**
@@ -15,7 +21,7 @@ function sanitiseQuery(query: string): string {
   if (!query) return '';
   return query
     .split('&')
-    .map(part => {
+    .map((part) => {
       const [key] = part.split('=');
       return SENSITIVE_QUERY_KEYS.has((key || '').toLowerCase())
         ? `${key}=[REDACTED]`
@@ -48,24 +54,25 @@ export class LoggingMiddleware implements NestMiddleware {
   constructor(private readonly logger: LoggerService) {}
 
   use(req: Request, res: Response, next: NextFunction): void {
-    const startMs   = Date.now();
-    const method    = req.method;
+    const startMs = Date.now();
+    const method = req.method;
     // req.originalUrl preserves the full path including the /api global prefix.
     // req.path is relative to the Express mount point and returns '/' in NestJS middleware.
-    const rawUrl    = req.originalUrl || req.url || '/';
+    const rawUrl = req.originalUrl || req.url || '/';
     const [rawPath, rawQs = ''] = rawUrl.split('?');
-    const safeQs    = rawQs ? sanitiseQuery(rawQs) : '';
-    const path      = safeQs ? `${rawPath}?${safeQs}` : rawPath;
-    const ip        = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
-                      || req.socket?.remoteAddress
-                      || 'unknown';
+    const safeQs = rawQs ? sanitiseQuery(rawQs) : '';
+    const path = safeQs ? `${rawPath}?${safeQs}` : rawPath;
+    const ip =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      req.socket?.remoteAddress ||
+      'unknown';
     const requestId: string = (req as any).requestId ?? 'none';
 
     // Hook into the response's 'finish' event — the status code is only
     // available after the response is sent, not before.
     res.on('finish', () => {
       const status = res.statusCode;
-      const ms     = Date.now() - startMs;
+      const ms = Date.now() - startMs;
 
       this.logger.logRequest(method, path, status, ms, {
         ip,

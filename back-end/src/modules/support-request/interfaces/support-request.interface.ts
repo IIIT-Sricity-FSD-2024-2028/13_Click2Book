@@ -15,4 +15,3 @@ export interface SupportRequest {
   resolvedAt?: string;
   resolvedBy?: string;
 }
-

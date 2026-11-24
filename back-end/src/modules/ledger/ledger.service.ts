@@ -1,4 +1,9 @@
-import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { LedgerRepository } from './ledger.repository';
 import { TripRepository } from '../trip/trip.repository';
 import { ScheduleRepository } from '../schedule/schedule.repository';
@@ -29,7 +34,8 @@ export class LedgerService {
     const trip = this.tripRepo.findById(tripId);
     if (!trip) throw new NotFoundException(`Trip ${tripId} not found`);
     const schedule = this.scheduleRepo.findById(trip.scheduleId);
-    if (!schedule) throw new NotFoundException(`Schedule ${trip.scheduleId} not found`);
+    if (!schedule)
+      throw new NotFoundException(`Schedule ${trip.scheduleId} not found`);
     // Data-integrity guard: every ledger row must resolve to a real Provider record.
     // A schedule.providerId with no matching Provider is a broken reference — refuse
     // to write a ledger row for it rather than silently persisting bad data.
@@ -49,12 +55,16 @@ export class LedgerService {
     // already being a single global singleton rather than per-admin.
     const [primaryAdmin] = this.adminRepo.findAll();
     if (!primaryAdmin) {
-      throw new NotFoundException('No admin record exists to own this ledger row');
+      throw new NotFoundException(
+        'No admin record exists to own this ledger row',
+      );
     }
 
     const config = this.revenueSplitService.getActiveConfig();
     const baseFare = toPaise(schedule.fare);
-    const platformCommission = Math.round((baseFare * config.commissionPct) / 100);
+    const platformCommission = Math.round(
+      (baseFare * config.commissionPct) / 100,
+    );
     const operatorPayout = baseFare - platformCommission;
     const convenienceFee = config.convenienceFeeFlat;
     const platformPool = platformCommission + convenienceFee;
@@ -94,7 +104,10 @@ export class LedgerService {
 
   // Called from SupportTicketService.create() whenever a wrapping ticket is raised for a booking.
   // Same no-ledger-is-fine reasoning as markCancelled above.
-  applySupportCost(bookingId: string, costPaise: number): TransactionLedger | undefined {
+  applySupportCost(
+    bookingId: string,
+    costPaise: number,
+  ): TransactionLedger | undefined {
     const ledger = this.ledgerRepo.findByBooking(bookingId);
     if (!ledger) return undefined;
     const supportCost = ledger.supportCost + costPaise;
@@ -109,12 +122,16 @@ export class LedgerService {
 
   findAll(status?: TransactionLedger['status']) {
     const rows = this.ledgerRepo.findAll();
-    return successResponse('All ledger rows', status ? rows.filter((r) => r.status === status) : rows);
+    return successResponse(
+      'All ledger rows',
+      status ? rows.filter((r) => r.status === status) : rows,
+    );
   }
 
   getByBooking(bookingId: string) {
     const ledger = this.ledgerRepo.findByBooking(bookingId);
-    if (!ledger) throw new NotFoundException(`Ledger for booking ${bookingId} not found`);
+    if (!ledger)
+      throw new NotFoundException(`Ledger for booking ${bookingId} not found`);
     return successResponse('Ledger entry', ledger);
   }
 
@@ -123,9 +140,17 @@ export class LedgerService {
     if (from) rows = rows.filter((r) => r.createdAt >= from);
     if (to) rows = rows.filter((r) => r.createdAt <= to);
 
-    const sum = (key: keyof Pick<TransactionLedger,
-      'baseFare' | 'operatorPayout' | 'platformCommission' | 'gatewayFee' | 'supportCost' | 'adminNet'>) =>
-      rows.reduce((total, r) => total + r[key], 0);
+    const sum = (
+      key: keyof Pick<
+        TransactionLedger,
+        | 'baseFare'
+        | 'operatorPayout'
+        | 'platformCommission'
+        | 'gatewayFee'
+        | 'supportCost'
+        | 'adminNet'
+      >,
+    ) => rows.reduce((total, r) => total + r[key], 0);
 
     return successResponse('Ledger summary', {
       count: rows.length,

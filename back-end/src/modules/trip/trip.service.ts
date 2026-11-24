@@ -1,4 +1,10 @@
-import { forwardRef, Inject, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { TripRepository } from './trip.repository';
 import { ScheduleRepository } from '../schedule/schedule.repository';
 import { VehicleRepository } from '../vehicle/vehicle.repository';
@@ -28,34 +34,51 @@ export class TripService {
 
   create(dto: CreateTripDto) {
     const schedule = this.scheduleRepo.findById(dto.scheduleId);
-    if (!schedule) throw new NotFoundException(`Schedule ${dto.scheduleId} not found`);
+    if (!schedule)
+      throw new NotFoundException(`Schedule ${dto.scheduleId} not found`);
     const vehicle = this.vehicleRepo.findById(dto.vehicleId);
-    if (!vehicle) throw new NotFoundException(`Vehicle ${dto.vehicleId} not found`);
-    const existing = this.tripRepo.findAll().find(
-      (t) => t.scheduleId === dto.scheduleId && t.vehicleId === dto.vehicleId
-    );
+    if (!vehicle)
+      throw new NotFoundException(`Vehicle ${dto.vehicleId} not found`);
+    const existing = this.tripRepo
+      .findAll()
+      .find(
+        (t) => t.scheduleId === dto.scheduleId && t.vehicleId === dto.vehicleId,
+      );
     if (existing) {
       this.seatRepo.initSeats(dto.vehicleId, vehicle.totalSeats);
-      return successResponse('Trip already exists and seats initialized', existing);
+      return successResponse(
+        'Trip already exists and seats initialized',
+        existing,
+      );
     }
 
     // Initialize seats for this vehicle
     this.seatRepo.initSeats(dto.vehicleId, vehicle.totalSeats);
-    const trip = this.tripRepo.create({ ...dto, tripStatus: TripStatus.SCHEDULED });
+    const trip = this.tripRepo.create({
+      ...dto,
+      tripStatus: TripStatus.SCHEDULED,
+    });
     return successResponse('Trip created and seats initialized', trip);
   }
 
   findAll(status?: TripStatus) {
-    const rawTrips = (status ? this.tripRepo.findByStatus(status) : this.tripRepo.findAll())
-      .filter((t) => Boolean(this.vehicleRepo.findById(t.vehicleId)));
+    const rawTrips = (
+      status ? this.tripRepo.findByStatus(status) : this.tripRepo.findAll()
+    ).filter((t) => Boolean(this.vehicleRepo.findById(t.vehicleId)));
     const enriched = rawTrips.map((t) => {
       const schedule = this.scheduleRepo.findById(t.scheduleId);
       const vehicle = this.vehicleRepo.findById(t.vehicleId);
       const route = schedule ? this.routeRepo.findById(schedule.routeId) : null;
-      const provider = schedule ? this.providerRepo.findById(schedule.providerId) : null;
-      const activeBookings = this.bookingRepo.findByTrip(t.tripId).filter(
-        (b) => b.bookingStatus === BookingStatus.PENDING || b.bookingStatus === BookingStatus.CONFIRMED,
-      ).length;
+      const provider = schedule
+        ? this.providerRepo.findById(schedule.providerId)
+        : null;
+      const activeBookings = this.bookingRepo
+        .findByTrip(t.tripId)
+        .filter(
+          (b) =>
+            b.bookingStatus === BookingStatus.PENDING ||
+            b.bookingStatus === BookingStatus.CONFIRMED,
+        ).length;
       const totalSeats = vehicle?.totalSeats || 40;
       const remainingSeats = Math.max(0, totalSeats - activeBookings);
       return {
@@ -66,8 +89,12 @@ export class TripService {
         via: (schedule as any)?.via || (route as any)?.via || '',
         departureTime: schedule?.departureTime || '08:00',
         arrivalTime: schedule?.arrivalTime || '12:00',
-        duration: schedule?.departureTime && schedule?.arrivalTime ? this.calcDuration(schedule.departureTime, schedule.arrivalTime) : '4h 00m',
-        journeyDate: schedule?.journeyDate || new Date().toISOString().split('T')[0],
+        duration:
+          schedule?.departureTime && schedule?.arrivalTime
+            ? this.calcDuration(schedule.departureTime, schedule.arrivalTime)
+            : '4h 00m',
+        journeyDate:
+          schedule?.journeyDate || new Date().toISOString().split('T')[0],
         busName: vehicle?.busName || 'Express Bus',
         vehicleType: vehicle?.vehicleType || 'AC',
         totalSeats,
@@ -87,7 +114,7 @@ export class TripService {
   private calcDuration(dep: string, arr: string): string {
     const [dH, dM] = dep.split(':').map(Number);
     const [aH, aM] = arr.split(':').map(Number);
-    let mins = (aH * 60 + aM) - (dH * 60 + dM);
+    let mins = aH * 60 + aM - (dH * 60 + dM);
     if (mins < 0) mins += 24 * 60; // overnight trip
     const h = Math.floor(mins / 60);
     const m = mins % 60;
@@ -106,8 +133,10 @@ export class TripService {
     const startB = fullRouteStops.indexOf(bookingFrom);
     const endB = fullRouteStops.indexOf(bookingTo);
     if ([startA, endA, startB, endB].some((index) => index < 0)) return true;
-    return Math.min(startA, endA) < Math.max(startB, endB) &&
-      Math.min(startB, endB) < Math.max(startA, endA);
+    return (
+      Math.min(startA, endA) < Math.max(startB, endB) &&
+      Math.min(startB, endB) < Math.max(startA, endA)
+    );
   }
 
   // Search trips by source, destination, date, and departure time
@@ -117,8 +146,20 @@ export class TripService {
     const dst = (destination || '').trim().toLowerCase();
 
     const norm = (c: string) => {
-      const s = (c || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (['visakhapatnam', 'vishakapatnam', 'vishakapatanam', 'vizag', 'vskp'].includes(s)) return 'visakhapatnam';
+      const s = (c || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+      if (
+        [
+          'visakhapatnam',
+          'vishakapatnam',
+          'vishakapatanam',
+          'vizag',
+          'vskp',
+        ].includes(s)
+      )
+        return 'visakhapatnam';
       if (['chennai', 'madras'].includes(s)) return 'chennai';
       if (['bangalore', 'bengaluru'].includes(s)) return 'bangalore';
       if (['hyderabad', 'secunderabad'].includes(s)) return 'hyderabad';
@@ -135,15 +176,36 @@ export class TripService {
     const nowTime = `${curH}:${curM}`;
 
     const NH16_COASTAL_UP = [
-      'chennai', 'tada', 'sricity', 'nayudupeta', 'gudur', 'nellore', 'kavali',
-      'ongole', 'chilakaluripet', 'guntur', 'vijayawada', 'eluru', 'tadepalligudem',
-      'tanuku', 'rajahmundry', 'samalkot', 'kakinada', 'annavaram', 'tuni', 'anakapalle', 'visakhapatnam'
+      'chennai',
+      'tada',
+      'sricity',
+      'nayudupeta',
+      'gudur',
+      'nellore',
+      'kavali',
+      'ongole',
+      'chilakaluripet',
+      'guntur',
+      'vijayawada',
+      'eluru',
+      'tadepalligudem',
+      'tanuku',
+      'rajahmundry',
+      'samalkot',
+      'kakinada',
+      'annavaram',
+      'tuni',
+      'anakapalle',
+      'visakhapatnam',
     ];
     const NH16_COASTAL_DN = [...NH16_COASTAL_UP].reverse();
 
     const results = allTrips
-      .map(trip => {
-        if (trip.tripStatus === TripStatus.COMPLETED || trip.tripStatus === TripStatus.CANCELLED) {
+      .map((trip) => {
+        if (
+          trip.tripStatus === TripStatus.COMPLETED ||
+          trip.tripStatus === TripStatus.CANCELLED
+        ) {
           return null;
         }
         const schedule = this.scheduleRepo.findById(trip.scheduleId);
@@ -159,8 +221,14 @@ export class TripService {
 
         const rSrc = norm(route.source);
         const rDst = norm(route.destination);
-        const directSMatch = !srcNorm || rSrc.includes(srcNorm) || route.source.toLowerCase().includes(src);
-        const directDMatch = !dstNorm || rDst.includes(dstNorm) || route.destination.toLowerCase().includes(dst);
+        const directSMatch =
+          !srcNorm ||
+          rSrc.includes(srcNorm) ||
+          route.source.toLowerCase().includes(src);
+        const directDMatch =
+          !dstNorm ||
+          rDst.includes(dstNorm) ||
+          route.destination.toLowerCase().includes(dst);
         const directMatch = directSMatch && directDMatch;
 
         // Build complete stop sequence for intermediate stop matching
@@ -168,9 +236,12 @@ export class TripService {
         const viaList = viaStr
           ? viaStr.split(',').map((s: string) => norm(s.trim()))
           : [];
-        const assignedStops = (vehicle?.assignedRoute?.intermediateStops || []).map((s: string) => norm(s));
-        
-        let intermediateStopsList = viaList.length > 0 ? viaList : assignedStops;
+        const assignedStops = (
+          vehicle?.assignedRoute?.intermediateStops || []
+        ).map((s: string) => norm(s));
+
+        let intermediateStopsList =
+          viaList.length > 0 ? viaList : assignedStops;
         if (intermediateStopsList.length === 0) {
           if (rSrc === 'chennai' && rDst === 'visakhapatnam') {
             intermediateStopsList = NH16_COASTAL_UP.slice(1, -1);
@@ -181,16 +252,20 @@ export class TripService {
 
         const fullRouteStops = [rSrc, ...intermediateStopsList, rDst];
         const fIdx = srcNorm ? fullRouteStops.indexOf(srcNorm) : 0;
-        const tIdx = dstNorm ? fullRouteStops.indexOf(dstNorm) : fullRouteStops.length - 1;
+        const tIdx = dstNorm
+          ? fullRouteStops.indexOf(dstNorm)
+          : fullRouteStops.length - 1;
         const intermediateMatch = fIdx !== -1 && tIdx !== -1 && fIdx < tIdx;
 
         if (!directMatch && !intermediateMatch) return null;
 
         const overlappingSeatNumbers = new Set(
-          this.bookingRepo.findByTrip(trip.tripId)
-            .filter((b) =>
-              b.bookingStatus === BookingStatus.PENDING ||
-              b.bookingStatus === BookingStatus.CONFIRMED,
+          this.bookingRepo
+            .findByTrip(trip.tripId)
+            .filter(
+              (b) =>
+                b.bookingStatus === BookingStatus.PENDING ||
+                b.bookingStatus === BookingStatus.CONFIRMED,
             )
             .filter((b) => {
               if (!b.from || !b.to) return true;
@@ -204,13 +279,23 @@ export class TripService {
             })
             .map((b) => b.seatNumber),
         );
-        const remainingSeats = Math.max(0, (vehicle.totalSeats || 40) - overlappingSeatNumbers.size);
+        const remainingSeats = Math.max(
+          0,
+          (vehicle.totalSeats || 40) - overlappingSeatNumbers.size,
+        );
         if (remainingSeats <= 0) return null;
 
         // If journeyDate is specified on schedule, match against requested date.
         // Seed schedules (SCH001-SCH027) serve as daily recurring templates for any searched date.
-        const isSeedSchedule = /^SCH0(0[1-9]|1[0-9]|2[0-7])$/.test(schedule.scheduleId);
-        if (!isSeedSchedule && schedule.journeyDate && date && schedule.journeyDate !== date) {
+        const isSeedSchedule = /^SCH0(0[1-9]|1[0-9]|2[0-7])$/.test(
+          schedule.scheduleId,
+        );
+        if (
+          !isSeedSchedule &&
+          schedule.journeyDate &&
+          date &&
+          schedule.journeyDate !== date
+        ) {
           return null;
         }
 
@@ -223,40 +308,52 @@ export class TripService {
 
         const v = vehicle as any;
         return {
-          tripId:         trip.tripId,
-          scheduleId:     schedule.scheduleId,
-          vehicleId:      vehicle.vehicleId,
-          busName:        v.busName || vehicle.vehicleNumber,
-          providerId:     schedule.providerId,
-          providerName:   provider.name,
-          source:         route.source,
-          destination:    route.destination,
-          departureTime:  schedule.departureTime,
-          arrivalTime:    schedule.arrivalTime,
-          duration:       this.calcDuration(schedule.departureTime, schedule.arrivalTime),
-          journeyDate:    date || schedule.journeyDate,   // show user's requested date
-          fare:           schedule.fare,
-          price:          schedule.fare,
+          tripId: trip.tripId,
+          scheduleId: schedule.scheduleId,
+          vehicleId: vehicle.vehicleId,
+          busName: v.busName || vehicle.vehicleNumber,
+          providerId: schedule.providerId,
+          providerName: provider.name,
+          source: route.source,
+          destination: route.destination,
+          departureTime: schedule.departureTime,
+          arrivalTime: schedule.arrivalTime,
+          duration: this.calcDuration(
+            schedule.departureTime,
+            schedule.arrivalTime,
+          ),
+          journeyDate: date || schedule.journeyDate, // show user's requested date
+          fare: schedule.fare,
+          price: schedule.fare,
           availableSeats: remainingSeats,
-          totalSeats:     vehicle.totalSeats,
-          vehicleType:    vehicle.vehicleType,
-          amenities:      v.amenities || [],
-          boardingPoint:  intermediateMatch ? (source || route.source) : (v.boardingPoint || route.source),
-          droppingPoint:  intermediateMatch ? (destination || route.destination) : (v.droppingPoint || route.destination),
-          rating:         v.rating || 4.8,
-          tripStatus:     trip.tripStatus,
-          distance:       route.distance,
-          via:            viaStr || undefined,
-          seatLayout:     vehicle.seatLayout || null,
+          totalSeats: vehicle.totalSeats,
+          vehicleType: vehicle.vehicleType,
+          amenities: v.amenities || [],
+          boardingPoint: intermediateMatch
+            ? source || route.source
+            : v.boardingPoint || route.source,
+          droppingPoint: intermediateMatch
+            ? destination || route.destination
+            : v.droppingPoint || route.destination,
+          rating: v.rating || 4.8,
+          tripStatus: trip.tripStatus,
+          distance: route.distance,
+          via: viaStr || undefined,
+          seatLayout: vehicle.seatLayout || null,
         };
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)
       .sort((a, b) => a.departureTime.localeCompare(b.departureTime));
 
     if (results.length === 0)
-      throw new NotFoundException(`No available trips found from ${source} to ${destination} on ${date || 'today'}`);
+      throw new NotFoundException(
+        `No available trips found from ${source} to ${destination} on ${date || 'today'}`,
+      );
 
-    return successResponse(`${results.length} bus(es) found from ${source} to ${destination}`, results);
+    return successResponse(
+      `${results.length} bus(es) found from ${source} to ${destination}`,
+      results,
+    );
   }
 
   findById(id: string) {
@@ -280,15 +377,24 @@ export class TripService {
     if (!trip) throw new NotFoundException(`Trip ${id} not found`);
     if (trip.tripStatus !== TripStatus.SCHEDULED)
       throw new BadRequestException('Only SCHEDULED trips can depart');
-    return successResponse('Trip departed — now in progress', this.tripRepo.update(id, { tripStatus: TripStatus.IN_PROGRESS }));
+    return successResponse(
+      'Trip departed — now in progress',
+      this.tripRepo.update(id, { tripStatus: TripStatus.IN_PROGRESS }),
+    );
   }
 
   // Arrival / Completion: moves a trip from IN_PROGRESS / SCHEDULED into COMPLETED
   complete(id: string) {
     const trip = this.tripRepo.findById(id);
     if (!trip) throw new NotFoundException(`Trip ${id} not found`);
-    if (trip.tripStatus !== TripStatus.IN_PROGRESS && trip.tripStatus !== TripStatus.SCHEDULED)
+    if (
+      trip.tripStatus !== TripStatus.IN_PROGRESS &&
+      trip.tripStatus !== TripStatus.SCHEDULED
+    )
       throw new BadRequestException('Only active trips can be completed');
-    return successResponse('Trip completed — destination reached', this.tripRepo.update(id, { tripStatus: TripStatus.COMPLETED }));
+    return successResponse(
+      'Trip completed — destination reached',
+      this.tripRepo.update(id, { tripStatus: TripStatus.COMPLETED }),
+    );
   }
 }

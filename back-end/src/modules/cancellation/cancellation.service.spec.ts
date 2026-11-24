@@ -43,7 +43,9 @@ describe('CancellationService (Multi-seat cancellation & refunds)', () => {
     seatRepo = new SeatRepository();
     seatRepo.initSeats('V001', 45);
     const offerService = new OfferService(new OfferRepository());
-    const revenueSplitService = new RevenueSplitService(new RevenueSplitRepository());
+    const revenueSplitService = new RevenueSplitService(
+      new RevenueSplitRepository(),
+    );
     const ledgerService = new LedgerService(
       new LedgerRepository(),
       tripRepo,
@@ -78,8 +80,16 @@ describe('CancellationService (Multi-seat cancellation & refunds)', () => {
 
     refundRepo = new RefundRepository();
     const paymentRepo = new PaymentRepository();
-    const paymentService = new PaymentService(paymentRepo, bookingRepo, bookingService);
-    refundService = new RefundService(refundRepo, cancellationRepo, paymentService);
+    const paymentService = new PaymentService(
+      paymentRepo,
+      bookingRepo,
+      bookingService,
+    );
+    refundService = new RefundService(
+      refundRepo,
+      cancellationRepo,
+      paymentService,
+    );
   });
 
   it('cancels a single confirmed booking and releases the vehicle seat', () => {
@@ -103,9 +113,9 @@ describe('CancellationService (Multi-seat cancellation & refunds)', () => {
   it('rejects double cancellation with ConflictException', () => {
     cancellationService.cancel({ bookingId: 'B001' });
 
-    expect(() =>
-      cancellationService.cancel({ bookingId: 'B001' }),
-    ).toThrow(ConflictException);
+    expect(() => cancellationService.cancel({ bookingId: 'B001' })).toThrow(
+      ConflictException,
+    );
   });
 
   it('handles multi-seat cancellations independently and verifies each seat release', () => {
@@ -125,8 +135,12 @@ describe('CancellationService (Multi-seat cancellation & refunds)', () => {
     expect(seatRepo.findSeat('V001', 6)?.seatStatus).toBe(SeatStatus.AVAILABLE);
 
     // Verify both are marked CANCELLED in repository
-    expect(bookingRepo.findById('B001')?.bookingStatus).toBe(BookingStatus.CANCELLED);
-    expect(bookingRepo.findById('B002')?.bookingStatus).toBe(BookingStatus.CANCELLED);
+    expect(bookingRepo.findById('B001')?.bookingStatus).toBe(
+      BookingStatus.CANCELLED,
+    );
+    expect(bookingRepo.findById('B002')?.bookingStatus).toBe(
+      BookingStatus.CANCELLED,
+    );
   });
 
   it('allows refund requests for all seats in a multi-seat cancellation', () => {
@@ -135,8 +149,14 @@ describe('CancellationService (Multi-seat cancellation & refunds)', () => {
     cancellationService.cancel({ bookingId: 'B002' });
 
     // Request refund for each seat
-    const ref1 = refundService.request({ bookingId: 'B001', refundAmount: 550 });
-    const ref2 = refundService.request({ bookingId: 'B002', refundAmount: 550 });
+    const ref1 = refundService.request({
+      bookingId: 'B001',
+      refundAmount: 550,
+    });
+    const ref2 = refundService.request({
+      bookingId: 'B002',
+      refundAmount: 550,
+    });
 
     expect(ref1.success).toBe(true);
     expect(ref1.data.refundStatus).toBe(RefundStatus.REQUESTED);

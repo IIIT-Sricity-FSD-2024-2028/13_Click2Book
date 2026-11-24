@@ -32,11 +32,34 @@ export function getCustomerEmail() {
   return sessionStorage.getItem('c2b_userEmail') || localStorage.getItem('c2b_userEmail') || '';
 }
 
+function clearCustomerSession() {
+  for (const storage of [sessionStorage, localStorage]) {
+    [
+      'c2b_loggedIn',
+      'c2b_loggedInId',
+      'c2b_userId',
+      'c2b_userName',
+      'c2b_userEmail',
+      'c2b_email',
+      'c2b_userPhone',
+      'c2b_user_avatar',
+      'c2b_role',
+      'c2b_sessionVersion',
+    ].forEach((key) => storage.removeItem(key));
+  }
+}
+
 export async function apiFetch(path, options = {}) {
   const role = getRole();
+  const userId = getCustomerId();
+  const sessionVersion =
+    sessionStorage.getItem('c2b_sessionVersion') ||
+    localStorage.getItem('c2b_sessionVersion');
   const headers = {
     'Content-Type': 'application/json',
     'x-role': role,
+    ...(userId ? { 'x-user-id': userId } : {}),
+    ...(sessionVersion ? { 'x-session-version': sessionVersion } : {}),
     ...(options.headers || {}),
   };
 
@@ -65,7 +88,24 @@ export async function apiFetch(path, options = {}) {
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.success === false) {
     const errorMsg = json.message || `API error ${res.status}`;
-    const err = new Error(Array.isArray(errorMsg) ? errorMsg.join(', ') : errorMsg);
+    const message = Array.isArray(errorMsg) ? errorMsg.join(', ') : errorMsg;
+    if (
+      typeof message === 'string' &&
+      (message.includes('account has been deactivated') ||
+        message.includes('session is no longer valid'))
+    ) {
+      clearCustomerSession();
+      window.dispatchEvent(
+        new CustomEvent('c2b_account_deactivated', {
+          detail: {
+            message: message.includes('account has been deactivated')
+              ? 'Your account has been deactivated by the administrator. You cannot log in. Please contact customer support for assistance.'
+              : 'Your session is no longer valid. Please log in again.',
+          },
+        }),
+      );
+    }
+    const err = new Error(message);
     err.status = res.status;
     throw err;
   }

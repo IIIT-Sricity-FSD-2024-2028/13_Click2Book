@@ -20,11 +20,17 @@ export class PayoutsService {
 
   getSummary(groupBy: string = 'providerId', from?: string, to?: string) {
     if (!['providerId', 'adminId', 'agentId'].includes(groupBy)) {
-      throw new BadRequestException(`Invalid groupBy '${groupBy}'. Expected providerId, adminId, or agentId.`);
+      throw new BadRequestException(
+        `Invalid groupBy '${groupBy}'. Expected providerId, adminId, or agentId.`,
+      );
     }
 
     if (groupBy === 'agentId') return this.summarizeByAgent(from, to);
-    return this.summarizeByLedgerField(groupBy as 'providerId' | 'adminId', from, to);
+    return this.summarizeByLedgerField(
+      groupBy as 'providerId' | 'adminId',
+      from,
+      to,
+    );
   }
 
   private inRange(createdAt: string, from?: string, to?: string): boolean {
@@ -37,8 +43,13 @@ export class PayoutsService {
   // booking's operator was never actually paid for it. adminId totals sum(adminNet)
   // over ALL rows including cancelled ones, since the platform's commission and
   // convenience fee are retained regardless of cancellation (see markCancelled()).
-  private summarizeByLedgerField(field: 'providerId' | 'adminId', from?: string, to?: string) {
-    const rows = this.ledgerRepo.findAll()
+  private summarizeByLedgerField(
+    field: 'providerId' | 'adminId',
+    from?: string,
+    to?: string,
+  ) {
+    const rows = this.ledgerRepo
+      .findAll()
       .filter((r) => this.inRange(r.createdAt, from, to))
       .filter((r) => field === 'adminId' || r.status !== 'cancelled');
 
@@ -51,12 +62,18 @@ export class PayoutsService {
       groups.set(key, g);
     }
 
-    const resolveLabel = field === 'providerId'
-      ? (id: string) => this.providerRepo.findById(id)?.name
-      : (id: string) => this.adminRepo.findById(id)?.name;
+    const resolveLabel =
+      field === 'providerId'
+        ? (id: string) => this.providerRepo.findById(id)?.name
+        : (id: string) => this.adminRepo.findById(id)?.name;
 
     const result = Array.from(groups.entries())
-      .map(([id, g]) => ({ id, label: resolveLabel(id) ?? id, total: g.total, count: g.count }))
+      .map(([id, g]) => ({
+        id,
+        label: resolveLabel(id) ?? id,
+        total: g.total,
+        count: g.count,
+      }))
       .sort((a, b) => b.total - a.total);
 
     return successResponse('Payouts summary', result);
@@ -65,7 +82,8 @@ export class PayoutsService {
   // Unassigned tickets (no agentId) are deliberately excluded from this grouping —
   // they remain visible individually via GET /support-ticket/:bookingId.
   private summarizeByAgent(from?: string, to?: string) {
-    const tickets = this.supportTicketRepo.findAll()
+    const tickets = this.supportTicketRepo
+      .findAll()
       .filter((t) => !!t.agentId)
       .filter((t) => this.inRange(t.createdAt, from, to));
 
@@ -79,7 +97,12 @@ export class PayoutsService {
     }
 
     const result = Array.from(groups.entries())
-      .map(([id, g]) => ({ id, label: this.supportRepo.findById(id)?.name ?? id, total: g.total, count: g.count }))
+      .map(([id, g]) => ({
+        id,
+        label: this.supportRepo.findById(id)?.name ?? id,
+        total: g.total,
+        count: g.count,
+      }))
       .sort((a, b) => b.total - a.total);
 
     return successResponse('Payouts summary', result);

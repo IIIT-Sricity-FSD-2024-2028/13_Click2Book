@@ -6,7 +6,10 @@ import { join } from 'path';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/exceptions/global-exception.filter';
 import { LoggerService } from './common/logger/logger.service';
-import { ensureUploadDir, PROFILE_UPLOAD_DIR } from './common/middleware/upload.middleware';
+import {
+  ensureUploadDir,
+  PROFILE_UPLOAD_DIR,
+} from './common/middleware/upload.middleware';
 import { initSeededVehicleSeats } from './seed/init-vehicle-seats.seed';
 
 async function bootstrap() {
@@ -51,11 +54,13 @@ async function bootstrap() {
     allowedHeaders: [
       'Content-Type',
       'Accept',
-      'x-role',        // Click2Book RBAC header (required by RolesGuard)
-      'x-request-id',  // request correlation header (Phase 3B)
+      'x-role', // Click2Book RBAC header (required by RolesGuard)
+      'x-user-id', // live account identity for status checks
+      'x-session-version', // revoked whenever the account is deactivated
+      'x-request-id', // request correlation header (Phase 3B)
       'x-admin-email', // who changed platform settings (Super Admin)
     ],
-    exposedHeaders: ['x-request-id'],  // allow client to read correlation ID
+    exposedHeaders: ['x-request-id'], // allow client to read correlation ID
   });
 
   // Global validation pipe
@@ -120,7 +125,7 @@ All responses follow:
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
-  SwaggerModule.setup('api', app, document);  // also serve at /api
+  SwaggerModule.setup('api', app, document); // also serve at /api
 
   const PORT = process.env.PORT || 3000;
   await app.listen(PORT);

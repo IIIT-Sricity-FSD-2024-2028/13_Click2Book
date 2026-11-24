@@ -96,6 +96,7 @@ export default function App() {
       id:    sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001',
     };
   });
+  const [accountAccessError, setAccountAccessError] = useState('');
 
   /* ── Tab / navigation state ── */
   const [activeTab, setActiveTabState] = useState(getTabFromHash);
@@ -111,6 +112,16 @@ export default function App() {
     const onHash = () => setActiveTabState(getTabFromHash());
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  useEffect(() => {
+    const onDeactivated = (event) => {
+      setProvider(null);
+      setAccountAccessError(event.detail?.message || 'Your service provider account has been deactivated by the administrator. You cannot log in. Please contact customer support for assistance.');
+      window.location.hash = '';
+    };
+    window.addEventListener('c2b_account_deactivated', onDeactivated);
+    return () => window.removeEventListener('c2b_account_deactivated', onDeactivated);
   }, []);
 
   /* ── Notifications ── */
@@ -168,6 +179,7 @@ export default function App() {
 
   /* ── Login / Logout ── */
   const handleLogin = useCallback((user) => {
+    setAccountAccessError('');
     setProvider(user);
     setActiveTab('dashboard');
   }, [setActiveTab]);
@@ -178,6 +190,7 @@ export default function App() {
     localStorage.removeItem('c2b_userName');
     localStorage.removeItem('c2b_userEmail');
     localStorage.removeItem('c2b_loggedInId');
+    localStorage.removeItem('c2b_sessionVersion');
     setProvider(null);
     window.location.hash = '';
   }, []);
@@ -206,7 +219,7 @@ export default function App() {
   if (!provider) {
     return (
       <>
-        <Login onLogin={handleLogin} />
+        <Login onLogin={handleLogin} initialError={accountAccessError} />
         <Toast toasts={toasts} onDismiss={dismissToast} />
       </>
     );

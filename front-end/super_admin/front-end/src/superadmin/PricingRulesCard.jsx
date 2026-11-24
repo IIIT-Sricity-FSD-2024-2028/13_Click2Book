@@ -87,8 +87,8 @@ export default function PricingRulesCard() {
       <div className="card-title">Checkout Fees & Refund Rules</div>
       <div className="card-sub">
         What customers pay at checkout and get back when they cancel.
-        {saved &&
-          !saved.updatedAt?.startsWith('1970') &&
+        {saved?.updatedAt &&
+          !saved.updatedAt.startsWith('1970') &&
           ` Last saved ${saved.updatedAt.replace('T', ' ').slice(0, 16)} by ${saved.updatedBy}.`}
       </div>
       {f && (

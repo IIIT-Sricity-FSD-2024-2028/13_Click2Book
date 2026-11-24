@@ -13,11 +13,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   constructor(private readonly logger: LoggerService) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
-    const ctx      = host.switchToHttp();
+    const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const request  = ctx.getRequest<Request>();
+    const request = ctx.getRequest<Request>();
 
-    let status  = HttpStatus.INTERNAL_SERVER_ERROR;
+    let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal server error';
 
     if (exception instanceof HttpException) {
@@ -30,14 +30,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     // ── File logging (does NOT affect client response) ──────────────────────
-    const method    = request?.method ?? 'UNKNOWN';
-    const url       = request?.originalUrl ?? request?.url ?? 'UNKNOWN';
+    const method = request?.method ?? 'UNKNOWN';
+    const url = request?.originalUrl ?? request?.url ?? 'UNKNOWN';
     const requestId = (request as any)?.requestId ?? 'none';
-    const finalMsg  = Array.isArray(message) ? message.join(', ') : message;
+    const finalMsg = Array.isArray(message) ? message.join(', ') : message;
 
     if (status >= 500) {
       // 5xx — unexpected server error: log with full stack trace to error.log
-      const stack = exception instanceof Error ? exception.stack : String(exception);
+      const stack =
+        exception instanceof Error ? exception.stack : String(exception);
       this.logger.error(
         `[${status}] ${method} ${url} — ${finalMsg}`,
         stack,

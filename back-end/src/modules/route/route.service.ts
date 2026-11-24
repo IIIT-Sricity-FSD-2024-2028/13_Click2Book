@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { RouteRepository } from './route.repository';
 import { CreateRouteDto } from './dto/route.dto';
 import { successResponse } from '../../common/utils/response.util';
@@ -24,7 +28,10 @@ export class RouteService {
       );
     }
 
-    const existing = this.routeRepo.findBySourceAndDestination(dto.source, dto.destination);
+    const existing = this.routeRepo.findBySourceAndDestination(
+      dto.source,
+      dto.destination,
+    );
     if (existing && existing.length > 0) {
       return successResponse('Route already exists', existing[0]);
     }
@@ -43,7 +50,10 @@ export class RouteService {
   }
 
   search(source: string, destination: string) {
-    const routes = this.routeRepo.findBySourceAndDestination(source, destination);
+    const routes = this.routeRepo.findBySourceAndDestination(
+      source,
+      destination,
+    );
     return successResponse(`Routes from ${source} to ${destination}`, routes);
   }
 
@@ -54,7 +64,8 @@ export class RouteService {
   }
 
   remove(id: string) {
-    if (!this.routeRepo.findById(id)) throw new NotFoundException(`Route ${id} not found`);
+    if (!this.routeRepo.findById(id))
+      throw new NotFoundException(`Route ${id} not found`);
     this.routeRepo.remove(id);
     return successResponse('Route deleted');
   }

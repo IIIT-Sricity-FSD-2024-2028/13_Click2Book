@@ -1,5 +1,20 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiHeader, ApiQuery } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiParam,
+  ApiHeader,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from './dto/booking.dto';
 import { BookingStatus } from './enums/booking-status.enum';
@@ -15,14 +30,26 @@ export class BookingController {
 
   @Post()
   @Roles(Role.CUSTOMER)
-  @ApiOperation({ summary: 'Create a new booking (Customer) — returns PENDING booking' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
-  create(@Body() dto: CreateBookingDto) { return this.bookingService.create(dto); }
+  @ApiOperation({
+    summary: 'Create a new booking (Customer) — returns PENDING booking',
+  })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'CUSTOMER' },
+  })
+  create(@Body() dto: CreateBookingDto) {
+    return this.bookingService.create(dto);
+  }
 
   @Post('historical')
   @Roles(Role.CUSTOMER, Role.ADMIN)
   @ApiOperation({ summary: 'Register a historical or legacy booking' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'CUSTOMER' },
+  })
   registerHistorical(@Body() body: any) {
     return this.bookingService.registerHistorical(body);
   }
@@ -40,7 +67,11 @@ export class BookingController {
   @Roles(Role.CUSTOMER, Role.ADMIN)
   @ApiOperation({ summary: 'Get all bookings for a customer' })
   @ApiParam({ name: 'customerId', example: 'C001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'CUSTOMER' },
+  })
   findByCustomer(@Param('customerId') customerId: string) {
     return this.bookingService.findByCustomer(customerId);
   }
@@ -49,7 +80,11 @@ export class BookingController {
   @Roles(Role.PROVIDER, Role.ADMIN)
   @ApiOperation({ summary: 'Get active bookings for a trip (Provider)' })
   @ApiParam({ name: 'tripId', example: 'T001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
   findByTrip(@Param('tripId') tripId: string) {
     return this.bookingService.findByTrip(tripId);
   }
@@ -58,20 +93,38 @@ export class BookingController {
   @Roles(Role.CUSTOMER, Role.ADMIN)
   @ApiOperation({ summary: 'Get booking by ID' })
   @ApiParam({ name: 'id', example: 'B001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
-  findOne(@Param('id') id: string) { return this.bookingService.findById(id); }
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'CUSTOMER' },
+  })
+  findOne(@Param('id') id: string) {
+    return this.bookingService.findById(id);
+  }
 
   @Patch(':id/confirm')
   @Roles(Role.CUSTOMER, Role.ADMIN)
   @ApiOperation({ summary: 'Confirm booking after payment (Customer/Admin)' })
   @ApiParam({ name: 'id', example: 'B001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
-  confirm(@Param('id') id: string) { return this.bookingService.confirm(id); }
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'CUSTOMER' },
+  })
+  confirm(@Param('id') id: string) {
+    return this.bookingService.confirm(id);
+  }
 
   @Patch(':id/cancel')
   @Roles(Role.CUSTOMER, Role.ADMIN)
   @ApiOperation({ summary: 'Cancel a confirmed booking (Customer/Admin)' })
   @ApiParam({ name: 'id', example: 'B001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
-  cancel(@Param('id') id: string) { return this.bookingService.cancel(id); }
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'CUSTOMER' },
+  })
+  cancel(@Param('id') id: string) {
+    return this.bookingService.cancel(id);
+  }
 }

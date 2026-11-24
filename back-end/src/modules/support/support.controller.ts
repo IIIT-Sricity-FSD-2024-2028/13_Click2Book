@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiHeader } from '@nestjs/swagger';
 import { SupportService } from './support.service';
 import { CreateSupportStaffDto } from './dto/support-staff.dto';
@@ -16,20 +24,26 @@ export class SupportController {
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Add support staff (Admin only)' })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
-  create(@Body() dto: CreateSupportStaffDto) { return this.supportService.create(dto); }
+  create(@Body() dto: CreateSupportStaffDto) {
+    return this.supportService.create(dto);
+  }
 
   @Get()
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Get all support staff (Admin only)' })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
-  findAll() { return this.supportService.findAll(); }
+  findAll() {
+    return this.supportService.findAll();
+  }
 
   @Get(':id')
   @Roles(Role.ADMIN, Role.SUPPORT)
   @ApiOperation({ summary: 'Get support staff by ID' })
   @ApiParam({ name: 'id', example: 'SUP001' })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
-  findOne(@Param('id') id: string) { return this.supportService.findById(id); }
+  findOne(@Param('id') id: string) {
+    return this.supportService.findById(id);
+  }
 
   @Patch(':id/status')
   @Roles(Role.ADMIN)

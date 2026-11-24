@@ -12,12 +12,22 @@ export class ReviewService {
     return successResponse('Review submitted', review);
   }
 
-  findAll() { return successResponse('All reviews', this.reviewRepo.findAll()); }
-  findByCustomer(cid: string) { return successResponse('Customer reviews', this.reviewRepo.findByCustomer(cid)); }
-  findByTrip(tid: string) { return successResponse('Trip reviews', this.reviewRepo.findByTrip(tid)); }
+  findAll() {
+    return successResponse('All reviews', this.reviewRepo.findAll());
+  }
+  findByCustomer(cid: string) {
+    return successResponse(
+      'Customer reviews',
+      this.reviewRepo.findByCustomer(cid),
+    );
+  }
+  findByTrip(tid: string) {
+    return successResponse('Trip reviews', this.reviewRepo.findByTrip(tid));
+  }
 
   remove(id: string) {
-    if (!this.reviewRepo.remove(id)) throw new NotFoundException(`Review ${id} not found`);
+    if (!this.reviewRepo.remove(id))
+      throw new NotFoundException(`Review ${id} not found`);
     return successResponse('Review deleted');
   }
 }

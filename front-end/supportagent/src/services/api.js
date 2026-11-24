@@ -118,6 +118,42 @@ const HOSTNAME = (typeof window !== 'undefined' && (window.location.hostname ===
 
 export const API_BASE = `http://${HOSTNAME}:3000/api`;
 
+function supportAuthHeaders(headers = {}) {
+  const supporterId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId');
+  const sessionVersion = sessionStorage.getItem('c2b_sessionVersion') || localStorage.getItem('c2b_sessionVersion');
+  return {
+    'Content-Type': 'application/json',
+    'x-role': 'SUPPORT',
+    ...(supporterId ? { 'x-user-id': supporterId } : {}),
+    ...(sessionVersion ? { 'x-session-version': sessionVersion } : {}),
+    ...headers,
+  };
+}
+
+async function supportFetch(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: supportAuthHeaders(options.headers),
+  });
+  if (response.status === 401 || response.status === 403) {
+    const body = await response.clone().json().catch(() => ({}));
+    const message = String(body.message || '');
+    if (message.includes('customer support account has been deactivated') || message.includes('session is no longer valid')) {
+      for (const storage of [sessionStorage, localStorage]) {
+        ['c2b_loggedIn', 'c2b_userName', 'c2b_userEmail', 'c2b_loggedInId', 'c2b_role', 'c2b_sessionVersion'].forEach((key) => storage.removeItem(key));
+      }
+      window.dispatchEvent(new CustomEvent('c2b_account_deactivated', {
+        detail: {
+          message: message.includes('customer support account has been deactivated')
+            ? 'Your customer support account has been deactivated by the administrator. You cannot log in. Please contact your administrator for assistance.'
+            : 'Your session is no longer valid. Please log in again.',
+        },
+      }));
+    }
+  }
+  return response;
+}
+
 export function getStaffPortalUrl() {
   if (typeof window === 'undefined') return '/staff-access.html';
   const port = window.location.port;
@@ -233,8 +269,7 @@ export async function getTickets(forceRefresh = false) {
     let isLive = false;
 
     try {
-      const res = await fetch(`${API_BASE}/support-requests`, {
-        headers: { 'x-role': 'SUPPORT' },
+      const res = await supportFetch(`${API_BASE}/support-requests`, {
         signal: AbortSignal.timeout(1800),
       });
       if (res.ok) {
@@ -806,9 +841,8 @@ export async function confirmTicketResolution(ticketId, resolutionData, agentNam
   // Attempt authoritative backend resolution
   let apiSuccess = false;
   try {
-    const res = await fetch(`${API_BASE}/support-requests/${ticketId}`, {
+    const res = await supportFetch(`${API_BASE}/support-requests/${ticketId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'x-role': 'SUPPORT' },
       body: JSON.stringify({
         status: 'RESOLVED',
         supporterId: 'SUP001',
@@ -988,8 +1022,7 @@ export async function getRefunds(forceRefresh = false) {
   _inFlightGetRefunds = (async () => {
     let apiRefunds = [];
     try {
-      const res = await fetch(`${API_BASE}/refunds`, {
-        headers: { 'x-role': 'SUPPORT' },
+      const res = await supportFetch(`${API_BASE}/refunds`, {
         signal: AbortSignal.timeout(1800),
       });
       if (res.ok) {
@@ -1103,11 +1136,10 @@ export async function updateRefundStatus(refundId, newStatus) {
   }
 
   try {
-    await fetch(`${API_BASE}/refunds/booking/${targetBookingId}/process`, {
+    await supportFetch(`${API_BASE}/refunds/booking/${targetBookingId}/process`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'x-role': 'SUPPORT',
       },
       body: JSON.stringify({
         adminId: 'SUP001',

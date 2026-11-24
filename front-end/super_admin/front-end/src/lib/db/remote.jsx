@@ -28,6 +28,13 @@ const pick = (form, fields) =>
 
 const call = (path, { role = 'ADMIN', ...opts } = {}) => apiRequest(path, { role, ...opts });
 
+/** Coupon fields the backend offers API accepts (create also takes offerCode). */
+const OFFER_FIELDS = [
+  'providerId', 'description', 'discountPercentage', 'flatDiscount', 'maxDiscount', 'minFare',
+  'maxUsage', 'maxUsagePerCustomer', 'startDate', 'endDate',
+];
+
+
 /**
  * Per-table backend endpoints. `create`, `update` and `remove` are omitted
  * where the backend has no matching endpoint; the console then reports the
@@ -61,9 +68,10 @@ const TABLES = {
       call('/vehicles', {
         method: 'POST',
         role: 'PROVIDER',
-        body: pick(f, ['providerId', 'vehicleNumber', 'vehicleType', 'totalSeats', 'remainingSeats']),
+        body: pick(f, ['providerId', 'busName', 'vehicleNumber', 'vehicleType', 'totalSeats', 'remainingSeats']),
       }),
-    update: (id, f) => call(`/vehicles/${id}`, { method: 'PUT', body: pick(f, ['vehicleType', 'totalSeats']) }),
+    // Remaining seats follow total seats on the backend (booked seats are kept).
+    update: (id, f) => call(`/vehicles/${id}`, { method: 'PUT', body: pick(f, ['busName', 'vehicleType', 'totalSeats']) }),
     remove: (id) => call(`/vehicles/${id}`, { method: 'DELETE' }),
   },
   routes: {
@@ -90,13 +98,8 @@ const TABLES = {
   },
   offers: {
     list: '/offers',
-    create: (f) =>
-      call('/offers', {
-        method: 'POST',
-        role: 'PROVIDER',
-        body: pick(f, ['providerId', 'offerCode', 'discountPercentage', 'startDate', 'endDate']),
-      }),
-    update: (id, f) => call(`/offers/${id}`, { method: 'PUT', body: pick(f, ['status', 'endDate']) }),
+    create: (f) => call('/offers', { method: 'POST', body: pick(f, ['offerCode', ...OFFER_FIELDS]) }),
+    update: (id, f) => call(`/offers/${id}`, { method: 'PUT', body: pick(f, ['offerCode', ...OFFER_FIELDS, 'status']) }),
     remove: (id) => call(`/offers/${id}`, { method: 'DELETE' }),
   },
   bookings: {

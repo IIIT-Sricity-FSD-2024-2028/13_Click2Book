@@ -9,6 +9,8 @@ import { OfferModule } from '../offer/offer.module';
 import { LedgerModule } from '../ledger/ledger.module';
 import { ScheduleModule } from '../schedule/schedule.module';
 import { RouteModule } from '../route/route.module';
+import { CustomerModule } from '../customer/customer.module';
+import { ProviderModule } from '../provider/provider.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { RouteModule } from '../route/route.module';
     ScheduleModule,
     RouteModule,
     forwardRef(() => LedgerModule),
+    CustomerModule,
+    forwardRef(() => ProviderModule),
   ],
   controllers: [BookingController],
   providers: [

@@ -4,6 +4,7 @@ export interface SupportStaff {
   email: string;
   password: string;
   status?: 'ACTIVE' | 'INACTIVE';
+  authVersion?: number;
   createdAt?: string;
   phoneNumber?: string;
   role?: string;

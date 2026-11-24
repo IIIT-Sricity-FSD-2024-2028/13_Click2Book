@@ -16,24 +16,32 @@ export class AdminController {
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Create admin account (Admin only)' })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
-  create(@Body() dto: CreateAdminDto) { return this.adminService.create(dto); }
+  create(@Body() dto: CreateAdminDto) {
+    return this.adminService.create(dto);
+  }
 
   @Get()
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Get all admins (Admin only)' })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
-  findAll() { return this.adminService.findAll(); }
+  findAll() {
+    return this.adminService.findAll();
+  }
 
   @Get('dashboard')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Get admin analytics dashboard' })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
-  getDashboard() { return this.adminService.getDashboard(); }
+  getDashboard() {
+    return this.adminService.getDashboard();
+  }
 
   @Get(':id')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Get admin by ID' })
   @ApiParam({ name: 'id', example: 'A001' })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
-  findOne(@Param('id') id: string) { return this.adminService.findById(id); }
+  findOne(@Param('id') id: string) {
+    return this.adminService.findById(id);
+  }
 }

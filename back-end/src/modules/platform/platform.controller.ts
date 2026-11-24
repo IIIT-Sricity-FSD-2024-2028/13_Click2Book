@@ -13,16 +13,27 @@ export class PlatformController {
   constructor(private readonly platformService: PlatformService) {}
 
   @Get('settings')
-  @ApiOperation({ summary: 'Platform settings (public — every portal reads fees, refund rules, banner)' })
+  @ApiOperation({
+    summary:
+      'Platform settings (public — every portal reads fees, refund rules, banner)',
+  })
   get() {
     return successResponse('Platform settings', this.platformService.get());
   }
 
   @Put('settings')
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Update platform settings (partial — sections are merged)' })
+  @ApiOperation({
+    summary: 'Update platform settings (partial — sections are merged)',
+  })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
-  update(@Body() body: Record<string, any>, @Headers('x-admin-email') adminEmail?: string) {
-    return successResponse('Settings saved', this.platformService.update(body, adminEmail || 'Super Admin'));
+  update(
+    @Body() body: Record<string, any>,
+    @Headers('x-admin-email') adminEmail?: string,
+  ) {
+    return successResponse(
+      'Settings saved',
+      this.platformService.update(body, adminEmail || 'Super Admin'),
+    );
   }
 }

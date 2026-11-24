@@ -26,9 +26,17 @@ export function initSeededVehicleSeats(app: INestApplicationContext): void {
   // A handful of seed bookings (B001-B003) already claim specific seats on seeded
   // trips — mark those seats BOOKED so a real customer can't also book them.
   for (const booking of bookingRepo.findAll()) {
-    if (booking.bookingStatus !== BookingStatus.CONFIRMED && booking.bookingStatus !== BookingStatus.PENDING) continue;
+    if (
+      booking.bookingStatus !== BookingStatus.CONFIRMED &&
+      booking.bookingStatus !== BookingStatus.PENDING
+    )
+      continue;
     const trip = tripRepo.findById(booking.tripId);
     if (!trip) continue;
-    seatRepo.updateStatus(trip.vehicleId, booking.seatNumber, SeatStatus.BOOKED);
+    seatRepo.updateStatus(
+      trip.vehicleId,
+      booking.seatNumber,
+      SeatStatus.BOOKED,
+    );
   }
 }

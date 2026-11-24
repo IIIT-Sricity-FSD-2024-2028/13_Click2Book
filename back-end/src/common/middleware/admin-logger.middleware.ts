@@ -25,17 +25,17 @@ export class AdminLoggerMiddleware implements NestMiddleware {
   constructor(private readonly logger: LoggerService) {}
 
   use(req: Request, res: Response, next: NextFunction): void {
-    const startMs   = Date.now();
-    const method    = req.method;
-    const url       = req.originalUrl || req.url || '/';
+    const startMs = Date.now();
+    const method = req.method;
+    const url = req.originalUrl || req.url || '/';
     const requestId: string = (req as any).requestId ?? 'none';
 
     // x-role header is safe to log — it's a role label (ADMIN), not a secret
-    const role      = (req.headers['x-role'] as string) ?? 'unknown';
+    const role = (req.headers['x-role'] as string) ?? 'unknown';
 
     res.on('finish', () => {
       const status = res.statusCode;
-      const ms     = Date.now() - startMs;
+      const ms = Date.now() - startMs;
 
       // Route to admin.log (and mirrored to application.log) via adminLog()
       this.logger.adminLog('HTTP_REQUEST', role, {

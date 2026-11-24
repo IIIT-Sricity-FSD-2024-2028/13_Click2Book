@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Sse, MessageEvent, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Sse,
+  MessageEvent,
+  Query,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Observable } from 'rxjs';
 import { SyncService } from './sync.service';
@@ -9,7 +17,10 @@ export class SyncController {
   constructor(private readonly syncService: SyncService) {}
 
   @Sse('stream')
-  @ApiOperation({ summary: 'Server-Sent Events (SSE) stream for live real-time sync across all actors' })
+  @ApiOperation({
+    summary:
+      'Server-Sent Events (SSE) stream for live real-time sync across all actors',
+  })
   stream(): Observable<MessageEvent> {
     return this.syncService.getEventStream();
   }
@@ -70,7 +81,9 @@ export class SyncController {
   }
 
   @Post('trip-status')
-  @ApiOperation({ summary: 'Update and broadcast trip status (e.g. IN_PROGRESS)' })
+  @ApiOperation({
+    summary: 'Update and broadcast trip status (e.g. IN_PROGRESS)',
+  })
   updateTripStatus(@Body() body: { tripId: string; status: string }) {
     if (!body?.tripId || !body?.status) {
       return { success: false, message: 'tripId and status are required' };

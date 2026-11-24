@@ -15,6 +15,11 @@ export class SeatRepository {
     }
   }
 
+  /** Drop seats numbered above `totalSeats` (the bus got smaller, or 0 when it is removed). */
+  removeAbove(vehicleId: string, totalSeats: number): void {
+    this.seats = this.seats.filter((s) => s.vehicleId !== vehicleId || s.seatNumber <= totalSeats);
+  }
+
   findSeat(vehicleId: string, seatNumber: number): Seat | undefined {
     return this.seats.find(s => s.vehicleId === vehicleId && s.seatNumber === seatNumber);
   }

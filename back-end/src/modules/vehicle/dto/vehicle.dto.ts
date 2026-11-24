@@ -49,7 +49,27 @@ export class UpdateVehicleDto {
   @IsOptional() @IsEnum(VehicleType)
   vehicleType?: VehicleType;
 
-  @ApiPropertyOptional({ example: 40 })
+  @ApiPropertyOptional({ example: 40, description: 'Remaining seats move by the same amount' })
   @IsOptional() @IsNumber() @Min(1)
   totalSeats?: number;
+
+  @ApiPropertyOptional({ example: 'KPN Express' })
+  @IsOptional() @IsString()
+  busName?: string;
+
+  @ApiPropertyOptional({ example: 'AP09XX1234' })
+  @IsOptional() @IsString() @Length(4, 20)
+  vehicleNumber?: string;
+
+  @ApiPropertyOptional({ example: ['AC', 'WiFi'] })
+  @IsOptional()
+  amenities?: string[];
+
+  @ApiPropertyOptional({ example: 'Majestic' })
+  @IsOptional() @IsString()
+  boardingPoint?: string;
+
+  @ApiPropertyOptional({ example: 'CMBT' })
+  @IsOptional() @IsString()
+  droppingPoint?: string;
 }

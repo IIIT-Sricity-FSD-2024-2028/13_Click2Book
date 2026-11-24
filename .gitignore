@@ -19,6 +19,8 @@ node_modules/
 
 # File uploads (created at runtime by multer — Phase 4)
 back-end/uploads/
+back-end/data/*.json
+back-end/data/*.tmp
 
 # Smoke test scripts (development only)
 back-end/smoke-test-*.ts

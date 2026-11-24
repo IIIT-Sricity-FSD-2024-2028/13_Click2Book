@@ -174,23 +174,19 @@ export class BookingService {
 
   findByTrip(tripId: string) {
     if (!tripId) return successResponse('Bookings for trip', []);
-    const cleanId = (s: string) => String(s || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const target = cleanId(tripId);
+    const normalizeId = (s: string) => String(s || '').trim().toUpperCase();
+    const target = normalizeId(tripId);
 
     const trip = this.tripRepo.findById(tripId) || this.tripRepo.findAll().find(
-      (t) => cleanId(t.tripId) === target || cleanId(t.scheduleId) === target,
+      (t) => normalizeId(t.tripId) === target || normalizeId(t.scheduleId) === target,
     );
+    const targetTripId = trip?.tripId || tripId.trim();
 
     const all = this.bookingRepo.findAll();
     const list = all
       .filter((b) => {
         if (b.bookingStatus !== BookingStatus.PENDING && b.bookingStatus !== BookingStatus.CONFIRMED) return false;
-        if (trip && b.tripId === trip.tripId) return true;
-        if (cleanId(b.tripId) === target) return true;
-        if (target.length >= 4 && (cleanId(b.tripId).includes(target) || target.includes(cleanId(b.tripId)))) return true;
-        if (b.vehicleNumber && cleanId(b.vehicleNumber) && target.includes(cleanId(b.vehicleNumber))) return true;
-        if (b.plateNumber && cleanId(b.plateNumber) && target.includes(cleanId(b.plateNumber))) return true;
-        return false;
+        return normalizeId(b.tripId) === normalizeId(targetTripId);
       })
       .map((b) => ({
         ...b,
@@ -352,9 +348,7 @@ export class BookingService {
     const baseId = bookingId.replace(/-\d+$/, '');
     this.bookingRepo.findAll().forEach((b) => {
       if (b.bookingId === baseId || b.bookingId.startsWith(baseId + '-') || ((booking as any).aliasId && b.bookingId === (booking as any).aliasId)) {
-        b.bookingStatus = BookingStatus.CANCELLED;
-        (b as any).status = 'CANCELLED';
-        (b as any).booking_status = 'CANCELLED';
+        this.bookingRepo.update(b.bookingId, { bookingStatus: BookingStatus.CANCELLED });
         try {
           const trip = this.tripRepo.findById(b.tripId);
           if (trip && trip.vehicleId && b.seatNumber) {
@@ -366,9 +360,7 @@ export class BookingService {
 
     const updated = this.bookingRepo.update(booking.bookingId, {
       bookingStatus: BookingStatus.CANCELLED,
-      status: 'CANCELLED',
-      booking_status: 'CANCELLED',
-    } as any);
+    });
     return successResponse('Booking cancelled. Refund request created.', updated);
   }
 }

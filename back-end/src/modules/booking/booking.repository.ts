@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { Booking } from './interfaces/booking.interface';
 import { BookingStatus } from './enums/booking-status.enum';
 import { generateId, bumpCounterIfHigher } from '../../common/utils/id.util';
@@ -11,10 +13,47 @@ export class BookingRepository {
     { bookingId: 'B003', customerId: 'C003', tripId: 'T002', seatNumber: 3, offerId: 'O001', bookingDate: '2026-05-03', bookingStatus: BookingStatus.CONFIRMED },
   ];
   private aliasMap: Map<string, string> = new Map();
+  private readonly storagePath: string | null;
+
+  constructor(storagePath?: string) {
+    this.storagePath = storagePath || (
+      process.env.NODE_ENV === 'test'
+        ? null
+        : resolve(__dirname, '../../../data/bookings.json')
+    );
+    this.load();
+  }
+
+  private load(): void {
+    if (!this.storagePath || !existsSync(this.storagePath)) return;
+
+    const stored = JSON.parse(readFileSync(this.storagePath, 'utf8'));
+    if (!stored || !Array.isArray(stored.bookings) || !Array.isArray(stored.aliases)) {
+      throw new Error(`Invalid booking store at ${this.storagePath}`);
+    }
+
+    this.bookings = stored.bookings;
+    this.aliasMap = new Map(stored.aliases);
+  }
+
+  private persist(): void {
+    if (!this.storagePath) return;
+    const directory = dirname(this.storagePath);
+    mkdirSync(directory, { recursive: true });
+
+    const temporaryPath = `${this.storagePath}.${process.pid}.tmp`;
+    writeFileSync(
+      temporaryPath,
+      JSON.stringify({ bookings: this.bookings, aliases: Array.from(this.aliasMap.entries()) }),
+      'utf8',
+    );
+    renameSync(temporaryPath, this.storagePath);
+  }
 
   registerAlias(aliasId: string, canonicalBookingId: string): void {
     if (aliasId && canonicalBookingId && aliasId !== canonicalBookingId) {
       this.aliasMap.set(aliasId, canonicalBookingId);
+      this.persist();
     }
   }
 
@@ -30,6 +69,7 @@ export class BookingRepository {
       bookingStatus: BookingStatus.PENDING,
     };
     this.bookings.push(booking);
+    this.persist();
     return booking;
   }
 
@@ -40,9 +80,11 @@ export class BookingRepository {
     const existing = this.bookings.find(b => b.bookingId === data.bookingId);
     if (existing) {
       Object.assign(existing, data);
+      this.persist();
       return existing;
     }
     this.bookings.push(data);
+    this.persist();
     return data;
   }
 
@@ -96,6 +138,7 @@ export class BookingRepository {
     }
     if (i === -1) return undefined;
     this.bookings[i] = { ...this.bookings[i], ...data };
+    this.persist();
     return this.bookings[i];
   }
 }

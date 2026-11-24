@@ -71,11 +71,7 @@ async function spFetch(path, options = {}) {
 
 export async function getTripBookings(tripId) {
   if (!tripId) return [];
-  try {
-    return await spFetch(`/bookings/trip/${encodeURIComponent(tripId)}`);
-  } catch {
-    return [];
-  }
+  return await spFetch(`/bookings/trip/${encodeURIComponent(tripId)}`);
 }
 
 /* ── Centralized Real-Time Event Dispatcher for Same-Tab and Cross-Tab Reactivity ── */
@@ -1735,7 +1731,7 @@ export function getSeatData(providerId) {
 
     const match = trips.find((t) => {
       // 1. Direct trip ID match takes top priority
-      if (bTripId && (t.id === bTripId || t.tripId === bTripId || t.backendTripId === bTripId)) return true;
+      const tripIdMatches = bTripId && (t.id === bTripId || t.tripId === bTripId || t.backendTripId === bTripId);
 
       // 2. Bus identity match: plate, vehicleId, or name
       const tPlate = clean(t.vehicleNumber);
@@ -1753,36 +1749,34 @@ export function getSeatData(providerId) {
       // Date match
       const tDate = String(t.journeyDate || '').split('T')[0];
       const dateMatches = !bDate || !tDate || bDate === tDate;
+      if (!dateMatches) return false;
 
       const tFrom = normalizeCity(t.from);
       const tTo   = normalizeCity(t.to);
-      const tDir = t.direction || 'UP';
+      const hasBookingRoute = Boolean(bFrom && bTo);
+      const hasTripRoute = Boolean(tFrom && tTo);
+      if (hasBookingRoute && hasTripRoute && bFrom === tTo && bTo === tFrom) return false;
 
-      // Check route and corridor direction
-      let routeMatches = false;
-      if (bFrom && bTo && tFrom && tTo) {
-        if (bFrom === tFrom && bTo === tTo) {
-          routeMatches = true;
-        } else if (bFrom === tTo && bTo === tFrom) {
-          return false; // Opposing direction
-        } else {
-          const stops = [tFrom, ...(t.assignedRoute?.intermediateStops || []).map(normalizeCity), tTo];
-          const fIdx = stops.indexOf(bFrom);
-          const tIdx = stops.indexOf(bTo);
-          if (fIdx !== -1 && tIdx !== -1) {
-            const isUp = fIdx < tIdx;
-            routeMatches = (isUp && tDir === 'UP') || (!isUp && tDir === 'DOWN');
-          }
-        }
-      }
+      const intermediateStops = Array.isArray(t.intermediateStops)
+        ? t.intermediateStops
+        : [...(t.assignedRoute?.intermediateStops || [])];
+      if (!Array.isArray(t.intermediateStops) && t.direction === 'DOWN') intermediateStops.reverse();
+      const rawStops = Array.isArray(t.allStops) && t.allStops.length > 0
+        ? t.allStops
+        : [t.from, ...intermediateStops, t.to];
+      const stops = rawStops.map((stop) =>
+        normalizeCity(typeof stop === 'string' ? stop : stop?.name || stop?.stopName)
+      ).filter(Boolean);
+      const bookingStart = stops.indexOf(bFrom);
+      const bookingEnd = stops.indexOf(bTo);
+      const routeMatches = hasBookingRoute && bookingStart !== -1 &&
+        bookingEnd !== -1 && bookingStart < bookingEnd;
+      if (bookingStart !== -1 && bookingEnd !== -1 && bookingStart >= bookingEnd) return false;
 
-      if ((plateMatch || nameMatch) && dateMatches) {
-        if (routeMatches) return true;
-        if (!bFrom || !bTo) return true;
-        return true;
-      }
-      if (routeMatches && dateMatches) return true;
-      return false;
+      if (tripIdMatches) return !hasBookingRoute || !hasTripRoute || routeMatches;
+      const sameBus = Boolean(plateMatch || nameMatch);
+      if (!sameBus) return false;
+      return !hasBookingRoute || routeMatches;
     });
 
     // Strictly skip orphan bookings — NEVER invent mock buses!

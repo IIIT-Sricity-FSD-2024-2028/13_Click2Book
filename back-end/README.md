@@ -31,6 +31,10 @@
 $ npm install
 ```
 
+## Booking data
+
+The backend stores bookings and booking aliases in `data/bookings.json` so they survive a server restart. The backend process must have write access to this directory, and deployments should include it in their persistent storage and backup plan.
+
 ## Compile and run the project
 
 ```bash

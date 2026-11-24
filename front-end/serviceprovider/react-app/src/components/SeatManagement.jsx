@@ -481,7 +481,10 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
   /* ── Load & refresh buses ── */
   useEffect(() => {
     let timer = null;
+    let refreshing = false;
     const refresh = async () => {
+      if (refreshing) return;
+      refreshing = true;
       try {
         // 1. Proactively synchronize unified state from backend /api/sync/state
         try {
@@ -529,6 +532,7 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
 
         const data = getSeatData(provider?.id);
         const baseBuses = Array.isArray(data) ? data : [];
+        let bookingFetchError = null;
         const merged = await Promise.all(baseBuses.map(async (bus) => {
           const tripIds = [
             bus.backendTripId,
@@ -537,9 +541,14 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
           ].filter(Boolean);
           let bookings = [];
           for (const tripId of [...new Set(tripIds)]) {
-            const found = await getTripBookings(tripId);
-            if (Array.isArray(found)) {
-              bookings = [...bookings, ...found];
+            try {
+              const found = await getTripBookings(tripId);
+              if (Array.isArray(found)) {
+                bookings = [...bookings, ...found];
+              }
+            } catch (error) {
+              bookingFetchError = error;
+              break;
             }
           }
           const activeBookings = bookings
@@ -572,6 +581,29 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
             return seatId;
           };
 
+          const bookingMatchesTripDirection = (booking) => {
+            const bookingFrom = cleanCity(booking.from || booking.source || '');
+            const bookingTo = cleanCity(booking.to || booking.destination || '');
+            const tripFrom = cleanCity(bus.from);
+            const tripTo = cleanCity(bus.to);
+            if (!bookingFrom || !bookingTo || !tripFrom || !tripTo) return true;
+            if (bookingFrom === tripTo && bookingTo === tripFrom) return false;
+
+            const intermediateStops = Array.isArray(bus.intermediateStops)
+              ? bus.intermediateStops
+              : [...(bus.assignedRoute?.intermediateStops || [])];
+            if (!Array.isArray(bus.intermediateStops) && bus.direction === 'DOWN') intermediateStops.reverse();
+            const stops = Array.isArray(bus.allStops) && bus.allStops.length > 0
+              ? bus.allStops
+              : [bus.from, ...intermediateStops, bus.to];
+            const orderedStops = stops.map(cleanCity).filter(Boolean);
+            const bookingStart = orderedStops.indexOf(bookingFrom);
+            const bookingEnd = orderedStops.indexOf(bookingTo);
+            if (bookingStart !== -1 && bookingEnd !== -1) return bookingStart < bookingEnd;
+            return bookingFrom === tripFrom && bookingTo === tripTo;
+          };
+          const routeMatchedBookings = activeBookings.filter(bookingMatchesTripDirection);
+
           // Merge local confirmed bookings with backend bookings.
           const busPlate = String(bus.vehicleNumber || bus.plateNumber || '')
             .trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -599,28 +631,12 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
 
             const bFrom = cleanCity(booking.from);
             const bTo = cleanCity(booking.to);
-            const busFrom = cleanCity(bus.from);
-            const busTo = cleanCity(bus.to);
-            let matchesRoute = false;
-            if (bFrom && bTo && busFrom && busTo) {
-              if (bFrom === busFrom && bTo === busTo) {
-                matchesRoute = true;
-              } else {
-                const stops = [
-                  busFrom,
-                  ...(bus.assignedRoute?.intermediateStops || []).map(cleanCity),
-                  busTo,
-                ];
-                const fIdx = stops.indexOf(bFrom);
-                const tIdx = stops.indexOf(bTo);
-                if (fIdx !== -1 && tIdx !== -1) {
-                  const isUp = fIdx < tIdx;
-                  matchesRoute = (isUp && (bus.direction || 'UP') === 'UP') || (!isUp && (bus.direction || 'UP') === 'DOWN');
-                }
-              }
+            const matchesRoute = bookingMatchesTripDirection(booking);
+            if (matchesTrip) {
+              if (bFrom && bTo && !matchesRoute) return;
+            } else if (!(matchesPlate || matchesName) || (bFrom && bTo && !matchesRoute)) {
+              return;
             }
-
-            if (!matchesTrip && !matchesPlate && !matchesName && !matchesRoute) return;
 
             const rawSeats = Array.isArray(booking.seat_list)
               ? booking.seat_list
@@ -647,7 +663,7 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
             if (normalized && !seatNumbers.includes(normalized)) seatNumbers.push(normalized);
           });
 
-          activeBookings.forEach((booking) => {
+          routeMatchedBookings.forEach((booking) => {
             const seat = normalizeBookedSeat(booking.seatNumber);
             if (!seat) return;
             if (!seatNumbers.includes(seat)) seatNumbers.push(seat);
@@ -659,7 +675,7 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
 
           const passengerMap = {};
           seatNumbers.forEach((seat) => {
-            const booking = bookings.find((b) =>
+            const booking = routeMatchedBookings.find((b) =>
               normalizeBookedSeat(b.seatNumber) === normalizeBookedSeat(seat)
             );
             const customerId = String(booking?.customerId || booking?.customer_id || '').trim();
@@ -753,9 +769,16 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
             actualBookedCount: bookedCount,
           };
         }));
+        if (bookingFetchError) {
+          console.warn('[SeatManagement] Keeping the last seat snapshot; booking service is unavailable.', bookingFetchError);
+          setBuses((current) => current.length > 0 ? current : baseBuses);
+          return;
+        }
         setBuses(merged);
       } catch (err) {
         console.error('Error refreshing seat data:', err);
+      } finally {
+        refreshing = false;
       }
     };
 

@@ -1,4 +1,4 @@
-import { forwardRef, Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { Subject, Observable, interval, Subscription } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { TripRepository } from '../trip/trip.repository';
@@ -10,6 +10,7 @@ import { PaymentRepository } from '../payment/payment.repository';
 import { ProviderRepository } from '../provider/provider.repository';
 import { RefundRepository } from '../refund/refund.repository';
 import { TripStatus } from '../trip/enums/trip-status.enum';
+import { BookingStatus } from '../booking/enums/booking-status.enum';
 
 export interface SyncEvent {
   id: number;
@@ -20,6 +21,7 @@ export interface SyncEvent {
 
 @Injectable()
 export class SyncService implements OnModuleDestroy {
+  private readonly logger = new Logger(SyncService.name);
   private eventCounter = 0;
   private readonly eventHistory: SyncEvent[] = [];
   private readonly maxHistory = 100;
@@ -177,9 +179,7 @@ export class SyncService implements OnModuleDestroy {
           const baseId = id.replace(/-\d+$/, '');
           this.bookingRepo.findAll().forEach((b) => {
             if (b.bookingId === baseId || b.bookingId.startsWith(baseId + '-')) {
-              b.bookingStatus = 'CANCELLED' as any;
-              (b as any).status = 'CANCELLED';
-              (b as any).booking_status = 'CANCELLED';
+              this.bookingRepo.update(b.bookingId, { bookingStatus: BookingStatus.CANCELLED });
             }
           });
           this.emit('BOOKING_CANCELLED', {
@@ -265,8 +265,12 @@ export class SyncService implements OnModuleDestroy {
           this.bookingRepo.update(id, { bookingStatus } as any);
         }
       }
-    } catch (e) {
-      // Non-blocking fallback for custom sync payloads
+    } catch (error) {
+      this.logger.error(
+        'Failed to persist synced booking',
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
     }
     this.emit('BOOKING_CREATED', booking);
     return booking;

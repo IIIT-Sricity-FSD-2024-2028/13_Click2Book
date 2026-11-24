@@ -21,7 +21,10 @@ import { RouteModule } from '../route/route.module';
     forwardRef(() => LedgerModule),
   ],
   controllers: [BookingController],
-  providers: [BookingService, BookingRepository],
+  providers: [
+    BookingService,
+    { provide: BookingRepository, useFactory: () => new BookingRepository() },
+  ],
   exports: [BookingService, BookingRepository],
 })
 export class BookingModule {}

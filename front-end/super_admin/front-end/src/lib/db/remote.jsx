@@ -28,6 +28,21 @@ const pick = (form, fields) =>
 
 const call = (path, { role = 'ADMIN', ...opts } = {}) => apiRequest(path, { role, ...opts });
 
+/** Offer fields the Super Admin can set (all conditions; see crudSchemas/admin.jsx). */
+const OFFER_FIELDS = [
+  'title', 'description', 'discountPercentage', 'flatDiscount', 'maxDiscount',
+  'startDate', 'endDate', 'validDays', 'minDaysAhead', 'maxDaysAhead',
+  'firstBookingOnly', 'minPastBookings', 'minFare', 'minSeats', 'originCity', 'routeId',
+  'providerId', 'vehicleTypes', 'paymentMethods', 'maxTotalUses', 'maxUsesPerUser', 'status',
+];
+
+/** The "First booking only" select is YES/NO in the form; the backend wants a boolean. */
+const offerBody = (f, fields) => {
+  const body = pick(f, fields);
+  if (typeof body.firstBookingOnly === 'string') body.firstBookingOnly = body.firstBookingOnly.toUpperCase() === 'YES';
+  return body;
+};
+
 /**
  * Per-table backend endpoints. `create`, `update` and `remove` are omitted
  * where the backend has no matching endpoint; the console then reports the
@@ -61,9 +76,10 @@ const TABLES = {
       call('/vehicles', {
         method: 'POST',
         role: 'PROVIDER',
-        body: pick(f, ['providerId', 'vehicleNumber', 'vehicleType', 'totalSeats', 'remainingSeats']),
+        body: pick(f, ['providerId', 'busName', 'vehicleNumber', 'vehicleType', 'totalSeats', 'remainingSeats']),
       }),
-    update: (id, f) => call(`/vehicles/${id}`, { method: 'PUT', body: pick(f, ['vehicleType', 'totalSeats']) }),
+    // Remaining seats follow total seats on the backend (booked seats are kept).
+    update: (id, f) => call(`/vehicles/${id}`, { method: 'PUT', body: pick(f, ['busName', 'vehicleNumber', 'vehicleType', 'totalSeats']) }),
     remove: (id) => call(`/vehicles/${id}`, { method: 'DELETE' }),
   },
   routes: {
@@ -90,13 +106,8 @@ const TABLES = {
   },
   offers: {
     list: '/offers',
-    create: (f) =>
-      call('/offers', {
-        method: 'POST',
-        role: 'PROVIDER',
-        body: pick(f, ['providerId', 'offerCode', 'discountPercentage', 'startDate', 'endDate']),
-      }),
-    update: (id, f) => call(`/offers/${id}`, { method: 'PUT', body: pick(f, ['status', 'endDate']) }),
+    create: (f) => call('/offers', { method: 'POST', body: offerBody(f, ['offerCode', ...OFFER_FIELDS]) }),
+    update: (id, f) => call(`/offers/${id}`, { method: 'PUT', body: offerBody(f, OFFER_FIELDS) }),
     remove: (id) => call(`/offers/${id}`, { method: 'DELETE' }),
   },
   bookings: {

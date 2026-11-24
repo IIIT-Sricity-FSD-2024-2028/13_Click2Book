@@ -192,8 +192,21 @@ export const API = {
   },
 
   offers: {
-    async getActive() {
-      return apiFetch('/offers/active');
+    /** Offers usable today (set by the Super Admin); pass a providerId to get only those valid for that operator. */
+    async getActive(providerId) {
+      return apiFetch('/offers/active' + (providerId ? `?providerId=${encodeURIComponent(providerId)}` : ''));
+    },
+    /**
+     * Server-side check of a code against everything known about this booking
+     * ({ providerId, tripId, seats, journeyDate, paymentMethod }); the customer is the signed-in one.
+     * Resolves to { discountAmount, finalFare, offer } or throws with the reason it cannot be used.
+     */
+    async validate(code, fare, ctx = {}) {
+      const params = { code, fare: String(fare), customerId: getCustomerId(), ...ctx };
+      const q = new URLSearchParams(
+        Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => [k, String(v)])),
+      );
+      return apiFetch(`/offers/validate?${q}`);
     },
   },
 

@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
+import { OfferService } from '../offer/offer.service';
 import { PaymentRepository } from './payment.repository';
 import { BookingService } from '../booking/booking.service';
 import { BookingRepository } from '../booking/booking.repository';
@@ -13,6 +15,7 @@ export class PaymentService {
     private readonly paymentRepo: PaymentRepository,
     private readonly bookingRepo: BookingRepository,
     private readonly bookingService: BookingService,
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   processPayment(dto: CreatePaymentDto) {
@@ -52,6 +55,17 @@ export class PaymentService {
     // 3. Booking must be PENDING
     if (booking.bookingStatus !== BookingStatus.PENDING)
       throw new BadRequestException('Payment can only be made for PENDING bookings');
+
+    // 3b. A booking that carries an offer: check the payment method and usage limits, then count the use.
+    //     Throws with the reason (e.g. "pay with UPI") before any money is recorded.
+    if (booking.offerId) {
+      this.moduleRef.get(OfferService, { strict: false }).redeemForBooking(booking.offerId, {
+        customerId: booking.customerId,
+        bookingId: booking.bookingId,
+        tripId: booking.tripId,
+        paymentMethod: dto.paymentMethod,
+      });
+    }
 
     // 4. One payment per booking (idempotent retry)
     const existingPayment = this.paymentRepo.findByBooking(booking.bookingId);

@@ -124,10 +124,11 @@ export function createAdminSchemas() {
       subtitle: 'Manage VEHICLE records',
       dbKey: 'vehicles',
       pkField: 'vehicle_id',
-      columns: ['vehicle_id', 'provider_id', 'vehicle_number', 'vehicle_type', 'total_seats', 'remaining_seats'],
+      columns: ['vehicle_id', 'provider_id', 'bus_name', 'vehicle_number', 'vehicle_type', 'total_seats', 'remaining_seats'],
       fields: [
         { key: 'vehicle_id', label: 'Vehicle ID', type: 'text', required: true },
         { key: 'provider_id', label: 'Provider ID', type: 'text', required: true },
+        { key: 'bus_name', label: 'Bus Name', type: 'text', required: false },
         { key: 'vehicle_number', label: 'Reg. Number', type: 'text', required: true },
         { key: 'vehicle_type', label: 'Type', type: 'select', required: true, options: ['AC', 'Non-AC', 'AC Sleeper', 'Sleeper AC', 'Semi-Sleeper', 'AC Seater', 'Volvo AC', 'Luxury', 'No preference'] },
         { key: 'total_seats', label: 'Total Seats', type: 'number', required: true },
@@ -166,25 +167,7 @@ export function createAdminSchemas() {
       },
     },
 
-    /* ── SCHEDULES ────────────────────────────────────────── */
-    schedules: {
-      label: 'Schedules',
-      subtitle: 'Manage SCHEDULE records',
-      dbKey: 'schedules',
-      pkField: 'schedule_id',
-      columns: ['schedule_id', 'route_id', 'provider_id', 'departure_time', 'arrival_time', 'journey_date', 'fare'],
-      fields: [
-        { key: 'schedule_id', label: 'Schedule ID', type: 'text', required: true },
-        { key: 'route_id', label: 'Route ID', type: 'text', required: true },
-        { key: 'provider_id', label: 'Provider ID', type: 'text', required: true },
-        { key: 'departure_time', label: 'Departure', type: 'time', required: true },
-        { key: 'arrival_time', label: 'Arrival', type: 'time', required: true },
-        { key: 'journey_date', label: 'Journey Date', type: 'date', required: true },
-        { key: 'arrival_time_to_destination', label: 'Dest. Arrival', type: 'time', required: true },
-        { key: 'fare', label: 'Fare (₹)', type: 'number', required: true },
-      ],
-      stats: () => [{ label: 'Schedules', value: DB.schedules.getAll().length, cls: 'accent' }],
-    },
+    /* Schedules are managed by each provider in the provider portal, not here. */
 
     /* ── TRIPS ────────────────────────────────────────────── */
     trips: {
@@ -222,14 +205,40 @@ export function createAdminSchemas() {
       subtitle: 'Manage OFFER records',
       dbKey: 'offers',
       pkField: 'offer_id',
-      columns: ['offer_id', 'offer_code', 'discount_percentage', 'start_date', 'end_date', 'status'],
+      columns: ['offer_id', 'offer_code', 'title', 'discount_percentage', 'flat_discount', 'max_discount', 'start_date', 'end_date', 'used_count', 'status'],
+      // Fill EITHER Discount % OR Flat Discount. Every condition below is optional — leave it empty for "no limit".
+      // List fields are comma-separated. The customer always has to enter (or pick) the offer code.
       fields: [
         { key: 'offer_id', label: 'Offer ID', type: 'text', required: true },
-        { key: 'provider_id', label: 'Provider ID', type: 'text', required: true },
         { key: 'offer_code', label: 'Offer Code', type: 'text', required: true },
-        { key: 'discount_percentage', label: 'Discount %', type: 'number', required: true },
+        { key: 'title', label: 'Title (shown to customers)', type: 'text', required: false },
+        { key: 'description', label: 'Description', type: 'text', required: false },
+        // Discount
+        { key: 'discount_percentage', label: 'Discount % (or leave empty)', type: 'number', required: false },
+        { key: 'flat_discount', label: 'Flat Discount ₹ (or leave empty)', type: 'number', required: false },
+        { key: 'max_discount', label: 'Max Discount ₹ (e.g. 10% up to ₹100)', type: 'number', required: false },
+        // Time-based
         { key: 'start_date', label: 'Start Date', type: 'date', required: true },
-        { key: 'end_date', label: 'End Date', type: 'date', required: true },
+        { key: 'end_date', label: 'Expiry Date (last day usable)', type: 'date', required: true },
+        { key: 'valid_days', label: 'Travel Days (e.g. SAT,SUN)', type: 'text', required: false },
+        { key: 'min_days_ahead', label: 'Early-bird: book ≥ N days ahead', type: 'number', required: false },
+        { key: 'max_days_ahead', label: 'Last-minute: travel within N days', type: 'number', required: false },
+        // User-based
+        { key: 'first_booking_only', label: 'First Booking / New Users Only', type: 'select', required: false, options: ['NO', 'YES'] },
+        { key: 'min_past_bookings', label: 'Loyalty: min. past bookings', type: 'number', required: false },
+        // Booking-based
+        { key: 'min_fare', label: 'Min. Booking Amount ₹', type: 'number', required: false },
+        { key: 'min_seats', label: 'Min. Seats', type: 'number', required: false },
+        { key: 'origin_city', label: 'Origin City (e.g. Hyderabad)', type: 'text', required: false },
+        { key: 'route_id', label: 'Route ID (e.g. R001)', type: 'text', required: false },
+        // Bus-based
+        { key: 'provider_id', label: 'Provider ID (ALL = every provider)', type: 'text', required: false },
+        { key: 'vehicle_types', label: 'Bus Types (e.g. AC,AC Sleeper,Volvo AC)', type: 'text', required: false },
+        // Payment-based
+        { key: 'payment_methods', label: 'Payment Methods (UPI,CARD,NETBANKING,WALLET)', type: 'text', required: false },
+        // Usage limits
+        { key: 'max_total_uses', label: 'Total Redemption Cap', type: 'number', required: false },
+        { key: 'max_uses_per_user', label: 'Uses per Customer (1 = one-time)', type: 'number', required: false },
         { key: 'status', label: 'Status', type: 'select', required: true, options: ['ACTIVE', 'INACTIVE', 'EXPIRED', 'SUSPENDED'] },
       ],
       stats: () => {
@@ -238,6 +247,7 @@ export function createAdminSchemas() {
           { label: 'Total', value: a.length, cls: 'accent' },
           { label: 'Active', value: a.filter((o) => o.status === 'ACTIVE').length, cls: 'success' },
           { label: 'Expired', value: a.filter((o) => o.status === 'EXPIRED').length, cls: 'danger' },
+          { label: 'Times Used', value: a.reduce((s, o) => s + (Number(o.used_count) || 0), 0), cls: 'info' },
         ];
       },
     },

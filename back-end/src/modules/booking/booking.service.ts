@@ -73,7 +73,8 @@ export class BookingService {
     // 6. Apply offer if provided
     let offerId: string | undefined;
     if (dto.offerCode) {
-      const applied = this.offerService.validateAndApply(dto.offerCode, 0);
+      // Offer rules that need the trip and customer are checked here; amount/seats/date at checkout, method and usage caps at payment.
+      const applied = this.offerService.validateAndApply(dto.offerCode, { tripId: trip.tripId, customerId: dto.customerId });
       offerId = applied.offerId;
     }
 

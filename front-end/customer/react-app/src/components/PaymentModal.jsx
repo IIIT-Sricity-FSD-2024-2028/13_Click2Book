@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tag, Check, CreditCard, Smartphone, Building, Wallet, ArrowLeft, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
-import { OFFERS_CATALOG } from '../services/mockData';
+import { API } from '../services/api';
+import { usePricing } from '../services/pricing';
+import { offerTitle, offerConditions, offerDiscountLabel, offerExpiry, offerDaysLeft } from '../services/offers';
 
 export default function PaymentModal({
   bus,
+  journeyDate,
   selectedSeats,
   passengers,
   onConfirmPayment,
@@ -20,19 +23,42 @@ export default function PaymentModal({
   const count = selectedSeats.length || 1;
   const baseFare = bus.price || 500;
   const subtotal = baseFare * count;
-  const gst = Math.round(subtotal * 0.18);
-  const platformFee = 25;
+  const pricing = usePricing();
+  const gst = Math.round((subtotal * pricing.gstPercent) / 100);
+  const platformFee = pricing.convenienceFee;
   const grossTotal = subtotal + gst + platformFee;
 
-  let discount = 0;
-  if (appliedOffer) {
-    if (appliedOffer.type === 'percent') {
-      discount = Math.round((grossTotal * appliedOffer.discount) / 100);
-    } else {
-      discount = appliedOffer.discount;
-    }
-  }
+  // Offers the Super Admin has set up that are usable today on this operator's bus.
+  const providerId = bus.providerId;
+  const [offers, setOffers] = useState([]);
+  useEffect(() => {
+    API.offers.getActive(providerId).then((o) => setOffers(Array.isArray(o) ? o : [])).catch(() => setOffers([]));
+  }, [providerId]);
+
+  // appliedOffer = { code, discount } as worked out by the backend for this total.
+  const discount = appliedOffer ? appliedOffer.discount : 0;
   const netTotal = Math.max(0, grossTotal - discount);
+
+  // The backend checks every condition: dates, travel day, early-bird/last-minute, first booking/loyalty,
+  // amount, seats, route/origin city, operator, bus type, payment method and usage limits.
+  const applyCode = async (code, quiet = false) => {
+    try {
+      const res = await API.offers.validate(code, grossTotal, {
+        providerId,
+        tripId: bus.tripId,
+        seats: count,
+        journeyDate: journeyDate || bus.journeyDate,
+        paymentMethod,
+      });
+      setAppliedOffer({ code, discount: res.discountAmount });
+      setCouponCode(code);
+      const expiry = res.offer ? ` (${offerExpiry(res.offer)})` : '';
+      if (!quiet) setCouponMessage({ text: `Coupon "${code}" applied! You save ₹${res.discountAmount}.${expiry}`, error: false });
+    } catch (e) {
+      setAppliedOffer(null);
+      setCouponMessage({ text: e.message || 'Invalid coupon code.', error: true });
+    }
+  };
 
   const handleApplyCoupon = (codeToApply) => {
     const code = (codeToApply || couponCode).trim().toUpperCase();
@@ -40,30 +66,16 @@ export default function PaymentModal({
       setCouponMessage({ text: 'Please enter a coupon code.', error: true });
       return;
     }
-
-    const offer = OFFERS_CATALOG.find((o) => o.code === code);
-    if (!offer) {
-      setCouponMessage({ text: 'Invalid coupon code.', error: true });
-      return;
-    }
-
-    if (grossTotal < offer.minFare) {
-      setCouponMessage({
-        text: `Minimum booking fare of ₹${offer.minFare} required for this coupon.`,
-        error: true,
-      });
-      return;
-    }
-
-    setAppliedOffer(offer);
-    setCouponCode(code);
-    setCouponMessage({
-      text: `Coupon "${code}" applied successfully! You save ₹${
-        offer.type === 'percent' ? Math.round((grossTotal * offer.discount) / 100) : offer.discount
-      }`,
-      error: false,
-    });
+    applyCode(code);
   };
+
+  // If the total or payment method changes, re-check the applied coupon: the discount stays correct,
+  // and a method-restricted offer (e.g. UPI only) is dropped with the reason shown.
+  const appliedCode = appliedOffer?.code;
+  useEffect(() => {
+    if (appliedCode) applyCode(appliedCode, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grossTotal, paymentMethod]);
 
   const handleRemoveCoupon = () => {
     setAppliedOffer(null);
@@ -111,7 +123,7 @@ export default function PaymentModal({
           <span>₹{subtotal}</span>
         </div>
         <div className="fare-line">
-          <span>Goods & Services Tax (GST 18%)</span>
+          <span>Goods & Services Tax (GST {pricing.gstPercent}%)</span>
           <span>₹{gst}</span>
         </div>
         <div className="fare-line">
@@ -195,10 +207,13 @@ export default function PaymentModal({
         {/* Collapsible Offers Accordion */}
         {showOffersPanel && (
           <div style={{ marginTop: '14px', borderTop: '1px dashed #fed7aa', paddingTop: '12px' }}>
-            {OFFERS_CATALOG.map((o) => (
+            {offers.length === 0 && (
+              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>No offers available for this bus right now.</div>
+            )}
+            {offers.map((o) => (
               <div
-                key={o.code}
-                onClick={() => handleApplyCoupon(o.code)}
+                key={o.offerCode}
+                onClick={() => handleApplyCoupon(o.offerCode)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -213,9 +228,14 @@ export default function PaymentModal({
               >
                 <div>
                   <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1e293b' }}>
-                    {o.code} · <span style={{ color: 'var(--primary)' }}>{o.title}</span>
+                    {o.offerCode} · <span style={{ color: 'var(--primary)' }}>{offerTitle(o)}</span>
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{o.desc}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                    {[offerDiscountLabel(o), ...offerConditions(o)].join(' · ')}
+                  </div>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 700, color: offerDaysLeft(o) <= 3 ? '#dc2626' : '#b45309' }}>
+                    ⏳ {offerExpiry(o)}
+                  </div>
                 </div>
                 <button
                   type="button"

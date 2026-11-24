@@ -866,6 +866,9 @@ export default function SearchTrips({
               paymentMethod: paymentDetails.method,
               discount: paymentDetails.discount,
               total: paymentDetails.total,
+              fareSubtotal: paymentDetails.subtotal,
+              gst: paymentDetails.gst,
+              platformFee: paymentDetails.platformFee,
               subtotal: paymentDetails.total,
               status: 'PENDING',
               booking_status: 'PENDING',
@@ -923,6 +926,9 @@ export default function SearchTrips({
         paymentMethod: paymentDetails.method,
         discount: paymentDetails.discount,
         total: paymentDetails.total,
+        fareSubtotal: paymentDetails.subtotal,
+        gst: paymentDetails.gst,
+        platformFee: paymentDetails.platformFee,
         subtotal: paymentDetails.total,
         amount: paymentDetails.total,
         fare: selectedBus.price,
@@ -1033,6 +1039,9 @@ export default function SearchTrips({
         paymentMethod: paymentDetails.method,
         discount: paymentDetails.discount,
         total: paymentDetails.total,
+        fareSubtotal: paymentDetails.subtotal,
+        gst: paymentDetails.gst,
+        platformFee: paymentDetails.platformFee,
         status: 'PENDING',
         booking_status: 'PENDING',
         createdAt: new Date().toISOString(),
@@ -1346,6 +1355,7 @@ export default function SearchTrips({
       {step === 'payment' && selectedBus && (
         <PaymentModal
           bus={selectedBus}
+          journeyDate={travelDate}
           selectedSeats={selectedSeats}
           passengers={passengers}
           onConfirmPayment={handleConfirmPayment}

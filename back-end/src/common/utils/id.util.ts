@@ -6,7 +6,7 @@
 // past its highest hardcoded seed value avoids that. Update this map if seed data
 // for a prefix grows past these values.
 let counters: Record<string, number> = {
-  A: 2, B: 10, C: 4, IRCTC: 1, O: 3, P: 10, PAY: 3, R: 10, REV: 3, SCH: 25, SR: 3, SUP: 2, T: 25, V: 19,
+  A: 2, B: 10, C: 4, IRCTC: 1, O: 14, P: 10, PAY: 3, R: 10, REV: 3, SCH: 25, SR: 3, SUP: 2, T: 25, V: 19,
 };
 
 export function bumpCounterIfHigher(prefix: string, id: string): void {

@@ -8,7 +8,7 @@ const EMAIL_RE = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
 const SUPER_USERS = [
   { email: 'superuser@click2book.com', password: 'super123' },
   { email: 'superadmin@click2book.com', password: 'SuperAdmin@123' },
-  { email: 'admin@click2book.com', password: 'Admin@123' },
+  { email: 'sarath@click2book.com', password: 'Sarath@123' },
   { email: 'admin@c2b.com', password: 'admin123' },
 ];
 

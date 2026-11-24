@@ -31,15 +31,7 @@ function revenueSeries(periods, payments, keyOf) {
   return periods.map((p) => rows[p.key]);
 }
 
-const WEIGHTS = [
-  ['cancellation', 'Cancellation'],
-  ['complaint', 'Complaint'],
-  ['sos', 'SOS (always Rs.0)'],
-  ['lost_and_found', 'Lost & Found'],
-  ['dispute', 'Dispute'],
-];
-
-const EMPTY_CONFIG = { commissionPct: '', convenienceFee: '', gatewayFeePct: '', weights: {} };
+const EMPTY_CONFIG = { commissionPct: '', convenienceFee: '', gatewayFeePct: '' };
 
 /** "lost_and_found" → "Lost and found" */
 const humanize = (v) =>
@@ -70,7 +62,7 @@ function RevenueDashboard() {
   const demo = useRevenueDemo();
   const [config, setConfig] = useState(EMPTY_CONFIG);
   const [warning, setWarning] = useState('');
-  const [stats, setStats] = useState([]);
+  const [stats, setStats] = useState(null);
   const [ledgerFilter, setLedgerFilter] = useState('');
   const [ledger, setLedger] = useState(null);
   const [ticketFilter, setTicketFilter] = useState('');
@@ -78,27 +70,30 @@ function RevenueDashboard() {
   const [payments, setPayments] = useState(null);
   const [paymentFilter, setPaymentFilter] = useState('');
   const [payouts, setPayouts] = useState(null);
+  const [transfers, setTransfers] = useState([]);
+  const [transferring, setTransferring] = useState('');
   const [trendMode, setTrendMode] = useState('daily');
 
   const loadSummaryStats = useCallback(async () => {
-    const [summary, allTickets] = await Promise.all([adminFetch('/admin/ledger/summary'), adminFetch('/support-ticket')]);
-    const openTickets = allTickets.filter((t) => t.status === 'open').length;
-    setStats([
-      { label: 'Total Bookings Ledgered', value: summary.count, accent: '#F97316' },
-      { label: 'Total Operator Payout', value: rupees(summary.operatorPayout), accent: '#22c55e' },
-      { label: 'Total Platform Commission', value: rupees(summary.platformCommission), accent: '#3b82f6' },
-      { label: 'Total Gateway Fees', value: rupees(summary.gatewayFee), accent: '#64748b' },
-      { label: 'Total Admin Net', value: rupees(summary.adminNet), accent: '#8b5cf6' },
-      { label: 'Total Support Cost Drawn', value: rupees(summary.supportCost), accent: '#ef4444' },
-      { label: 'Open Support Tickets', value: `${openTickets} / ${allTickets.length}`, accent: '#f59e0b' },
-    ]);
+    setStats({ summary: await adminFetch('/admin/ledger/summary') });
   }, []);
 
   const renderLedger = useCallback(
     async (status) => setLedger(await adminFetch('/admin/ledger' + (status ? `?status=${status}` : ''))),
     [],
   );
-  const loadPayments = useCallback(async () => setPayments(await adminFetch('/payments')), []);
+  // Only payments for bookings made through the live booking flow count. Every new booking gets a
+  // ledger row; the seeded demo payments (PAY001–PAY003) have none, so they are left out.
+  const loadPayouts = useCallback(async () => {
+    setPayouts(await adminFetch('/admin/payouts/summary'));
+    setTransfers(await adminFetch('/admin/payouts/transfers').catch(() => []));
+  }, []);
+
+  const loadPayments = useCallback(async () => {
+    const [all, ledgerRows] = await Promise.all([adminFetch('/payments'), adminFetch('/admin/ledger')]);
+    const ledgered = new Set(ledgerRows.map((r) => r.bookingId));
+    setPayments(all.filter((p) => ledgered.has(p.bookingId)));
+  }, []);
   const renderTickets = useCallback(
     async (status) => setTickets(await adminFetch('/support-ticket' + (status ? `?status=${status}` : ''))),
     [],
@@ -112,27 +107,40 @@ function RevenueDashboard() {
           commissionPct: cfg.commissionPct,
           convenienceFee: (cfg.convenienceFeeFlat / 100).toFixed(2),
           gatewayFeePct: cfg.gatewayFeePct,
-          weights: Object.fromEntries(WEIGHTS.map(([c]) => [c, ((cfg.supportCostWeights[c] || 0) / 100).toFixed(2)])),
         });
         await loadSummaryStats();
         await renderLedger('');
         await renderTickets('');
         await loadPayments();
-        setPayouts(await adminFetch('/admin/payouts/summary'));
+        await loadPayouts();
         setConnected(true);
       } catch (err) {
         setConnected(false);
         console.error(err);
       }
     })();
-  }, [loadSummaryStats, renderLedger, renderTickets, loadPayments]);
+  }, [loadSummaryStats, renderLedger, renderTickets, loadPayments, loadPayouts]);
+
+  // Pick up new customer bookings and payments without a manual reload.
+  useEffect(() => {
+    if (!connected || demo) return undefined;
+    const refresh = () =>
+      Promise.all([
+        loadSummaryStats(),
+        loadPayments(),
+        renderLedger(ledgerFilter),
+        loadPayouts(),
+      ]).catch((err) => console.error(err));
+    const timer = setInterval(refresh, 5000);
+    return () => clearInterval(timer);
+  }, [connected, demo, ledgerFilter, loadSummaryStats, loadPayments, renderLedger, loadPayouts]);
 
   const saveConfig = async (e) => {
     e.preventDefault();
     setWarning('');
     try {
-      const supportCostWeights = {};
-      for (const [c] of WEIGHTS) if (c !== 'sos') supportCostWeights[c] = Math.round(parseFloat(config.weights[c] || '0') * 100);
+      // Support tickets are free: no ticket type draws any cost. Cancellations are charged only by the refund rules.
+      const supportCostWeights = { cancellation: 0, complaint: 0, sos: 0, lost_and_found: 0, dispute: 0 };
       const json = await adminFetch('/admin/revenue-config', {
         method: 'POST',
         raw: true,
@@ -151,6 +159,19 @@ function RevenueDashboard() {
     }
   };
 
+  const transferTo = async (p) => {
+    if (!window.confirm(`Transfer ${rupees(p.total)} to ${p.label} for ${p.count} booking(s)?`)) return;
+    setTransferring(p.id);
+    try {
+      await adminFetch(`/admin/payouts/${p.id}/transfer`, { method: 'POST' });
+      await Promise.all([loadPayouts(), renderLedger(ledgerFilter)]);
+    } catch (err) {
+      alert('Transfer failed: ' + err.message);
+    } finally {
+      setTransferring('');
+    }
+  };
+
   const resolveTicket = async (ticketId) => {
     try {
       await adminFetch(`/support-ticket/${ticketId}/resolve`, { method: 'PATCH' });
@@ -162,20 +183,25 @@ function RevenueDashboard() {
   };
 
   const setField = (key) => (e) => setConfig((c) => ({ ...c, [key]: e.target.value }));
-  const setWeight = (key) => (e) => setConfig((c) => ({ ...c, weights: { ...c.weights, [key]: e.target.value } }));
 
   const allPayments = payments || [];
   const success = allPayments.filter(isSuccess);
-  const cards = payments
-    ? [
-        {
-          label: `Gross Revenue (${success.length} payments)`,
-          value: inr(success.reduce((s, p) => s + net(p), 0)),
-          accent: '#16a34a',
-        },
-        ...stats,
-      ]
-    : stats;
+  const paidTotal = success.reduce((s, p) => s + net(p), 0);
+  const cards = [
+    ...(payments
+      ? [
+          { label: `Gross Revenue (${success.length} payments)`, value: inr(paidTotal), accent: '#16a34a' },
+          { label: `Total Booking Amount (${success.length} bookings)`, value: inr(paidTotal), accent: '#F97316' },
+        ]
+      : []),
+    ...(stats
+      ? [
+          // The platform's commission is what it collects as gateway fees.
+          { label: 'Total Platform Commission', value: rupees(stats.summary.gatewayFee), accent: '#3b82f6' },
+          { label: 'Total Gateway Fees', value: rupees(stats.summary.gatewayFee), accent: '#64748b' },
+        ]
+      : []),
+  ];
   const trend =
     trendMode === 'daily'
       ? revenueSeries(lastDays(14), allPayments, (d) => d.slice(0, 10))
@@ -274,7 +300,7 @@ function RevenueDashboard() {
         <div className="card">
           <div className="card-title">Revenue Split Configuration</div>
           <div className="card-sub">
-            Commission, convenience fee, gateway fee, and per-category support cost weights (all money in rupees — stored as paise).
+            Commission, convenience fee and gateway fee (money in rupees — stored as paise).
           </div>
           <form id="configForm" onSubmit={saveConfig}>
             <div className="form-grid">
@@ -317,23 +343,6 @@ function RevenueDashboard() {
                 />
               </div>
             </div>
-            <div className="weights-title">Support cost weights (Rs. per ticket)</div>
-            <div className="form-grid">
-              {WEIGHTS.map(([key, label]) => (
-                <div className="field" key={key}>
-                  <label htmlFor={`w-${key}`}>{label}</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    id={`w-${key}`}
-                    disabled={key === 'sos'}
-                    value={config.weights[key] ?? ''}
-                    onChange={setWeight(key)}
-                  />
-                </div>
-              ))}
-            </div>
             <button className="btn btn-primary" type="submit">
               Save Configuration
             </button>
@@ -348,21 +357,24 @@ function RevenueDashboard() {
         <div className="card">
           <div className="card-title">Operator Payouts</div>
           <div className="card-sub">
-            What each operator is owed from the transaction ledger (fare minus platform commission, excluding cancelled bookings).
+            Each booking's fare minus platform commission is owed to the operator that runs the trip (cancelled bookings excluded).
+            Transfer sends an operator everything still due and marks those bookings as paid out.
           </div>
           <div className="table-wrap">
             <table id="payoutsTable">
               <thead>
                 <tr>
                   <th>Operator</th>
-                  <th className="num">Bookings</th>
+                  <th className="num">Bookings Due</th>
                   <th className="num">Payout Due</th>
+                  <th className="num">Paid Out</th>
+                  <th className="num">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {payouts?.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="empty">
+                    <td colSpan={5} className="empty">
                       No ledger entries yet — payouts appear once customers book through the backend.
                     </td>
                   </tr>
@@ -374,6 +386,56 @@ function RevenueDashboard() {
                     </td>
                     <td className="num">{p.count}</td>
                     <td className="num">{rupees(p.total)}</td>
+                    <td className="num">
+                      {rupees(p.paidTotal || 0)} <span className="muted">({p.paidCount || 0})</span>
+                    </td>
+                    <td className="num">
+                      {p.total > 0 && !demo ? (
+                        <button className="btn btn-primary btn-sm" disabled={transferring === p.id} onClick={() => transferTo(p)}>
+                          {transferring === p.id ? 'Transferring…' : 'Transfer'}
+                        </button>
+                      ) : (
+                        <span className="muted">{p.total > 0 ? '—' : 'Settled'}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">Payout Transfers</div>
+          <div className="card-sub">Every transfer made to an operator, newest first.</div>
+          <div className="table-wrap">
+            <table id="transfersTable">
+              <thead>
+                <tr>
+                  <th>Transfer</th>
+                  <th>Operator</th>
+                  <th className="num">Bookings</th>
+                  <th className="num">Amount</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transfers.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="empty">
+                      No transfers yet.
+                    </td>
+                  </tr>
+                )}
+                {transfers.map((t) => (
+                  <tr key={t.transferId}>
+                    <td className="mono">{t.transferId}</td>
+                    <td>
+                      <strong>{t.providerName}</strong> <span className="mono muted">{t.providerId}</span>
+                    </td>
+                    <td className="num">{t.bookingCount}</td>
+                    <td className="num">{rupees(t.amount)}</td>
+                    <td>{t.createdAt.replace('T', ' ').slice(0, 16)}</td>
                   </tr>
                 ))}
               </tbody>

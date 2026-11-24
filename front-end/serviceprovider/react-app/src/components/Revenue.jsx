@@ -6,6 +6,7 @@ export default function Revenue({ provider }) {
   const [rows, setRows] = useState([]);
   const [isLive, setIsLive] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [live, setLive] = useState(null); // backend earnings: { ledger, transfers, totals… } in paise
 
   const providerId = provider?.id
     || sessionStorage.getItem('c2b_loggedInId')
@@ -17,15 +18,9 @@ export default function Revenue({ provider }) {
       fetchRevenue(providerId).then(({ data, localBookings, localSchedules, isLive: live }) => {
         setIsLive(live);
         if (live && data) {
-          // Use API data shape
-          setStats({
-            totalGross: data.totalGross || 0,
-            totalNet:   data.totalNet   || 0,
-            totalBookings: data.totalBookings || 0,
-            totalSeats: data.totalSeats || 0,
-          });
-          setRows(data.breakdown || []);
+          setLive(data);
         } else {
+          setLive(null);
           // Compute from localStorage
           const bookings  = localBookings  || JSON.parse(localStorage.getItem('c2b_bookings')       || '[]');
           const schedules = localSchedules || JSON.parse(localStorage.getItem('c2b_bus_schedules')  || '[]');
@@ -99,6 +94,9 @@ export default function Revenue({ provider }) {
   if (loading) return <div className="empty-state" style={{ paddingTop: '4rem' }}><p>⏳ Loading revenue data…</p></div>;
 
   const fmtInr = (n) => `₹${Number(n).toLocaleString('en-IN')}`;
+  const fromPaise = (p) => `₹${(Number(p || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  if (live) return <LiveRevenue data={live} fromPaise={fromPaise} />;
 
   const statCards = [
     { label: 'Total Gross Revenue', value: fmtInr(stats.totalGross), color: '#f97316' },
@@ -164,6 +162,121 @@ export default function Revenue({ provider }) {
                     <td>{r.passengerCount}</td>
                     <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmtInr(r.gross)}</td>
                     <td style={{ textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>{fmtInr(r.net)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Earnings from the backend ledger: every booking on this provider's trips, and what Click2Book has transferred. */
+function LiveRevenue({ data, fromPaise }) {
+  const active = data.ledger.filter((l) => l.status !== 'cancelled');
+  const statCards = [
+    { label: 'Total Gross Fare', value: fromPaise(data.totalBaseFare), color: '#f97316' },
+    { label: 'Your Earnings (after commission)', value: fromPaise(data.totalOperatorPayout), color: '#22c55e' },
+    { label: 'Received from Click2Book', value: fromPaise(data.totalPaidOut), color: '#3b82f6' },
+    { label: 'Pending Transfer', value: fromPaise(data.totalPending), color: '#a855f7' },
+  ];
+  const cell = { textAlign: 'right' };
+
+  return (
+    <div className="revenue-page-wrap">
+      <div className="page-header">
+        <div>
+          <h3>Provider Revenue &amp; Payouts</h3>
+          <p>
+            <span className="live-badge"><span className="live-dot" />Live data</span> · {active.length} active booking(s),{' '}
+            {data.cancelledCount} cancelled
+          </p>
+        </div>
+      </div>
+
+      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
+        {statCards.map((sc) => (
+          <div key={sc.label} className="stat-card" style={{ '--card-accent': sc.color }}>
+            <div className="stat-value" style={{ fontSize: '1.5rem' }}>{sc.value}</div>
+            <div className="stat-label">{sc.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <div className="card-header">
+          <h3>Transfers Received</h3>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>TRANSFER</th>
+                <th>DATE</th>
+                <th>BOOKINGS</th>
+                <th style={cell}>AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.transfers.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>
+                    No transfers yet. Click2Book transfers your pending earnings from the Super Admin console.
+                  </td>
+                </tr>
+              ) : (
+                data.transfers.map((t) => (
+                  <tr key={t.transferId}>
+                    <td className="font-medium">{t.transferId}</td>
+                    <td className="text-muted">{t.createdAt.replace('T', ' ').slice(0, 16)}</td>
+                    <td>{t.bookingCount}</td>
+                    <td style={{ ...cell, fontWeight: 700, color: '#16a34a' }}>{fromPaise(t.amount)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h3>Bookings &amp; Payout Status</h3>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>BOOKING</th>
+                <th>DATE</th>
+                <th style={cell}>FARE</th>
+                <th style={cell}>YOUR EARNING</th>
+                <th>PAYOUT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.ledger.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>
+                    No bookings yet. Earnings appear here as soon as a customer books one of your trips.
+                  </td>
+                </tr>
+              ) : (
+                data.ledger.map((l) => (
+                  <tr key={l.ledgerId}>
+                    <td className="font-medium">{l.bookingId}</td>
+                    <td className="text-muted">{l.createdAt.replace('T', ' ').slice(0, 16)}</td>
+                    <td style={cell}>{fromPaise(l.baseFare)}</td>
+                    <td style={{ ...cell, fontWeight: 700 }}>{l.status === 'cancelled' ? '—' : fromPaise(l.operatorPayout)}</td>
+                    <td>
+                      {l.status === 'cancelled'
+                        ? 'Cancelled'
+                        : l.payoutStatus === 'paid'
+                          ? `Paid (${l.transferId})`
+                          : 'Pending'}
+                    </td>
                   </tr>
                 ))
               )}

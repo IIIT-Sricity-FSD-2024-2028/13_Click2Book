@@ -6,11 +6,11 @@ export const defaultRevenueSplitConfig: RevenueSplitConfig = {
   convenienceFeeFlat: 2500,
   gatewayFeePct: 1.5,
   supportCostWeights: {
-    cancellation: 800,
-    complaint: 3500,
+    cancellation: 0,
+    complaint: 0,
     sos: 0,
-    lost_and_found: 1500,
-    dispute: 3000,
+    lost_and_found: 0,
+    dispute: 0,
   },
   updatedAt: new Date(0).toISOString(),
 };

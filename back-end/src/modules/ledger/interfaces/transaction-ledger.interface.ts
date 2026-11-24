@@ -1,4 +1,5 @@
 export type LedgerStatus = 'clean' | 'cancelled' | 'disputed';
+export type PayoutStatus = 'pending' | 'paid';
 
 export interface TransactionLedger {
   ledgerId: string;
@@ -13,6 +14,9 @@ export interface TransactionLedger {
   supportCost: number; // paise — starts at 0, only changed via applySupportCost
   adminNet: number; // paise
   status: LedgerStatus;
+  payoutStatus: PayoutStatus; // 'paid' once the operatorPayout has been transferred to the provider
+  transferId?: string; // the PayoutTransfer that paid this row
+  paidOutAt?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -335,9 +335,26 @@
                 var seatArr = normalizeSeats(b.seats);
                 var matchBus = baseBuses.find(function(bus) {
                     return (b.tripId && (bus.id === b.tripId || bus.tripId === b.tripId)) ||
-                           (b.busName && bus.name && bus.name.toLowerCase() === b.busName.toLowerCase()) ||
+                           (b.busName && bus.name && (bus.name.toLowerCase() === b.busName.toLowerCase() || bus.name.toLowerCase().includes(b.busName.toLowerCase()) || b.busName.toLowerCase().includes(bus.name.toLowerCase()))) ||
                            (b.from && b.to && bus.from && bus.to && bus.from.toLowerCase() === b.from.toLowerCase() && bus.to.toLowerCase() === b.to.toLowerCase());
                 });
+
+                if (!matchBus) {
+                    var newTripId = b.tripId || ('BUS_' + baseBuses.length);
+                    matchBus = {
+                        id: newTripId,
+                        tripId: newTripId,
+                        route: (b.from && b.to) ? (b.from + ' → ' + b.to) : 'Custom Route',
+                        from: b.from || 'Origin',
+                        to: b.to || 'Destination',
+                        time: (b.time || b.departureTime || '08:00') + ' → ' + (b.arrivalTime || '12:00'),
+                        name: b.busName || 'Express Bus',
+                        type: b.busType || 'AC',
+                        total: 40,
+                        bookedSeatList: []
+                    };
+                    baseBuses.push(matchBus);
+                }
 
                 if (matchBus) {
                     matchBus.bookedSeatList.push(...seatArr);

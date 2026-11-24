@@ -16,16 +16,10 @@ export class ProviderService {
     private readonly ledgerRepo: LedgerRepository,
   ) {}
 
-  // Self-registration waits for admin approval; a provider added by an admin can log in straight away.
-  create(dto: CreateProviderDto, byAdmin = false) {
+  create(dto: CreateProviderDto) {
     if (this.providerRepo.findByEmail(dto.email))
       throw new ConflictException('Provider email already exists');
-    const provider = this.providerRepo.create(dto);
-    if (byAdmin) {
-      const active = this.providerRepo.update(provider.providerId, { approved: true, status: 'ACTIVE' });
-      return successResponse('Provider created and activated', active);
-    }
-    return successResponse('Provider registered (awaiting admin approval)', provider);
+    return successResponse('Provider registered (awaiting admin approval)', this.providerRepo.create(dto));
   }
 
   findAll() { return successResponse('All providers', this.providerRepo.findAll()); }
@@ -96,9 +90,6 @@ export class ProviderService {
       cancelledCount,
       totalBaseFare: cleanRows.reduce((s, l) => s + l.baseFare, 0),
       totalOperatorPayout: cleanRows.reduce((s, l) => s + l.operatorPayout, 0),
-      // Split of totalOperatorPayout: already transferred by Click2Book vs still to be transferred.
-      totalPaidOut: cleanRows.filter((l) => l.payoutStatus === 'paid').reduce((s, l) => s + l.operatorPayout, 0),
-      totalPending: cleanRows.filter((l) => l.payoutStatus !== 'paid').reduce((s, l) => s + l.operatorPayout, 0),
       ledger,
     });
   }

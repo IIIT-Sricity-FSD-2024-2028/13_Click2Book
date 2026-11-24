@@ -77,16 +77,47 @@ export default function GetSupport({ user, showToast }) {
   useEffect(() => {
     loadRequests();
 
+    // 1. Cross-portal Real-time BroadcastChannel listener
+    let syncChannel = null;
+    try {
+      if (typeof window !== 'undefined' && typeof window.BroadcastChannel === 'function') {
+        syncChannel = new BroadcastChannel('click2book_support_sync');
+        syncChannel.onmessage = (event) => {
+          const msg = event?.data;
+          if (msg && (msg.type === 'TICKET_RESOLVED' || msg.type === 'TICKET_UPDATED')) {
+            loadRequests();
+          }
+        };
+      }
+    } catch (_) {}
+
+    // 2. Storage event listener (same-origin tab support)
     const handleStorageChange = (e) => {
       if (!e.key || e.key.includes('support') || e.key.includes('ticket')) {
         loadRequests();
       }
     };
     window.addEventListener('storage', handleStorageChange);
-    const interval = setInterval(loadRequests, 8000);
+
+    // 3. Tab visibility / window focus listener
+    const handleFocus = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        loadRequests();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    // 4. Background poll every 4 seconds
+    const interval = setInterval(loadRequests, 4000);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+      if (syncChannel) {
+        try { syncChannel.close(); } catch (_) {}
+      }
       clearInterval(interval);
     };
   }, [customerId]);
@@ -142,8 +173,19 @@ export default function GetSupport({ user, showToast }) {
       const filtered = Array.isArray(existing) ? existing.filter((t) => (t.requestId || t.id) !== ticketId) : [];
       filtered.unshift(newTicket);
       localStorage.setItem('c2b_support_requests', JSON.stringify(filtered));
-      window.dispatchEvent(new Event('storage'));
     } catch {}
+
+    // 3. Real-time Cross-Portal broadcast so Support Agent Portal instantly sees the ticket
+    try {
+      if (typeof window !== 'undefined' && typeof window.BroadcastChannel === 'function') {
+        const ch = new BroadcastChannel('click2book_support_sync');
+        ch.postMessage({
+          type: 'NEW_CUSTOMER_TICKET',
+          ticket: newTicket,
+        });
+        setTimeout(() => { try { ch.close(); } catch (_) {} }, 200);
+      }
+    } catch (_) {}
 
     setIsSubmitting(false);
     setGeneratedTicketId(ticketId);

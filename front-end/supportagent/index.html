@@ -4,20 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Customer Support Portal – Click2Book (React)</title>
-  <link rel="stylesheet" href="dist/bundle.css" />
-  <link rel="stylesheet" href="src/index.css" />
+  <link rel="stylesheet" href="/src/index.css" />
 </head>
 <body>
   <div id="root"></div>
-
-  <!-- Standalone Pre-built React 19 Bundle (Zero configuration needed) -->
-  <script src="dist/bundle.js"></script>
-
-  <!-- Vite Dev Server Module Entry (When evaluated via 'npm run dev') -->
-  <script type="module">
-    if (!window.__REACT_BUNDLE_LOADED__ && window.location.port === '5173') {
-      import('/src/main.jsx');
-    }
-  </script>
+  <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

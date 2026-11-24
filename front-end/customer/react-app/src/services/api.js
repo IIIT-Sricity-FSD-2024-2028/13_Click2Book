@@ -89,6 +89,12 @@ export const API = {
     },
   },
 
+  locations: {
+    async getAll() {
+      return apiFetch('/locations');
+    },
+  },
+
   auth: {
     async login(email, password) {
       return apiFetch('/auth/login', {
@@ -122,10 +128,12 @@ export const API = {
   },
 
   bookings: {
-    async create(tripId, seatNumber, offerCode = null) {
+    async create(tripId, seatNumber, offerCode = null, segment = null) {
       const customerId = getCustomerId();
       const body = { customerId, tripId, seatNumber: Number(seatNumber) };
       if (offerCode) body.offerCode = offerCode;
+      if (segment?.from) body.from = segment.from;
+      if (segment?.to) body.to = segment.to;
       return apiFetch('/bookings', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -192,21 +200,14 @@ export const API = {
   },
 
   offers: {
-    /** Offers usable today (set by the Super Admin); pass a providerId to get only those valid for that operator. */
-    async getActive(providerId) {
-      return apiFetch('/offers/active' + (providerId ? `?providerId=${encodeURIComponent(providerId)}` : ''));
+    async getActive() {
+      return apiFetch('/offers/active');
     },
-    /**
-     * Server-side check of a code against everything known about this booking
-     * ({ providerId, tripId, seats, journeyDate, paymentMethod }); the customer is the signed-in one.
-     * Resolves to { discountAmount, finalFare, offer } or throws with the reason it cannot be used.
-     */
-    async validate(code, fare, ctx = {}) {
-      const params = { code, fare: String(fare), customerId: getCustomerId(), ...ctx };
-      const q = new URLSearchParams(
-        Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => [k, String(v)])),
-      );
-      return apiFetch(`/offers/validate?${q}`);
+    async validate(offerCode, fare) {
+      return apiFetch('/offers/validate', {
+        method: 'POST',
+        body: JSON.stringify({ offerCode, fare: Number(fare), customerId: getCustomerId() }),
+      });
     },
   },
 
@@ -280,6 +281,72 @@ export const API = {
         method: 'POST',
         body: JSON.stringify(body),
       });
+    },
+  },
+
+  reviews: {
+    async getByTrip(tripId) {
+      try {
+        const res = await apiFetch(`/reviews?tripId=${encodeURIComponent(tripId)}`);
+        return res?.data || res || [];
+      } catch {
+        const local = JSON.parse(localStorage.getItem('c2b_bus_reviews') || '[]');
+        return tripId ? local.filter((r) => r.tripId === tripId) : local;
+      }
+    },
+    async submit({ tripId, rating, comment, bookingId, seatNumber, busName, route, customerName, customerId, categories }) {
+      const ratingNum = Math.min(5, Math.max(1, parseInt(rating || 5, 10)));
+      const reviews = JSON.parse(localStorage.getItem('c2b_bus_reviews') || '[]');
+      const reviewId = `REV-${Date.now()}`;
+      const newReview = {
+        reviewId,
+        tripId: tripId || 'T001',
+        busName: busName || 'Express Bus',
+        route: route || 'Intercity Route',
+        customerId: customerId || getCustomerId(),
+        customerName: customerName || 'Passenger',
+        bookingId: bookingId || `BK-${Math.floor(10000 + Math.random() * 90000)}`,
+        seatNumber: seatNumber || '1',
+        rating: ratingNum,
+        categories: categories || {
+          punctuality: ratingNum,
+          cleanliness: ratingNum,
+          comfort: ratingNum,
+          staff: ratingNum,
+        },
+        comment: (comment || '').trim() || 'Pleasant journey, on-time bus and clean cabin.',
+        reviewDate: new Date().toISOString(),
+        providerReply: null,
+        repliedAt: null,
+        providerName: 'Kiran Travels',
+        verifiedBooking: true,
+      };
+
+      reviews.unshift(newReview);
+      localStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
+
+      try {
+        await apiFetch('/reviews', {
+          method: 'POST',
+          body: JSON.stringify({
+            customerId: newReview.customerId,
+            tripId: newReview.tripId,
+            rating: newReview.rating,
+            comment: newReview.comment,
+          }),
+        });
+      } catch (err) {
+        console.warn('Backend /reviews note (saved locally):', err?.message);
+      }
+
+      try {
+        window.dispatchEvent(new Event('storage'));
+        window.dispatchEvent(new CustomEvent('c2b_sync', {
+          detail: { type: 'REVIEW_SUBMITTED', review: newReview }
+        }));
+      } catch (e) {}
+
+      return newReview;
     },
   },
 };

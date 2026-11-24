@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { fetchRevenue } from '../services/api';
 
-export default function Revenue({ provider }) {
+export default function Revenue({ provider, onNavigate, showToast }) {
   const [stats, setStats] = useState({ totalGross: 0, totalNet: 0, totalBookings: 0, totalSeats: 0 });
   const [rows, setRows] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [isLive, setIsLive] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [live, setLive] = useState(null); // backend earnings: { ledger, transfers, totals… } in paise
 
   const providerId = provider?.id
     || sessionStorage.getItem('c2b_loggedInId')
@@ -17,13 +17,21 @@ export default function Revenue({ provider }) {
     const loadRevenue = () => {
       fetchRevenue(providerId).then(({ data, localBookings, localSchedules, isLive: live }) => {
         setIsLive(live);
+
+        const bookings  = localBookings  || JSON.parse(localStorage.getItem('c2b_bookings')       || '[]');
+        const schedules = localSchedules || JSON.parse(localStorage.getItem('c2b_bus_schedules')  || '[]');
+
         if (live && data) {
-          setLive(data);
+          // Use API data shape
+          setStats({
+            totalGross: data.totalGross || 0,
+            totalNet:   data.totalNet   || 0,
+            totalBookings: data.totalBookings || 0,
+            totalSeats: data.totalSeats || 0,
+          });
+          setRows(data.breakdown || []);
         } else {
-          setLive(null);
           // Compute from localStorage
-          const bookings  = localBookings  || JSON.parse(localStorage.getItem('c2b_bookings')       || '[]');
-          const schedules = localSchedules || JSON.parse(localStorage.getItem('c2b_bus_schedules')  || '[]');
           const busMap = {};
           schedules.forEach((s) => {
             const key = s.id || s.tripId;
@@ -36,18 +44,30 @@ export default function Revenue({ provider }) {
             if (!b?.bookingId || seenIds.has(b.bookingId) || b.status === 'CANCELLED' || b.booking_status === 'CANCELLED') return;
             seenIds.add(b.bookingId);
             const seatArr = Array.isArray(b.seat_list) ? b.seat_list : Array.isArray(b.seats) ? b.seats : typeof b.seats === 'string' ? b.seats.split(',') : [];
-            const matchKey = Object.keys(busMap).find((k) =>
+            let matchKey = Object.keys(busMap).find((k) =>
               (b.tripId && (k === b.tripId)) ||
-              (b.busName && busMap[k]?.busName?.toLowerCase() === b.busName.toLowerCase()) ||
-              (b.from && b.to && busMap[k]?.from?.toLowerCase() === b.from.toLowerCase() && busMap[k]?.to?.toLowerCase() === b.to.toLowerCase())
+              (b.busName && busMap[k]?.busName && (busMap[k].busName.toLowerCase() === b.busName.toLowerCase() || busMap[k].busName.toLowerCase().includes(b.busName.toLowerCase()) || b.busName.toLowerCase().includes(busMap[k].busName.toLowerCase()))) ||
+              (b.from && b.to && busMap[k]?.from && busMap[k]?.to && busMap[k].from.toLowerCase() === b.from.toLowerCase() && busMap[k].to.toLowerCase() === b.to.toLowerCase())
             );
-            const amount = Number(b.total) || Number(b.amount) || Number(b.subtotal) || (b.fare ? b.fare * seatArr.length : 500);
-            totalGross += amount; totalBookings += 1; totalSeats += seatArr.length;
-            if (matchKey) {
-              busMap[matchKey].gross += amount;
-              busMap[matchKey].bookingCount += 1;
-              busMap[matchKey].passengerCount += seatArr.length;
+            const amount = Number(b.grossFare) || Number(b.subtotal) || Number(b.fare ? b.fare * (seatArr.length || 1) : 0) || Number(b.total) || 500;
+            totalGross += amount; totalBookings += 1; totalSeats += (seatArr.length || 1);
+            if (!matchKey) {
+              matchKey = b.tripId || `trip_${b.busName || 'bus'}_${b.from || ''}_${b.to || ''}`;
+              busMap[matchKey] = {
+                id: matchKey,
+                tripId: matchKey,
+                busName: b.busName || 'Express Bus',
+                from: b.from || 'Origin',
+                to: b.to || 'Destination',
+                gross: 0,
+                bookingCount: 0,
+                passengerCount: 0,
+                seats: [],
+              };
             }
+            busMap[matchKey].gross += amount;
+            busMap[matchKey].bookingCount += 1;
+            busMap[matchKey].passengerCount += (seatArr.length || 1);
           });
 
           const busList = Object.values(busMap);
@@ -78,25 +98,66 @@ export default function Revenue({ provider }) {
           });
           setRows(finalRows);
         }
+
+        // Build detailed ledger transactions across all bookings
+        const seenTx = new Set();
+        const txList = [];
+        bookings.forEach((b) => {
+          const bId = b?.bookingId || b?.booking_id;
+          if (!bId || seenTx.has(bId)) return;
+          seenTx.add(bId);
+
+          const seatArr = Array.isArray(b.seat_list) ? b.seat_list : Array.isArray(b.seats) ? b.seats : typeof b.seats === 'string' ? b.seats.split(',').map((s) => s.trim()).filter(Boolean) : [];
+          const seatCount = seatArr.length || 1;
+          const isCancelled = b.status === 'CANCELLED' || b.booking_status === 'CANCELLED';
+
+          const customerName = b.customerName || b.passengerName || (Array.isArray(b.passengers) && b.passengers[0]?.name) || 'Customer';
+          const couponCode = b.couponCode && b.couponCode !== 'NONE' ? b.couponCode : (b.offerCode || null);
+          const couponDiscount = Number(b.discount || b.couponDiscount || 0);
+
+          const grossFare = Number(b.grossFare || b.subtotal || (b.fare ? b.fare * seatCount : 0) || (b.total ? Math.max(0, b.total - 25 - Math.round((b.total - 25) * 0.18 / 1.18) + couponDiscount) : 500));
+          const gst = Number(b.gst || Math.round(grossFare * 0.18));
+          const platformFee = Number(b.platformFee || 25);
+          const platformCommission = isCancelled ? 0 : Number(b.platformCommission || Math.round(grossFare * 0.10));
+          const operatorPayout = isCancelled ? 0 : Number(b.operatorPayout || (grossFare - platformCommission));
+
+          txList.push({
+            bookingId: bId,
+            customerName,
+            passengers: Array.isArray(b.passengers) ? b.passengers : [],
+            busName: b.busName || 'Express Bus',
+            route: (b.from && b.to) ? `${b.from} → ${b.to}` : 'Route',
+            seats: seatArr.join(', ') || `Seat ${b.seatNumber || 1}`,
+            seatCount,
+            grossFare,
+            gst,
+            platformFee,
+            couponCode,
+            couponDiscount,
+            platformCommission,
+            operatorPayout,
+            status: isCancelled ? 'CANCELLED' : (b.status || 'CONFIRMED'),
+            date: b.date || b.journeyDate || (b.createdAt ? b.createdAt.split('T')[0] : 'Today'),
+          });
+        });
+        setTransactions(txList);
+
         setLoading(false);
       });
     };
 
     loadRevenue();
     window.addEventListener('storage', loadRevenue);
-    const interval = setInterval(loadRevenue, 4000);
+    window.addEventListener('c2b_sync', loadRevenue);
     return () => {
       window.removeEventListener('storage', loadRevenue);
-      clearInterval(interval);
+      window.removeEventListener('c2b_sync', loadRevenue);
     };
   }, [providerId]);
 
-  if (loading) return <div className="empty-state" style={{ paddingTop: '4rem' }}><p>⏳ Loading revenue data…</p></div>;
+  if (loading && rows.length === 0) return <div className="empty-state" style={{ paddingTop: '4rem' }}><p>⏳ Loading revenue data…</p></div>;
 
   const fmtInr = (n) => `₹${Number(n).toLocaleString('en-IN')}`;
-  const fromPaise = (p) => `₹${(Number(p || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-  if (live) return <LiveRevenue data={live} fromPaise={fromPaise} />;
 
   const statCards = [
     { label: 'Total Gross Revenue', value: fmtInr(stats.totalGross), color: '#f97316' },
@@ -169,116 +230,116 @@ export default function Revenue({ provider }) {
           </table>
         </div>
       </div>
-    </div>
-  );
-}
 
-/** Earnings from the backend ledger: every booking on this provider's trips, and what Click2Book has transferred. */
-function LiveRevenue({ data, fromPaise }) {
-  const active = data.ledger.filter((l) => l.status !== 'cancelled');
-  const statCards = [
-    { label: 'Total Gross Fare', value: fromPaise(data.totalBaseFare), color: '#f97316' },
-    { label: 'Your Earnings (after commission)', value: fromPaise(data.totalOperatorPayout), color: '#22c55e' },
-    { label: 'Received from Click2Book', value: fromPaise(data.totalPaidOut), color: '#3b82f6' },
-    { label: 'Pending Transfer', value: fromPaise(data.totalPending), color: '#a855f7' },
-  ];
-  const cell = { textAlign: 'right' };
-
-  return (
-    <div className="revenue-page-wrap">
-      <div className="page-header">
-        <div>
-          <h3>Provider Revenue &amp; Payouts</h3>
-          <p>
-            <span className="live-badge"><span className="live-dot" />Live data</span> · {active.length} active booking(s),{' '}
-            {data.cancelledCount} cancelled
-          </p>
-        </div>
-      </div>
-
-      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-        {statCards.map((sc) => (
-          <div key={sc.label} className="stat-card" style={{ '--card-accent': sc.color }}>
-            <div className="stat-value" style={{ fontSize: '1.5rem' }}>{sc.value}</div>
-            <div className="stat-label">{sc.label}</div>
+      {/* Booking Transactions & Payouts Ledger Table */}
+      <div className="card" style={{ marginTop: '1.5rem' }}>
+        <div className="card-header">
+          <div>
+            <h3>📜 Booking Transactions &amp; Payouts Ledger</h3>
+            <span style={{ fontSize: '0.78rem', color: '#6b7280' }}>
+              Individual bookings with customer details, coupon discounts, platform charges, and net operator payout
+            </span>
           </div>
-        ))}
-      </div>
-
-      <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <div className="card-header">
-          <h3>Transfers Received</h3>
+          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#f97316' }}>
+            {transactions.length} Total Transaction{transactions.length === 1 ? '' : 's'}
+          </span>
         </div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>TRANSFER</th>
-                <th>DATE</th>
-                <th>BOOKINGS</th>
-                <th style={cell}>AMOUNT</th>
+                <th>BOOKING ID / DATE</th>
+                <th>CUSTOMER &amp; PASSENGERS</th>
+                <th>BUS / ROUTE</th>
+                <th>SEATS</th>
+                <th style={{ textAlign: 'right' }}>GROSS FARE</th>
+                <th style={{ textAlign: 'center' }}>COUPON / DISCOUNT</th>
+                <th style={{ textAlign: 'right' }}>TAXES &amp; FEES</th>
+                <th style={{ textAlign: 'right' }}>PLATFORM COMM. (10%)</th>
+                <th style={{ textAlign: 'right' }}>NET OPERATOR PAYOUT</th>
+                <th style={{ textAlign: 'center' }}>STATUS</th>
               </tr>
             </thead>
             <tbody>
-              {data.transfers.length === 0 ? (
+              {transactions.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>
-                    No transfers yet. Click2Book transfers your pending earnings from the Super Admin console.
+                  <td colSpan={10} style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>
+                    No booking transactions recorded yet. Once customers book seats, financial breakdowns and payouts will appear here.
                   </td>
                 </tr>
               ) : (
-                data.transfers.map((t) => (
-                  <tr key={t.transferId}>
-                    <td className="font-medium">{t.transferId}</td>
-                    <td className="text-muted">{t.createdAt.replace('T', ' ').slice(0, 16)}</td>
-                    <td>{t.bookingCount}</td>
-                    <td style={{ ...cell, fontWeight: 700, color: '#16a34a' }}>{fromPaise(t.amount)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="card-header">
-          <h3>Bookings &amp; Payout Status</h3>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>BOOKING</th>
-                <th>DATE</th>
-                <th style={cell}>FARE</th>
-                <th style={cell}>YOUR EARNING</th>
-                <th>PAYOUT</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.ledger.length === 0 ? (
-                <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>
-                    No bookings yet. Earnings appear here as soon as a customer books one of your trips.
-                  </td>
-                </tr>
-              ) : (
-                data.ledger.map((l) => (
-                  <tr key={l.ledgerId}>
-                    <td className="font-medium">{l.bookingId}</td>
-                    <td className="text-muted">{l.createdAt.replace('T', ' ').slice(0, 16)}</td>
-                    <td style={cell}>{fromPaise(l.baseFare)}</td>
-                    <td style={{ ...cell, fontWeight: 700 }}>{l.status === 'cancelled' ? '—' : fromPaise(l.operatorPayout)}</td>
-                    <td>
-                      {l.status === 'cancelled'
-                        ? 'Cancelled'
-                        : l.payoutStatus === 'paid'
-                          ? `Paid (${l.transferId})`
-                          : 'Pending'}
-                    </td>
-                  </tr>
-                ))
+                transactions.map((tx) => {
+                  const isCanc = tx.status === 'CANCELLED';
+                  return (
+                    <tr key={tx.bookingId}>
+                      <td>
+                        <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.82rem', color: '#0f172a' }}>{tx.bookingId}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{tx.date}</div>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{tx.customerName}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                          {tx.passengers.length > 0
+                            ? tx.passengers.map((p) => p.name || 'Pax').join(', ')
+                            : `${tx.seatCount} Passenger${tx.seatCount > 1 ? 's' : ''}`}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{tx.busName}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{tx.route}</div>
+                      </td>
+                      <td>
+                        <span className="badge" style={{ background: '#eff6ff', color: '#2563eb', fontWeight: 700, border: '1px solid #bfdbfe', fontSize: '0.72rem' }}>
+                          {tx.seats}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                        {isCanc ? (
+                          <span style={{ textDecoration: 'line-through', color: '#9ca3af' }}>{fmtInr(tx.grossFare)}</span>
+                        ) : (
+                          fmtInr(tx.grossFare)
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {tx.couponCode ? (
+                          <span className="badge" style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', fontWeight: 700, fontSize: '0.72rem' }}>
+                            {tx.couponCode} (−₹{tx.couponDiscount})
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>None</span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'right', fontSize: '0.75rem', color: '#64748b' }}>
+                        <div>GST: ₹{tx.gst}</div>
+                        <div>Fee: ₹{tx.platformFee}</div>
+                      </td>
+                      <td style={{ textAlign: 'right', color: isCanc ? '#9ca3af' : '#dc2626', fontWeight: 600 }}>
+                        {isCanc ? '₹0' : `−${fmtInr(tx.platformCommission)}`}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: isCanc ? '#9ca3af' : '#16a34a', fontSize: '0.95rem' }}>
+                        {isCanc ? (
+                          <span style={{ textDecoration: 'line-through', color: '#9ca3af' }}>₹0</span>
+                        ) : (
+                          fmtInr(tx.operatorPayout)
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span className={`badge ${isCanc ? 'badge-danger' : 'badge-success'}`} style={{
+                          display: 'inline-block',
+                          padding: '3px 10px',
+                          borderRadius: '20px',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          background: isCanc ? '#fee2e2' : '#dcfce7',
+                          color: isCanc ? '#dc2626' : '#15803d',
+                          border: isCanc ? '1px solid #fecaca' : '1px solid #bbf7d0',
+                        }}>
+                          {isCanc ? 'Cancelled' : 'Confirmed'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

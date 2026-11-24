@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiHeader, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { PayoutsService } from './payouts.service';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -26,22 +26,5 @@ export class PayoutsController {
     @Query('groupBy') groupBy?: string,
   ) {
     return this.payoutsService.getSummary(groupBy, from, to);
-  }
-
-  @Post(':providerId/transfer')
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: "Transfer everything a provider is owed and mark those bookings as paid out (Admin)" })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
-  transfer(@Param('providerId') providerId: string) {
-    return this.payoutsService.transfer(providerId);
-  }
-
-  @Get('transfers')
-  @Roles(Role.ADMIN, Role.PROVIDER)
-  @ApiOperation({ summary: 'Payout transfer history, newest first (Admin/Provider)' })
-  @ApiQuery({ name: 'providerId', required: false, example: 'P001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
-  transfers(@Query('providerId') providerId?: string) {
-    return this.payoutsService.listTransfers(providerId);
   }
 }

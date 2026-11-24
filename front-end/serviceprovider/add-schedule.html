@@ -400,6 +400,8 @@
                     addedAt: new Date().toISOString()
                 });
                 localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
+                try { window.dispatchEvent(new Event('storage')); } catch(e) {}
+                try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'SCHEDULE_UPDATED', payload: schedules[schedules.length - 1] } })); } catch(e) {}
                 saveToSuperUserDB(from, to, dep, arr, busName, busType, seats, fare, journeyDate, via);
 
                 var viaText = via ? ' (Via ' + via + ')' : '';
@@ -440,6 +442,8 @@
                     addedAt: new Date().toISOString()
                 });
                 localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
+                try { window.dispatchEvent(new Event('storage')); } catch(e) {}
+                try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'SCHEDULE_UPDATED', payload: schedules[schedules.length - 1] } })); } catch(e) {}
                 saveToSuperUserDB(from, to, dep, arr, busName, busType, seats, fare, journeyDate, via);
                 var viaText = via ? ' (Via ' + via + ')' : '';
                 var successEl = document.getElementById('scheduleSuccessMsg');

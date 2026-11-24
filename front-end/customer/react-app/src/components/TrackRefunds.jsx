@@ -146,18 +146,37 @@ export default function TrackRefunds({ initialBookingId = '', customer, user, sh
     loadRefunds();
 
     const handleStorage = (e) => {
-      if (!e.key || e.key.includes('refund') || e.key.includes('booking')) {
+      if (!e || !e.key || e.key.includes('refund') || e.key.includes('booking')) {
         loadRefunds();
       }
     };
     window.addEventListener('storage', handleStorage);
+    window.addEventListener('c2b_sync', loadRefunds);
     const interval = setInterval(loadRefunds, 8000);
 
     return () => {
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('c2b_sync', loadRefunds);
       clearInterval(interval);
     };
   }, [loadRefunds]);
+
+  const handleAdvanceRefundStatus = (bookingId) => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
+      stored.forEach((item) => {
+        if ((item.booking_id || item.bookingId) === bookingId) {
+          item.status = 'COMPLETED';
+          item.raw_status = 'COMPLETED';
+        }
+      });
+      localStorage.setItem('c2b_refunds', JSON.stringify(stored));
+      loadRefunds();
+      if (showToast) showToast('Bank settlement completed. Funds credited to customer source account.', 'success');
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'REFUND_SETTLED', bookingId } }));
+    } catch {}
+  };
 
   // Query single booking refund directly from API if searched
   const handleSearchSingleBooking = async (e) => {
@@ -358,9 +377,28 @@ export default function TrackRefunds({ initialBookingId = '', customer, user, sh
                 </div>
 
                 {/* Bank / Security Pill */}
-                <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b' }}>
+                <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b', flexWrap: 'wrap', gap: '8px' }}>
                   <span>Source Account: <strong>{r.paymentMethod}</strong></span>
                   <span>Bank ARN: <strong style={{ fontFamily: 'monospace' }}>{r.arn}</strong></span>
+                  {!isCompleted && (
+                    <button
+                      type="button"
+                      style={{
+                        background: '#f0fdf4',
+                        color: '#16a34a',
+                        border: '1px solid #86efac',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => handleAdvanceRefundStatus(r.bookingId)}
+                      title="Advance stage to Credited / Completed"
+                    >
+                      ⚡ Fast-track Settlement
+                    </button>
+                  )}
                 </div>
               </div>
             );

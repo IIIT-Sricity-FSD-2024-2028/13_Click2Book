@@ -4,10 +4,9 @@ import { RefundService } from './refund.service';
 import { RefundRepository } from './refund.repository';
 import { CancellationModule } from '../cancellation/cancellation.module';
 import { PaymentModule } from '../payment/payment.module';
-import { PlatformModule } from '../platform/platform.module';
 
 @Module({
-  imports: [CancellationModule, PaymentModule, PlatformModule],
+  imports: [CancellationModule, PaymentModule],
   controllers: [RefundController],
   providers: [RefundService, RefundRepository],
   exports: [RefundService, RefundRepository],

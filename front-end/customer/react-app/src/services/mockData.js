@@ -1,78 +1,9 @@
 /**
- * Click2Book Customer Portal — Seed & Mock Datasets
- * Preserves the exact fallback models from legacy customer pages
+ * Click2Book Customer Portal — Datasets
+ * Mock buses purged: only real buses from backend and provider fleet are displayed.
  */
 
-export const MOCK_BUSES = [
-  {
-    tripId: 'MOCK_T001',
-    busName: 'SRS Travels Superfast',
-    vehicleType: 'AC Sleeper',
-    providerName: 'SRS Travels',
-    departureTime: '21:00',
-    arrivalTime: '06:00',
-    duration: '9h 00m',
-    price: 750,
-    totalSeats: 40,
-    availableSeats: 22,
-    rating: 4.5,
-    amenities: ['AC', 'WiFi', 'Charging Point', 'Blanket', 'Pillow'],
-    vehicleId: 'MOCK_V001',
-    providerId: 'MOCK_P001',
-    typeColor: '#9333ea',
-  },
-  {
-    tripId: 'MOCK_T002',
-    busName: 'Parveen Travels Express',
-    vehicleType: 'Volvo AC',
-    providerName: 'Parveen Travels',
-    departureTime: '22:30',
-    arrivalTime: '07:30',
-    duration: '9h 00m',
-    price: 600,
-    totalSeats: 45,
-    availableSeats: 14,
-    rating: 4.2,
-    amenities: ['AC', 'Charging Point', 'Water Bottle'],
-    vehicleId: 'MOCK_V002',
-    providerId: 'MOCK_P002',
-    typeColor: '#2563eb',
-  },
-  {
-    tripId: 'MOCK_T003',
-    busName: 'KPN Deluxe Night Rider',
-    vehicleType: 'AC',
-    providerName: 'KPN Travels',
-    departureTime: '19:45',
-    arrivalTime: '05:15',
-    duration: '9h 30m',
-    price: 520,
-    totalSeats: 40,
-    availableSeats: 8,
-    rating: 4.0,
-    amenities: ['AC', 'Charging Point'],
-    vehicleId: 'MOCK_V003',
-    providerId: 'MOCK_P003',
-    typeColor: '#f97316',
-  },
-  {
-    tripId: 'MOCK_T004',
-    busName: 'APSRTC Garuda Plus',
-    vehicleType: 'Volvo AC',
-    providerName: 'APSRTC',
-    departureTime: '06:30',
-    arrivalTime: '14:30',
-    duration: '8h 00m',
-    price: 680,
-    totalSeats: 44,
-    availableSeats: 29,
-    rating: 4.6,
-    amenities: ['AC', 'Water Bottle', 'Charging Point'],
-    vehicleId: 'MOCK_V004',
-    providerId: 'P001',
-    typeColor: '#2563eb',
-  },
-];
+export const MOCK_BUSES = [];
 
 export const OFFERS_CATALOG = [
   { code: 'FIRSTBUS100', title: 'First Ride Bonus',     desc: '₹100 off on your first booking',               discount: 100, type: 'flat',    badge: 'NEW',       badgeColor: '#f97316', minFare: 0,   category: 'festive' },

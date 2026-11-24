@@ -1299,3 +1299,571 @@ select.form-control { cursor: pointer; }
 .flex-between { display: flex; justify-content: space-between; align-items: center; }
 .flex-end { display: flex; justify-content: flex-end; }
 .w-full { width: 100%; }
+
+/* ───────────────────────────────────────────
+   REDBUS / V1 BUS SEAT LAYOUT SYSTEM
+   ─────────────────────────────────────────── */
+.bus-layout-v1-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.bus-layout-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.layout-badge-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.layout-mode-tag {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.layout-price-tag {
+  font-size: 0.82rem;
+  color: #0f172a;
+}
+
+.layout-price-tag strong {
+  color: #ea580c;
+  font-weight: 800;
+}
+
+/* Deck Switcher Tabs for Sleeper */
+.deck-switcher-tabs {
+  display: inline-flex;
+  background: #e2e8f0;
+  padding: 3px;
+  border-radius: 8px;
+  gap: 4px;
+}
+
+.deck-tab-btn {
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #475569;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.18s ease;
+}
+
+.deck-tab-btn:hover {
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.deck-tab-btn.active {
+  background: #ffffff;
+  color: #ea580c;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.deck-count-pill {
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.deck-tab-btn.active .deck-count-pill {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+/* SVG Reset Override specifically for Seat Layout SVGs */
+.seat-v1 svg,
+#steering-wheel svg {
+  stroke-width: initial;
+  stroke-linecap: initial;
+  stroke-linejoin: initial;
+}
+
+#steering-wheel svg {
+  fill: #64748b;
+  stroke: none;
+}
+
+.seat-v1 svg path,
+.seat-v1 svg rect {
+  vector-effect: non-scaling-stroke;
+}
+
+/* Container */
+.seatsContainer {
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 14px;
+  box-sizing: border-box;
+}
+
+.v1-seat-table {
+  border-collapse: separate;
+  border-spacing: 10px 8px;
+  margin: 0 auto;
+}
+
+.semi-sleeper-table {
+  border-spacing: 12px 10px;
+}
+
+.v1-seat-cell {
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.v1-seat-cell.empty {
+  width: 70px;
+  height: 35px;
+}
+
+.v1-gangway {
+  width: 24px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.gangway-indicator {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: #cbd5e1;
+  letter-spacing: 0.08em;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  margin: 0 auto;
+}
+
+.v1-covered-row {
+  height: 0;
+  line-height: 0;
+}
+
+.v1-covered-row td {
+  padding: 0;
+  border: none;
+}
+
+/* Seat button wrapper & button */
+.Tooltip-Wrapper {
+  display: inline-block;
+  position: relative;
+}
+
+.seat.seat-v1 {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  padding: 2px;
+  border-radius: 6px;
+  position: relative;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.seat.seat-v1:hover {
+  transform: translateY(-2px);
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,0.12));
+}
+
+.seat.seat-v1.selected {
+  transform: scale(1.05);
+  filter: drop-shadow(0 4px 10px rgba(59,130,246,0.35));
+}
+
+.seat.seat-v1.sleeper {
+  width: 76px;
+  min-height: 52px;
+}
+
+.seat.seat-v1.semi-sleeper {
+  width: 50px;
+  min-height: 56px;
+}
+
+.seat-sleeper-svg {
+  width: 70px;
+  height: 35px;
+  display: block;
+}
+
+.seat-semi-svg {
+  width: 44px;
+  height: 40px;
+  display: block;
+}
+
+/* Seat ID and Price Labels */
+.seat-v1-label {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #334155;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.seat-v1.semi-sleeper .seat-v1-label {
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.72rem;
+}
+
+.seat-v1.booked .seat-v1-label {
+  color: #475569;
+}
+
+.seat-v1-price {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-top: 3px;
+  line-height: 1;
+  text-align: center;
+  display: block;
+}
+
+.text-black {
+  color: #0f172a !important;
+}
+
+/* Legend Bar */
+.bus-layout-legend-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  color: #475569;
+}
+
+.legend-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.legend-indicator {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.legend-indicator.available {
+  background: #ffffff;
+  border: 1.5px solid #c8cad0;
+}
+
+.legend-indicator.booked-male {
+  background: #d6d7db;
+  border: 1.5px solid #848794;
+}
+
+.legend-indicator.booked-female {
+  background: #d6d7db;
+  border: 1.5px solid #f06292;
+}
+
+.legend-indicator.selected {
+  background: #eff6ff;
+  border: 1.5px solid #499af5;
+}
+
+
+/* ── Blocked seat legend ── */
+.legend-indicator.blocked {
+  background: #fff7ed;
+  border: 1.5px solid #fcd34d;
+}
+
+/* ── Seat states (applied via className to .seat.seat-v1) ── */
+.seat.seat-v1.blocked-seat {
+  opacity: 0.9;
+}
+
+/* ───────────────────────────────────────────
+   SEAT MANAGEMENT TRIP CARDS (redbus style)
+   ─────────────────────────────────────────── */
+.sm-trips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.sm-trip-card {
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sm-trip-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 6px 20px rgba(249,115,22,0.12);
+  transform: translateY(-2px);
+}
+
+.sm-trip-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.sm-trip-bus-name {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.sm-trip-type-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.sm-trip-type-badge.sleeper {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.sm-trip-type-badge.semi {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.sm-trip-type-badge.seater {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.sm-trip-route {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sm-route-arrow {
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.sm-trip-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sm-trip-occupancy-bar {
+  height: 7px;
+  background: #f1f5f9;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.sm-trip-occupancy-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.4s ease;
+}
+
+.sm-seat-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sm-seat-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 8px;
+}
+
+.sm-seat-chip.avail {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.sm-seat-chip.booked {
+  background: #fff1f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.sm-seat-chip.blocked {
+  background: #fff7ed;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+.sm-seat-chip.total {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+/* Block / Unblock buttons in Passenger Drawer */
+.btn-block-seat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s;
+}
+
+.btn-block-seat.block {
+  background: #fff7ed;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+.btn-block-seat.block:hover {
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.btn-block-seat.unblock {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.btn-block-seat.unblock:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+/* Filter row for seat management */
+.sm-filter-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.sm-filter-row .form-control {
+  flex: 1;
+  min-width: 180px;
+  max-width: 320px;
+}
+
+.sm-filter-select {
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--white);
+  cursor: pointer;
+}
+
+/* Seat Modal - provider view */
+.seat-modal-provider {
+  max-width: 1000px !important;
+  width: 95% !important;
+}
+
+.seat-modal-provider.with-pax-drawer {
+  max-width: 1240px !important;
+}
+
+/* Seat details panel in modal */
+.seat-stats-banner {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.seat-stats-banner .stat-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 10px;
+  min-width: 72px;
+}
+
+.stat-chip .chip-num {
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.stat-chip .chip-lbl {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+.stat-chip.total  { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.stat-chip.avail  { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+.stat-chip.booked { background: #fff1f2; color: #dc2626; border: 1px solid #fecaca; }
+.stat-chip.blocked{ background: #fff7ed; color: #d97706; border: 1px solid #fde68a; }

@@ -1,27 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import { getDashboardData } from '../services/api';
 
-export default function Dashboard({ onNavigate }) {
-  const [data, setData] = useState({ buses: [], totalPax: 0, totalRev: 0 });
+export default function Dashboard({ provider, onNavigate, showToast }) {
+  const [data, setData] = useState({ buses: [], totalPax: 0, totalRev: 0, activeBusesCount: 0 });
 
   useEffect(() => {
-    const refresh = () => setData(getDashboardData());
+    const refresh = () => {
+      try {
+        const res = getDashboardData(provider?.id);
+        if (res && typeof res === 'object') {
+          setData({
+            buses: Array.isArray(res.buses) ? res.buses : [],
+            totalPax: Number(res.totalPax) || 0,
+            totalRev: Number(res.totalRev) || 0,
+            activeBusesCount: Number(res.activeBusesCount) || (Array.isArray(res.buses) ? res.buses.length : 0),
+          });
+        }
+      } catch (err) {
+        console.error('Error refreshing dashboard:', err);
+      }
+    };
     refresh();
     window.addEventListener('storage', refresh);
-    const interval = setInterval(refresh, 3000);
+    window.addEventListener('c2b_sync', refresh);
+    window.addEventListener('focus', refresh);
     return () => {
       window.removeEventListener('storage', refresh);
-      clearInterval(interval);
+      window.removeEventListener('c2b_sync', refresh);
+      window.removeEventListener('focus', refresh);
     };
-  }, []);
+  }, [provider?.id]);
 
-  const { buses, totalPax, totalRev } = data;
+  const { buses = [], totalPax = 0, totalRev = 0, activeBusesCount = 0 } = data || {};
 
   const stats = [
     {
       color: 'orange',
       icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
-      value: buses.length,
+      value: activeBusesCount || buses.length,
       label: 'Active Buses',
       trend: 'Fleet',
     },
@@ -35,14 +51,14 @@ export default function Dashboard({ onNavigate }) {
     {
       color: 'blue',
       icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
-      value: buses.length + 3,
+      value: buses.length,
       label: 'Scheduled Trips',
       trend: 'Routes',
     },
     {
       color: 'purple',
       icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
-      value: `₹${totalRev.toLocaleString('en-IN')}`,
+      value: `₹${Number(totalRev || 0).toLocaleString('en-IN')}`,
       label: 'Net Operator Revenue',
       trend: 'Earnings',
     },
@@ -53,7 +69,13 @@ export default function Dashboard({ onNavigate }) {
       {/* Stats */}
       <div className="stats-grid">
         {stats.map((s) => (
-          <div key={s.label} className={`stat-card ${s.color}`}>
+          <div
+            key={s.label}
+            className={`stat-card ${s.color}`}
+            onClick={() => s.trend === 'Fleet' && onNavigate && onNavigate('fleet-management')}
+            style={s.trend === 'Fleet' ? { cursor: 'pointer' } : undefined}
+            title={s.trend === 'Fleet' ? 'Click to open Bus Fleet & Route Assignments' : undefined}
+          >
             <div className="stat-header">
               <div className={`stat-icon ${s.color}`}>{s.icon}</div>
               <span className="stat-trend">{s.trend}</span>
@@ -68,14 +90,29 @@ export default function Dashboard({ onNavigate }) {
       <div className="card">
         <div className="card-header">
           <h3>Today's Schedule &amp; Fleet Occupancy</h3>
-          <button
-            className="btn btn-primary"
-            style={{ padding: '0.45rem 1rem', fontSize: '0.82rem' }}
-            onClick={() => onNavigate('add-schedule')}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add Schedule
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary"
+              style={{ padding: '0.45rem 0.95rem', fontSize: '0.82rem', background: '#4f46e5' }}
+              onClick={() => onNavigate && onNavigate('fleet-management')}
+            >
+              🚍 Fleet &amp; Routes
+            </button>
+            <button
+              className="btn btn-outline"
+              style={{ padding: '0.45rem 0.85rem', fontSize: '0.82rem' }}
+              onClick={() => onNavigate && onNavigate('reviews')}
+            >
+              ⭐ Bus Reviews
+            </button>
+            <button
+              className="btn btn-outline"
+              style={{ padding: '0.45rem 0.85rem', fontSize: '0.82rem' }}
+              onClick={() => onNavigate && onNavigate('coupons')}
+            >
+              🏷️ Manage Coupons
+            </button>
+          </div>
         </div>
         <div className="table-wrap">
           <table>
@@ -92,26 +129,26 @@ export default function Dashboard({ onNavigate }) {
               {buses.length === 0 ? (
                 <tr><td colSpan={5} style={{textAlign:'center',padding:'2rem',color:'#9ca3af'}}>No schedules found.</td></tr>
               ) : (
-                buses.map((bus) => {
-                  const pct = Math.min(100, Math.round(((bus.booked || 0) / (bus.total || 40)) * 100));
+                buses.map((bus, idx) => {
+                  const pct = Math.min(100, Math.round(((bus?.booked || 0) / (bus?.total || 40)) * 100));
                   const barColor = pct >= 100 ? 'red' : 'green';
                   const isFull = pct >= 100;
                   return (
-                    <tr key={bus.id}>
-                      <td className="font-medium">{bus.route}</td>
-                      <td className="text-muted">{bus.dep}</td>
-                      <td className="text-muted">{bus.name}</td>
+                    <tr key={bus?.id || bus?.tripId || idx}>
+                      <td className="font-medium">{bus?.route || 'Route'}</td>
+                      <td className="text-muted">{bus?.dep || '—'}</td>
+                      <td className="text-muted">{bus?.name || 'Bus'}</td>
                       <td>
                         <div className="seat-progress">
                           <div className="progress-bar-container">
                             <div className={`progress-bar ${barColor}`} style={{ width: `${pct}%` }} />
                           </div>
-                          <span className="seat-text">{bus.booked || 0}/{bus.total || 40}</span>
+                          <span className="seat-text">{bus?.booked || 0}/{bus?.total || 40}</span>
                         </div>
                       </td>
                       <td>
                         <span className={`badge ${isFull ? 'badge-red' : 'badge-green'}`}>
-                          {isFull ? 'Full' : 'Active'}
+                          {bus?.status || (isFull ? 'Full' : 'Active')}
                         </span>
                       </td>
                     </tr>

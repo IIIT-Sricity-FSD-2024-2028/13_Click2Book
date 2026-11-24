@@ -5,10 +5,9 @@ import { CancellationRepository } from './cancellation.repository';
 import { BookingModule } from '../booking/booking.module';
 import { LedgerModule } from '../ledger/ledger.module';
 import { SupportTicketModule } from '../support-ticket/support-ticket.module';
-import { PlatformModule } from '../platform/platform.module';
 
 @Module({
-  imports: [BookingModule, LedgerModule, SupportTicketModule, PlatformModule],
+  imports: [BookingModule, LedgerModule, SupportTicketModule],
   controllers: [CancellationController],
   providers: [CancellationService, CancellationRepository],
   exports: [CancellationService, CancellationRepository],

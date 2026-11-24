@@ -120,15 +120,161 @@ export class SyncService implements OnModuleDestroy {
     return { tripId, status };
   }
 
+  private parseSeatNum(raw: any, totalSeats: number = 40): number {
+    if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) return raw;
+    const str = String(raw || '').trim().toUpperCase();
+    if (/^\d+$/.test(str)) {
+      const n = parseInt(str, 10);
+      return n > 0 ? n : 1;
+    }
+    const lMatch = str.match(/^L(\d+)$/i);
+    if (lMatch) return parseInt(lMatch[1], 10);
+    const uMatch = str.match(/^U(\d+)$/i);
+    if (uMatch) {
+      const half = Math.ceil(totalSeats / 2);
+      return half + parseInt(uMatch[1], 10);
+    }
+    const sMatch = str.match(/^([A-Z])(\d+)$/i);
+    if (sMatch) {
+      const row = sMatch[1].toUpperCase().charCodeAt(0) - 65;
+      const col = parseInt(sMatch[2], 10);
+      return row * 4 + col;
+    }
+    return 1;
+  }
+
   // Register booking created by customer
   registerBooking(booking: any) {
+    try {
+      if (booking && (booking.bookingId || booking.id)) {
+        const id = booking.bookingId || booking.id;
+        const exists = this.bookingRepo.findById(id);
+        const tripId = booking.tripId || booking.backendTripId || 'T001';
+        const bookingDate = booking.bookingDate || booking.date || booking.journeyDate || new Date().toISOString().split('T')[0];
+        const bookingStatus = (booking.status || booking.bookingStatus || 'CONFIRMED') as any;
+        const passengers = Array.isArray(booking.passengers) ? booking.passengers : [];
+        const rawSeats = Array.isArray(booking.seat_list)
+          ? booking.seat_list
+          : Array.isArray(booking.seats)
+          ? booking.seats
+          : typeof booking.seats === 'string'
+          ? booking.seats.split(',')
+          : booking.seatNumber != null
+          ? [booking.seatNumber]
+          : [];
+        const seatBookings = Array.isArray(booking.seatBookings) ? booking.seatBookings : [];
+        const backendIds = Array.isArray(booking.backendBookingIds)
+          ? booking.backendBookingIds
+          : [];
+
+        const isCancelled =
+          booking.status === 'CANCELLED' ||
+          booking.booking_status === 'CANCELLED' ||
+          booking.bookingStatus === 'CANCELLED' ||
+          bookingStatus === 'CANCELLED';
+
+        if (isCancelled) {
+          const baseId = id.replace(/-\d+$/, '');
+          this.bookingRepo.findAll().forEach((b) => {
+            if (b.bookingId === baseId || b.bookingId.startsWith(baseId + '-')) {
+              b.bookingStatus = 'CANCELLED' as any;
+              (b as any).status = 'CANCELLED';
+              (b as any).booking_status = 'CANCELLED';
+            }
+          });
+          this.emit('BOOKING_CANCELLED', {
+            ...booking,
+            bookingId: id,
+            status: 'CANCELLED',
+            booking_status: 'CANCELLED',
+            bookingStatus: 'CANCELLED',
+          });
+          return booking;
+        }
+
+        const cleanSeats = rawSeats.map((s: any) => String(s).trim()).filter(Boolean);
+        const seatNumbers = cleanSeats.map((seat: any) => this.parseSeatNum(seat, 40));
+
+        seatNumbers.forEach((seatNumber, index) => {
+          const seatBooking = seatBookings[index];
+          const bookingId = seatBooking?.bookingId || backendIds[index] ||
+            (index === 0 ? id : `${id}-${index + 1}`);
+          const rawSeatLabel = cleanSeats[index] || String(seatNumber);
+          const existingSeat = this.bookingRepo.findById(bookingId);
+          const bookingPayload = {
+            bookingId,
+            customerId: booking.customerId || booking.customer_id || 'C001',
+            tripId,
+            seatNumber,
+            rawSeatLabel,
+            bookingDate,
+            bookingStatus,
+            offerId: booking.offerId || booking.offerCode || booking.couponCode,
+            from: booking.from,
+            to: booking.to,
+            vehicleId: booking.vehicleId,
+            vehicleNumber: booking.vehicleNumber || booking.plateNumber,
+            plateNumber: booking.vehicleNumber || booking.plateNumber,
+            busName: booking.busName,
+            busType: booking.busType,
+            seats: booking.seats || cleanSeats.join(', '),
+            seat_list: cleanSeats,
+            passengerName: passengers[index]?.name || booking.passengerName || booking.customerName,
+            phone: passengers[index]?.phone || booking.phone,
+            email: passengers[index]?.email || booking.email,
+            passengers,
+            fare: booking.fare || booking.total,
+            total: booking.total,
+          };
+          if (existingSeat) {
+            this.bookingRepo.update(bookingId, bookingPayload as any);
+          } else {
+            this.bookingRepo.createWithId(bookingPayload as any);
+          }
+        });
+
+        // Also ensure primary booking record is updated or created with full multi-seat details
+        if (cleanSeats.length > 0) {
+          const primaryPayload = {
+            bookingId: id,
+            customerId: booking.customerId || booking.customer_id || 'C001',
+            tripId,
+            seatNumber: seatNumbers[0] || 1,
+            rawSeatLabel: cleanSeats[0],
+            bookingDate,
+            bookingStatus,
+            offerId: booking.offerId || booking.offerCode || booking.couponCode,
+            from: booking.from,
+            to: booking.to,
+            vehicleId: booking.vehicleId,
+            vehicleNumber: booking.vehicleNumber || booking.plateNumber,
+            plateNumber: booking.vehicleNumber || booking.plateNumber,
+            busName: booking.busName,
+            busType: booking.busType,
+            seats: booking.seats || cleanSeats.join(', '),
+            seat_list: cleanSeats,
+            passengerName: passengers[0]?.name || booking.passengerName || booking.customerName,
+            phone: passengers[0]?.phone || booking.phone,
+            email: passengers[0]?.email || booking.email,
+            passengers,
+            fare: booking.fare || booking.total,
+            total: booking.total,
+          };
+          this.bookingRepo.createWithId(primaryPayload as any);
+        } else if (exists) {
+          this.bookingRepo.update(id, { bookingStatus } as any);
+        }
+      }
+    } catch (e) {
+      // Non-blocking fallback for custom sync payloads
+    }
     this.emit('BOOKING_CREATED', booking);
     return booking;
   }
 
   // Get consolidated real-time state for all actors
   getState() {
-    const rawTrips = this.tripRepo.findAll();
+    const rawTrips = this.tripRepo.findAll().filter((t) => Boolean(this.vehicleRepo.findById(t.vehicleId)));
     const enrichedTrips = rawTrips.map((t) => {
       const schedule = this.scheduleRepo.findById(t.scheduleId);
       const vehicle = this.vehicleRepo.findById(t.vehicleId);
@@ -162,6 +308,7 @@ export class SyncService implements OnModuleDestroy {
     return {
       trips: [...this.customSchedules, ...enrichedTrips],
       bookings: this.bookingRepo.findAll(),
+      vehicles: this.vehicleRepo.findAll(),
       payments: this.paymentRepo.findAll(),
       routes: this.routeRepo.findAll(),
       providers: this.providerRepo.findAll(),

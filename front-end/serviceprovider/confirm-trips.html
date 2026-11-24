@@ -361,6 +361,29 @@
             var statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
             statuses[tripId] = 'COMPLETED';
             localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+            var completions = JSON.parse(localStorage.getItem('c2b_trip_completions') || '{}');
+            completions[tripId] = new Date().toISOString();
+            localStorage.setItem('c2b_trip_completions', JSON.stringify(completions));
+            try {
+                var bookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+                var changed = false;
+                bookings.forEach(function(b) {
+                    if (b.tripId === tripId || b.trip_id === tripId) {
+                        b.tripStatus = 'COMPLETED';
+                        b.completedAt = completions[tripId];
+                        changed = true;
+                    }
+                });
+                if (changed) {
+                    localStorage.setItem('c2b_bookings', JSON.stringify(bookings));
+                }
+            } catch(e) {}
+            try {
+                window.dispatchEvent(new Event('storage'));
+                window.dispatchEvent(new CustomEvent('c2b_sync', {
+                    detail: { type: 'TRIP_STATUS_UPDATED', tripId: tripId, status: 'COMPLETED' }
+                }));
+            } catch(e) {}
             if (window.DB && DB.trips) {
                 try { DB.trips.update(tripId, { trip_status: 'COMPLETED' }); } catch(e){}
             }

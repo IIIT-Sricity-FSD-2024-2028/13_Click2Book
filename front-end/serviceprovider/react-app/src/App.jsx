@@ -7,25 +7,76 @@ import NotificationDrawer from './components/NotificationDrawer';
 import Toast              from './components/Toast';
 
 import Dashboard          from './components/Dashboard';
+import BusFleetManagement from './components/BusFleetManagement';
 import ManageSchedules    from './components/ManageSchedules';
-import AddSchedule        from './components/AddSchedule';
 import ConfirmTrips       from './components/ConfirmTrips';
 import SeatManagement     from './components/SeatManagement';
 import LostFound          from './components/LostFound';
 import Revenue            from './components/Revenue';
+import Coupons            from './components/Coupons';
+import Reviews            from './components/Reviews';
 import Settings           from './components/Settings';
+import Escalations        from './components/Escalations';
 
 import { getNotifications, autoStartDueTrips } from './services/api';
 import { liveSync } from './services/liveSync';
 
 /* ── Valid tabs (sync with hash URL, same approach as support agent) ── */
 const VALID_TABS = [
-  'dashboard', 'manage-schedules', 'add-schedule',
-  'confirm-trips', 'seat-management', 'lost-found', 'revenue', 'settings',
+  'dashboard', 'fleet-management', 'manage-schedules',
+  'confirm-trips', 'seat-management', 'coupons', 'reviews', 'lost-found', 'revenue', 'settings', 'escalations',
 ];
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('Page render error caught by ErrorBoundary:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="card" style={{ padding: '2.5rem', textAlign: 'center', margin: '2rem auto', maxWidth: 640 }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
+          <h3 style={{ color: '#dc2626', marginBottom: '0.5rem' }}>View Error Recovered</h3>
+          <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+            {this.state.error?.message || 'A temporary rendering issue occurred in this view.'}
+          </p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.reload();
+              }}
+            >
+              🔄 Reload View
+            </button>
+            <button
+              className="btn btn-outline"
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.hash = 'fleet-management';
+              }}
+            >
+              🚍 Go to Fleet
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function getTabFromHash() {
   const hash = window.location.hash.replace('#', '');
+  if (hash === 'add-schedule') return 'fleet-management';
   return VALID_TABS.includes(hash) ? hash : 'dashboard';
 }
 
@@ -88,7 +139,7 @@ export default function App() {
       }
     };
     runAutoStart();
-    const interval = setInterval(runAutoStart, 4000);
+    const interval = setInterval(runAutoStart, 15000);
     return () => clearInterval(interval);
   }, [showToast]);
 
@@ -107,6 +158,9 @@ export default function App() {
         if (status === 'IN_PROGRESS') {
           showToast(`🚌 Trip ${tripId} status is now IN PROGRESS.`, 'info');
         }
+      } else if (event.type === 'REVIEW_SUBMITTED') {
+        const r = event.payload || {};
+        showToast(`⭐ New Review! ${r.customerName || 'A passenger'} rated ${r.busName || 'bus'} ${r.rating || 5}★`, 'info');
       }
     });
     return () => unsubscribe();
@@ -130,17 +184,21 @@ export default function App() {
 
   /* ── Page renderer ── */
   const renderPage = () => {
-    const commonProps = { provider, showToast };
+    const commonProps = { provider, showToast, onNavigate: setActiveTab };
     switch (activeTab) {
-      case 'dashboard':        return <Dashboard        {...commonProps} onNavigate={setActiveTab} />;
-      case 'manage-schedules': return <ManageSchedules  {...commonProps} onNavigate={setActiveTab} />;
-      case 'add-schedule':     return <AddSchedule      {...commonProps} onNavigate={setActiveTab} />;
+      case 'dashboard':        return <Dashboard        {...commonProps} />;
+      case 'fleet-management': return <BusFleetManagement {...commonProps} />;
+      case 'manage-schedules': return <ManageSchedules  {...commonProps} />;
+      case 'add-schedule':     return <BusFleetManagement {...commonProps} />;
       case 'confirm-trips':    return <ConfirmTrips     {...commonProps} />;
       case 'seat-management':  return <SeatManagement   {...commonProps} />;
+      case 'coupons':          return <Coupons          {...commonProps} />;
+      case 'reviews':          return <Reviews          {...commonProps} />;
       case 'lost-found':       return <LostFound        {...commonProps} />;
       case 'revenue':          return <Revenue          {...commonProps} />;
+      case 'escalations':      return <Escalations      {...commonProps} />;
       case 'settings':         return <Settings         {...commonProps} />;
-      default:                 return <Dashboard        {...commonProps} onNavigate={setActiveTab} />;
+      default:                 return <Dashboard        {...commonProps} />;
     }
   };
 
@@ -172,7 +230,9 @@ export default function App() {
             onToggleNotifications={() => setNotifOpen((o) => !o)}
           />
           <div className="content-body">
-            {renderPage()}
+            <ErrorBoundary>
+              {renderPage()}
+            </ErrorBoundary>
           </div>
         </div>
       </div>

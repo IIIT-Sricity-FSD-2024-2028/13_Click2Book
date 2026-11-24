@@ -12,7 +12,7 @@ import { RouteModule } from '../route/route.module';
 
 @Module({
   imports: [
-    TripModule,
+    forwardRef(() => TripModule),
     VehicleModule,
     SeatModule,
     OfferModule,

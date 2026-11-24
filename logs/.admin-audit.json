@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "C:\\Users\\aakas\\OneDrive\\Desktop\\13_Click2Book\\logs\\.admin-audit.json",
+    "files": [
+        {
+            "date": 1794657811759,
+            "name": "C:\\Users\\aakas\\OneDrive\\Desktop\\13_Click2Book\\logs\\admin-2026-11-14.log",
+            "hash": "a7d6fb1abd49cbbe58a333578391427571ec4d87272148b6269d611440b8d968"
+        }
+    ],
+    "hashType": "sha256"
+}

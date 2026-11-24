@@ -8,7 +8,7 @@ type MutableLedgerFields = Pick<TransactionLedger, 'supportCost' | 'adminNet' | 
 export class LedgerRepository {
   private ledgers: TransactionLedger[] = [];
 
-  create(data: Omit<TransactionLedger, 'ledgerId' | 'status' | 'payoutStatus' | 'createdAt' | 'updatedAt'>): TransactionLedger {
+  create(data: Omit<TransactionLedger, 'ledgerId' | 'status' | 'createdAt' | 'updatedAt'>): TransactionLedger {
     if (this.findByBooking(data.bookingId)) {
       throw new ConflictException(`Ledger already exists for booking ${data.bookingId}`);
     }
@@ -17,20 +17,11 @@ export class LedgerRepository {
       ledgerId: generateId('LDG'),
       ...data,
       status: 'clean',
-      payoutStatus: 'pending',
       createdAt: now,
       updatedAt: now,
     };
     this.ledgers.push(ledger);
     return ledger;
-  }
-
-  /** Mark rows as paid out to their provider under one transfer. */
-  markPaidOut(bookingIds: string[], transferId: string, paidOutAt: string): void {
-    const ids = new Set(bookingIds);
-    this.ledgers = this.ledgers.map((l) =>
-      ids.has(l.bookingId) ? { ...l, payoutStatus: 'paid', transferId, paidOutAt, updatedAt: paidOutAt } : l,
-    );
   }
 
   findAll(): TransactionLedger[] {

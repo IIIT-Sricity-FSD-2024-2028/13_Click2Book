@@ -34,6 +34,7 @@ import { SupportTicketModule } from './modules/support-ticket/support-ticket.mod
 import { PayoutsModule } from './modules/payouts/payouts.module';
 import { SyncModule } from './modules/sync/sync.module';
 import { PlatformModule } from './modules/platform/platform.module';
+import { LocationModule } from './modules/location/location.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { PlatformModule } from './modules/platform/platform.module';
     SupportModule,
 
     // Transport infrastructure
+    LocationModule,
     RouteModule,
     VehicleModule,
     SeatModule,

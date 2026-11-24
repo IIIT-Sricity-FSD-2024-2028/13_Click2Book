@@ -51,6 +51,10 @@ export class TripRepository {
     { tripId: 'T024', scheduleId: 'SCH024', vehicleId: 'V001', tripStatus: TripStatus.SCHEDULED },
     // Hyderabad → Bangalore (KPN Tours, P002) — 3rd provider on R004
     { tripId: 'T025', scheduleId: 'SCH025', vehicleId: 'V007', tripStatus: TripStatus.SCHEDULED },
+    // Chennai → Visakhapatnam (APSRTC, P001)
+    { tripId: 'T026', scheduleId: 'SCH026', vehicleId: 'V001', tripStatus: TripStatus.SCHEDULED },
+    // Visakhapatnam → Chennai (APSRTC, P001)
+    { tripId: 'T027', scheduleId: 'SCH027', vehicleId: 'V002', tripStatus: TripStatus.SCHEDULED },
   ];
 
   create(data: Omit<Trip, 'tripId'>): Trip {

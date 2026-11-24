@@ -1,77 +1,182 @@
 import { Injectable } from '@nestjs/common';
-import { Vehicle } from './interfaces/vehicle.interface';
+import { Vehicle, BusSeatLayoutConfig, SeatLayoutItem, RouteAssignment, RoundTripSchedule, BusStatus } from './interfaces/vehicle.interface';
 import { generateId } from '../../common/utils/id.util';
 import { VehicleType } from './enums/vehicle-type.enum';
 
+export function buildDefaultLayout(isSleeper: boolean, totalSeats: number): BusSeatLayoutConfig {
+  const half = Math.ceil(totalSeats / 2);
+  const upperHalf = totalSeats - half;
+  const lowerDeck: SeatLayoutItem[] = [];
+  const upperDeck: SeatLayoutItem[] = [];
+
+  if (isSleeper) {
+    const lowerRows = Math.ceil(half / 3);
+    for (let r = 0; r < lowerRows; r++) {
+      const n1 = r * 3 + 1;
+      const n2 = r * 3 + 2;
+      const n3 = r * 3 + 3;
+      if (n1 <= half) {
+        lowerDeck.push({ seatId: `L${n1}`, seatNumber: `L${n1}`, seatType: 'DOUBLE_SLEEPER', deck: 'LOWER', row: r + 1, col: 1, isActive: true, berthType: 'LOWER' });
+      }
+      if (n2 <= half) {
+        lowerDeck.push({ seatId: `L${n2}`, seatNumber: `L${n2}`, seatType: 'DOUBLE_SLEEPER', deck: 'LOWER', row: r + 1, col: 2, isActive: true, berthType: 'LOWER' });
+      }
+      if (n3 <= half) {
+        lowerDeck.push({ seatId: `L${n3}`, seatNumber: `L${n3}`, seatType: 'SINGLE_SLEEPER', deck: 'LOWER', row: r + 1, col: 4, isActive: true, berthType: 'LOWER' });
+      }
+    }
+
+    const upperRows = Math.ceil(upperHalf / 3);
+    for (let r = 0; r < upperRows; r++) {
+      const n1 = r * 3 + 1;
+      const n2 = r * 3 + 2;
+      const n3 = r * 3 + 3;
+      if (n1 <= upperHalf) {
+        upperDeck.push({ seatId: `U${n1}`, seatNumber: `U${n1}`, seatType: 'DOUBLE_SLEEPER', deck: 'UPPER', row: r + 1, col: 1, isActive: true, berthType: 'UPPER' });
+      }
+      if (n2 <= upperHalf) {
+        upperDeck.push({ seatId: `U${n2}`, seatNumber: `U${n2}`, seatType: 'DOUBLE_SLEEPER', deck: 'UPPER', row: r + 1, col: 2, isActive: true, berthType: 'UPPER' });
+      }
+      if (n3 <= upperHalf) {
+        upperDeck.push({ seatId: `U${n3}`, seatNumber: `U${n3}`, seatType: 'SINGLE_SLEEPER', deck: 'UPPER', row: r + 1, col: 4, isActive: true, berthType: 'UPPER' });
+      }
+    }
+
+    return {
+      rows: Math.max(lowerRows, upperRows),
+      cols: 4,
+      totalSeats,
+      lowerBerthsCount: half,
+      upperBerthsCount: upperHalf,
+      hasUpperDeck: true,
+      lowerDeck,
+      upperDeck,
+      updatedAt: new Date().toISOString(),
+    };
+  } else {
+    const rows = Math.ceil(totalSeats / 4);
+    for (let r = 0; r < rows; r++) {
+      const letter = String.fromCharCode(65 + (r % 26));
+      for (let c = 1; c <= 4; c++) {
+        const seatIdx = r * 4 + c;
+        if (seatIdx <= totalSeats) {
+          lowerDeck.push({
+            seatId: `${letter}${c}`,
+            seatNumber: `${letter}${c}`,
+            seatType: 'SEATER',
+            deck: 'LOWER',
+            row: r + 1,
+            col: c <= 2 ? c : c + 1,
+            isActive: true,
+          });
+        }
+      }
+    }
+
+    return {
+      rows,
+      cols: 5,
+      totalSeats,
+      lowerBerthsCount: totalSeats,
+      upperBerthsCount: 0,
+      hasUpperDeck: false,
+      lowerDeck,
+      upperDeck: [],
+      updatedAt: new Date().toISOString(),
+    };
+  }
+}
+
 @Injectable()
 export class VehicleRepository {
-  private vehicles: Vehicle[] = [
-    // APSRTC Provider (P001)
-    { vehicleId: 'V001', providerId: 'P001', vehicleNumber: 'APSRTC Garuda Plus',      vehicleType: VehicleType.AC,     totalSeats: 45, remainingSeats: 38,
-      busName: 'APSRTC Garuda Plus', amenities: ['Charging Point', 'AC', 'Reading Light'], boardingPoint: 'Majestic', droppingPoint: 'Kachiguda', rating: 4.2 } as any,
-    { vehicleId: 'V002', providerId: 'P001', vehicleNumber: 'APSRTC Rajadhani',        vehicleType: VehicleType.AC,     totalSeats: 40, remainingSeats: 35,
-      busName: 'APSRTC Rajadhani Express', amenities: ['AC', 'Charging Point', 'Water Bottle'], boardingPoint: 'Jubilee Bus Stand', droppingPoint: 'CMBT', rating: 4.0 } as any,
-    // KPN Tours (P002) — vehicle names previously mismatched other companies' brands
-    // (Orange Travels/VRL/SRS/Kaveri/RedBus) while revenue attributed to KPN Tours;
-    // renamed so displayed bus branding always matches the owning/attributed provider.
-    { vehicleId: 'V003', providerId: 'P002', vehicleNumber: 'KPN Tours AC Sleeper',    vehicleType: VehicleType.SLEEPER,totalSeats: 36, remainingSeats: 30,
-      busName: 'KPN Tours AC Sleeper', amenities: ['WiFi', 'Blanket', 'Charging Point', 'Pillow'], boardingPoint: 'Dadar', droppingPoint: 'Shivaji Nagar', rating: 4.5 } as any,
-    { vehicleId: 'V004', providerId: 'P002', vehicleNumber: 'KPN Tours Volvo',         vehicleType: VehicleType.VOLVO,  totalSeats: 41, remainingSeats: 28,
-      busName: 'KPN Tours Volvo AC', amenities: ['WiFi', 'AC', 'Charging Point', 'Blanket'], boardingPoint: 'Majestic', droppingPoint: 'Guindy', rating: 4.6 } as any,
-    { vehicleId: 'V005', providerId: 'P002', vehicleNumber: 'KPN Tours Sleeper Deluxe',vehicleType: VehicleType.SLEEPER,totalSeats: 40, remainingSeats: 22,
-      busName: 'KPN Tours Sleeper Deluxe', amenities: ['AC', 'Blanket', 'Charging Point'], boardingPoint: 'Hebbal', droppingPoint: 'Tambaram', rating: 4.3 } as any,
-    { vehicleId: 'V006', providerId: 'P002', vehicleNumber: 'KPN Tours Express',       vehicleType: VehicleType.AC,     totalSeats: 50, remainingSeats: 40,
-      busName: 'KPN Tours AC Express', amenities: ['AC', 'Charging Point'], boardingPoint: 'Satellite Bus Stand', droppingPoint: 'Koyambedu', rating: 4.1 } as any,
-    { vehicleId: 'V007', providerId: 'P002', vehicleNumber: 'KPN Tours Superfast',     vehicleType: VehicleType.AC,     totalSeats: 45, remainingSeats: 38,
-      busName: 'KPN Tours Superfast AC', amenities: ['WiFi', 'AC', 'Charging Point', 'Water Bottle'], boardingPoint: 'Electronic City', droppingPoint: 'Madurai Bus Stand', rating: 4.4 } as any,
-    { vehicleId: 'V008', providerId: 'P002', vehicleNumber: 'KPN Tours Pune Volvo',    vehicleType: VehicleType.VOLVO,  totalSeats: 41, remainingSeats: 35,
-      busName: 'KPN Tours Volvo (Mumbai-Pune)', amenities: ['WiFi', 'AC', 'Charging Point', 'Blanket', 'Pillow'], boardingPoint: 'Dadar', droppingPoint: 'Shivaji Nagar', rating: 4.7 } as any,
-    // APSRTC Express Buses (P001)
-    { vehicleId: 'V009', providerId: 'P001', vehicleNumber: 'APSRTC Rajdhani Bus',     vehicleType: VehicleType.VOLVO,  totalSeats: 45, remainingSeats: 35,
-      busName: 'APSRTC Rajdhani Volvo AC', amenities: ['AC', 'WiFi', 'Blanket', 'Charging Point'], boardingPoint: 'Delhi H.Nizamuddin', droppingPoint: 'Mumbai Central', rating: 4.8 } as any,
-    { vehicleId: 'V010', providerId: 'P001', vehicleNumber: 'APSRTC Shatabdi Bus',     vehicleType: VehicleType.AC,     totalSeats: 40, remainingSeats: 30,
-      busName: 'APSRTC Shatabdi AC Seater', amenities: ['AC', 'Water Bottle', 'Charging Point'], boardingPoint: 'Bangalore City', droppingPoint: 'Chennai Central', rating: 4.7 } as any,
-    { vehicleId: 'V011', providerId: 'P001', vehicleNumber: 'APSRTC Garuda Plus',      vehicleType: VehicleType.VOLVO,  totalSeats: 42, remainingSeats: 36,
-      busName: 'APSRTC Garuda Plus Volvo', amenities: ['AC', 'WiFi', 'Charging Point', 'Blanket', 'Water Bottle'], boardingPoint: 'Hyderabad', droppingPoint: 'Vijayawada', rating: 4.9 } as any,
-    { vehicleId: 'V012', providerId: 'P001', vehicleNumber: 'APSRTC Amaravathi Bus',   vehicleType: VehicleType.SLEEPER,totalSeats: 36, remainingSeats: 28,
-      busName: 'APSRTC Amaravathi AC Sleeper', amenities: ['AC', 'Bedding', 'Charging Point'], boardingPoint: 'Delhi', droppingPoint: 'Jaipur', rating: 4.6 } as any,
-    // Orange Travels (P003, unapproved) — gets a real fleet so its unapproved-exclusion
-    // from search is a genuine filter, not just an absence of data.
-    { vehicleId: 'V013', providerId: 'P003', vehicleNumber: 'Orange Travels Sleeper',  vehicleType: VehicleType.SLEEPER,totalSeats: 40, remainingSeats: 32,
-      busName: 'Orange Travels AC Sleeper', amenities: ['AC', 'Blanket', 'Charging Point'], boardingPoint: 'Chennai CMBT', droppingPoint: 'Coimbatore', rating: 4.0 } as any,
-    // SRS Travels (P004)
-    { vehicleId: 'V014', providerId: 'P004', vehicleNumber: 'SRS Travels AC Seater',   vehicleType: VehicleType.AC,     totalSeats: 42, remainingSeats: 36,
-      busName: 'SRS Travels AC Seater', amenities: ['AC', 'Charging Point', 'Water Bottle'], boardingPoint: 'Kachiguda', droppingPoint: 'Koyambedu', rating: 4.3 } as any,
-    // VRL Travels (P005)
-    { vehicleId: 'V015', providerId: 'P005', vehicleNumber: 'VRL Travels Volvo',       vehicleType: VehicleType.VOLVO,  totalSeats: 41, remainingSeats: 33,
-      busName: 'VRL Travels Volvo AC', amenities: ['WiFi', 'AC', 'Charging Point', 'Blanket'], boardingPoint: 'Majestic', droppingPoint: 'Dadar', rating: 4.6 } as any,
-    // Parveen Travels (P006)
-    { vehicleId: 'V016', providerId: 'P006', vehicleNumber: 'Parveen Travels AC',      vehicleType: VehicleType.AC,     totalSeats: 44, remainingSeats: 40,
-      busName: 'Parveen Travels AC Seater', amenities: ['AC', 'Charging Point'], boardingPoint: 'Jubilee Bus Stand', droppingPoint: 'Satellite Bus Stand', rating: 4.0 } as any,
-    // Jabbar Travels (P008)
-    { vehicleId: 'V017', providerId: 'P008', vehicleNumber: 'Jabbar Travels AC',       vehicleType: VehicleType.AC,     totalSeats: 38, remainingSeats: 30,
-      busName: 'Jabbar Travels AC Seater', amenities: ['AC', 'Charging Point'], boardingPoint: 'Dadar', droppingPoint: 'Shivaji Nagar', rating: 3.9 } as any,
-    // Suresh Travels (P009)
-    { vehicleId: 'V018', providerId: 'P009', vehicleNumber: 'Suresh Travels Non-AC',   vehicleType: VehicleType.NON_AC, totalSeats: 46, remainingSeats: 41,
-      busName: 'Suresh Travels Non-AC Seater', amenities: ['Charging Point'], boardingPoint: 'Dadar', droppingPoint: 'Shivaji Nagar', rating: 3.7 } as any,
-    // Ganesh Travels (P010)
-    { vehicleId: 'V019', providerId: 'P010', vehicleNumber: 'Ganesh Travels AC',       vehicleType: VehicleType.AC,     totalSeats: 35, remainingSeats: 29,
-      busName: 'Ganesh Travels AC Seater', amenities: ['AC', 'Charging Point'], boardingPoint: 'Satellite Bus Stand', droppingPoint: 'Mysore Bus Stand', rating: 4.1 } as any,
-  ];
+  private vehicles: Vehicle[] = [];
 
   create(data: Omit<Vehicle, 'vehicleId' | 'remainingSeats'> & { remainingSeats?: number }): Vehicle {
     const vehicle: Vehicle = {
       vehicleId: generateId('V'),
       ...data,
       remainingSeats: data.remainingSeats !== undefined ? data.remainingSeats : data.totalSeats,
+      status: data.status || 'Available',
+      routeHistory: [],
+      createdAt: new Date().toISOString(),
     };
     this.vehicles.push(vehicle);
     return vehicle;
   }
 
-  findAll(): Vehicle[] { return this.vehicles; }
-  findById(vehicleId: string): Vehicle | undefined { return this.vehicles.find(v => v.vehicleId === vehicleId); }
-  findByProvider(providerId: string): Vehicle[] { return this.vehicles.filter(v => v.providerId === providerId); }
+  private ensureLayout(v: Vehicle): Vehicle {
+    if (!v.seatLayout) {
+      const isSl =
+        v.vehicleType === VehicleType.SLEEPER ||
+        v.vehicleType === VehicleType.VOLVO ||
+        (v.busName || '').toLowerCase().includes('sleeper');
+      v.seatLayout = buildDefaultLayout(isSl, v.totalSeats || 40);
+    }
+    return v;
+  }
+
+  findAll(): Vehicle[] {
+    return this.vehicles.map((v) => this.ensureLayout(v));
+  }
+
+  findById(vehicleId: string): Vehicle | undefined {
+    const v = this.vehicles.find((v) => v.vehicleId === vehicleId);
+    return v ? this.ensureLayout(v) : undefined;
+  }
+
+  findByProvider(providerId: string): Vehicle[] {
+    return this.vehicles.filter((v) => v.providerId === providerId).map((v) => this.ensureLayout(v));
+  }
+
+  findByRegistration(vehicleNumber: string): Vehicle | undefined {
+    const v = this.vehicles.find(
+      (v) => v.vehicleNumber.trim().toLowerCase() === vehicleNumber.trim().toLowerCase()
+    );
+    return v ? this.ensureLayout(v) : undefined;
+  }
+
+  saveSeatLayout(vehicleId: string, layout: BusSeatLayoutConfig): Vehicle | undefined {
+    const v = this.findById(vehicleId);
+    if (!v) return undefined;
+    v.seatLayout = {
+      ...layout,
+      updatedAt: new Date().toISOString(),
+    };
+    return v;
+  }
+
+  assignRoute(vehicleId: string, routeData: RouteAssignment): Vehicle | undefined {
+    const v = this.findById(vehicleId);
+    if (!v) return undefined;
+    if (v.assignedRoute) {
+      v.routeHistory = [...(v.routeHistory || []), { ...v.assignedRoute, status: 'SUPERSEDED' }];
+    }
+    v.assignedRoute = {
+      ...routeData,
+      status: 'ACTIVE',
+      assignedAt: new Date().toISOString(),
+    };
+    v.status = 'Assigned';
+    return v;
+  }
+
+  changeRoute(vehicleId: string, newRouteData: RouteAssignment): Vehicle | undefined {
+    return this.assignRoute(vehicleId, newRouteData);
+  }
+
+  saveRoundTripSchedules(vehicleId: string, scheduleData: RoundTripSchedule): Vehicle | undefined {
+    const v = this.findById(vehicleId);
+    if (!v) return undefined;
+    v.roundTripSchedule = scheduleData;
+    return v;
+  }
+
+  updateStatus(vehicleId: string, status: BusStatus): Vehicle | undefined {
+    const v = this.findById(vehicleId);
+    if (!v) return undefined;
+    v.status = status;
+    return v;
+  }
 
   decrementSeat(vehicleId: string): boolean {
     const v = this.vehicles.find(v => v.vehicleId === vehicleId);
@@ -88,14 +193,31 @@ export class VehicleRepository {
   update(vehicleId: string, data: Partial<Vehicle>): Vehicle | undefined {
     const i = this.vehicles.findIndex(v => v.vehicleId === vehicleId);
     if (i === -1) return undefined;
-    this.vehicles[i] = { ...this.vehicles[i], ...data };
+    this.vehicles[i] = { ...this.vehicles[i], ...data, updatedAt: new Date().toISOString() };
     return this.vehicles[i];
   }
 
   remove(vehicleId: string): boolean {
-    const i = this.vehicles.findIndex(v => v.vehicleId === vehicleId);
+    const cleanId = (vehicleId || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const i = this.vehicles.findIndex(
+      (v) =>
+        v.vehicleId.toLowerCase() === cleanId ||
+        v.vehicleNumber.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanId
+    );
     if (i === -1) return false;
     this.vehicles.splice(i, 1);
     return true;
+  }
+
+  removeAll(providerId?: string): number {
+    if (!providerId) {
+      const count = this.vehicles.length;
+      this.vehicles = [];
+      return count;
+    }
+    const cleanP = providerId.trim().toLowerCase();
+    const initial = this.vehicles.length;
+    this.vehicles = this.vehicles.filter((v) => (v.providerId || '').toLowerCase() !== cleanP);
+    return initial - this.vehicles.length;
   }
 }

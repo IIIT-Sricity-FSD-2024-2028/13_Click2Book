@@ -76,6 +76,7 @@ export function validateSeatBookings(seatBookings, expectedCount) {
  * @param {string} params.paymentMethod - e.g. 'UPI', 'CARD'
  * @param {Function} params.payFn - async (bookingId, amount, paymentMethod, discount) => Promise
  * @param {Function} [params.onSeatPaid] - optional callback (seatIndex, updatedSeatBooking, updatedSeatBookings) => void
+ * @param {'proportional'|'first'} [params.discountAllocation] - place the full coupon discount on the primary seat when required
  * @returns {Promise<{ allPaid: boolean, seatBookings: Array<Object> }>}
  */
 export async function executeSeatPayments({
@@ -83,6 +84,7 @@ export async function executeSeatPayments({
   totalAmount,
   totalDiscount,
   paymentMethod = 'UPI',
+  discountAllocation = 'proportional',
   payFn,
   onSeatPaid,
 }) {
@@ -109,7 +111,10 @@ export async function executeSeatPayments({
       throw new Error(`Cannot pay for seat ${sb.seatLabel || sIdx}: missing valid backend booking ID.`);
     }
 
-    const { amount, discount } = distributions[sIdx];
+    const { amount } = distributions[sIdx];
+    const discount = discountAllocation === 'first'
+      ? (sIdx === 0 ? Math.max(0, Number(totalDiscount) || 0) : 0)
+      : distributions[sIdx].discount;
 
     // 3. Call payment API
     await payFn(sb.bookingId, amount, paymentMethod, discount);

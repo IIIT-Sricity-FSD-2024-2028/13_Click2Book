@@ -1,5 +1,20 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiHeader, ApiQuery } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiParam,
+  ApiHeader,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { TripService } from './trip.service';
 import { CreateTripDto, UpdateTripStatusDto } from './dto/trip.dto';
 import { TripStatus } from './enums/trip-status.enum';
@@ -15,17 +30,25 @@ export class TripController {
 
   @Post()
   @Roles(Role.PROVIDER)
-  @ApiOperation({ summary: 'Create a trip — assign vehicle to schedule (Provider)' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
-  create(@Body() dto: CreateTripDto) { return this.tripService.create(dto); }
+  @ApiOperation({
+    summary: 'Create a trip — assign vehicle to schedule (Provider)',
+  })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
+  create(@Body() dto: CreateTripDto) {
+    return this.tripService.create(dto);
+  }
 
   @Get('search')
   @ApiOperation({ summary: 'Search trips — dedicated search endpoint' })
-  @ApiQuery({ name: 'source', required: false,  example: 'Chennai' })
+  @ApiQuery({ name: 'source', required: false, example: 'Chennai' })
   @ApiQuery({ name: 'destination', required: false, example: 'Visakhapatnam' })
   @ApiQuery({ name: 'from', required: false, example: 'Chennai' })
   @ApiQuery({ name: 'to', required: false, example: 'Visakhapatnam' })
-  @ApiQuery({ name: 'date', required: false,   example: '2026-06-01' })
+  @ApiQuery({ name: 'date', required: false, example: '2026-06-01' })
   search(
     @Query('source') source?: string,
     @Query('destination') destination?: string,
@@ -39,7 +62,9 @@ export class TripController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all trips OR search by source/destination/date' })
+  @ApiOperation({
+    summary: 'Get all trips OR search by source/destination/date',
+  })
   @ApiQuery({ name: 'source', required: false, example: 'Hyderabad' })
   @ApiQuery({ name: 'destination', required: false, example: 'Chennai' })
   @ApiQuery({ name: 'from', required: false, example: 'Hyderabad' })
@@ -61,30 +86,52 @@ export class TripController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get full trip details (trip + schedule + vehicle)' })
+  @ApiOperation({
+    summary: 'Get full trip details (trip + schedule + vehicle)',
+  })
   @ApiParam({ name: 'id', example: 'T001' })
-  findOne(@Param('id') id: string) { return this.tripService.findById(id); }
+  findOne(@Param('id') id: string) {
+    return this.tripService.findById(id);
+  }
 
   @Patch(':id/status')
   @Roles(Role.PROVIDER, Role.ADMIN)
   @ApiOperation({ summary: 'Update trip status (Provider/Admin)' })
   @ApiParam({ name: 'id', example: 'T001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
   updateStatus(@Param('id') id: string, @Body() dto: UpdateTripStatusDto) {
     return this.tripService.updateStatus(id, dto);
   }
 
   @Patch(':id/confirm')
   @Roles(Role.PROVIDER)
-  @ApiOperation({ summary: 'Depart a trip — SCHEDULED to IN_PROGRESS (Provider)' })
+  @ApiOperation({
+    summary: 'Depart a trip — SCHEDULED to IN_PROGRESS (Provider)',
+  })
   @ApiParam({ name: 'id', example: 'T001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
-  confirm(@Param('id') id: string) { return this.tripService.confirm(id); }
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
+  confirm(@Param('id') id: string) {
+    return this.tripService.confirm(id);
+  }
 
   @Patch(':id/complete')
   @Roles(Role.PROVIDER)
   @ApiOperation({ summary: 'End a trip — IN_PROGRESS to COMPLETED (Provider)' })
   @ApiParam({ name: 'id', example: 'T001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
-  complete(@Param('id') id: string) { return this.tripService.complete(id); }
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
+  complete(@Param('id') id: string) {
+    return this.tripService.complete(id);
+  }
 }

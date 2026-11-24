@@ -15,7 +15,13 @@ describe('Revenue & Cost Split (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
     await app.init();
     server = app.getHttpServer();
   });
@@ -26,7 +32,11 @@ describe('Revenue & Cost Split (e2e)', () => {
 
   // Creates a brand-new trip (so seats get initialized) on SCH001 (fare ₹600, provider P001, vehicle V001)
   // and books+confirms a fresh booking on it. Returns the bookingId.
-  async function bookAndConfirm(scheduleId: string, vehicleId: string, seatNumber: number) {
+  async function bookAndConfirm(
+    scheduleId: string,
+    vehicleId: string,
+    seatNumber: number,
+  ) {
     const tripRes = await request(server)
       .post('/api/trips')
       .set('x-role', 'PROVIDER')
@@ -71,10 +81,12 @@ describe('Revenue & Cost Split (e2e)', () => {
   it('cancelling a booking marks the ledger cancelled, leaves convenienceFee untouched, and applies the cancellation support cost', async () => {
     const { bookingId } = await bookAndConfirm('SCH001', 'V001', 2);
 
-    const before = (await request(server)
-      .get(`/api/admin/ledger/${bookingId}`)
-      .set('x-role', 'ADMIN')
-      .expect(200)).body.data;
+    const before = (
+      await request(server)
+        .get(`/api/admin/ledger/${bookingId}`)
+        .set('x-role', 'ADMIN')
+        .expect(200)
+    ).body.data;
 
     await request(server)
       .post('/api/cancellations')
@@ -82,10 +94,12 @@ describe('Revenue & Cost Split (e2e)', () => {
       .send({ bookingId })
       .expect(201);
 
-    const after = (await request(server)
-      .get(`/api/admin/ledger/${bookingId}`)
-      .set('x-role', 'ADMIN')
-      .expect(200)).body.data;
+    const after = (
+      await request(server)
+        .get(`/api/admin/ledger/${bookingId}`)
+        .set('x-role', 'ADMIN')
+        .expect(200)
+    ).body.data;
 
     expect(after.status).toBe('cancelled');
     expect(after.convenienceFee).toBe(before.convenienceFee); // never touched by cancellation
@@ -93,13 +107,17 @@ describe('Revenue & Cost Split (e2e)', () => {
     expect(after.operatorPayout).toBe(before.operatorPayout); // immutable
     expect(after.supportCost).toBe(800); // default cancellation cost weight
     const expectedPool = after.platformCommission + after.convenienceFee;
-    expect(after.adminNet).toBe(expectedPool - after.gatewayFee - after.supportCost);
+    expect(after.adminNet).toBe(
+      expectedPool - after.gatewayFee - after.supportCost,
+    );
 
     const ticketsRes = await request(server)
       .get(`/api/support-ticket/${bookingId}`)
       .set('x-role', 'ADMIN')
       .expect(200);
-    expect(ticketsRes.body.data.some((t: any) => t.category === 'cancellation')).toBe(true);
+    expect(
+      ticketsRes.body.data.some((t: any) => t.category === 'cancellation'),
+    ).toBe(true);
   });
 
   it('an SOS alert creates a zero-cost support ticket that is still listed for the booking', async () => {
@@ -114,7 +132,12 @@ describe('Revenue & Cost Split (e2e)', () => {
     await request(server)
       .post('/api/emergency')
       .set('x-role', 'CUSTOMER')
-      .send({ bookingId, customerId: 'C001', type: 'SAFETY', message: 'Testing SOS' })
+      .send({
+        bookingId,
+        customerId: 'C001',
+        type: 'SAFETY',
+        message: 'Testing SOS',
+      })
       .expect(201);
 
     const ticketsRes = await request(server)
@@ -122,17 +145,25 @@ describe('Revenue & Cost Split (e2e)', () => {
       .set('x-role', 'ADMIN')
       .expect(200);
 
-    const sosTicket = ticketsRes.body.data.find((t: any) => t.category === 'sos');
+    const sosTicket = ticketsRes.body.data.find(
+      (t: any) => t.category === 'sos',
+    );
     expect(sosTicket).toBeDefined();
     expect(sosTicket.costApplied).toBe(0);
   });
 
   it('an admin config change applies to new bookings only — earlier ledger rows stay immutable', async () => {
-    const { bookingId: oldBookingId } = await bookAndConfirm('SCH006', 'V012', 1);
-    const oldLedgerBefore = (await request(server)
-      .get(`/api/admin/ledger/${oldBookingId}`)
-      .set('x-role', 'ADMIN')
-      .expect(200)).body.data;
+    const { bookingId: oldBookingId } = await bookAndConfirm(
+      'SCH006',
+      'V012',
+      1,
+    );
+    const oldLedgerBefore = (
+      await request(server)
+        .get(`/api/admin/ledger/${oldBookingId}`)
+        .set('x-role', 'ADMIN')
+        .expect(200)
+    ).body.data;
     expect(oldLedgerBefore.platformCommission).toBe(3500); // 10% of ₹350 -> 35000 paise
 
     await request(server)
@@ -141,18 +172,28 @@ describe('Revenue & Cost Split (e2e)', () => {
       .send({ commissionPct: 20 })
       .expect(200);
 
-    const { bookingId: newBookingId } = await bookAndConfirm('SCH006', 'V012', 2);
-    const newLedger = (await request(server)
-      .get(`/api/admin/ledger/${newBookingId}`)
-      .set('x-role', 'ADMIN')
-      .expect(200)).body.data;
+    const { bookingId: newBookingId } = await bookAndConfirm(
+      'SCH006',
+      'V012',
+      2,
+    );
+    const newLedger = (
+      await request(server)
+        .get(`/api/admin/ledger/${newBookingId}`)
+        .set('x-role', 'ADMIN')
+        .expect(200)
+    ).body.data;
     expect(newLedger.platformCommission).toBe(7000); // 20% of ₹350 -> 35000 paise
 
-    const oldLedgerAfter = (await request(server)
-      .get(`/api/admin/ledger/${oldBookingId}`)
-      .set('x-role', 'ADMIN')
-      .expect(200)).body.data;
-    expect(oldLedgerAfter.platformCommission).toBe(oldLedgerBefore.platformCommission);
+    const oldLedgerAfter = (
+      await request(server)
+        .get(`/api/admin/ledger/${oldBookingId}`)
+        .set('x-role', 'ADMIN')
+        .expect(200)
+    ).body.data;
+    expect(oldLedgerAfter.platformCommission).toBe(
+      oldLedgerBefore.platformCommission,
+    );
     expect(oldLedgerAfter.baseFare).toBe(oldLedgerBefore.baseFare);
   });
 

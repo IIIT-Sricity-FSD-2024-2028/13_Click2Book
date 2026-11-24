@@ -14,11 +14,24 @@ export class PayoutsController {
   @Get('summary')
   @Roles(Role.ADMIN)
   @ApiOperation({
-    summary: 'Payout totals grouped by provider, admin, or support agent — names resolved live, never hardcoded (Admin)',
+    summary:
+      'Payout totals grouped by provider, admin, or support agent — names resolved live, never hardcoded (Admin)',
   })
-  @ApiQuery({ name: 'from', required: false, example: '2026-06-01T00:00:00.000Z' })
-  @ApiQuery({ name: 'to', required: false, example: '2026-06-30T23:59:59.999Z' })
-  @ApiQuery({ name: 'groupBy', required: false, enum: ['providerId', 'adminId', 'agentId'] })
+  @ApiQuery({
+    name: 'from',
+    required: false,
+    example: '2026-06-01T00:00:00.000Z',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: false,
+    example: '2026-06-30T23:59:59.999Z',
+  })
+  @ApiQuery({
+    name: 'groupBy',
+    required: false,
+    enum: ['providerId', 'adminId', 'agentId'],
+  })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
   summary(
     @Query('from') from?: string,

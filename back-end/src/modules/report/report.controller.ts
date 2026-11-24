@@ -14,9 +14,13 @@ export class ReportController {
   constructor(private readonly reportService: ReportService) {}
 
   @Post('generate')
-  @ApiOperation({ summary: 'Generate daily booking + revenue report (Admin only)' })
+  @ApiOperation({
+    summary: 'Generate daily booking + revenue report (Admin only)',
+  })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
-  generate(@Body() dto: GenerateReportDto) { return this.reportService.generate(dto); }
+  generate(@Body() dto: GenerateReportDto) {
+    return this.reportService.generate(dto);
+  }
 
   @Get()
   @ApiOperation({ summary: 'Get all generated reports (Admin only)' })

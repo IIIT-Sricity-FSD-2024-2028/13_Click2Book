@@ -7,10 +7,13 @@ import { USER_ROLES } from '../data/sections.js';
 export default function UsersSection({ users = [], onToggleStatus, busy = false }) {
   const [search, setSearch] = useState('');
   const [role, setRole] = useState('');
+  const [status, setStatus] = useState('');
   const query = (search || '').toLowerCase();
   const filtered = users.filter((user) => {
     const searchable = `${user.name} ${user.email} ${user.id}`.toLowerCase();
-    return searchable.includes(query) && (!role || user.role === role);
+    return searchable.includes(query) &&
+      (!role || user.role === role) &&
+      (!status || String(user.status).toLowerCase() === status);
   });
 
   return (
@@ -21,6 +24,17 @@ export default function UsersSection({ users = [], onToggleStatus, busy = false 
           <p style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>Customers, service providers, system administrators, and support staff</p>
         </div>
         <div className="filter-bar" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <select
+            className="filter-select"
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+            aria-label="Filter account status"
+            style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', color: '#334155', background: '#fff' }}
+          >
+            <option value="">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
           <select
             className="filter-select"
             value={role}

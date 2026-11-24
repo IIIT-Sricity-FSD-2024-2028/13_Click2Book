@@ -16,7 +16,13 @@ describe('Provider Attribution — Search + Booking -> Payout Chain (e2e)', () =
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
     await app.init();
     server = app.getHttpServer();
   });
@@ -25,7 +31,11 @@ describe('Provider Attribution — Search + Booking -> Payout Chain (e2e)', () =
     await app.close();
   });
 
-  async function bookAndConfirm(scheduleId: string, vehicleId: string, seatNumber: number) {
+  async function bookAndConfirm(
+    scheduleId: string,
+    vehicleId: string,
+    seatNumber: number,
+  ) {
     const tripRes = await request(server)
       .post('/api/trips')
       .set('x-role', 'PROVIDER')
@@ -58,7 +68,9 @@ describe('Provider Attribution — Search + Booking -> Payout Chain (e2e)', () =
     expect(names).toContain('KPN Tours'); // P002, seeded SCH002/SCH003
     expect(names).not.toContain('Private Operators');
     // Every result also carries the real providerId now, not just the display name.
-    res.body.data.forEach((t: any) => expect(typeof t.providerId).toBe('string'));
+    res.body.data.forEach((t: any) =>
+      expect(typeof t.providerId).toBe('string'),
+    );
   });
 
   it('search excludes trips whose schedule belongs to an unapproved provider (P003)', async () => {
@@ -94,10 +106,12 @@ describe('Provider Attribution — Search + Booking -> Payout Chain (e2e)', () =
   it('booking a KPN Tours (P002) trip writes a ledger row with providerId P002', async () => {
     const { bookingId } = await bookAndConfirm('SCH002', 'V004', 3); // SCH002 fare ₹850, provider P002
 
-    const ledger = (await request(server)
-      .get(`/api/admin/ledger/${bookingId}`)
-      .set('x-role', 'ADMIN')
-      .expect(200)).body.data;
+    const ledger = (
+      await request(server)
+        .get(`/api/admin/ledger/${bookingId}`)
+        .set('x-role', 'ADMIN')
+        .expect(200)
+    ).body.data;
 
     expect(ledger.providerId).toBe('P002');
     expect(ledger.baseFare).toBe(85000);
@@ -110,10 +124,12 @@ describe('Provider Attribution — Search + Booking -> Payout Chain (e2e)', () =
   it('booking an APSRTC (P001) trip writes a separate ledger row with providerId P001', async () => {
     const { bookingId } = await bookAndConfirm('SCH001', 'V001', 3); // SCH001 fare ₹600, provider P001
 
-    const ledger = (await request(server)
-      .get(`/api/admin/ledger/${bookingId}`)
-      .set('x-role', 'ADMIN')
-      .expect(200)).body.data;
+    const ledger = (
+      await request(server)
+        .get(`/api/admin/ledger/${bookingId}`)
+        .set('x-role', 'ADMIN')
+        .expect(200)
+    ).body.data;
 
     expect(ledger.providerId).toBe('P001');
     expect(ledger.baseFare).toBe(60000);
@@ -129,29 +145,39 @@ describe('Provider Attribution — Search + Booking -> Payout Chain (e2e)', () =
     const apsrtcBookingId = ctx.apsrtcBookingId;
     const apsrtcAdminNetBefore = ctx.apsrtcAdminNetBefore;
 
-    const kpnBefore = (await request(server)
-      .get(`/api/admin/ledger/${kpnBookingId}`)
-      .set('x-role', 'ADMIN')
-      .expect(200)).body.data;
+    const kpnBefore = (
+      await request(server)
+        .get(`/api/admin/ledger/${kpnBookingId}`)
+        .set('x-role', 'ADMIN')
+        .expect(200)
+    ).body.data;
 
     await request(server)
       .post('/api/support-ticket')
       .set('x-role', 'SUPPORT')
-      .send({ bookingId: kpnBookingId, category: 'complaint', sourceModule: 'manual' })
+      .send({
+        bookingId: kpnBookingId,
+        category: 'complaint',
+        sourceModule: 'manual',
+      })
       .expect(201);
 
-    const kpnAfter = (await request(server)
-      .get(`/api/admin/ledger/${kpnBookingId}`)
-      .set('x-role', 'ADMIN')
-      .expect(200)).body.data;
+    const kpnAfter = (
+      await request(server)
+        .get(`/api/admin/ledger/${kpnBookingId}`)
+        .set('x-role', 'ADMIN')
+        .expect(200)
+    ).body.data;
     expect(kpnAfter.supportCost).toBe(3500); // default complaint weight
     expect(kpnAfter.adminNet).toBe(kpnBefore.adminNet - 3500);
     expect(kpnAfter.operatorPayout).toBe(kpnBefore.operatorPayout); // payout untouched by support cost
 
-    const apsrtcAfter = (await request(server)
-      .get(`/api/admin/ledger/${apsrtcBookingId}`)
-      .set('x-role', 'ADMIN')
-      .expect(200)).body.data;
+    const apsrtcAfter = (
+      await request(server)
+        .get(`/api/admin/ledger/${apsrtcBookingId}`)
+        .set('x-role', 'ADMIN')
+        .expect(200)
+    ).body.data;
     expect(apsrtcAfter.supportCost).toBe(0);
     expect(apsrtcAfter.adminNet).toBe(apsrtcAdminNetBefore); // completely unaffected
   });
@@ -178,33 +204,44 @@ describe('Provider Attribution — Search + Booking -> Payout Chain (e2e)', () =
     expect(p001.id).not.toBe(p002.id);
   });
 
-  it('a ticket assigned to a supporterId carries agentId and still only deducts cost from its own booking\'s ledger', async () => {
+  it("a ticket assigned to a supporterId carries agentId and still only deducts cost from its own booking's ledger", async () => {
     const { bookingId } = await bookAndConfirm('SCH001', 'V001', 4);
 
     const otherBooking = ctx.apsrtcBookingId; // untouched control from the earlier support-ticket test
 
-    const before = (await request(server)
-      .get(`/api/admin/ledger/${otherBooking}`)
-      .set('x-role', 'ADMIN')
-      .expect(200)).body.data;
+    const before = (
+      await request(server)
+        .get(`/api/admin/ledger/${otherBooking}`)
+        .set('x-role', 'ADMIN')
+        .expect(200)
+    ).body.data;
 
     const ticketRes = await request(server)
       .post('/api/support-ticket')
       .set('x-role', 'SUPPORT')
-      .send({ bookingId, category: 'complaint', sourceModule: 'manual', agentId: 'SUP001' })
+      .send({
+        bookingId,
+        category: 'complaint',
+        sourceModule: 'manual',
+        agentId: 'SUP001',
+      })
       .expect(201);
     expect(ticketRes.body.data.agentId).toBe('SUP001');
 
-    const ledgerAfter = (await request(server)
-      .get(`/api/admin/ledger/${bookingId}`)
-      .set('x-role', 'ADMIN')
-      .expect(200)).body.data;
+    const ledgerAfter = (
+      await request(server)
+        .get(`/api/admin/ledger/${bookingId}`)
+        .set('x-role', 'ADMIN')
+        .expect(200)
+    ).body.data;
     expect(ledgerAfter.supportCost).toBe(3500);
 
-    const otherAfter = (await request(server)
-      .get(`/api/admin/ledger/${otherBooking}`)
-      .set('x-role', 'ADMIN')
-      .expect(200)).body.data;
+    const otherAfter = (
+      await request(server)
+        .get(`/api/admin/ledger/${otherBooking}`)
+        .set('x-role', 'ADMIN')
+        .expect(200)
+    ).body.data;
     expect(otherAfter.adminNet).toBe(before.adminNet); // unrelated booking untouched
 
     ctx.agentTicketBookingId = bookingId;
@@ -214,7 +251,11 @@ describe('Provider Attribution — Search + Booking -> Payout Chain (e2e)', () =
     await request(server)
       .post('/api/support-ticket')
       .set('x-role', 'SUPPORT')
-      .send({ bookingId: ctx.kpnBookingId, category: 'complaint', agentId: 'SUP999' })
+      .send({
+        bookingId: ctx.kpnBookingId,
+        category: 'complaint',
+        agentId: 'SUP999',
+      })
       .expect(404);
   });
 
@@ -245,11 +286,16 @@ describe('Provider Attribution — Search + Booking -> Payout Chain (e2e)', () =
 
     // The unassigned complaint ticket raised earlier on the KPN Tours booking must not
     // silently appear under any agent id.
-    const totalAssignedCount = res.body.data.reduce((s: number, r: any) => s + r.count, 0);
-    const allTickets = (await request(server)
-      .get('/api/support-ticket')
-      .set('x-role', 'SUPPORT')
-      .expect(200)).body.data;
+    const totalAssignedCount = res.body.data.reduce(
+      (s: number, r: any) => s + r.count,
+      0,
+    );
+    const allTickets = (
+      await request(server)
+        .get('/api/support-ticket')
+        .set('x-role', 'SUPPORT')
+        .expect(200)
+    ).body.data;
     const unassignedCount = allTickets.filter((t: any) => !t.agentId).length;
     expect(unassignedCount).toBeGreaterThan(0);
     expect(totalAssignedCount).toBe(allTickets.length - unassignedCount);
@@ -277,9 +323,12 @@ describe('Provider Attribution — Search + Booking -> Payout Chain (e2e)', () =
     expect(names).toContain('SRS Travels');
   });
 
-  it('no returned bus\'s displayed name mismatches its own provider\'s real company (the V004/V005/etc. class of bug)', async () => {
+  it("no returned bus's displayed name mismatches its own provider's real company (the V004/V005/etc. class of bug)", async () => {
     const routes: [string, string][] = [
-      ['Hyderabad', 'Chennai'], ['Bangalore', 'Mumbai'], ['Hyderabad', 'Bangalore'], ['Mumbai', 'Pune'],
+      ['Hyderabad', 'Chennai'],
+      ['Bangalore', 'Mumbai'],
+      ['Hyderabad', 'Bangalore'],
+      ['Mumbai', 'Pune'],
     ];
     for (const [source, destination] of routes) {
       const res = await request(server)
@@ -289,8 +338,19 @@ describe('Provider Attribution — Search + Booking -> Payout Chain (e2e)', () =
         // The provider name is the single source of truth for "who this bus belongs
         // to" — a bus's own busName/vehicleNumber must never advertise a DIFFERENT
         // travel company's brand than the provider actually attributed to the trip.
-        const OTHER_COMPANY_BRANDS = ['APSRTC', 'KPN', 'Orange Travels', 'VRL', 'SRS', 'Kaveri', 'RedBus', 'Parveen', 'Jabbar', 'Suresh Travels', 'Ganesh']
-          .filter((brand) => !trip.providerName.includes(brand));
+        const OTHER_COMPANY_BRANDS = [
+          'APSRTC',
+          'KPN',
+          'Orange Travels',
+          'VRL',
+          'SRS',
+          'Kaveri',
+          'RedBus',
+          'Parveen',
+          'Jabbar',
+          'Suresh Travels',
+          'Ganesh',
+        ].filter((brand) => !trip.providerName.includes(brand));
         for (const foreignBrand of OTHER_COMPANY_BRANDS) {
           expect(trip.busName).not.toContain(foreignBrand);
         }
@@ -309,10 +369,12 @@ describe('Provider Attribution — Search + Booking -> Payout Chain (e2e)', () =
   it('booking a Suresh Travels (P009) trip writes a correctly-attributed ledger row', async () => {
     const { bookingId } = await bookAndConfirm('SCH022', 'V018', 1); // SCH022 fare ₹280, provider P009
 
-    const ledger = (await request(server)
-      .get(`/api/admin/ledger/${bookingId}`)
-      .set('x-role', 'ADMIN')
-      .expect(200)).body.data;
+    const ledger = (
+      await request(server)
+        .get(`/api/admin/ledger/${bookingId}`)
+        .set('x-role', 'ADMIN')
+        .expect(200)
+    ).body.data;
 
     expect(ledger.providerId).toBe('P009');
     expect(ledger.baseFare).toBe(28000);

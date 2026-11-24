@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Headphones, Mail, Lock, Eye, EyeOff, LogIn, ShieldCheck } from 'lucide-react';
-import { INITIAL_AGENTS } from '../services/mockData';
 import { API_BASE } from '../services/api';
 
 const COMPREHENSIVE_AGENTS = [
@@ -21,15 +20,6 @@ const COMPREHENSIVE_AGENTS = [
       'sup001',
       's001',
     ],
-    passwords: [
-      'Support@123',
-      'support@123',
-      'sup123',
-      'pass123',
-      'Support@1234',
-      'support123',
-      'Support123',
-    ],
     role: 'SUPPORT',
     avatar: 'SA',
     title: 'Senior Support Specialist',
@@ -46,15 +36,6 @@ const COMPREHENSIVE_AGENTS = [
       'support002',
       'sup002',
       's002',
-    ],
-    passwords: [
-      'Riya@123',
-      'riya@123',
-      'Support@123',
-      'support@123',
-      'sup456',
-      'pass123',
-      'riya123',
     ],
     role: 'SUPPORT',
     avatar: 'RS',
@@ -73,14 +54,6 @@ const COMPREHENSIVE_AGENTS = [
       'sup003',
       's003',
     ],
-    passwords: [
-      'Karan@123',
-      'karan@123',
-      'Support@123',
-      'support@123',
-      'pass123',
-      'karan123',
-    ],
     role: 'SUPPORT',
     avatar: 'KM',
     title: 'Customer Advocate',
@@ -91,7 +64,6 @@ const COMPREHENSIVE_AGENTS = [
     name: 'Vikram Singh',
     email: 'vikram@support.com',
     aliases: ['vikram@click2book.com', 'vikram', 's004'],
-    passwords: ['sup456', 'Support@123', 'support@123', 'pass123'],
     role: 'SUPPORT',
     avatar: 'VS',
     title: 'Customer Support Representative',
@@ -99,7 +71,7 @@ const COMPREHENSIVE_AGENTS = [
   },
 ];
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, initialError = '' }) {
   const [email, setEmail] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('c2b_saved_agent') || '';
@@ -109,7 +81,7 @@ export default function Login({ onLogin }) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState(initialError);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const completeLogin = (matched) => {
@@ -120,12 +92,14 @@ export default function Login({ onLogin }) {
       sessionStorage.setItem('c2b_userEmail', matched.email);
       sessionStorage.setItem('c2b_loggedInId', matched.id);
       sessionStorage.setItem('c2b_role', 'SUPPORT');
+      sessionStorage.setItem('c2b_sessionVersion', String(matched.sessionVersion ?? 0));
 
       localStorage.setItem('c2b_loggedIn', 'true');
       localStorage.setItem('c2b_userName', matched.name);
       localStorage.setItem('c2b_userEmail', matched.email);
       localStorage.setItem('c2b_loggedInId', matched.id);
       localStorage.setItem('c2b_role', 'SUPPORT');
+      localStorage.setItem('c2b_sessionVersion', String(matched.sessionVersion ?? 0));
 
       if (remember) {
         localStorage.setItem('c2b_saved_agent', matched.email);
@@ -136,52 +110,22 @@ export default function Login({ onLogin }) {
     onLogin(matched);
   };
 
-  const findAgentMatch = (identifier, pass) => {
+  const findAgentMatch = (identifier) => {
     const cleanId = (identifier || '').trim().toLowerCase();
-    const cleanPass = (pass || '').trim();
-
-    // 1. Direct match by ID, Email, or Alias
-    let agent = COMPREHENSIVE_AGENTS.find((a) => {
-      return (
+    return COMPREHENSIVE_AGENTS.find((a) => (
         a.id.toLowerCase() === cleanId ||
         a.email.toLowerCase() === cleanId ||
         a.aliases.some((alias) => alias.toLowerCase() === cleanId)
-      );
-    });
-
-    // 2. Forgiving match for any support username or role identifier
-    if (!agent) {
-      if (cleanId.includes('deepika') || cleanId.includes('001')) {
-        agent = COMPREHENSIVE_AGENTS[0];
-      } else if (cleanId.includes('riya') || cleanId.includes('002')) {
-        agent = COMPREHENSIVE_AGENTS[1];
-      } else if (cleanId.includes('karan') || cleanId.includes('003')) {
-        agent = COMPREHENSIVE_AGENTS[2];
-      } else if (cleanId.includes('vikram') || cleanId.includes('004')) {
-        agent = COMPREHENSIVE_AGENTS[3];
-      } else if (cleanId.includes('support') || cleanId.includes('agent') || cleanId.includes('click2book')) {
-        agent = COMPREHENSIVE_AGENTS[0];
-      }
-    }
-
-    if (!agent) return null;
-
-    // Check password (accept configured passwords, standard support passwords, or any password >= 3 chars)
-    const passMatches =
-      agent.passwords.some((p) => p === cleanPass || p.toLowerCase() === cleanPass.toLowerCase()) ||
-      cleanPass === 'Support@123' ||
-      cleanPass.toLowerCase() === 'support@123' ||
-      cleanPass === 'pass123' ||
-      cleanPass.length >= 3;
-
-    if (passMatches) {
-      return agent;
-    }
-
-    return null;
+      ));
   };
 
-  const handleSubmit = (e) => {
+  const clearSupportSession = () => {
+    for (const storage of [sessionStorage, localStorage]) {
+      ['c2b_loggedIn', 'c2b_userName', 'c2b_userEmail', 'c2b_loggedInId', 'c2b_role', 'c2b_sessionVersion'].forEach((key) => storage.removeItem(key));
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -196,50 +140,39 @@ export default function Login({ onLogin }) {
       return;
     }
 
-    // 1. Instant synchronous credential verification (< 1ms)
-    const matched = findAgentMatch(cleanInput, password);
-    if (matched) {
-      completeLogin(matched);
-      // Fire-and-forget backend sync so auth audit logs are recorded in NestJS
-      try {
-        fetch(`${API_BASE}/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: matched.email, password }),
-        }).catch(() => {});
-      } catch (_) {}
-      return;
-    }
-
-    // 2. If local match failed, check backend API asynchronously
+    const matched = findAgentMatch(cleanInput);
+    const loginEmail = matched?.email || cleanInput;
     setIsSubmitting(true);
-    fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: cleanInput, password }),
-      signal: AbortSignal.timeout(1200),
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        setIsSubmitting(false);
-        const userData = json?.data || json;
-        if (userData && (userData.role === 'SUPPORT' || userData.role === 'ADMIN')) {
-          completeLogin({
-            id: userData.id || 'SUPPORT001',
-            name: userData.name || 'Support Agent',
-            email: userData.email || cleanInput,
-            role: 'SUPPORT',
-            avatar: 'SA',
-            title: 'Support Specialist',
-          });
-        } else {
-          setErrorMsg('⚠️ Invalid credentials. Please enter a valid support agent email and password.');
-        }
-      })
-      .catch(() => {
-        setIsSubmitting(false);
-        setErrorMsg('⚠️ Invalid credentials. Please verify your agent email and password.');
+    try {
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail, password }),
+        signal: AbortSignal.timeout(10000),
       });
+      const json = await response.json().catch(() => ({}));
+      const userData = json?.data;
+      if (!response.ok || !json.success || userData?.role !== 'SUPPORT') {
+        const message = json.message || 'Invalid credentials. Please enter a valid support agent email and password.';
+        if (message.includes('customer support account has been deactivated')) clearSupportSession();
+        setErrorMsg(message);
+        return;
+      }
+      completeLogin({
+        ...matched,
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        role: 'SUPPORT',
+        sessionVersion: userData.sessionVersion,
+      });
+    } catch (requestError) {
+      setErrorMsg(requestError instanceof TypeError
+        ? 'The service is temporarily unavailable. Please try again.'
+        : requestError.message || 'Unable to sign in. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

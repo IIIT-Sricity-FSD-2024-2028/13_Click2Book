@@ -5,11 +5,7 @@ import { extname, join } from 'path';
 import { randomBytes } from 'crypto';
 
 /** Absolute path to the profile-pictures storage directory */
-export const PROFILE_UPLOAD_DIR = join(
-  process.cwd(),
-  'uploads',
-  'profile',
-);
+export const PROFILE_UPLOAD_DIR = join(process.cwd(), 'uploads', 'profile');
 
 /** Ensure the upload directory exists on first use */
 export function ensureUploadDir(): void {
@@ -38,7 +34,10 @@ export const profileUploadOptions: Options = {
     },
     filename: (req, file, cb) => {
       // Safe generated name — never derived from original filename
-      const customerId = String(req.params?.id ?? 'unknown').replace(/[^a-zA-Z0-9_-]/g, '');
+      const customerId = String(req.params?.id ?? 'unknown').replace(
+        /[^a-zA-Z0-9_-]/g,
+        '',
+      );
       const ts = Date.now();
       const rand = randomBytes(4).toString('hex');
       const ext = extname(file.originalname).toLowerCase();
@@ -61,6 +60,6 @@ export const profileUploadOptions: Options = {
 
   limits: {
     fileSize: 5 * 1024 * 1024, // 5 MB
-    files: 1,                   // single file only
+    files: 1, // single file only
   },
 };

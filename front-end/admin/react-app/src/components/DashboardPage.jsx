@@ -158,7 +158,7 @@ export default function DashboardPage({ onLogout, onViewRevenue }) {
       case 'reports':
         return <ReportsSection bookings={bookings} refunds={refunds} users={users} routes={dashboardData.routes} totalRevenue={dashboardData.totalRevenue} />;
       default:
-        return <Overview bookings={bookings} users={users} totalRevenue={dashboardData.totalRevenue} revenueByDay={dashboardData.revenueByDay} activeBuses={dashboardData.activeBuses} onViewAll={() => navigate('bookings')} />;
+        return <Overview bookings={bookings} users={users} metrics={dashboardData} totalRevenue={dashboardData.totalRevenue} revenueByDay={dashboardData.revenueByDay?.length ? dashboardData.revenueByDay : dashboardData.revenueByDay} activeBuses={dashboardData.activeBuses} onViewAll={() => navigate('bookings')} />;
     }
   };
 

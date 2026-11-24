@@ -37,7 +37,9 @@ describe('PaymentService', () => {
     const offerService = new OfferService(offerRepo);
     const scheduleRepo = new ScheduleRepository();
     const routeRepo = new RouteRepository();
-    const revenueSplitService = new RevenueSplitService(new RevenueSplitRepository());
+    const revenueSplitService = new RevenueSplitService(
+      new RevenueSplitRepository(),
+    );
     const ledgerService = new LedgerService(
       new LedgerRepository(),
       tripRepo,
@@ -58,7 +60,11 @@ describe('PaymentService', () => {
       ledgerService,
     );
 
-    paymentService = new PaymentService(paymentRepo, bookingRepo, bookingService);
+    paymentService = new PaymentService(
+      paymentRepo,
+      bookingRepo,
+      bookingService,
+    );
   });
 
   it('fails with NotFoundException when paying for a non-existent booking', () => {
@@ -73,10 +79,10 @@ describe('PaymentService', () => {
 
   it('handles a repeated payment request for a confirmed booking idempotently', () => {
     const result = paymentService.processPayment({
-        bookingId: 'B001',
-        amount: 600,
-        paymentMethod: 'UPI',
-      });
+      bookingId: 'B001',
+      amount: 600,
+      paymentMethod: 'UPI',
+    });
 
     expect(result.success).toBe(true);
     expect(result.data?.paymentStatus).toBe(PaymentStatus.SUCCESS);
@@ -98,18 +104,22 @@ describe('PaymentService', () => {
     });
 
     // Manually reset booking status back to PENDING to test duplicate payment check
-    bookingRepo.update(pendingBooking.bookingId, { bookingStatus: BookingStatus.PENDING });
+    bookingRepo.update(pendingBooking.bookingId, {
+      bookingStatus: BookingStatus.PENDING,
+    });
 
     const paymentCount = paymentRepo.findAll().length;
     const retry = paymentService.processPayment({
-        bookingId: pendingBooking.bookingId,
-        amount: 450,
-        paymentMethod: 'UPI',
-      });
+      bookingId: pendingBooking.bookingId,
+      amount: 450,
+      paymentMethod: 'UPI',
+    });
 
     expect(retry.success).toBe(true);
     expect(paymentRepo.findAll()).toHaveLength(paymentCount);
-    expect(bookingRepo.findById(pendingBooking.bookingId)?.bookingStatus).toBe(BookingStatus.CONFIRMED);
+    expect(bookingRepo.findById(pendingBooking.bookingId)?.bookingStatus).toBe(
+      BookingStatus.CONFIRMED,
+    );
   });
 
   it('successfully processes payment for PENDING booking, sets paymentStatus to SUCCESS, and confirms booking', () => {
@@ -140,12 +150,14 @@ describe('PaymentService', () => {
       seatNumber: 21,
     });
 
-    expect(() => paymentService.processPayment({
-      bookingId: pendingBooking.bookingId,
-      amount: 400,
-      discountAmount: 100,
-      paymentMethod: 'UPI',
-    })).toThrow(BadRequestException);
+    expect(() =>
+      paymentService.processPayment({
+        bookingId: pendingBooking.bookingId,
+        amount: 400,
+        discountAmount: 100,
+        paymentMethod: 'UPI',
+      }),
+    ).toThrow(BadRequestException);
   });
 
   it('marks payment as FAILED if booking confirmation throws an error, avoiding false revenue', () => {

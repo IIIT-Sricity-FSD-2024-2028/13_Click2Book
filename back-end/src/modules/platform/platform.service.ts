@@ -7,10 +7,22 @@ import { SyncService } from '../sync/sync.service';
  * Every change is broadcast on the sync stream so open portals refresh.
  */
 const DEFAULTS = {
-  booking: { maxSeatsPerBooking: 4, bookingWindowDays: 60, allowGuestSearch: true },
-  cancellation: { allowCancellation: true, cancellationFee: 50, refundPercent: 100 },
+  booking: {
+    maxSeatsPerBooking: 4,
+    bookingWindowDays: 60,
+    allowGuestSearch: true,
+  },
+  cancellation: {
+    allowCancellation: true,
+    cancellationFee: 50,
+    refundPercent: 100,
+  },
   fees: { convenienceFee: 25, gstPercent: 18 },
-  notifications: { announcement: '', announcementLevel: 'info', audience: 'ALL' },
+  notifications: {
+    announcement: '',
+    announcementLevel: 'info',
+    audience: 'ALL',
+  },
   security: {
     maintenanceMode: false,
     allowCustomerRegistration: true,
@@ -45,17 +57,23 @@ export class PlatformService {
   }
 
   update(patch: Record<string, any>, updatedBy = 'Super Admin'): Settings {
-    if (!patch || typeof patch !== 'object') throw new BadRequestException('Settings body must be an object');
+    if (!patch || typeof patch !== 'object')
+      throw new BadRequestException('Settings body must be an object');
 
     const next: any = JSON.parse(JSON.stringify(this.settings));
     for (const [section, values] of Object.entries(patch)) {
-      if (!(section in DEFAULTS)) throw new BadRequestException(`Unknown settings section "${section}"`);
-      if (!values || typeof values !== 'object') throw new BadRequestException(`"${section}" must be an object`);
+      if (!(section in DEFAULTS))
+        throw new BadRequestException(`Unknown settings section "${section}"`);
+      if (!values || typeof values !== 'object')
+        throw new BadRequestException(`"${section}" must be an object`);
       for (const [key, value] of Object.entries(values)) {
         const base = (DEFAULTS as any)[section];
-        if (!(key in base)) throw new BadRequestException(`Unknown setting "${section}.${key}"`);
+        if (!(key in base))
+          throw new BadRequestException(`Unknown setting "${section}.${key}"`);
         if (typeof value !== typeof base[key]) {
-          throw new BadRequestException(`"${section}.${key}" must be a ${typeof base[key]}`);
+          throw new BadRequestException(
+            `"${section}.${key}" must be a ${typeof base[key]}`,
+          );
         }
         next[section][key] = value;
       }
@@ -64,7 +82,9 @@ export class PlatformService {
     for (const [section, key, min, max] of NUMERIC_LIMITS) {
       const n = next[section][key];
       if (!Number.isFinite(n) || n < min || n > max) {
-        throw new BadRequestException(`"${section}.${key}" must be between ${min} and ${max}`);
+        throw new BadRequestException(
+          `"${section}.${key}" must be between ${min} and ${max}`,
+        );
       }
     }
 

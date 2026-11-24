@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { API } from '../services/api';
-import { DEMO_USERS } from '../services/mockData';
 import './Login.css';
 
 export default function Login({
@@ -105,48 +104,7 @@ export default function Login({
     setLoading(true);
 
     try {
-      let user = null;
-      try {
-        const res = await API.auth.login(email, pass);
-        user = res;
-      } catch (err) {
-        console.warn('Backend login fallback used:', err.message);
-      }
-
-      // If backend offline, match against known credentials
-      if (!user) {
-        const registered = JSON.parse(localStorage.getItem('c2b_registered_users') || '[]');
-        const offlineUsers = [...DEMO_USERS];
-        const allUsers = [...registered, ...offlineUsers];
-        const matched = allUsers.find(
-          (u) => u.email && u.email.toLowerCase() === email.toLowerCase() && u.password === pass
-        );
-
-        if (matched) {
-          user = {
-            id: matched.id,
-            name: matched.name,
-            email: matched.email,
-            role: matched.role || 'CUSTOMER',
-          };
-        } else {
-          // Allow login by deriving name from email if password meets 6-char rule
-          if (pass.length >= 6) {
-            const prefix = email.split('@')[0];
-            const derivedName = prefix.charAt(0).toUpperCase() + prefix.slice(1);
-            user = {
-              id: 'C_' + Date.now(),
-              name: derivedName,
-              email: email,
-              role: 'CUSTOMER',
-            };
-            registered.unshift(user);
-            localStorage.setItem('c2b_registered_users', JSON.stringify(registered));
-          } else {
-            throw new Error('Invalid email or password. Backend is offline — use known credentials.');
-          }
-        }
-      }
+      const user = await API.auth.login(email, pass);
 
       // Persist to session and localStorage
       const store = rememberMe ? localStorage : sessionStorage;
@@ -157,6 +115,7 @@ export default function Login({
       store.setItem('c2b_email', user.email || '');
       store.setItem('c2b_userEmail', user.email || '');
       store.setItem('c2b_loggedInId', user.id || user.customerId || 'C001');
+      store.setItem('c2b_sessionVersion', String(user.sessionVersion ?? 0));
 
       sessionStorage.setItem('c2b_loggedIn', 'true');
       sessionStorage.setItem('c2b_userName', user.name);
@@ -164,6 +123,7 @@ export default function Login({
       sessionStorage.setItem('c2b_role', user.role || 'CUSTOMER');
       sessionStorage.setItem('c2b_userEmail', user.email || '');
       sessionStorage.setItem('c2b_loggedInId', user.id || user.customerId || 'C001');
+      sessionStorage.setItem('c2b_sessionVersion', String(user.sessionVersion ?? 0));
 
       if (showToast) {
         showToast(`Welcome back, ${user.name}!`, 'success');
@@ -174,6 +134,7 @@ export default function Login({
           name: user.name,
           email: user.email,
           role: user.role || 'CUSTOMER',
+          sessionVersion: user.sessionVersion ?? 0,
           isLoggedIn: true,
         });
       }
@@ -245,6 +206,7 @@ export default function Login({
         email: email.toLowerCase(),
         phone: digits,
         role: 'CUSTOMER',
+        sessionVersion: 0,
       };
 
       try {
@@ -267,6 +229,7 @@ export default function Login({
       localStorage.setItem('c2b_userName', createdUser.name);
       localStorage.setItem('c2b_userEmail', createdUser.email);
       localStorage.setItem('c2b_loggedInId', createdUser.id);
+      localStorage.setItem('c2b_sessionVersion', String(createdUser.sessionVersion));
       localStorage.setItem('c2b_userId', createdUser.id);
       localStorage.setItem('c2b_role', 'CUSTOMER');
 
@@ -274,6 +237,7 @@ export default function Login({
       sessionStorage.setItem('c2b_userName', createdUser.name);
       sessionStorage.setItem('c2b_userEmail', createdUser.email);
       sessionStorage.setItem('c2b_loggedInId', createdUser.id);
+      sessionStorage.setItem('c2b_sessionVersion', String(createdUser.sessionVersion));
       sessionStorage.setItem('c2b_userId', createdUser.id);
       sessionStorage.setItem('c2b_role', 'CUSTOMER');
 

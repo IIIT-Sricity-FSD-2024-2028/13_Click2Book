@@ -1,7 +1,11 @@
 import { TicketCategory } from '../enums/ticket-category.enum';
 
 export type TicketStatus = 'open' | 'resolved';
-export type TicketSourceModule = 'support-request' | 'emergency' | 'lost-found' | 'manual';
+export type TicketSourceModule =
+  | 'support-request'
+  | 'emergency'
+  | 'lost-found'
+  | 'manual';
 
 export interface SupportTicket {
   ticketId: string;

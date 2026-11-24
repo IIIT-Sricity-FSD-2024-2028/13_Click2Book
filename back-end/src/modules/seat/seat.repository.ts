@@ -10,24 +10,36 @@ export class SeatRepository {
   initSeats(vehicleId: string, totalSeats: number): void {
     for (let i = 1; i <= totalSeats; i++) {
       if (!this.findSeat(vehicleId, i)) {
-        this.seats.push({ vehicleId, seatNumber: i, seatStatus: SeatStatus.AVAILABLE });
+        this.seats.push({
+          vehicleId,
+          seatNumber: i,
+          seatStatus: SeatStatus.AVAILABLE,
+        });
       }
     }
   }
 
   findSeat(vehicleId: string, seatNumber: number): Seat | undefined {
-    return this.seats.find(s => s.vehicleId === vehicleId && s.seatNumber === seatNumber);
+    return this.seats.find(
+      (s) => s.vehicleId === vehicleId && s.seatNumber === seatNumber,
+    );
   }
 
   findByVehicle(vehicleId: string): Seat[] {
-    return this.seats.filter(s => s.vehicleId === vehicleId);
+    return this.seats.filter((s) => s.vehicleId === vehicleId);
   }
 
   findAvailableByVehicle(vehicleId: string): Seat[] {
-    return this.seats.filter(s => s.vehicleId === vehicleId && s.seatStatus === SeatStatus.AVAILABLE);
+    return this.seats.filter(
+      (s) => s.vehicleId === vehicleId && s.seatStatus === SeatStatus.AVAILABLE,
+    );
   }
 
-  updateStatus(vehicleId: string, seatNumber: number, status: SeatStatus): Seat | undefined {
+  updateStatus(
+    vehicleId: string,
+    seatNumber: number,
+    status: SeatStatus,
+  ): Seat | undefined {
     const seat = this.findSeat(vehicleId, seatNumber);
     if (!seat) return undefined;
     seat.seatStatus = status;

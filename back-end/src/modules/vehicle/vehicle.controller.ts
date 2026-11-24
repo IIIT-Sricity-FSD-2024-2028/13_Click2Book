@@ -1,7 +1,32 @@
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, Headers } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiHeader, ApiQuery } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Headers,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiParam,
+  ApiHeader,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { VehicleService } from './vehicle.service';
-import { CreateVehicleDto, UpdateVehicleDto, SaveSeatLayoutDto, AssignRouteDto, ChangeRouteDto, SaveRoundTripScheduleDto } from './dto/vehicle.dto';
+import {
+  CreateVehicleDto,
+  UpdateVehicleDto,
+  SaveSeatLayoutDto,
+  AssignRouteDto,
+  ChangeRouteDto,
+  SaveRoundTripScheduleDto,
+} from './dto/vehicle.dto';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
@@ -16,7 +41,11 @@ export class VehicleController {
   @Post()
   @Roles(Role.PROVIDER)
   @ApiOperation({ summary: 'Register a new bus (Provider only)' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
   create(@Body() dto: CreateVehicleDto) {
     return this.vehicleService.create(dto);
   }
@@ -48,16 +77,26 @@ export class VehicleController {
   @Roles(Role.PROVIDER, Role.ADMIN)
   @ApiOperation({ summary: 'Update vehicle details (Provider/Admin)' })
   @ApiParam({ name: 'id', example: 'V001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
   update(@Param('id') id: string, @Body() dto: UpdateVehicleDto) {
     return this.vehicleService.update(id, dto);
   }
 
   @Put(':id/seat-layout')
   @Roles(Role.PROVIDER)
-  @ApiOperation({ summary: 'Save dynamic seat layout configuration for a registered bus' })
+  @ApiOperation({
+    summary: 'Save dynamic seat layout configuration for a registered bus',
+  })
   @ApiParam({ name: 'id', example: 'V001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
   saveSeatLayout(
     @Param('id') id: string,
     @Body() dto: SaveSeatLayoutDto,
@@ -70,7 +109,11 @@ export class VehicleController {
   @Roles(Role.PROVIDER)
   @ApiOperation({ summary: 'Permanently assign a bus to a route corridor' })
   @ApiParam({ name: 'id', example: 'V001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
   assignRoute(
     @Param('id') id: string,
     @Body() dto: AssignRouteDto,
@@ -91,7 +134,11 @@ export class VehicleController {
   @Roles(Role.PROVIDER)
   @ApiOperation({ summary: 'Change/reassign route for an existing bus' })
   @ApiParam({ name: 'id', example: 'V001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
   changeRoute(
     @Param('id') id: string,
     @Body() dto: ChangeRouteDto,
@@ -102,9 +149,16 @@ export class VehicleController {
 
   @Post(':id/schedules')
   @Roles(Role.PROVIDER)
-  @ApiOperation({ summary: 'Configure round-trip (UP and DOWN) schedules for permanently assigned bus' })
+  @ApiOperation({
+    summary:
+      'Configure round-trip (UP and DOWN) schedules for permanently assigned bus',
+  })
   @ApiParam({ name: 'id', example: 'V001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
   saveSchedules(
     @Param('id') id: string,
     @Body() dto: SaveRoundTripScheduleDto,
@@ -123,9 +177,15 @@ export class VehicleController {
 
   @Patch(':id/status')
   @Roles(Role.PROVIDER, Role.ADMIN)
-  @ApiOperation({ summary: 'Update bus operating status (Available, Maintenance, Inactive)' })
+  @ApiOperation({
+    summary: 'Update bus operating status (Available, Maintenance, Inactive)',
+  })
   @ApiParam({ name: 'id', example: 'V001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
   updateStatus(
     @Param('id') id: string,
     @Body('status') status: BusStatus,
@@ -138,7 +198,11 @@ export class VehicleController {
   @Roles(Role.PROVIDER, Role.ADMIN)
   @ApiOperation({ summary: 'Delete vehicle (Provider/Admin)' })
   @ApiParam({ name: 'id', example: 'V001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
   remove(@Param('id') id: string) {
     return this.vehicleService.remove(id);
   }
@@ -147,7 +211,11 @@ export class VehicleController {
   @Roles(Role.PROVIDER, Role.ADMIN)
   @ApiOperation({ summary: 'Delete all vehicles / clear fleet for provider' })
   @ApiQuery({ name: 'providerId', required: false, example: 'P001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
   removeAll(@Query('providerId') providerId?: string) {
     return this.vehicleService.removeAll(providerId);
   }

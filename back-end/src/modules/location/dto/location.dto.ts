@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNumber, IsOptional, Length, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  Length,
+  IsEnum,
+} from 'class-validator';
 
 export class CreateLocationRequestDto {
   @ApiProperty({ example: '7998906' })
@@ -63,7 +69,9 @@ export class CreateLocationRequestDto {
 }
 
 export class RejectLocationRequestDto {
-  @ApiPropertyOptional({ example: 'Duplicate route coverage or insufficient infrastructure' })
+  @ApiPropertyOptional({
+    example: 'Duplicate route coverage or insufficient infrastructure',
+  })
   @IsOptional()
   @IsString()
   reason?: string;
@@ -114,4 +122,3 @@ export class DirectCreateLocationDto {
   @IsString()
   state?: string;
 }
-

@@ -1,11 +1,19 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { LostFoundRepository } from './lost-found.repository';
 import { BookingRepository } from '../booking/booking.repository';
 import { TripRepository } from '../trip/trip.repository';
 import { VehicleRepository } from '../vehicle/vehicle.repository';
 import { SupportTicketService } from '../support-ticket/support-ticket.service';
 import { TicketCategory } from '../support-ticket/enums/ticket-category.enum';
-import { CreateLostFoundItemDto, UpdateLostFoundStatusDto } from './dto/lost-found.dto';
+import {
+  CreateLostFoundItemDto,
+  UpdateLostFoundStatusDto,
+} from './dto/lost-found.dto';
 import { LostFoundStatus } from './enums/lost-found-status.enum';
 import { Role } from '../../common/enums/role.enum';
 import { successResponse } from '../../common/utils/response.util';
@@ -22,9 +30,12 @@ export class LostFoundService {
 
   create(dto: CreateLostFoundItemDto) {
     const booking = this.bookingRepo.findById(dto.bookingId);
-    if (!booking) throw new NotFoundException(`Booking ${dto.bookingId} not found`);
-    if (booking.customerId !== dto.customerId) throw new ForbiddenException('This booking does not belong to you');
-    if (booking.tripId !== dto.tripId) throw new BadRequestException('Trip does not match this booking');
+    if (!booking)
+      throw new NotFoundException(`Booking ${dto.bookingId} not found`);
+    if (booking.customerId !== dto.customerId)
+      throw new ForbiddenException('This booking does not belong to you');
+    if (booking.tripId !== dto.tripId)
+      throw new BadRequestException('Trip does not match this booking');
 
     const item = this.lostFoundRepo.create(dto);
 
@@ -38,19 +49,31 @@ export class LostFoundService {
   }
 
   findAll() {
-    return successResponse('All lost & found reports', this.lostFoundRepo.findAll());
+    return successResponse(
+      'All lost & found reports',
+      this.lostFoundRepo.findAll(),
+    );
   }
 
   findByCustomer(customerId: string) {
-    return successResponse('Your lost & found reports', this.lostFoundRepo.findByCustomer(customerId));
+    return successResponse(
+      'Your lost & found reports',
+      this.lostFoundRepo.findByCustomer(customerId),
+    );
   }
 
   findByProvider(providerId: string) {
     const tripIds = this.tripRepo
       .findAll()
-      .filter(t => this.vehicleRepo.findById(t.vehicleId)?.providerId === providerId)
-      .map(t => t.tripId);
-    return successResponse('Items reported on your trips', this.lostFoundRepo.findByTrips(tripIds));
+      .filter(
+        (t) =>
+          this.vehicleRepo.findById(t.vehicleId)?.providerId === providerId,
+      )
+      .map((t) => t.tripId);
+    return successResponse(
+      'Items reported on your trips',
+      this.lostFoundRepo.findByTrips(tripIds),
+    );
   }
 
   findById(id: string, role?: string, customerId?: string) {
@@ -62,8 +85,11 @@ export class LostFoundService {
   }
 
   updateStatus(id: string, dto: UpdateLostFoundStatusDto) {
-    if (!this.lostFoundRepo.findById(id)) throw new NotFoundException(`Lost & found item ${id} not found`);
-    const resolved = dto.status === LostFoundStatus.RETURNED || dto.status === LostFoundStatus.CLOSED;
+    if (!this.lostFoundRepo.findById(id))
+      throw new NotFoundException(`Lost & found item ${id} not found`);
+    const resolved =
+      dto.status === LostFoundStatus.RETURNED ||
+      dto.status === LostFoundStatus.CLOSED;
     return successResponse(
       'Status updated',
       this.lostFoundRepo.update(id, {

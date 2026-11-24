@@ -9,4 +9,3 @@ import { LocationRepository } from './location.repository';
   exports: [LocationService, LocationRepository],
 })
 export class LocationModule {}
-

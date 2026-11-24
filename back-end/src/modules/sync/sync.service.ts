@@ -1,4 +1,9 @@
-import { forwardRef, Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { Subject, Observable, interval, Subscription } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { TripRepository } from '../trip/trip.repository';
@@ -122,7 +127,9 @@ export class SyncService implements OnModuleDestroy {
 
   private parseSeatNum(raw: any, totalSeats: number = 40): number {
     if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) return raw;
-    const str = String(raw || '').trim().toUpperCase();
+    const str = String(raw || '')
+      .trim()
+      .toUpperCase();
     if (/^\d+$/.test(str)) {
       const n = parseInt(str, 10);
       return n > 0 ? n : 1;
@@ -150,19 +157,28 @@ export class SyncService implements OnModuleDestroy {
         const id = booking.bookingId || booking.id;
         const exists = this.bookingRepo.findById(id);
         const tripId = booking.tripId || booking.backendTripId || 'T001';
-        const bookingDate = booking.bookingDate || booking.date || booking.journeyDate || new Date().toISOString().split('T')[0];
-        const bookingStatus = (booking.status || booking.bookingStatus || 'CONFIRMED') as any;
-        const passengers = Array.isArray(booking.passengers) ? booking.passengers : [];
+        const bookingDate =
+          booking.bookingDate ||
+          booking.date ||
+          booking.journeyDate ||
+          new Date().toISOString().split('T')[0];
+        const bookingStatus =
+          booking.status || booking.bookingStatus || 'CONFIRMED';
+        const passengers = Array.isArray(booking.passengers)
+          ? booking.passengers
+          : [];
         const rawSeats = Array.isArray(booking.seat_list)
           ? booking.seat_list
           : Array.isArray(booking.seats)
-          ? booking.seats
-          : typeof booking.seats === 'string'
-          ? booking.seats.split(',')
-          : booking.seatNumber != null
-          ? [booking.seatNumber]
+            ? booking.seats
+            : typeof booking.seats === 'string'
+              ? booking.seats.split(',')
+              : booking.seatNumber != null
+                ? [booking.seatNumber]
+                : [];
+        const seatBookings = Array.isArray(booking.seatBookings)
+          ? booking.seatBookings
           : [];
-        const seatBookings = Array.isArray(booking.seatBookings) ? booking.seatBookings : [];
         const backendIds = Array.isArray(booking.backendBookingIds)
           ? booking.backendBookingIds
           : [];
@@ -176,7 +192,10 @@ export class SyncService implements OnModuleDestroy {
         if (isCancelled) {
           const baseId = id.replace(/-\d+$/, '');
           this.bookingRepo.findAll().forEach((b) => {
-            if (b.bookingId === baseId || b.bookingId.startsWith(baseId + '-')) {
+            if (
+              b.bookingId === baseId ||
+              b.bookingId.startsWith(baseId + '-')
+            ) {
               b.bookingStatus = 'CANCELLED' as any;
               (b as any).status = 'CANCELLED';
               (b as any).booking_status = 'CANCELLED';
@@ -192,12 +211,18 @@ export class SyncService implements OnModuleDestroy {
           return booking;
         }
 
-        const cleanSeats = rawSeats.map((s: any) => String(s).trim()).filter(Boolean);
-        const seatNumbers = cleanSeats.map((seat: any) => this.parseSeatNum(seat, 40));
+        const cleanSeats = rawSeats
+          .map((s: any) => String(s).trim())
+          .filter(Boolean);
+        const seatNumbers = cleanSeats.map((seat: any) =>
+          this.parseSeatNum(seat, 40),
+        );
 
         seatNumbers.forEach((seatNumber, index) => {
           const seatBooking = seatBookings[index];
-          const bookingId = seatBooking?.bookingId || backendIds[index] ||
+          const bookingId =
+            seatBooking?.bookingId ||
+            backendIds[index] ||
             (index === 0 ? id : `${id}-${index + 1}`);
           const rawSeatLabel = cleanSeats[index] || String(seatNumber);
           const existingSeat = this.bookingRepo.findById(bookingId);
@@ -219,7 +244,10 @@ export class SyncService implements OnModuleDestroy {
             busType: booking.busType,
             seats: booking.seats || cleanSeats.join(', '),
             seat_list: cleanSeats,
-            passengerName: passengers[index]?.name || booking.passengerName || booking.customerName,
+            passengerName:
+              passengers[index]?.name ||
+              booking.passengerName ||
+              booking.customerName,
             phone: passengers[index]?.phone || booking.phone,
             email: passengers[index]?.email || booking.email,
             passengers,
@@ -227,9 +255,9 @@ export class SyncService implements OnModuleDestroy {
             total: booking.total,
           };
           if (existingSeat) {
-            this.bookingRepo.update(bookingId, bookingPayload as any);
+            this.bookingRepo.update(bookingId, bookingPayload);
           } else {
-            this.bookingRepo.createWithId(bookingPayload as any);
+            this.bookingRepo.createWithId(bookingPayload);
           }
         });
 
@@ -253,16 +281,19 @@ export class SyncService implements OnModuleDestroy {
             busType: booking.busType,
             seats: booking.seats || cleanSeats.join(', '),
             seat_list: cleanSeats,
-            passengerName: passengers[0]?.name || booking.passengerName || booking.customerName,
+            passengerName:
+              passengers[0]?.name ||
+              booking.passengerName ||
+              booking.customerName,
             phone: passengers[0]?.phone || booking.phone,
             email: passengers[0]?.email || booking.email,
             passengers,
             fare: booking.fare || booking.total,
             total: booking.total,
           };
-          this.bookingRepo.createWithId(primaryPayload as any);
+          this.bookingRepo.createWithId(primaryPayload);
         } else if (exists) {
-          this.bookingRepo.update(id, { bookingStatus } as any);
+          this.bookingRepo.update(id, { bookingStatus });
         }
       }
     } catch (e) {
@@ -274,13 +305,18 @@ export class SyncService implements OnModuleDestroy {
 
   // Get consolidated real-time state for all actors
   getState() {
-    const rawTrips = this.tripRepo.findAll().filter((t) => Boolean(this.vehicleRepo.findById(t.vehicleId)));
+    const rawTrips = this.tripRepo
+      .findAll()
+      .filter((t) => Boolean(this.vehicleRepo.findById(t.vehicleId)));
     const enrichedTrips = rawTrips.map((t) => {
       const schedule = this.scheduleRepo.findById(t.scheduleId);
       const vehicle = this.vehicleRepo.findById(t.vehicleId);
       const route = schedule ? this.routeRepo.findById(schedule.routeId) : null;
-      const provider = schedule ? this.providerRepo.findById(schedule.providerId) : null;
-      const status = this.dynamicTripStatuses[t.tripId] || t.tripStatus || 'SCHEDULED';
+      const provider = schedule
+        ? this.providerRepo.findById(schedule.providerId)
+        : null;
+      const status =
+        this.dynamicTripStatuses[t.tripId] || t.tripStatus || 'SCHEDULED';
       return {
         ...t,
         source: route?.source || 'Origin',
@@ -289,7 +325,8 @@ export class SyncService implements OnModuleDestroy {
         via: schedule?.via || route?.via || '',
         departureTime: schedule?.departureTime || '08:00',
         arrivalTime: schedule?.arrivalTime || '12:00',
-        journeyDate: schedule?.journeyDate || new Date().toISOString().split('T')[0],
+        journeyDate:
+          schedule?.journeyDate || new Date().toISOString().split('T')[0],
         busName: vehicle?.busName || 'Express Bus',
         vehicleType: vehicle?.vehicleType || 'AC',
         totalSeats: vehicle?.totalSeats || 40,

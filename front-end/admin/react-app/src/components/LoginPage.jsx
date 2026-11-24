@@ -12,8 +12,6 @@ const FEATURES = [
   ['🖥️', 'Infrastructure Monitoring'],
 ];
 
-const OFFLINE_ADMIN = { id: 'ADMIN001', name: 'Admin', email: 'admin@click2book.com', password: 'Admin@123' };
-
 export default function LoginPage({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -53,16 +51,9 @@ export default function LoginPage({ onLoginSuccess }) {
       }
       signIn(json.data);
     } catch (requestError) {
-      if (!(requestError instanceof TypeError)) {
-        setError(requestError.message);
-        return;
-      }
-      console.warn('Admin API is unavailable; trying the configured offline account.', requestError);
-      if (cleanEmail.toLowerCase() === OFFLINE_ADMIN.email && password === OFFLINE_ADMIN.password) {
-        signIn(OFFLINE_ADMIN);
-        return;
-      }
-      setError('Invalid credentials. Check your admin email and password.');
+      setError(requestError instanceof TypeError
+        ? 'Admin API is unavailable. Please try again.'
+        : requestError.message);
     } finally {
       setBusy(false);
     }

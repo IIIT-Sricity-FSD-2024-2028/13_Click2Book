@@ -156,7 +156,11 @@ export class LocationRepository {
       latitude: 16.506174,
       longitude: 80.648018,
       state: 'Andhra Pradesh',
-      address: { city: 'Vijayawada', state: 'Andhra Pradesh', country: 'India' },
+      address: {
+        city: 'Vijayawada',
+        state: 'Andhra Pradesh',
+        country: 'India',
+      },
       isApproved: true,
       createdAt: '2026-01-01T00:00:00.000Z',
     },
@@ -170,7 +174,11 @@ export class LocationRepository {
       latitude: 17.686816,
       longitude: 83.218483,
       state: 'Andhra Pradesh',
-      address: { city: 'Visakhapatnam', state: 'Andhra Pradesh', country: 'India' },
+      address: {
+        city: 'Visakhapatnam',
+        state: 'Andhra Pradesh',
+        country: 'India',
+      },
       isApproved: true,
       createdAt: '2026-01-01T00:00:00.000Z',
     },
@@ -240,7 +248,11 @@ export class LocationRepository {
       latitude: 17.000458,
       longitude: 81.804031,
       state: 'Andhra Pradesh',
-      address: { city: 'Rajahmundry', state: 'Andhra Pradesh', country: 'India' },
+      address: {
+        city: 'Rajahmundry',
+        state: 'Andhra Pradesh',
+        country: 'India',
+      },
       isApproved: true,
       createdAt: '2026-01-01T00:00:00.000Z',
     },
@@ -324,7 +336,11 @@ export class LocationRepository {
       latitude: 18.1067,
       longitude: 83.3956,
       state: 'Andhra Pradesh',
-      address: { city: 'Vizianagaram', state: 'Andhra Pradesh', country: 'India' },
+      address: {
+        city: 'Vizianagaram',
+        state: 'Andhra Pradesh',
+        country: 'India',
+      },
       isApproved: true,
       createdAt: '2026-01-01T00:00:00.000Z',
     },
@@ -618,7 +634,11 @@ export class LocationRepository {
       latitude: 10.790483,
       longitude: 78.704674,
       state: 'Tamil Nadu',
-      address: { city: 'Tiruchirappalli', state: 'Tamil Nadu', country: 'India' },
+      address: {
+        city: 'Tiruchirappalli',
+        state: 'Tamil Nadu',
+        country: 'India',
+      },
       isApproved: true,
       createdAt: '2026-01-01T00:00:00.000Z',
     },
@@ -800,7 +820,11 @@ export class LocationRepository {
       latitude: 8.524139,
       longitude: 76.936638,
       state: 'Kerala',
-      address: { city: 'Thiruvananthapuram', state: 'Kerala', country: 'India' },
+      address: {
+        city: 'Thiruvananthapuram',
+        state: 'Kerala',
+        country: 'India',
+      },
       isApproved: true,
       createdAt: '2026-01-01T00:00:00.000Z',
     },
@@ -1038,7 +1062,11 @@ export class LocationRepository {
       latitude: 17.9237,
       longitude: 73.6586,
       state: 'Maharashtra',
-      address: { town: 'Mahabaleshwar', state: 'Maharashtra', country: 'India' },
+      address: {
+        town: 'Mahabaleshwar',
+        state: 'Maharashtra',
+        country: 'India',
+      },
       isApproved: true,
       createdAt: '2026-01-01T00:00:00.000Z',
     },
@@ -1644,11 +1672,17 @@ export class LocationRepository {
       latitude: 17.9689,
       longitude: 79.5941,
       state: 'Telangana',
-      address: { city: 'Warangal', district: 'Warangal Urban', state: 'Telangana', country: 'India' },
+      address: {
+        city: 'Warangal',
+        district: 'Warangal Urban',
+        state: 'Telangana',
+        country: 'India',
+      },
       providerId: 'P001',
       providerName: 'Kiran Travels',
       connectingRoutes: 'Hyderabad ↔ Warangal',
-      reason: 'High volume commuter corridor with IT and engineering university students',
+      reason:
+        'High volume commuter corridor with IT and engineering university students',
       status: 'APPROVED',
       requestedAt: '2026-11-10T10:30:00.000Z',
     },
@@ -1675,12 +1709,19 @@ export class LocationRepository {
       osmId: '68912301',
       osmType: 'node',
       name: 'Koyambedu CMBT Bus Terminus',
-      displayName: 'Chennai Mofussil Bus Terminus, Koyambedu, Chennai, Tamil Nadu, 600107, India',
+      displayName:
+        'Chennai Mofussil Bus Terminus, Koyambedu, Chennai, Tamil Nadu, 600107, India',
       locationType: 'bus_stop',
       latitude: 13.0673,
       longitude: 80.1918,
       state: 'Tamil Nadu',
-      address: { bus_stop: 'CMBT', suburb: 'Koyambedu', city: 'Chennai', state: 'Tamil Nadu', country: 'India' },
+      address: {
+        bus_stop: 'CMBT',
+        suburb: 'Koyambedu',
+        city: 'Chennai',
+        state: 'Tamil Nadu',
+        country: 'India',
+      },
       providerId: 'P001',
       providerName: 'Kiran Travels',
       connectingRoutes: 'SriCity ↔ Chennai CMBT',
@@ -1700,10 +1741,11 @@ export class LocationRepository {
     }
     const q = search.trim().toLowerCase();
     return this.locations
-      .filter((loc) =>
-        loc.name.toLowerCase().includes(q) ||
-        loc.displayName.toLowerCase().includes(q) ||
-        (loc.state && loc.state.toLowerCase().includes(q))
+      .filter(
+        (loc) =>
+          loc.name.toLowerCase().includes(q) ||
+          loc.displayName.toLowerCase().includes(q) ||
+          (loc.state && loc.state.toLowerCase().includes(q)),
       )
       .sort((a, b) => a.name.localeCompare(b.name));
   }
@@ -1728,7 +1770,8 @@ export class LocationRepository {
     if (!nameOrId) return false;
     const clean = nameOrId.trim().toLowerCase();
     return this.locations.some(
-      (l) => l.name.toLowerCase() === clean || l.locationId.toLowerCase() === clean
+      (l) =>
+        l.name.toLowerCase() === clean || l.locationId.toLowerCase() === clean,
     );
   }
 
@@ -1755,29 +1798,42 @@ export class LocationRepository {
   findAllRequests(status?: string, providerId?: string): LocationRequest[] {
     let result = [...this.requests];
     if (status && status !== 'ALL') {
-      result = result.filter((r) => r.status.toUpperCase() === status.toUpperCase());
+      result = result.filter(
+        (r) => r.status.toUpperCase() === status.toUpperCase(),
+      );
     }
     if (providerId) {
       result = result.filter((r) => r.providerId === providerId);
     }
-    return result.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
+    return result.sort(
+      (a, b) =>
+        new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime(),
+    );
   }
 
   findRequestById(requestId: string): LocationRequest | undefined {
     return this.requests.find((r) => r.requestId === requestId);
   }
 
-  findPendingRequestByOsmId(osmId: string | number): LocationRequest | undefined {
+  findPendingRequestByOsmId(
+    osmId: string | number,
+  ): LocationRequest | undefined {
     const str = String(osmId);
-    return this.requests.find((r) => String(r.osmId) === str && r.status === 'PENDING');
+    return this.requests.find(
+      (r) => String(r.osmId) === str && r.status === 'PENDING',
+    );
   }
 
   findPendingRequestByName(name: string): LocationRequest | undefined {
     const clean = name.trim().toLowerCase();
-    return this.requests.find((r) => r.name.toLowerCase() === clean && r.status === 'PENDING');
+    return this.requests.find(
+      (r) => r.name.toLowerCase() === clean && r.status === 'PENDING',
+    );
   }
 
-  createRequest(data: Omit<LocationRequest, 'requestId' | 'requestedAt' | 'status'>): LocationRequest {
+  createRequest(
+    data: Omit<LocationRequest, 'requestId' | 'requestedAt' | 'status'>,
+  ): LocationRequest {
     const request: LocationRequest = {
       requestId: generateId('REQ'),
       ...data,
@@ -1788,7 +1844,10 @@ export class LocationRepository {
     return request;
   }
 
-  updateRequest(requestId: string, update: Partial<LocationRequest>): LocationRequest | undefined {
+  updateRequest(
+    requestId: string,
+    update: Partial<LocationRequest>,
+  ): LocationRequest | undefined {
     const idx = this.requests.findIndex((r) => r.requestId === requestId);
     if (idx === -1) return undefined;
     this.requests[idx] = { ...this.requests[idx], ...update };

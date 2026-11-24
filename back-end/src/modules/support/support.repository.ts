@@ -5,8 +5,30 @@ import { generateId } from '../../common/utils/id.util';
 @Injectable()
 export class SupportRepository {
   private staff: SupportStaff[] = [
-    { supporterId: 'SUP001', name: 'Rahul Support', email: 'rahul@click2book.com', password: 'hashed_s1', status: 'ACTIVE', createdAt: '2026-01-05' },
-    { supporterId: 'SUP002', name: 'Anita Help', email: 'anita@click2book.com', password: 'hashed_s2', status: 'ACTIVE', createdAt: '2026-01-08' },
+    {
+      supporterId: 'SUPPORT001',
+      name: 'Support Agent',
+      email: 'support@click2book.com',
+      password: 'Support@123',
+      status: 'ACTIVE',
+      createdAt: '2026-01-01',
+    },
+    {
+      supporterId: 'SUP001',
+      name: 'Rahul Support',
+      email: 'rahul@click2book.com',
+      password: 'hashed_s1',
+      status: 'ACTIVE',
+      createdAt: '2026-01-05',
+    },
+    {
+      supporterId: 'SUP002',
+      name: 'Anita Help',
+      email: 'anita@click2book.com',
+      password: 'hashed_s2',
+      status: 'ACTIVE',
+      createdAt: '2026-01-08',
+    },
   ];
 
   create(data: Omit<SupportStaff, 'supporterId'>): SupportStaff {
@@ -20,12 +42,18 @@ export class SupportRepository {
     return s;
   }
 
-  findAll(): SupportStaff[] { return this.staff; }
-  findById(id: string): SupportStaff | undefined { return this.staff.find(s => s.supporterId === id); }
-  findByEmail(email: string): SupportStaff | undefined { return this.staff.find(s => s.email === email); }
+  findAll(): SupportStaff[] {
+    return this.staff;
+  }
+  findById(id: string): SupportStaff | undefined {
+    return this.staff.find((s) => s.supporterId === id);
+  }
+  findByEmail(email: string): SupportStaff | undefined {
+    return this.staff.find((s) => s.email === email);
+  }
 
   update(id: string, data: Partial<SupportStaff>): SupportStaff | undefined {
-    const i = this.staff.findIndex(s => s.supporterId === id);
+    const i = this.staff.findIndex((s) => s.supporterId === id);
     if (i === -1) return undefined;
     this.staff[i] = { ...this.staff[i], ...data };
     return this.staff[i];

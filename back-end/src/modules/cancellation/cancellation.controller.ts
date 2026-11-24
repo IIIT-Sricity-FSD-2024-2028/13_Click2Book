@@ -15,20 +15,32 @@ export class CancellationController {
   @Post()
   @Roles(Role.CUSTOMER, Role.ADMIN)
   @ApiOperation({ summary: 'Cancel a confirmed booking (Customer/Admin)' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
-  cancel(@Body() dto: CreateCancellationDto) { return this.cancellationService.cancel(dto); }
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'CUSTOMER' },
+  })
+  cancel(@Body() dto: CreateCancellationDto) {
+    return this.cancellationService.cancel(dto);
+  }
 
   @Get()
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Get all cancellations (Admin)' })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
-  findAll() { return this.cancellationService.findAll(); }
+  findAll() {
+    return this.cancellationService.findAll();
+  }
 
   @Get('booking/:bookingId')
   @Roles(Role.CUSTOMER, Role.ADMIN)
   @ApiOperation({ summary: 'Get cancellation record for a booking' })
   @ApiParam({ name: 'bookingId', example: 'B001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'CUSTOMER' },
+  })
   findByBooking(@Param('bookingId') bookingId: string) {
     return this.cancellationService.findByBooking(bookingId);
   }

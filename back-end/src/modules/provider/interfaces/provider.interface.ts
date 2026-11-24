@@ -5,6 +5,7 @@ export interface Provider {
   password: string;
   approved: boolean;
   status?: 'ACTIVE' | 'INACTIVE';
+  authVersion?: number;
   phoneNumber?: string;
   createdAt?: string;
 }

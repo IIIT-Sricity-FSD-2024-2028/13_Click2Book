@@ -1,5 +1,7 @@
 import {
-  Injectable, NotFoundException, ConflictException,
+  Injectable,
+  NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { CustomerRepository } from './customer.repository';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
@@ -19,7 +21,10 @@ export class CustomerService {
   }
 
   findAll() {
-    return successResponse('All customers retrieved', this.customerRepo.findAll());
+    return successResponse(
+      'All customers retrieved',
+      this.customerRepo.findAll(),
+    );
   }
 
   findById(id: string) {
@@ -49,7 +54,13 @@ export class CustomerService {
   updateStatus(id: string, status: 'ACTIVE' | 'INACTIVE') {
     const customer = this.customerRepo.findById(id);
     if (!customer) throw new NotFoundException(`Customer ${id} not found`);
-    const updated = this.customerRepo.update(id, { status } as any);
+    const invalidated =
+      status === 'INACTIVE' &&
+      String(customer.status || 'ACTIVE').toUpperCase() !== 'INACTIVE';
+    const updated = this.customerRepo.update(id, {
+      status,
+      ...(invalidated ? { authVersion: (customer.authVersion || 0) + 1 } : {}),
+    });
     return successResponse(`Customer status updated to ${status}`, updated);
   }
 

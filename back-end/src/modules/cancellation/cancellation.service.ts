@@ -19,7 +19,7 @@ export class CancellationService {
   cancel(dto: CreateCancellationDto) {
     const existing = this.cancellationRepo.findByBooking(dto.bookingId);
     if (existing) {
-      return successResponse('Booking already cancelled', existing);
+      throw new ConflictException('Booking has already been cancelled');
     }
 
     // Cancel booking — this also releases the seat
@@ -50,10 +50,18 @@ export class CancellationService {
         this.cancellationRepo.create(dto.bookingId);
       } catch {}
     }
-    return successResponse('Booking cancelled. Refund request must be raised separately.', cancellation);
+    return successResponse(
+      'Booking cancelled. Refund request must be raised separately.',
+      cancellation,
+    );
   }
 
-  findAll() { return successResponse('All cancellations', this.cancellationRepo.findAll()); }
+  findAll() {
+    return successResponse(
+      'All cancellations',
+      this.cancellationRepo.findAll(),
+    );
+  }
 
   findByBooking(bookingId: string) {
     const c = this.cancellationRepo.findByBooking(bookingId);

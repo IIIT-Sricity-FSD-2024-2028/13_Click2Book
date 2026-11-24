@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { ScheduleRepository } from './schedule.repository';
 import { CreateScheduleDto, UpdateScheduleDto } from './dto/schedule.dto';
 import { successResponse } from '../../common/utils/response.util';
@@ -15,19 +19,25 @@ export class ScheduleService {
       const maxDateStr = maxDate.toISOString().split('T')[0];
 
       if (dto.journeyDate < todayStr) {
-        throw new BadRequestException(`Journey date (${dto.journeyDate}) cannot be in the past`);
+        throw new BadRequestException(
+          `Journey date (${dto.journeyDate}) cannot be in the past`,
+        );
       }
       if (dto.journeyDate > maxDateStr) {
-        throw new BadRequestException(`Schedule can only be added up to 2 months in advance (maximum: ${maxDateStr})`);
+        throw new BadRequestException(
+          `Schedule can only be added up to 2 months in advance (maximum: ${maxDateStr})`,
+        );
       }
     }
-    const existing = this.scheduleRepo.findAll().find(
-      (s) =>
-        s.routeId === dto.routeId &&
-        s.providerId === dto.providerId &&
-        s.departureTime === dto.departureTime &&
-        (!dto.journeyDate || s.journeyDate === dto.journeyDate)
-    );
+    const existing = this.scheduleRepo
+      .findAll()
+      .find(
+        (s) =>
+          s.routeId === dto.routeId &&
+          s.providerId === dto.providerId &&
+          s.departureTime === dto.departureTime &&
+          (!dto.journeyDate || s.journeyDate === dto.journeyDate),
+      );
     if (existing) {
       return successResponse('Schedule already exists', existing);
     }
@@ -35,8 +45,16 @@ export class ScheduleService {
   }
 
   findAll(providerId?: string, date?: string) {
-    if (providerId) return successResponse('Provider schedules', this.scheduleRepo.findByProvider(providerId));
-    if (date) return successResponse('Schedules for date', this.scheduleRepo.findByDate(date));
+    if (providerId)
+      return successResponse(
+        'Provider schedules',
+        this.scheduleRepo.findByProvider(providerId),
+      );
+    if (date)
+      return successResponse(
+        'Schedules for date',
+        this.scheduleRepo.findByDate(date),
+      );
     return successResponse('All schedules', this.scheduleRepo.findAll());
   }
 
@@ -47,12 +65,17 @@ export class ScheduleService {
   }
 
   update(id: string, dto: UpdateScheduleDto) {
-    if (!this.scheduleRepo.findById(id)) throw new NotFoundException(`Schedule ${id} not found`);
-    return successResponse('Schedule updated', this.scheduleRepo.update(id, dto));
+    if (!this.scheduleRepo.findById(id))
+      throw new NotFoundException(`Schedule ${id} not found`);
+    return successResponse(
+      'Schedule updated',
+      this.scheduleRepo.update(id, dto),
+    );
   }
 
   remove(id: string) {
-    if (!this.scheduleRepo.findById(id)) throw new NotFoundException(`Schedule ${id} not found`);
+    if (!this.scheduleRepo.findById(id))
+      throw new NotFoundException(`Schedule ${id} not found`);
     this.scheduleRepo.remove(id);
     return successResponse('Schedule deleted');
   }

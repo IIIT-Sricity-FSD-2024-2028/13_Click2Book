@@ -10,7 +10,13 @@ import {
   Headers,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiHeader } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiHeader,
+} from '@nestjs/swagger';
 import { LocationService } from './location.service';
 import {
   CreateLocationRequestDto,
@@ -41,14 +47,20 @@ export class LocationController {
       'Search OpenStreetMap Nominatim for cities, towns, and bus stops (rate-limited and cached)',
   })
   @ApiQuery({ name: 'query', required: true, example: 'Warangal' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
   searchOsm(@Query('query') query: string) {
     return this.locationService.searchOsmNominatim(query);
   }
 
   @Get('requests')
   @Roles(Role.ADMIN, Role.PROVIDER)
-  @ApiOperation({ summary: 'Get all location requests (filtered by status or provider)' })
+  @ApiOperation({
+    summary: 'Get all location requests (filtered by status or provider)',
+  })
   @ApiQuery({ name: 'status', required: false, example: 'PENDING' })
   @ApiQuery({ name: 'providerId', required: false, example: 'P001' })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
@@ -70,8 +82,14 @@ export class LocationController {
 
   @Post('requests')
   @Roles(Role.PROVIDER, Role.ADMIN)
-  @ApiOperation({ summary: 'Submit a new location request with validated OSM data' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
+  @ApiOperation({
+    summary: 'Submit a new location request with validated OSM data',
+  })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
   createLocationRequest(
     @Body() dto: CreateLocationRequestDto,
     @Headers('x-user-id') userId?: string,
@@ -82,7 +100,9 @@ export class LocationController {
 
   @Patch('requests/:id/approve')
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Approve a location request and add it to active network (Admin)' })
+  @ApiOperation({
+    summary: 'Approve a location request and add it to active network (Admin)',
+  })
   @ApiParam({ name: 'id', example: 'REQ001' })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
   approveLocationRequest(
@@ -107,7 +127,9 @@ export class LocationController {
 
   @Post()
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Directly add an approved location to the database (Admin)' })
+  @ApiOperation({
+    summary: 'Directly add an approved location to the database (Admin)',
+  })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
   directCreateLocation(@Body() dto: DirectCreateLocationDto) {
     return this.locationService.directCreateLocation(dto);
@@ -115,11 +137,12 @@ export class LocationController {
 
   @Delete(':id')
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Delete a location from the active network (Admin)' })
+  @ApiOperation({
+    summary: 'Delete a location from the active network (Admin)',
+  })
   @ApiParam({ name: 'id', example: 'LOC001' })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
   deleteLocation(@Param('id') id: string) {
     return this.locationService.deleteLocation(id);
   }
 }
-

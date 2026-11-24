@@ -42,31 +42,55 @@ function createTimeoutSignal(ms = 2500, existingSignal) {
 async function spFetch(path, options = {}) {
   const url = path.startsWith('/api') ? path : `/api${path}`;
   const timeoutMs = options.timeout || 2500;
+  const userId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId');
+  const sessionVersion = sessionStorage.getItem('c2b_sessionVersion') || localStorage.getItem('c2b_sessionVersion');
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-role': 'PROVIDER',
+    ...(userId ? { 'x-user-id': userId } : {}),
+    ...(sessionVersion ? { 'x-session-version': sessionVersion } : {}),
+    ...(options.headers || {}),
+  };
   let res;
   try {
     res = await fetch(url, {
       ...options,
       signal: createTimeoutSignal(timeoutMs, options.signal),
-      headers: {
-        'Content-Type': 'application/json',
-        'x-role': 'PROVIDER',
-        ...(options.headers || {}),
-      },
+      headers,
     });
   } catch {
-    res = await fetch(`http://${getHost()}:3000/api${path}`, {
-      ...options,
-      signal: createTimeoutSignal(timeoutMs, options.signal),
-      headers: {
-        'Content-Type': 'application/json',
-        'x-role': 'PROVIDER',
-        ...(options.headers || {}),
-      },
-    });
+    try {
+      res = await fetch(`http://${getHost()}:3000/api${path}`, {
+        ...options,
+        signal: createTimeoutSignal(timeoutMs, options.signal),
+        headers,
+      });
+    } catch {
+      throw new Error('The service is temporarily unavailable. Please try again.');
+    }
   }
   const json = await res.json().catch(() => ({}));
+  if (res.status === 401 || res.status === 403) {
+    const message = String(json.message || '');
+    if (message.includes('service provider account has been deactivated') || message.includes('session is no longer valid')) {
+      clearProviderSession();
+      window.dispatchEvent(new CustomEvent('c2b_account_deactivated', {
+        detail: {
+          message: message.includes('service provider account has been deactivated')
+            ? 'Your service provider account has been deactivated by the administrator. You cannot log in. Please contact customer support for assistance.'
+            : 'Your session is no longer valid. Please log in again.',
+        },
+      }));
+    }
+  }
   if (!res.ok || json.success === false) throw new Error(json.message || `Request failed (${res.status})`);
   return json.data !== undefined ? json.data : json;
+}
+
+function clearProviderSession() {
+  for (const storage of [sessionStorage, localStorage]) {
+    ['c2b_loggedIn', 'c2b_userName', 'c2b_userEmail', 'c2b_loggedInId', 'c2b_role', 'c2b_sessionVersion'].forEach((key) => storage.removeItem(key));
+  }
 }
 
 export async function getTripBookings(tripId) {
@@ -90,31 +114,26 @@ export function notifyChange(type, detail = {}) {
 
 /* ── Auth ── */
 export async function loginProvider(email, password) {
+  clearProviderSession();
+  let response;
   try {
-    const data = await spFetch('/auth/login', {
+    response = await fetch(`http://${getHost()}:3000/api/auth/login`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
+      signal: createTimeoutSignal(10000),
     });
-    if (data.role !== 'PROVIDER') throw new Error('Not a provider account');
-    return { success: true, data };
-  } catch (err) {
-    // Offline fallback
-    const providers = [
-      { id: 'P001', name: 'APSRTC Travels',  email: 'apsrtc@gmail.com',   password: 'Apsrtc@123'  },
-      { id: 'P002', name: 'KPN Tours',        email: 'kpn@gmail.com',      password: 'Kpn@123'     },
-      { id: 'P004', name: 'SRS Travels',      email: 'srs@gmail.com',      password: 'Srs@123'     },
-      { id: 'P005', name: 'VRL Travels',      email: 'vrl@gmail.com',      password: 'Vrl@123'     },
-      { id: 'P006', name: 'Parveen Travels',  email: 'parveen@gmail.com',  password: 'Parveen@123' },
-      { id: 'P008', name: 'Jabbar Travels',   email: 'jabbar@gmail.com',   password: 'Jabbar@123'  },
-      { id: 'P009', name: 'Suresh Travels',   email: 'suresh@gmail.com',   password: 'Suresh@123'  },
-      { id: 'P010', name: 'Ganesh Travels',   email: 'ganesh@gmail.com',   password: 'Ganesh@123'  },
-    ];
-    const matched = providers.find(
-      (p) => p.email.toLowerCase() === email.toLowerCase() && p.password === password
-    );
-    if (!matched) throw new Error('Invalid credentials. Contact admin if you need access.');
-    return { success: true, data: { ...matched, role: 'PROVIDER' }, offline: true };
+  } catch {
+    throw new Error('The service is temporarily unavailable. Please try again.');
   }
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok || !json.success) {
+    const message = json.message || `Request failed (${response.status})`;
+    if (String(message).includes('service provider account has been deactivated')) clearProviderSession();
+    throw new Error(message);
+  }
+  if (json.data?.role !== 'PROVIDER') throw new Error('Not a provider account');
+  return { success: true, data: json.data };
 }
 
 /* ── Dashboard Stats ── */

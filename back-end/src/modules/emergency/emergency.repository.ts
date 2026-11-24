@@ -7,7 +7,9 @@ import { generateId } from '../../common/utils/id.util';
 export class EmergencyRepository {
   private alerts: EmergencyAlert[] = [];
 
-  create(data: Omit<EmergencyAlert, 'alertId' | 'status' | 'createdAt'>): EmergencyAlert {
+  create(
+    data: Omit<EmergencyAlert, 'alertId' | 'status' | 'createdAt'>,
+  ): EmergencyAlert {
     const alert: EmergencyAlert = {
       alertId: generateId('EMG'),
       ...data,
@@ -18,13 +20,24 @@ export class EmergencyRepository {
     return alert;
   }
 
-  findAll(): EmergencyAlert[] { return this.alerts; }
-  findById(alertId: string): EmergencyAlert | undefined { return this.alerts.find(a => a.alertId === alertId); }
-  findByStatus(status: EmergencyStatus): EmergencyAlert[] { return this.alerts.filter(a => a.status === status); }
-  findByCustomer(customerId: string): EmergencyAlert[] { return this.alerts.filter(a => a.customerId === customerId); }
+  findAll(): EmergencyAlert[] {
+    return this.alerts;
+  }
+  findById(alertId: string): EmergencyAlert | undefined {
+    return this.alerts.find((a) => a.alertId === alertId);
+  }
+  findByStatus(status: EmergencyStatus): EmergencyAlert[] {
+    return this.alerts.filter((a) => a.status === status);
+  }
+  findByCustomer(customerId: string): EmergencyAlert[] {
+    return this.alerts.filter((a) => a.customerId === customerId);
+  }
 
-  update(alertId: string, data: Partial<EmergencyAlert>): EmergencyAlert | undefined {
-    const i = this.alerts.findIndex(a => a.alertId === alertId);
+  update(
+    alertId: string,
+    data: Partial<EmergencyAlert>,
+  ): EmergencyAlert | undefined {
+    const i = this.alerts.findIndex((a) => a.alertId === alertId);
     if (i === -1) return undefined;
     this.alerts[i] = { ...this.alerts[i], ...data };
     return this.alerts[i];

@@ -1,5 +1,10 @@
 import {
-  Body, Controller, Get, HttpCode, Post, UseGuards,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RevenueSplitService } from './revenue-split.service';
@@ -17,7 +22,10 @@ export class RevenueSplitController {
   @Post()
   @HttpCode(200)
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Update revenue split configuration — never hard-blocks, may return a warning (Admin)' })
+  @ApiOperation({
+    summary:
+      'Update revenue split configuration — never hard-blocks, may return a warning (Admin)',
+  })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
   update(@Body() dto: UpdateRevenueSplitConfigDto) {
     return this.service.updateConfig(dto);

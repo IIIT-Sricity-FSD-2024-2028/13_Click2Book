@@ -6,13 +6,18 @@ export class CancellationRepository {
   private cancellations: Cancellation[] = [];
 
   create(bookingId: string): Cancellation {
-    const c: Cancellation = { bookingId, cancelDate: new Date().toISOString().split('T')[0] };
+    const c: Cancellation = {
+      bookingId,
+      cancelDate: new Date().toISOString().split('T')[0],
+    };
     this.cancellations.push(c);
     return c;
   }
 
-  findAll(): Cancellation[] { return this.cancellations; }
+  findAll(): Cancellation[] {
+    return this.cancellations;
+  }
   findByBooking(bookingId: string): Cancellation | undefined {
-    return this.cancellations.find(c => c.bookingId === bookingId);
+    return this.cancellations.find((c) => c.bookingId === bookingId);
   }
 }

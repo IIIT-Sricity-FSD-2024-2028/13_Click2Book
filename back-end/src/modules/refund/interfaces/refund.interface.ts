@@ -10,5 +10,5 @@ export interface Refund {
   refundAmount: number;
   refundStatus: RefundStatus;
   refundDate: string;
+  completedDate?: string;
 }
-

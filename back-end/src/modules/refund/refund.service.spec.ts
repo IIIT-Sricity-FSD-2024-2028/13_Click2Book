@@ -1,4 +1,8 @@
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { RefundService } from './refund.service';
 import { RefundRepository } from './refund.repository';
 import { CancellationRepository } from '../cancellation/cancellation.repository';
@@ -38,7 +42,9 @@ describe('RefundService', () => {
     const vehicleRepo = new VehicleRepository();
     const seatRepo = new SeatRepository();
     const offerService = new OfferService(new OfferRepository());
-    const revenueSplitService = new RevenueSplitService(new RevenueSplitRepository());
+    const revenueSplitService = new RevenueSplitService(
+      new RevenueSplitRepository(),
+    );
     const ledgerService = new LedgerService(
       new LedgerRepository(),
       tripRepo,
@@ -57,8 +63,16 @@ describe('RefundService', () => {
       ledgerService,
     );
 
-    paymentService = new PaymentService(paymentRepo, bookingRepo, bookingService);
-    refundService = new RefundService(refundRepo, cancellationRepo, paymentService);
+    paymentService = new PaymentService(
+      paymentRepo,
+      bookingRepo,
+      bookingService,
+    );
+    refundService = new RefundService(
+      refundRepo,
+      cancellationRepo,
+      paymentService,
+    );
   });
 
   it('rejects refund request if the booking has not been cancelled yet', () => {
@@ -78,7 +92,10 @@ describe('RefundService', () => {
 
   it('creates refund request in REQUESTED status when booking is cancelled', () => {
     cancellationRepo.create('B001');
-    const result = refundService.request({ bookingId: 'B001', refundAmount: 550 });
+    const result = refundService.request({
+      bookingId: 'B001',
+      refundAmount: 550,
+    });
 
     expect(result.success).toBe(true);
     expect(result.data.refundStatus).toBe(RefundStatus.REQUESTED);
@@ -95,7 +112,10 @@ describe('RefundService', () => {
 
     // Processing refund must not swallow payment failure
     expect(() =>
-      refundService.process('B999', { adminId: 'A001', refundStatus: RefundStatus.COMPLETED }),
+      refundService.process('B999', {
+        adminId: 'A001',
+        refundStatus: RefundStatus.COMPLETED,
+      }),
     ).toThrow(NotFoundException);
 
     // Verify refund in repository was NOT marked as COMPLETED; remains REQUESTED
@@ -108,7 +128,10 @@ describe('RefundService', () => {
     cancellationRepo.create('B001');
     refundService.request({ bookingId: 'B001', refundAmount: 550 });
 
-    const result = refundService.process('B001', { adminId: 'A001', refundStatus: RefundStatus.COMPLETED });
+    const result = refundService.process('B001', {
+      adminId: 'A001',
+      refundStatus: RefundStatus.COMPLETED,
+    });
 
     expect(result.success).toBe(true);
     expect(result.data.refundStatus).toBe(RefundStatus.COMPLETED);
@@ -122,7 +145,10 @@ describe('RefundService', () => {
     cancellationRepo.create('B999');
     refundService.request({ bookingId: 'B999', refundAmount: 550 });
 
-    const result = refundService.process('B999', { adminId: 'A001', refundStatus: RefundStatus.REJECTED });
+    const result = refundService.process('B999', {
+      adminId: 'A001',
+      refundStatus: RefundStatus.REJECTED,
+    });
 
     expect(result.success).toBe(true);
     expect(result.data.refundStatus).toBe(RefundStatus.REJECTED);

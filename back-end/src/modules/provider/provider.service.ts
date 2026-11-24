@@ -1,4 +1,10 @@
-import { forwardRef, Inject, Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { ProviderRepository } from './provider.repository';
 import { VehicleRepository } from '../vehicle/vehicle.repository';
 import { ScheduleRepository } from '../schedule/schedule.repository';
@@ -19,10 +25,15 @@ export class ProviderService {
   create(dto: CreateProviderDto) {
     if (this.providerRepo.findByEmail(dto.email))
       throw new ConflictException('Provider email already exists');
-    return successResponse('Provider registered (awaiting admin approval)', this.providerRepo.create(dto));
+    return successResponse(
+      'Provider registered (awaiting admin approval)',
+      this.providerRepo.create(dto),
+    );
   }
 
-  findAll() { return successResponse('All providers', this.providerRepo.findAll()); }
+  findAll() {
+    return successResponse('All providers', this.providerRepo.findAll());
+  }
 
   findById(id: string) {
     const p = this.providerRepo.findById(id);
@@ -31,35 +42,54 @@ export class ProviderService {
   }
 
   update(id: string, dto: UpdateProviderDto) {
-    if (!this.providerRepo.findById(id)) throw new NotFoundException(`Provider ${id} not found`);
-    return successResponse('Provider updated', this.providerRepo.update(id, dto));
+    if (!this.providerRepo.findById(id))
+      throw new NotFoundException(`Provider ${id} not found`);
+    return successResponse(
+      'Provider updated',
+      this.providerRepo.update(id, dto),
+    );
   }
 
   approve(id: string) {
-    if (!this.providerRepo.findById(id)) throw new NotFoundException(`Provider ${id} not found`);
-    return successResponse('Provider approved', this.providerRepo.update(id, { approved: true, status: 'ACTIVE' }));
+    if (!this.providerRepo.findById(id))
+      throw new NotFoundException(`Provider ${id} not found`);
+    return successResponse(
+      'Provider approved',
+      this.providerRepo.update(id, { approved: true, status: 'ACTIVE' }),
+    );
   }
 
   updateStatus(id: string, status: 'ACTIVE' | 'INACTIVE') {
     const provider = this.providerRepo.findById(id);
     if (!provider) throw new NotFoundException(`Provider ${id} not found`);
-    const updated = this.providerRepo.update(id, { status });
+    const invalidated =
+      status === 'INACTIVE' &&
+      String(provider.status || 'ACTIVE').toUpperCase() !== 'INACTIVE';
+    const updated = this.providerRepo.update(id, {
+      status,
+      ...(invalidated ? { authVersion: (provider.authVersion || 0) + 1 } : {}),
+    });
     return successResponse(`Provider status updated to ${status}`, updated);
   }
 
   remove(id: string) {
-    if (!this.providerRepo.findById(id)) throw new NotFoundException(`Provider ${id} not found`);
+    if (!this.providerRepo.findById(id))
+      throw new NotFoundException(`Provider ${id} not found`);
     this.providerRepo.remove(id);
     return successResponse('Provider removed');
   }
 
   getDashboard(providerId: string) {
     const provider = this.providerRepo.findById(providerId);
-    if (!provider) throw new NotFoundException(`Provider ${providerId} not found`);
+    if (!provider)
+      throw new NotFoundException(`Provider ${providerId} not found`);
     const vehicles = this.vehicleRepo.findByProvider(providerId);
     const schedules = this.scheduleRepo.findByProvider(providerId);
     const totalSeats = vehicles.reduce((s, v) => s + v.totalSeats, 0);
-    const bookedSeats = vehicles.reduce((s, v) => s + (v.totalSeats - v.remainingSeats), 0);
+    const bookedSeats = vehicles.reduce(
+      (s, v) => s + (v.totalSeats - v.remainingSeats),
+      0,
+    );
     return successResponse('Provider dashboard', {
       provider: provider.name,
       totalVehicles: vehicles.length,
@@ -75,9 +105,11 @@ export class ProviderService {
   // re-deriving via vehicles/trips/bookings.
   getRevenue(providerId: string) {
     const provider = this.providerRepo.findById(providerId);
-    if (!provider) throw new NotFoundException(`Provider ${providerId} not found`);
+    if (!provider)
+      throw new NotFoundException(`Provider ${providerId} not found`);
 
-    const ledger = this.ledgerRepo.findAll()
+    const ledger = this.ledgerRepo
+      .findAll()
       .filter((l) => l.providerId === providerId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 

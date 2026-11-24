@@ -5,7 +5,13 @@ export type BusStatus = 'Available' | 'Assigned' | 'Maintenance' | 'Inactive';
 export interface SeatLayoutItem {
   seatId: string;
   seatNumber: string;
-  seatType: 'SEATER' | 'SLEEPER' | 'SINGLE_SLEEPER' | 'DOUBLE_SLEEPER' | 'AISLE' | 'EMPTY';
+  seatType:
+    | 'SEATER'
+    | 'SLEEPER'
+    | 'SINGLE_SLEEPER'
+    | 'DOUBLE_SLEEPER'
+    | 'AISLE'
+    | 'EMPTY';
   deck: 'LOWER' | 'UPPER';
   row: number;
   col: number;
@@ -84,7 +90,7 @@ export interface Vehicle {
   vehicleType: VehicleType;
   totalSeats: number;
   remainingSeats: number;
-  busName?: string;      // Bus display name
+  busName?: string; // Bus display name
   lowerBerths?: number;
   upperBerths?: number;
   amenities?: string[];

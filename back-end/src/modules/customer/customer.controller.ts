@@ -1,10 +1,25 @@
 import {
-  Controller, Get, Post, Put, Patch, Delete, Body, Param,
-  UseGuards, UseInterceptors, UploadedFile, BadRequestException,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import {
-  ApiTags, ApiOperation, ApiParam, ApiHeader, ApiResponse,
-  ApiConsumes, ApiBody,
+  ApiTags,
+  ApiOperation,
+  ApiParam,
+  ApiHeader,
+  ApiResponse,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CustomerService } from './customer.service';
@@ -40,7 +55,11 @@ export class CustomerController {
   @Roles(Role.CUSTOMER, Role.ADMIN)
   @ApiOperation({ summary: 'Get customer by ID' })
   @ApiParam({ name: 'id', example: 'C001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'CUSTOMER' },
+  })
   findOne(@Param('id') id: string) {
     return this.customerService.findById(id);
   }
@@ -49,7 +68,11 @@ export class CustomerController {
   @Roles(Role.CUSTOMER, Role.ADMIN)
   @ApiOperation({ summary: 'Update customer profile' })
   @ApiParam({ name: 'id', example: 'C001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'CUSTOMER' },
+  })
   update(@Param('id') id: string, @Body() dto: UpdateCustomerDto) {
     return this.customerService.update(id, dto);
   }
@@ -79,19 +102,29 @@ export class CustomerController {
   @Post(':id/profile-picture')
   @Roles(Role.CUSTOMER, Role.ADMIN)
   @UseInterceptors(FileInterceptor('file', profileUploadOptions))
-  @ApiOperation({ summary: 'Upload customer profile picture (JPEG/PNG, max 5 MB)' })
+  @ApiOperation({
+    summary: 'Upload customer profile picture (JPEG/PNG, max 5 MB)',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        file: { type: 'string', format: 'binary', description: 'Profile image (JPEG/PNG, max 5 MB)' },
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Profile image (JPEG/PNG, max 5 MB)',
+        },
       },
       required: ['file'],
     },
   })
   @ApiParam({ name: 'id', example: 'C001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'CUSTOMER' },
+  })
   @ApiResponse({ status: 201, description: 'Profile picture uploaded' })
   @ApiResponse({ status: 400, description: 'No file / wrong type / too large' })
   @ApiResponse({ status: 404, description: 'Customer not found' })
@@ -99,7 +132,10 @@ export class CustomerController {
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    if (!file) throw new BadRequestException('No file uploaded. Send a JPEG or PNG as multipart/form-data field "file".');
+    if (!file)
+      throw new BadRequestException(
+        'No file uploaded. Send a JPEG or PNG as multipart/form-data field "file".',
+      );
     return this.customerService.uploadProfilePicture(id, file.filename);
   }
 }

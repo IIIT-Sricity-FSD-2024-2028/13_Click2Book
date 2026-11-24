@@ -1,6 +1,14 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { LocationRepository } from './location.repository';
-import { CreateLocationRequestDto, RejectLocationRequestDto, DirectCreateLocationDto } from './dto/location.dto';
+import {
+  CreateLocationRequestDto,
+  RejectLocationRequestDto,
+  DirectCreateLocationDto,
+} from './dto/location.dto';
 import { successResponse } from '../../common/utils/response.util';
 
 interface CachedSearchResult {
@@ -42,7 +50,10 @@ export class LocationService {
     // 1. Check local cache first
     const cached = this.nominatimCache.get(normalizedQuery);
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL_MS) {
-      return successResponse('Search results (cached)', this.enrichResultsWithDbStatus(cached.data));
+      return successResponse(
+        'Search results (cached)',
+        this.enrichResultsWithDbStatus(cached.data),
+      );
     }
 
     // 2. Fetch from Nominatim with rate limiting
@@ -56,7 +67,8 @@ export class LocationService {
 
       const response = await fetch(url, {
         headers: {
-          'User-Agent': 'Click2Book-BusReservationSystem/1.0 (contact: admin@click2book.local)',
+          'User-Agent':
+            'Click2Book-BusReservationSystem/1.0 (contact: admin@click2book.local)',
           Accept: 'application/json',
         },
       });
@@ -72,28 +84,35 @@ export class LocationService {
           });
         }
       } else {
-        console.warn(`[Nominatim] API responded with status ${response.status}`);
+        console.warn(
+          `[Nominatim] API responded with status ${response.status}`,
+        );
       }
     } catch (err) {
-      console.warn('[Nominatim] Search request failed, falling back to local database:', err?.message);
+      console.warn(
+        '[Nominatim] Search request failed, falling back to local database:',
+        err?.message,
+      );
     }
 
     // 3. Merge with local approved locations matching the query if OSM returned few/no results
-    const localMatches = this.locationRepo.findAllApproved(cleanQuery).map((loc) => ({
-      name: loc.name,
-      displayName: loc.displayName,
-      osmId: String(loc.osmId),
-      osmType: loc.osmType || 'relation',
-      locationType: loc.locationType,
-      latitude: loc.latitude,
-      longitude: loc.longitude,
-      state: loc.state || (loc.address?.state ?? ''),
-      address: loc.address || {},
-      isApproved: true,
-      isAlreadyApproved: true,
-      hasPendingRequest: false,
-      locationId: loc.locationId,
-    }));
+    const localMatches = this.locationRepo
+      .findAllApproved(cleanQuery)
+      .map((loc) => ({
+        name: loc.name,
+        displayName: loc.displayName,
+        osmId: String(loc.osmId),
+        osmType: loc.osmType || 'relation',
+        locationType: loc.locationType,
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        state: loc.state || (loc.address?.state ?? ''),
+        address: loc.address || {},
+        isApproved: true,
+        isAlreadyApproved: true,
+        hasPendingRequest: false,
+        locationId: loc.locationId,
+      }));
 
     // Merge without duplicates (by name/osmId)
     const combined: any[] = [...localMatches];
@@ -154,7 +173,8 @@ export class LocationService {
     // Clean location type
     let locationType = raw.type || raw.class || 'town';
     if (raw.type === 'administrative' && address.city) locationType = 'city';
-    if (raw.class === 'highway' && raw.type === 'bus_stop') locationType = 'bus_stop';
+    if (raw.class === 'highway' && raw.type === 'bus_stop')
+      locationType = 'bus_stop';
     if (address.bus_stop) locationType = 'bus_stop';
 
     return {
@@ -201,12 +221,19 @@ export class LocationService {
   /**
    * Provider submits a new location request with validated OSM data
    */
-  createLocationRequest(dto: CreateLocationRequestDto, authProviderId?: string, authProviderName?: string) {
+  createLocationRequest(
+    dto: CreateLocationRequestDto,
+    authProviderId?: string,
+    authProviderName?: string,
+  ) {
     const cleanName = (dto.name || '').trim();
     if (!cleanName) throw new BadRequestException('Location name is required');
-    if (!dto.osmId) throw new BadRequestException('OpenStreetMap ID is required');
+    if (!dto.osmId)
+      throw new BadRequestException('OpenStreetMap ID is required');
     if (dto.latitude == null || dto.longitude == null) {
-      throw new BadRequestException('Valid latitude and longitude coordinates are required from OpenStreetMap');
+      throw new BadRequestException(
+        'Valid latitude and longitude coordinates are required from OpenStreetMap',
+      );
     }
 
     // 1. Prevent duplicate approved locations
@@ -232,7 +259,8 @@ export class LocationService {
     }
 
     const providerId = authProviderId || dto.providerId || 'P001';
-    const providerName = authProviderName || dto.providerName || 'Kiran Travels';
+    const providerName =
+      authProviderName || dto.providerName || 'Kiran Travels';
 
     const request = this.locationRepo.createRequest({
       osmId: String(dto.osmId),
@@ -250,7 +278,10 @@ export class LocationService {
       reason: dto.reason || 'New passenger route demand',
     });
 
-    return successResponse('Location request submitted successfully for admin review', request);
+    return successResponse(
+      'Location request submitted successfully for admin review',
+      request,
+    );
   }
 
   /**
@@ -258,10 +289,13 @@ export class LocationService {
    */
   approveLocationRequest(requestId: string, adminId?: string) {
     const req = this.locationRepo.findRequestById(requestId);
-    if (!req) throw new NotFoundException(`Location request ${requestId} not found`);
+    if (!req)
+      throw new NotFoundException(`Location request ${requestId} not found`);
 
     if (req.status !== 'PENDING') {
-      throw new BadRequestException(`Cannot approve request with status ${req.status}`);
+      throw new BadRequestException(
+        `Cannot approve request with status ${req.status}`,
+      );
     }
 
     // Check if already approved in the meantime
@@ -290,31 +324,45 @@ export class LocationService {
       decidedBy: adminId || 'ADMIN',
     });
 
-    return successResponse(`Location "${req.name}" approved and added to active network`, {
-      request: updated,
-      location: approved,
-    });
+    return successResponse(
+      `Location "${req.name}" approved and added to active network`,
+      {
+        request: updated,
+        location: approved,
+      },
+    );
   }
 
   /**
    * Admin rejects a location request
    */
-  rejectLocationRequest(requestId: string, dto: RejectLocationRequestDto, adminId?: string) {
+  rejectLocationRequest(
+    requestId: string,
+    dto: RejectLocationRequestDto,
+    adminId?: string,
+  ) {
     const req = this.locationRepo.findRequestById(requestId);
-    if (!req) throw new NotFoundException(`Location request ${requestId} not found`);
+    if (!req)
+      throw new NotFoundException(`Location request ${requestId} not found`);
 
     if (req.status !== 'PENDING') {
-      throw new BadRequestException(`Cannot reject request with status ${req.status}`);
+      throw new BadRequestException(
+        `Cannot reject request with status ${req.status}`,
+      );
     }
 
     const updated = this.locationRepo.updateRequest(requestId, {
       status: 'REJECTED',
       decidedAt: new Date().toISOString(),
       decidedBy: dto.decidedBy || adminId || 'ADMIN',
-      rejectionReason: dto.reason || 'Not meeting platform operational criteria',
+      rejectionReason:
+        dto.reason || 'Not meeting platform operational criteria',
     });
 
-    return successResponse(`Location request for "${req.name}" rejected`, updated);
+    return successResponse(
+      `Location request for "${req.name}" rejected`,
+      updated,
+    );
   }
 
   /**
@@ -329,7 +377,9 @@ export class LocationService {
       this.locationRepo.findApprovedByName(cleanName);
 
     if (existing) {
-      throw new BadRequestException(`Location "${cleanName}" already exists in the approved database.`);
+      throw new BadRequestException(
+        `Location "${cleanName}" already exists in the approved database.`,
+      );
     }
 
     const location = this.locationRepo.createApproved({
@@ -345,18 +395,22 @@ export class LocationService {
       isApproved: true,
     });
 
-    return successResponse(`Location "${cleanName}" created successfully`, location);
+    return successResponse(
+      `Location "${cleanName}" created successfully`,
+      location,
+    );
   }
 
   deleteLocation(id: string) {
     const loc = this.locationRepo.findApprovedById(id);
     if (!loc) throw new NotFoundException(`Location ${id} not found`);
     this.locationRepo.removeApproved(id);
-    return successResponse(`Location "${loc.name}" removed from platform network`);
+    return successResponse(
+      `Location "${loc.name}" removed from platform network`,
+    );
   }
 
   isLocationApproved(name: string): boolean {
     return this.locationRepo.isApproved(name);
   }
 }
-

@@ -119,6 +119,8 @@ export class AppModule implements NestModule {
 
     // Phase 3D: Router-level middleware — ONLY fires for AdminController and ReportController routes.
     // Using controller class references correctly accounts for the global /api prefix.
-    consumer.apply(AdminLoggerMiddleware).forRoutes(AdminController, ReportController);
+    consumer
+      .apply(AdminLoggerMiddleware)
+      .forRoutes(AdminController, ReportController);
   }
 }

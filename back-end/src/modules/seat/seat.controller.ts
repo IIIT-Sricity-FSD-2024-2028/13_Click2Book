@@ -30,8 +30,15 @@ export class SeatController {
   @ApiOperation({ summary: 'Block a seat (Provider/Admin)' })
   @ApiParam({ name: 'vehicleId', example: 'V001' })
   @ApiParam({ name: 'seatNumber', example: '5' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
-  block(@Param('vehicleId') vehicleId: string, @Param('seatNumber') seatNumber: string) {
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
+  block(
+    @Param('vehicleId') vehicleId: string,
+    @Param('seatNumber') seatNumber: string,
+  ) {
     return this.seatService.blockSeat(vehicleId, +seatNumber);
   }
 
@@ -40,8 +47,15 @@ export class SeatController {
   @ApiOperation({ summary: 'Release a seat (Provider/Admin)' })
   @ApiParam({ name: 'vehicleId', example: 'V001' })
   @ApiParam({ name: 'seatNumber', example: '5' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'PROVIDER' } })
-  release(@Param('vehicleId') vehicleId: string, @Param('seatNumber') seatNumber: string) {
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'PROVIDER' },
+  })
+  release(
+    @Param('vehicleId') vehicleId: string,
+    @Param('seatNumber') seatNumber: string,
+  ) {
     return this.seatService.releaseSeat(vehicleId, +seatNumber);
   }
 }

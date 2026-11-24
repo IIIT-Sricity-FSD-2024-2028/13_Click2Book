@@ -3,14 +3,27 @@ import { IsString, IsNumber, IsOptional, Min } from 'class-validator';
 
 export class CreatePaymentDto {
   @ApiProperty({ example: 'B001' })
-  @IsString() bookingId: string;
+  @IsString()
+  bookingId: string;
 
   @ApiProperty({ example: 600 })
-  @IsNumber() @Min(0) amount: number;
+  @IsNumber()
+  @Min(0)
+  amount: number;
 
-  @ApiPropertyOptional({ example: 120, description: 'Discount applied from offer' })
-  @IsOptional() @IsNumber() @Min(0) discountAmount?: number;
+  @ApiPropertyOptional({
+    example: 120,
+    description: 'Discount applied from offer',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  discountAmount?: number;
 
-  @ApiProperty({ example: 'UPI', description: 'UPI | Card | NetBanking | Wallet' })
-  @IsString() paymentMethod: string;
+  @ApiProperty({
+    example: 'UPI',
+    description: 'UPI | Card | NetBanking | Wallet',
+  })
+  @IsString()
+  paymentMethod: string;
 }

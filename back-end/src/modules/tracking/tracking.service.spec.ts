@@ -1,4 +1,8 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { TrackingService } from './tracking.service';
 import { TrackingRepository } from './tracking.repository';
 import { TripRepository } from '../trip/trip.repository';
@@ -29,14 +33,24 @@ describe('TrackingService', () => {
   it('rejects a location update while the trip has not departed', () => {
     // Seeded T001 starts as SCHEDULED
     expect(() =>
-      service.updateLocation('T001', { providerId: 'P001', lat: 1, lng: 1, status: TrackingStatus.EN_ROUTE }),
+      service.updateLocation('T001', {
+        providerId: 'P001',
+        lat: 1,
+        lng: 1,
+        status: TrackingStatus.EN_ROUTE,
+      }),
     ).toThrow(BadRequestException);
   });
 
   it('rejects a provider who does not operate the trip', () => {
     tripRepo.update('T001', { tripStatus: TripStatus.IN_PROGRESS });
     expect(() =>
-      service.updateLocation('T001', { providerId: 'P002', lat: 1, lng: 1, status: TrackingStatus.EN_ROUTE }),
+      service.updateLocation('T001', {
+        providerId: 'P002',
+        lat: 1,
+        lng: 1,
+        status: TrackingStatus.EN_ROUTE,
+      }),
     ).toThrow(ForbiddenException);
   });
 
@@ -55,13 +69,25 @@ describe('TrackingService', () => {
 
   it('blocks a customer without a booking on the trip from viewing location', () => {
     tripRepo.update('T001', { tripStatus: TripStatus.IN_PROGRESS });
-    service.updateLocation('T001', { providerId: 'P001', lat: 1, lng: 1, status: TrackingStatus.EN_ROUTE });
-    expect(() => service.getLocation('T001', Role.CUSTOMER, 'C999')).toThrow(ForbiddenException);
+    service.updateLocation('T001', {
+      providerId: 'P001',
+      lat: 1,
+      lng: 1,
+      status: TrackingStatus.EN_ROUTE,
+    });
+    expect(() => service.getLocation('T001', Role.CUSTOMER, 'C999')).toThrow(
+      ForbiddenException,
+    );
   });
 
   it('lets a customer with a confirmed booking view location', () => {
     tripRepo.update('T001', { tripStatus: TripStatus.IN_PROGRESS });
-    service.updateLocation('T001', { providerId: 'P001', lat: 1, lng: 1, status: TrackingStatus.EN_ROUTE });
+    service.updateLocation('T001', {
+      providerId: 'P001',
+      lat: 1,
+      lng: 1,
+      status: TrackingStatus.EN_ROUTE,
+    });
     // C001 holds seeded booking B001 on T001
     const result = service.getLocation('T001', Role.CUSTOMER, 'C001');
     expect(result.success).toBe(true);

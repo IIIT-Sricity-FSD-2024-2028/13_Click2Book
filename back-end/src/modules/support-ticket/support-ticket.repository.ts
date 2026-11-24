@@ -6,7 +6,9 @@ import { generateId } from '../../common/utils/id.util';
 export class SupportTicketRepository {
   private tickets: SupportTicket[] = [];
 
-  create(data: Omit<SupportTicket, 'ticketId' | 'status' | 'createdAt'>): SupportTicket {
+  create(
+    data: Omit<SupportTicket, 'ticketId' | 'status' | 'createdAt'>,
+  ): SupportTicket {
     const ticket: SupportTicket = {
       ticketId: generateId('TCK'),
       ...data,
@@ -29,7 +31,10 @@ export class SupportTicketRepository {
     return this.tickets.filter((t) => t.bookingId === bookingId);
   }
 
-  update(ticketId: string, data: Partial<Pick<SupportTicket, 'status'>>): SupportTicket | undefined {
+  update(
+    ticketId: string,
+    data: Partial<Pick<SupportTicket, 'status'>>,
+  ): SupportTicket | undefined {
     const i = this.tickets.findIndex((t) => t.ticketId === ticketId);
     if (i === -1) return undefined;
     this.tickets[i] = { ...this.tickets[i], ...data };

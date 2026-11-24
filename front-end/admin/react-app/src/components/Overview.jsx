@@ -27,6 +27,7 @@ export default function Overview({
   totalRevenue = 0,
   revenueByDay = [],
   activeBuses = 0,
+  metrics = {},
   onViewAll,
 }) {
   const currentDate = new Date();
@@ -57,7 +58,9 @@ export default function Overview({
       <section className="stats-grid" aria-label="Key metrics" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '18px' }}>
         <MetricCard label="Total Bookings Today" value={todayBookings} delta="Today's reservations" icon="🎫" accent="#f97316" />
         <MetricCard label="Total Revenue" value={money(totalRevenue)} accent="#16a34a" delta="Net platform revenue" icon="₹" />
-        <MetricCard label="Registered Users" value={activeAccounts} accent="#2563eb" delta="Active accounts" icon="👥" />
+        <MetricCard label="Customers" value={metrics.totalCustomers ?? users.filter(u => u.role === 'customer').length} accent="#2563eb" delta={`${metrics.activeCustomers ?? activeAccounts} active / ${metrics.inactiveCustomers ?? 0} inactive`} icon="👥" />
+        <MetricCard label="Service Providers" value={metrics.totalProviders ?? users.filter(u => u.role === 'service_provider').length} accent="#9333ea" delta={`${metrics.activeProviders ?? 0} active / ${metrics.inactiveProviders ?? 0} inactive`} icon="🚌" />
+        <MetricCard label="Support Employees" value={metrics.totalSupportStaff ?? users.filter(u => u.role === 'support').length} accent="#0891b2" delta={`${metrics.activeSupportStaff ?? 0} active / ${metrics.inactiveSupportStaff ?? 0} inactive`} icon="🎧" />
         <MetricCard label="Active Buses" value={activeBuses} accent="#9333ea" delta="Live on route" icon="🚌" />
       </section>
 

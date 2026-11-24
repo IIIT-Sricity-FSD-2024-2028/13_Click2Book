@@ -6,7 +6,12 @@ import { RefundStatus } from './enums/refund-status.enum';
 export class RefundRepository {
   private refunds: Refund[] = [];
 
-  create(data: Omit<Refund, 'refundDate' | 'refundStatus'> & { refundStatus?: RefundStatus; refundDate?: string }): Refund {
+  create(
+    data: Omit<Refund, 'refundDate' | 'refundStatus'> & {
+      refundStatus?: RefundStatus;
+      refundDate?: string;
+    },
+  ): Refund {
     const refund: Refund = {
       refundId: data.refundId || `REF-${data.bookingId}`,
       ...data,
@@ -17,14 +22,22 @@ export class RefundRepository {
     return refund;
   }
 
-  findAll(): Refund[] { return this.refunds; }
-  findByBooking(bookingId: string): Refund | undefined {
-    return this.refunds.find(r => r.bookingId === bookingId || r.refundId === bookingId);
+  findAll(): Refund[] {
+    return this.refunds;
   }
-  findByStatus(status: RefundStatus): Refund[] { return this.refunds.filter(r => r.refundStatus === status); }
+  findByBooking(bookingId: string): Refund | undefined {
+    return this.refunds.find(
+      (r) => r.bookingId === bookingId || r.refundId === bookingId,
+    );
+  }
+  findByStatus(status: RefundStatus): Refund[] {
+    return this.refunds.filter((r) => r.refundStatus === status);
+  }
 
   update(bookingId: string, data: Partial<Refund>): Refund | undefined {
-    const i = this.refunds.findIndex(r => r.bookingId === bookingId || r.refundId === bookingId);
+    const i = this.refunds.findIndex(
+      (r) => r.bookingId === bookingId || r.refundId === bookingId,
+    );
     if (i === -1) return undefined;
     this.refunds[i] = { ...this.refunds[i], ...data };
     return this.refunds[i];

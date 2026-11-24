@@ -5,10 +5,16 @@ const API_HOST = location.hostname === 'localhost' || location.hostname === '127
 export const API_BASE = `http://${API_HOST}:3000/api`;
 
 export async function apiFetch(path, options = {}) {
+  const userId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId');
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     ...(String(options.method || 'GET').toUpperCase() === 'GET' && options.cache === undefined ? { cache: 'no-store' } : {}),
-    headers: { 'Content-Type': 'application/json', 'x-role': 'ADMIN', ...options.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-role': 'ADMIN',
+      ...(userId ? { 'x-user-id': userId } : {}),
+      ...options.headers,
+    },
   });
   const json = await response.json();
   if (!response.ok || !json.success) {
@@ -18,7 +24,7 @@ export async function apiFetch(path, options = {}) {
 }
 
 export async function loadAdminDashboardData() {
-  const [bookings, payments, refunds, customers, trips, schedules, routes, providers, supportStaff, admins] = await Promise.all([
+  const [bookings, payments, refunds, customers, trips, schedules, routes, providers, supportStaff, admins, dashboard] = await Promise.all([
     apiFetch('/bookings'),
     apiFetch('/payments'),
     apiFetch('/refunds'),
@@ -29,6 +35,7 @@ export async function loadAdminDashboardData() {
     apiFetch('/providers'),
     apiFetch('/support-staff'),
     apiFetch('/admin').catch(() => []),
+    apiFetch('/admin/dashboard').catch(() => null),
   ]);
 
   const paymentByBooking = new Map(payments.map((payment) => [payment.bookingId, payment]));
@@ -184,6 +191,7 @@ export async function loadAdminDashboardData() {
   });
 
   return {
+    ...(dashboard || {}),
     bookings: dashboardBookings,
     refunds: dashboardRefunds,
     users: dashboardUsers,

@@ -3,11 +3,15 @@ import { IsString, IsEmail, MinLength } from 'class-validator';
 
 export class CreateAdminDto {
   @ApiProperty({ example: 'Admin One' })
-  @IsString() name: string;
+  @IsString()
+  name: string;
 
   @ApiProperty({ example: 'admin@click2book.com' })
-  @IsEmail() email: string;
+  @IsEmail()
+  email: string;
 
   @ApiProperty({ example: 'Admin@123' })
-  @IsString() @MinLength(6) password: string;
+  @IsString()
+  @MinLength(6)
+  password: string;
 }

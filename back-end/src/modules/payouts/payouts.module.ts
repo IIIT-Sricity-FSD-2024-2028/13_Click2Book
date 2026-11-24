@@ -8,7 +8,13 @@ import { SupportModule } from '../support/support.module';
 import { SupportTicketModule } from '../support-ticket/support-ticket.module';
 
 @Module({
-  imports: [LedgerModule, ProviderModule, AdminModule, SupportModule, SupportTicketModule],
+  imports: [
+    LedgerModule,
+    ProviderModule,
+    AdminModule,
+    SupportModule,
+    SupportTicketModule,
+  ],
   controllers: [PayoutsController],
   providers: [PayoutsService],
 })

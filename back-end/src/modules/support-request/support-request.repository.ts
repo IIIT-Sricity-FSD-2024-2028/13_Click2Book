@@ -17,7 +17,8 @@ export class SupportRequestRepository {
       description: 'Unable to cancel booking B001.',
       status: SupportStatus.RESOLVED,
       createdDate: '2026-05-01',
-      resolution: 'Cancellation unlocked and refund initiated to source account.',
+      resolution:
+        'Cancellation unlocked and refund initiated to source account.',
       resolvedBy: 'Support Agent (Deepika)',
       resolvedAt: '2026-05-02T10:00:00.000Z',
     },
@@ -53,7 +54,8 @@ export class SupportRequestRepository {
       supporterId: 'SUPPORT001',
       category: 'booking',
       priority: 'High',
-      description: 'Amount ₹1,200 deducted from UPI, but ticket status remained pending on the confirmation page.',
+      description:
+        'Amount ₹1,200 deducted from UPI, but ticket status remained pending on the confirmation page.',
       status: SupportStatus.OPEN,
       createdDate: '2026-10-13',
     },
@@ -65,7 +67,8 @@ export class SupportRequestRepository {
       supporterId: 'SUPPORT001',
       category: 'refund',
       priority: 'High',
-      description: 'Cancelled trip on Oct 5. Expected refund of ₹1,450 has not reflected in bank account yet.',
+      description:
+        'Cancelled trip on Oct 5. Expected refund of ₹1,450 has not reflected in bank account yet.',
       status: SupportStatus.IN_PROGRESS,
       createdDate: '2026-10-12',
     },
@@ -77,10 +80,12 @@ export class SupportRequestRepository {
       supporterId: 'SUPPORT001',
       category: 'complaint',
       priority: 'Medium',
-      description: 'Service #KT-101 departed Bengaluru 2 hours behind schedule without prior SMS alert.',
+      description:
+        'Service #KT-101 departed Bengaluru 2 hours behind schedule without prior SMS alert.',
       status: SupportStatus.RESOLVED,
       createdDate: '2026-10-12',
-      resolution: 'GPS log validated 110-min delay. ₹200 travel voucher credited to passenger wallet.',
+      resolution:
+        'GPS log validated 110-min delay. ₹200 travel voucher credited to passenger wallet.',
       resolvedBy: 'Support Agent (Deepika)',
       resolvedAt: '2026-10-12T16:20:00.000Z',
     },
@@ -92,7 +97,8 @@ export class SupportRequestRepository {
       supporterId: 'SUPPORT002',
       category: 'cancellation',
       priority: 'High',
-      description: 'Passenger requests emergency cancellation for tonight trip. Seeking full refund waiver approval from operator.',
+      description:
+        'Passenger requests emergency cancellation for tonight trip. Seeking full refund waiver approval from operator.',
       status: SupportStatus.IN_PROGRESS,
       createdDate: '2026-10-13',
     },
@@ -103,7 +109,8 @@ export class SupportRequestRepository {
       supporterId: 'SUPPORT003',
       category: 'technical',
       priority: 'High',
-      description: 'Payment gateway screen hangs and crashes the application on OTP verification step on Android 14.',
+      description:
+        'Payment gateway screen hangs and crashes the application on OTP verification step on Android 14.',
       status: SupportStatus.OPEN,
       createdDate: '2026-10-13',
     },
@@ -115,7 +122,8 @@ export class SupportRequestRepository {
       supporterId: 'SUPPORT001',
       category: 'payment',
       priority: 'High',
-      description: 'Two debits of ₹950 received for a single confirmed seat B3. Immediate refund required.',
+      description:
+        'Two debits of ₹950 received for a single confirmed seat B3. Immediate refund required.',
       status: SupportStatus.OPEN,
       createdDate: '2026-10-13',
     },
@@ -127,7 +135,8 @@ export class SupportRequestRepository {
       supporterId: 'SUPPORT001',
       category: 'cancellation',
       priority: 'Medium',
-      description: 'Customer requested cancellation 40 minutes prior to departure; service provider rejected late cancellation.',
+      description:
+        'Customer requested cancellation 40 minutes prior to departure; service provider rejected late cancellation.',
       status: SupportStatus.IN_PROGRESS,
       createdDate: '2026-10-12',
     },
@@ -139,7 +148,8 @@ export class SupportRequestRepository {
       supporterId: 'SUPPORT002',
       category: 'complaint',
       priority: 'High',
-      description: 'Booked Scania Luxury AC Sleeper, operator dispatched standard non-AC seated coach. Demands fare difference compensation.',
+      description:
+        'Booked Scania Luxury AC Sleeper, operator dispatched standard non-AC seated coach. Demands fare difference compensation.',
       status: SupportStatus.IN_PROGRESS,
       createdDate: '2026-10-13',
     },
@@ -155,7 +165,10 @@ export class SupportRequestRepository {
       category: data.category || 'Booking Issue',
       priority: data.priority || 'Medium',
       status: (data.status as SupportStatus) || SupportStatus.OPEN,
-      createdDate: data.createdDate || (data as any).createdAt || new Date().toISOString().split('T')[0],
+      createdDate:
+        data.createdDate ||
+        (data as any).createdAt ||
+        new Date().toISOString().split('T')[0],
       bookingId: data.bookingId,
       resolution: data.resolution || '',
       resolvedAt: data.resolvedAt,
@@ -165,33 +178,47 @@ export class SupportRequestRepository {
     return req;
   }
 
-  findAll(): SupportRequest[] { return this.requests; }
+  findAll(): SupportRequest[] {
+    return this.requests;
+  }
 
   findById(requestId: string): SupportRequest | undefined {
     const cleanId = (requestId || '').trim().toLowerCase();
     return this.requests.find(
-      r => r.requestId.toLowerCase() === cleanId ||
-           r.requestId.toLowerCase().replace(/[-_]/g, '') === cleanId.replace(/[-_]/g, '')
+      (r) =>
+        r.requestId.toLowerCase() === cleanId ||
+        r.requestId.toLowerCase().replace(/[-_]/g, '') ===
+          cleanId.replace(/[-_]/g, ''),
     );
   }
 
   findByCustomer(customerId: string): SupportRequest[] {
     const cleanCid = (customerId || '').trim().toLowerCase();
     return this.requests.filter(
-      r => r.customerId.toLowerCase() === cleanCid ||
-           cleanCid.includes(r.customerId.toLowerCase()) ||
-           r.customerId.toLowerCase().includes(cleanCid)
+      (r) =>
+        r.customerId.toLowerCase() === cleanCid ||
+        cleanCid.includes(r.customerId.toLowerCase()) ||
+        r.customerId.toLowerCase().includes(cleanCid),
     );
   }
 
-  findByStatus(status: SupportStatus): SupportRequest[] { return this.requests.filter(r => r.status === status); }
-  findBySupporter(supporterId: string): SupportRequest[] { return this.requests.filter(r => r.supporterId === supporterId); }
+  findByStatus(status: SupportStatus): SupportRequest[] {
+    return this.requests.filter((r) => r.status === status);
+  }
+  findBySupporter(supporterId: string): SupportRequest[] {
+    return this.requests.filter((r) => r.supporterId === supporterId);
+  }
 
-  update(requestId: string, data: Partial<SupportRequest>): SupportRequest | undefined {
+  update(
+    requestId: string,
+    data: Partial<SupportRequest>,
+  ): SupportRequest | undefined {
     const cleanId = (requestId || '').trim().toLowerCase();
     const i = this.requests.findIndex(
-      r => r.requestId.toLowerCase() === cleanId ||
-           r.requestId.toLowerCase().replace(/[-_]/g, '') === cleanId.replace(/[-_]/g, '')
+      (r) =>
+        r.requestId.toLowerCase() === cleanId ||
+        r.requestId.toLowerCase().replace(/[-_]/g, '') ===
+          cleanId.replace(/[-_]/g, ''),
     );
     if (i === -1) return undefined;
     this.requests[i] = { ...this.requests[i], ...data };

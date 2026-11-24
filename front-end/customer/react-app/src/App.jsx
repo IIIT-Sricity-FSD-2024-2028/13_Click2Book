@@ -119,6 +119,23 @@ export default function App() {
     };
   });
 
+  useEffect(() => {
+    const handleAccountInvalidation = (event) => {
+      const message = event.detail?.message || 'Your session is no longer valid. Please log in again.';
+      setUser(null);
+      setActiveTab('landing');
+      setLoginModal({
+        isOpen: true,
+        initialPanel: 'login',
+        promptMessage: message,
+      });
+      if (window.location.hash) window.location.hash = '';
+    };
+
+    window.addEventListener('c2b_account_deactivated', handleAccountInvalidation);
+    return () => window.removeEventListener('c2b_account_deactivated', handleAccountInvalidation);
+  }, []);
+
   const handleOpenLogin = useCallback((options = {}) => {
     if (options?.promptMessage) {
       sessionStorage.setItem('c2b_loginPrompt', options.promptMessage);
@@ -447,6 +464,7 @@ export default function App() {
       sessionStorage.removeItem('c2b_user_avatar');
       sessionStorage.removeItem('c2b_role');
       sessionStorage.removeItem('c2b_userId');
+      sessionStorage.removeItem('c2b_sessionVersion');
       localStorage.removeItem('c2b_loggedIn');
       localStorage.removeItem('c2b_loggedInId');
       localStorage.removeItem('c2b_userName');
@@ -455,6 +473,7 @@ export default function App() {
       localStorage.removeItem('c2b_user_avatar');
       localStorage.removeItem('c2b_role');
       localStorage.removeItem('c2b_userId');
+      localStorage.removeItem('c2b_sessionVersion');
 
       setUser(null);
       showToast('👋 You have been logged out.', 'info');

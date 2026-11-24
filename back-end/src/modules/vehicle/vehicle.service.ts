@@ -1,6 +1,19 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { VehicleRepository } from './vehicle.repository';
-import { CreateVehicleDto, UpdateVehicleDto, SaveSeatLayoutDto, AssignRouteDto, ChangeRouteDto, SaveRoundTripScheduleDto } from './dto/vehicle.dto';
+import {
+  CreateVehicleDto,
+  UpdateVehicleDto,
+  SaveSeatLayoutDto,
+  AssignRouteDto,
+  ChangeRouteDto,
+  SaveRoundTripScheduleDto,
+} from './dto/vehicle.dto';
 import { successResponse } from '../../common/utils/response.util';
 import { BusStatus, BusSeatLayoutConfig } from './interfaces/vehicle.interface';
 import { generateId } from '../../common/utils/id.util';
@@ -11,7 +24,10 @@ export class VehicleService {
 
   create(dto: CreateVehicleDto) {
     // 1. Strict Indian Vehicle Registration Plate Format Validation
-    const cleanNumber = (dto.vehicleNumber || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const cleanNumber = (dto.vehicleNumber || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '');
     const plateRegex = /^[A-Z]{2}[0-9]{1,2}[A-Z]{1,3}[0-9]{4}$/;
     if (!plateRegex.test(cleanNumber)) {
       throw new BadRequestException(
@@ -30,7 +46,9 @@ export class VehicleService {
     // 3. Uniqueness Check
     const existing = this.vehicleRepo.findByRegistration(dto.vehicleNumber);
     if (existing) {
-      throw new ConflictException(`Bus with registration number "${dto.vehicleNumber}" is already registered.`);
+      throw new ConflictException(
+        `Bus with registration number "${dto.vehicleNumber}" is already registered.`,
+      );
     }
 
     const bus = this.vehicleRepo.create({
@@ -44,7 +62,7 @@ export class VehicleService {
       upperBerths: dto.upperBerths,
       amenities: dto.amenities || [],
       photographs: dto.photographs || [],
-      status: (dto.status as BusStatus) || 'Available',
+      status: dto.status || 'Available',
       rating: dto.rating || 4.5,
       boardingPoint: dto.boardingPoint,
       droppingPoint: dto.droppingPoint,
@@ -69,11 +87,17 @@ export class VehicleService {
   }
 
   getFleetStats(providerId?: string) {
-    const all = providerId ? this.vehicleRepo.findByProvider(providerId) : this.vehicleRepo.findAll();
+    const all = providerId
+      ? this.vehicleRepo.findByProvider(providerId)
+      : this.vehicleRepo.findAll();
     const totalBuses = all.length;
-    const assignedBuses = all.filter((b) => b.status === 'Assigned' || b.assignedRoute).length;
+    const assignedBuses = all.filter(
+      (b) => b.status === 'Assigned' || b.assignedRoute,
+    ).length;
     const availableBuses = all.filter((b) => b.status === 'Available').length;
-    const maintenanceBuses = all.filter((b) => b.status === 'Maintenance').length;
+    const maintenanceBuses = all.filter(
+      (b) => b.status === 'Maintenance',
+    ).length;
 
     return successResponse('Fleet overview statistics', {
       totalBuses,
@@ -87,7 +111,9 @@ export class VehicleService {
     const bus = this.vehicleRepo.findById(id);
     if (!bus) throw new NotFoundException(`Bus ${id} not found`);
     if (providerId && bus.providerId !== providerId) {
-      throw new ForbiddenException('You do not have permission to modify this bus seat layout.');
+      throw new ForbiddenException(
+        'You do not have permission to modify this bus seat layout.',
+      );
     }
 
     const layoutConfig: BusSeatLayoutConfig = {
@@ -110,21 +136,28 @@ export class VehicleService {
     const bus = this.vehicleRepo.findById(id);
     if (!bus) throw new NotFoundException(`Bus ${id} not found`);
     if (providerId && bus.providerId !== providerId) {
-      throw new ForbiddenException('You do not have permission to assign routes to this bus.');
+      throw new ForbiddenException(
+        'You do not have permission to assign routes to this bus.',
+      );
     }
 
     if (bus.status === 'Maintenance') {
-      throw new BadRequestException(`Cannot assign route: Bus ${bus.vehicleNumber} is currently under Maintenance.`);
+      throw new BadRequestException(
+        `Cannot assign route: Bus ${bus.vehicleNumber} is currently under Maintenance.`,
+      );
     }
 
     if (bus.status === 'Inactive') {
-      throw new BadRequestException(`Cannot assign route: Bus ${bus.vehicleNumber} is Inactive.`);
+      throw new BadRequestException(
+        `Cannot assign route: Bus ${bus.vehicleNumber} is Inactive.`,
+      );
     }
 
     const assignment = {
       assignmentId: generateId('ASGN'),
       vehicleId: id,
-      routeId: `R_${dto.originCity.slice(0, 3)}_${dto.destCity.slice(0, 3)}`.toUpperCase(),
+      routeId:
+        `R_${dto.originCity.slice(0, 3)}_${dto.destCity.slice(0, 3)}`.toUpperCase(),
       originCity: dto.originCity,
       destCity: dto.destCity,
       corridorId: dto.corridorId,
@@ -133,29 +166,38 @@ export class VehicleService {
       durationEst: dto.durationEst || '6h 00m',
       intermediateStops: dto.intermediateStops || [],
       assignedAt: new Date().toISOString(),
-      effectiveDate: dto.effectiveDate || new Date().toISOString().split('T')[0],
+      effectiveDate:
+        dto.effectiveDate || new Date().toISOString().split('T')[0],
       status: 'ACTIVE' as const,
     };
 
     const updated = this.vehicleRepo.assignRoute(id, assignment);
-    return successResponse(`Bus ${bus.vehicleNumber} successfully assigned to ${dto.originCity} ↔ ${dto.destCity}`, updated);
+    return successResponse(
+      `Bus ${bus.vehicleNumber} successfully assigned to ${dto.originCity} ↔ ${dto.destCity}`,
+      updated,
+    );
   }
 
   changeRoute(id: string, dto: ChangeRouteDto, providerId?: string) {
     const bus = this.vehicleRepo.findById(id);
     if (!bus) throw new NotFoundException(`Bus ${id} not found`);
     if (providerId && bus.providerId !== providerId) {
-      throw new ForbiddenException('You do not have permission to reassign this bus.');
+      throw new ForbiddenException(
+        'You do not have permission to reassign this bus.',
+      );
     }
 
     if (bus.status === 'Maintenance') {
-      throw new BadRequestException(`Cannot reassign route: Bus is currently under Maintenance.`);
+      throw new BadRequestException(
+        `Cannot reassign route: Bus is currently under Maintenance.`,
+      );
     }
 
     const assignment = {
       assignmentId: generateId('ASGN'),
       vehicleId: id,
-      routeId: `R_${dto.originCity.slice(0, 3)}_${dto.destCity.slice(0, 3)}`.toUpperCase(),
+      routeId:
+        `R_${dto.originCity.slice(0, 3)}_${dto.destCity.slice(0, 3)}`.toUpperCase(),
       originCity: dto.originCity,
       destCity: dto.destCity,
       corridorId: dto.corridorId,
@@ -164,29 +206,45 @@ export class VehicleService {
       durationEst: dto.durationEst || '6h 00m',
       intermediateStops: dto.intermediateStops || [],
       assignedAt: new Date().toISOString(),
-      effectiveDate: dto.effectiveDate || new Date().toISOString().split('T')[0],
+      effectiveDate:
+        dto.effectiveDate || new Date().toISOString().split('T')[0],
       status: 'ACTIVE' as const,
     };
 
     const updated = this.vehicleRepo.changeRoute(id, assignment);
-    return successResponse(`Route assignment updated to ${dto.originCity} ↔ ${dto.destCity}`, updated);
+    return successResponse(
+      `Route assignment updated to ${dto.originCity} ↔ ${dto.destCity}`,
+      updated,
+    );
   }
 
-  saveRoundTripSchedules(id: string, dto: SaveRoundTripScheduleDto, providerId?: string) {
+  saveRoundTripSchedules(
+    id: string,
+    dto: SaveRoundTripScheduleDto,
+    providerId?: string,
+  ) {
     const bus = this.vehicleRepo.findById(id);
     if (!bus) throw new NotFoundException(`Bus ${id} not found`);
     if (providerId && bus.providerId !== providerId) {
-      throw new ForbiddenException('You do not have permission to schedule this bus.');
+      throw new ForbiddenException(
+        'You do not have permission to schedule this bus.',
+      );
     }
 
     if (!bus.assignedRoute) {
-      throw new BadRequestException(`Please assign bus ${bus.vehicleNumber} to a route corridor before creating round-trip schedules.`);
+      throw new BadRequestException(
+        `Please assign bus ${bus.vehicleNumber} to a route corridor before creating round-trip schedules.`,
+      );
     }
 
     // Auto turnaround time calculation
-    const [uh, um] = (dto.upSchedule.arrivalTime || '14:00').split(':').map(Number);
-    const [dh, dm] = (dto.downSchedule.departureTime || '20:00').split(':').map(Number);
-    let restMinutes = (dh * 60 + dm) - (uh * 60 + um);
+    const [uh, um] = (dto.upSchedule.arrivalTime || '14:00')
+      .split(':')
+      .map(Number);
+    const [dh, dm] = (dto.downSchedule.departureTime || '20:00')
+      .split(':')
+      .map(Number);
+    let restMinutes = dh * 60 + dm - (uh * 60 + um);
     if (restMinutes < 0) restMinutes += 24 * 60;
 
     const roundTripData = {
@@ -198,7 +256,15 @@ export class VehicleService {
         destCity: bus.assignedRoute.destCity,
         departureTime: dto.upSchedule.departureTime,
         arrivalTime: dto.upSchedule.arrivalTime,
-        operatingDays: dto.upSchedule.operatingDays || ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+        operatingDays: dto.upSchedule.operatingDays || [
+          'MON',
+          'TUE',
+          'WED',
+          'THU',
+          'FRI',
+          'SAT',
+          'SUN',
+        ],
         intermediateStops: dto.upSchedule.intermediateStops || [],
         active: dto.upSchedule.active !== false,
       },
@@ -208,7 +274,15 @@ export class VehicleService {
         destCity: bus.assignedRoute.originCity,
         departureTime: dto.downSchedule.departureTime,
         arrivalTime: dto.downSchedule.arrivalTime,
-        operatingDays: dto.downSchedule.operatingDays || ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+        operatingDays: dto.downSchedule.operatingDays || [
+          'MON',
+          'TUE',
+          'WED',
+          'THU',
+          'FRI',
+          'SAT',
+          'SUN',
+        ],
         intermediateStops: dto.downSchedule.intermediateStops || [],
         active: dto.downSchedule.active !== false,
       },
@@ -218,14 +292,19 @@ export class VehicleService {
     };
 
     const updated = this.vehicleRepo.saveRoundTripSchedules(id, roundTripData);
-    return successResponse('Round-trip (UP and DOWN) schedules configured successfully', updated);
+    return successResponse(
+      'Round-trip (UP and DOWN) schedules configured successfully',
+      updated,
+    );
   }
 
   updateStatus(id: string, status: BusStatus, providerId?: string) {
     const bus = this.vehicleRepo.findById(id);
     if (!bus) throw new NotFoundException(`Bus ${id} not found`);
     if (providerId && bus.providerId !== providerId) {
-      throw new ForbiddenException('You do not have permission to change this bus status.');
+      throw new ForbiddenException(
+        'You do not have permission to change this bus status.',
+      );
     }
 
     const updated = this.vehicleRepo.updateStatus(id, status);
@@ -233,15 +312,20 @@ export class VehicleService {
   }
 
   update(id: string, dto: UpdateVehicleDto) {
-    if (!this.vehicleRepo.findById(id)) throw new NotFoundException(`Vehicle ${id} not found`);
+    if (!this.vehicleRepo.findById(id))
+      throw new NotFoundException(`Vehicle ${id} not found`);
     return successResponse('Vehicle updated', this.vehicleRepo.update(id, dto));
   }
 
   remove(id: string) {
-    const bus = this.vehicleRepo.findById(id) || this.vehicleRepo.findByRegistration(id);
+    const bus =
+      this.vehicleRepo.findById(id) || this.vehicleRepo.findByRegistration(id);
     if (!bus) return successResponse('Vehicle already removed or not found');
     this.vehicleRepo.remove(bus.vehicleId);
-    return successResponse('Vehicle removed successfully', { vehicleId: bus.vehicleId, vehicleNumber: bus.vehicleNumber });
+    return successResponse('Vehicle removed successfully', {
+      vehicleId: bus.vehicleId,
+      vehicleNumber: bus.vehicleNumber,
+    });
   }
 
   removeAll(providerId?: string) {

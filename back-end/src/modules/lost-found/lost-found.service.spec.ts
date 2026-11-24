@@ -1,4 +1,8 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { LostFoundService } from './lost-found.service';
 import { LostFoundRepository } from './lost-found.repository';
 import { BookingRepository } from '../booking/booking.repository';
@@ -30,12 +34,22 @@ describe('LostFoundService', () => {
   };
 
   beforeEach(() => {
-    const revenueSplitService = new RevenueSplitService(new RevenueSplitRepository());
+    const revenueSplitService = new RevenueSplitService(
+      new RevenueSplitRepository(),
+    );
     const ledgerService = new LedgerService(
-      new LedgerRepository(), new TripRepository(), new ScheduleRepository(), new ProviderRepository(), new AdminRepository(), revenueSplitService,
+      new LedgerRepository(),
+      new TripRepository(),
+      new ScheduleRepository(),
+      new ProviderRepository(),
+      new AdminRepository(),
+      revenueSplitService,
     );
     const supportTicketService = new SupportTicketService(
-      new SupportTicketRepository(), ledgerService, revenueSplitService, new SupportRepository(),
+      new SupportTicketRepository(),
+      ledgerService,
+      revenueSplitService,
+      new SupportRepository(),
     );
     service = new LostFoundService(
       new LostFoundRepository(),
@@ -47,11 +61,15 @@ describe('LostFoundService', () => {
   });
 
   it('rejects a report from someone who does not own the booking', () => {
-    expect(() => service.create({ ...validDto, customerId: 'C999' })).toThrow(ForbiddenException);
+    expect(() => service.create({ ...validDto, customerId: 'C999' })).toThrow(
+      ForbiddenException,
+    );
   });
 
   it('rejects a report whose trip does not match the booking', () => {
-    expect(() => service.create({ ...validDto, tripId: 'T999' })).toThrow(BadRequestException);
+    expect(() => service.create({ ...validDto, tripId: 'T999' })).toThrow(
+      BadRequestException,
+    );
   });
 
   it('accepts a valid report and returns it REPORTED', () => {
@@ -72,21 +90,28 @@ describe('LostFoundService', () => {
     expect(result.data?.length).toBe(0);
   });
 
-  it('blocks a customer from viewing another customer\'s report', () => {
+  it("blocks a customer from viewing another customer's report", () => {
     const created = service.create(validDto);
     const id = created.data!.itemId;
-    expect(() => service.findById(id, Role.CUSTOMER, 'C999')).toThrow(ForbiddenException);
+    expect(() => service.findById(id, Role.CUSTOMER, 'C999')).toThrow(
+      ForbiddenException,
+    );
   });
 
   it('stamps resolvedAt when moved to RETURNED', () => {
     const created = service.create(validDto);
     const id = created.data!.itemId;
-    const updated = service.updateStatus(id, { status: LostFoundStatus.RETURNED, foundNote: 'Handed back at depot' });
+    const updated = service.updateStatus(id, {
+      status: LostFoundStatus.RETURNED,
+      foundNote: 'Handed back at depot',
+    });
     expect(updated.data?.status).toBe(LostFoundStatus.RETURNED);
     expect(updated.data?.resolvedAt).toBeDefined();
   });
 
   it('404s when updating a report that does not exist', () => {
-    expect(() => service.updateStatus('LF999', { status: LostFoundStatus.FOUND })).toThrow(NotFoundException);
+    expect(() =>
+      service.updateStatus('LF999', { status: LostFoundStatus.FOUND }),
+    ).toThrow(NotFoundException);
   });
 });

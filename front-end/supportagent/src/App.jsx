@@ -63,6 +63,7 @@ export default function App() {
   };
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
+  const [accountAccessError, setAccountAccessError] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     if (typeof window === 'undefined') return true;
     return (
@@ -81,6 +82,17 @@ export default function App() {
     }
     return INITIAL_AGENTS[0];
   });
+
+  useEffect(() => {
+    const onDeactivated = (event) => {
+      setIsAuthenticated(false);
+      setAccountAccessError(event.detail?.message || 'Your customer support account has been deactivated by the administrator. You cannot log in. Please contact your administrator for assistance.');
+      setActiveTab('login');
+      window.location.hash = 'login';
+    };
+    window.addEventListener('c2b_account_deactivated', onDeactivated);
+    return () => window.removeEventListener('c2b_account_deactivated', onDeactivated);
+  }, []);
 
   const [tickets, setTickets] = useState(() => {
     try {
@@ -278,11 +290,15 @@ export default function App() {
       sessionStorage.removeItem('c2b_loggedIn');
       sessionStorage.removeItem('c2b_userName');
       sessionStorage.removeItem('c2b_userEmail');
+      sessionStorage.removeItem('c2b_loggedInId');
       sessionStorage.removeItem('c2b_role');
+      sessionStorage.removeItem('c2b_sessionVersion');
       localStorage.removeItem('c2b_loggedIn');
       localStorage.removeItem('c2b_userName');
       localStorage.removeItem('c2b_userEmail');
+      localStorage.removeItem('c2b_loggedInId');
       localStorage.removeItem('c2b_role');
+      localStorage.removeItem('c2b_sessionVersion');
       setIsAuthenticated(false);
       setActiveTab('login');
       if (typeof window !== 'undefined') {
@@ -426,7 +442,7 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <>
-        <Login onLogin={handleLogin} />
+        <Login onLogin={handleLogin} initialError={accountAccessError} />
         <Toast toasts={toasts} onDismiss={handleDismissToast} />
       </>
     );

@@ -15,7 +15,11 @@ export class PaymentController {
   @Post()
   @Roles(Role.CUSTOMER)
   @ApiOperation({ summary: 'Process payment for a booking (Customer)' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'CUSTOMER' },
+  })
   processPayment(@Body() dto: CreatePaymentDto) {
     return this.paymentService.processPayment(dto);
   }
@@ -24,20 +28,32 @@ export class PaymentController {
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Get all payments (Admin)' })
   @ApiHeader({ name: 'x-role', required: true, schema: { example: 'ADMIN' } })
-  findAll() { return this.paymentService.findAll(); }
+  findAll() {
+    return this.paymentService.findAll();
+  }
 
   @Get(':id')
   @Roles(Role.CUSTOMER, Role.ADMIN)
   @ApiOperation({ summary: 'Get payment by ID' })
   @ApiParam({ name: 'id', example: 'PAY001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
-  findOne(@Param('id') id: string) { return this.paymentService.findById(id); }
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'CUSTOMER' },
+  })
+  findOne(@Param('id') id: string) {
+    return this.paymentService.findById(id);
+  }
 
   @Get('booking/:bookingId')
   @Roles(Role.CUSTOMER, Role.ADMIN)
   @ApiOperation({ summary: 'Get payment by booking ID' })
   @ApiParam({ name: 'bookingId', example: 'B001' })
-  @ApiHeader({ name: 'x-role', required: true, schema: { example: 'CUSTOMER' } })
+  @ApiHeader({
+    name: 'x-role',
+    required: true,
+    schema: { example: 'CUSTOMER' },
+  })
   findByBooking(@Param('bookingId') bookingId: string) {
     return this.paymentService.findByBooking(bookingId);
   }

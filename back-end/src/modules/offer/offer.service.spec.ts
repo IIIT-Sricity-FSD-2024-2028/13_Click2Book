@@ -20,8 +20,9 @@ describe('OfferService coupon workflow', () => {
       endDate: '2027-01-01',
     }).data!;
 
-    expect(repository.findAll().filter((offer) => offer.offerId === created.offerId))
-      .toHaveLength(1);
+    expect(
+      repository.findAll().filter((offer) => offer.offerId === created.offerId),
+    ).toHaveLength(1);
     expect(created.offerId).not.toBe('O004');
 
     expect(() =>
@@ -105,15 +106,25 @@ describe('OfferService coupon workflow', () => {
       endDate: '2027-01-01',
     }).data!;
 
-    expect(service.update(created.offerId, { status: OfferStatus.INACTIVE }).data?.status)
-      .toBe(OfferStatus.INACTIVE);
-    expect(service.update(created.offerId, { status: OfferStatus.INACTIVE }).data?.status)
-      .toBe(OfferStatus.INACTIVE);
-    expect(repository.findById(created.offerId)?.status).toBe(OfferStatus.INACTIVE);
-    expect(service.update(created.offerId, { status: OfferStatus.ACTIVE }).data?.status)
-      .toBe(OfferStatus.ACTIVE);
-    expect(service.update(created.offerId, { status: OfferStatus.ACTIVE }).data?.status)
-      .toBe(OfferStatus.ACTIVE);
+    expect(
+      service.update(created.offerId, { status: OfferStatus.INACTIVE }).data
+        ?.status,
+    ).toBe(OfferStatus.INACTIVE);
+    expect(
+      service.update(created.offerId, { status: OfferStatus.INACTIVE }).data
+        ?.status,
+    ).toBe(OfferStatus.INACTIVE);
+    expect(repository.findById(created.offerId)?.status).toBe(
+      OfferStatus.INACTIVE,
+    );
+    expect(
+      service.update(created.offerId, { status: OfferStatus.ACTIVE }).data
+        ?.status,
+    ).toBe(OfferStatus.ACTIVE);
+    expect(
+      service.update(created.offerId, { status: OfferStatus.ACTIVE }).data
+        ?.status,
+    ).toBe(OfferStatus.ACTIVE);
 
     const expired = service.create({
       offerCode: 'EXPIRED',
@@ -121,9 +132,12 @@ describe('OfferService coupon workflow', () => {
       startDate: '2000-01-01',
       endDate: '2000-12-31',
     }).data!;
-    expect(() => service.update(expired.offerId, { status: OfferStatus.ACTIVE }))
-      .toThrow(BadRequestException);
-    expect(() => service.validateAndApply('EXPIRED', 100)).toThrow(BadRequestException);
+    expect(() =>
+      service.update(expired.offerId, { status: OfferStatus.ACTIVE }),
+    ).toThrow(BadRequestException);
+    expect(() => service.validateAndApply('EXPIRED', 100)).toThrow(
+      BadRequestException,
+    );
   });
 
   it('supports creating, editing, reading, and archiving an unused coupon', () => {
@@ -151,7 +165,9 @@ describe('OfferService coupon workflow', () => {
     });
     expect(edited.offerId).toBe(created.offerId);
     service.remove(created.offerId);
-    expect(() => service.validateAndApply('CRUDTEST', 100)).toThrow(BadRequestException);
+    expect(() => service.validateAndApply('CRUDTEST', 100)).toThrow(
+      BadRequestException,
+    );
   });
 
   it('retains the original coupon details and analytics after archiving a used coupon', () => {

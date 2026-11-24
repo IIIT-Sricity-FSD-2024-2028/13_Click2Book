@@ -5,6 +5,8 @@ import { PaymentService } from '../payment/payment.service';
 import { CreateRefundDto, ProcessRefundDto } from './dto/refund.dto';
 import { RefundStatus } from './enums/refund-status.enum';
 import { successResponse } from '../../common/utils/response.util';
+import { PlatformService } from '../platform/platform.service';
+import { PaymentRepository } from '../payment/payment.repository';
 
 @Injectable()
 export class RefundService {
@@ -12,6 +14,8 @@ export class RefundService {
     private readonly refundRepo: RefundRepository,
     private readonly cancellationRepo: CancellationRepository,
     private readonly paymentService: PaymentService,
+    private readonly platformService: PlatformService,
+    private readonly paymentRepo: PaymentRepository,
   ) {}
 
   request(dto: CreateRefundDto) {
@@ -29,12 +33,22 @@ export class RefundService {
     const refund = this.refundRepo.create({
       refundId: dto.refundId || `REF-${dto.bookingId}`,
       bookingId: dto.bookingId,
-      refundAmount: dto.refundAmount,
+      refundAmount: this.allowedRefund(dto.bookingId, dto.refundAmount),
       customerId: dto.customerId,
       passengerName: dto.passengerName,
       reason: dto.reason || 'Customer requested ticket cancellation',
     });
     return successResponse('Refund requested. Support/Admin will process it.', refund);
+  }
+
+  // Super Admin refund rules: never refund more than refundPercent of what was paid for this booking.
+  // The customer app also takes off the platform fee and cancellation fee, so it asks for less.
+  private allowedRefund(bookingId: string, requested: number): number {
+    const payment = this.paymentRepo.findByBooking(bookingId);
+    if (!payment) return requested;
+    const paid = (Number(payment.amount) || 0) - (Number(payment.discountAmount) || 0);
+    const { refundPercent } = this.platformService.get().cancellation;
+    return Math.max(0, Math.min(requested, Math.round((paid * refundPercent) / 100)));
   }
 
   findAll(status?: RefundStatus) {

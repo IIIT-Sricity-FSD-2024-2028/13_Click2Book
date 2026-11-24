@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AlertCircle, CheckCircle, RotateCcw, ArrowRight, ArrowLeft } from 'lucide-react';
 import { API } from '../services/api';
 import { liveSync } from '../services/liveSync';
+import { usePricing, fetchPricing, computeRefund } from '../services/pricing';
 
 export default function CancelTicket({
   preselectedBooking,
@@ -17,6 +18,8 @@ export default function CancelTicket({
   const [selectedTicket, setSelectedTicket] = useState(preselectedBooking || initialBooking || null);
   const [cancelledResult, setCancelledResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const pricing = usePricing();
+  const breakdown = selectedTicket ? computeRefund(selectedTicket, pricing) : null;
 
   useEffect(() => {
     if (preselectedBooking || initialBooking) {
@@ -101,8 +104,15 @@ export default function CancelTicket({
 
     const bId = selectedTicket.bookingId || selectedTicket.booking_id;
     const customerId = selectedTicket.customerId || selectedTicket.customer_id || customer?.id || user?.id || 'C001';
-    const fee = 50;
-    const refundAmt = Math.max(0, selectedTicket.total - fee);
+    // Use the latest Super Admin refund rules at the moment of cancelling.
+    const rules = await fetchPricing();
+    if (!rules.allowCancellation) {
+      showToast('Cancellations are currently disabled by Click2Book.', 'error');
+      setLoading(false);
+      return;
+    }
+    const refundAmt = computeRefund(selectedTicket, rules).refund;
+    const fee = rules.cancellationFee;
 
     if (selectedTicket.status === 'CANCELLED' || selectedTicket.booking_status === 'CANCELLED') {
       showToast('This ticket is already cancelled.', 'error');
@@ -639,14 +649,31 @@ export default function CancelTicket({
               <span>Original Ticket Fare</span>
               <span style={{ fontWeight: 700 }}>₹{selectedTicket.total}</span>
             </div>
+            {breakdown.platformFee > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '0.88rem', color: '#dc2626' }}>
+                <span>Platform Fee (non-refundable)</span>
+                <span style={{ fontWeight: 700 }}>−₹{breakdown.platformFee}</span>
+              </div>
+            )}
+            {breakdown.refundPercent < 100 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '0.88rem', color: '#dc2626' }}>
+                <span>Refundable ({breakdown.refundPercent}%)</span>
+                <span style={{ fontWeight: 700 }}>₹{breakdown.afterPercent}</span>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '0.88rem', color: '#dc2626' }}>
               <span>Cancellation Fee</span>
-              <span style={{ fontWeight: 700 }}>−₹50</span>
+              <span style={{ fontWeight: 700 }}>−₹{breakdown.cancellationFee}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 0', marginTop: '6px', borderTop: '1px dashed #fca5a5', fontSize: '1.05rem', fontWeight: 800, color: '#15803d' }}>
               <span>Net Refund Amount</span>
-              <span>₹{Math.max(0, selectedTicket.total - 50)}</span>
+              <span>₹{breakdown.refund}</span>
             </div>
+            {!pricing.allowCancellation && (
+              <div style={{ marginTop: '10px', fontSize: '0.82rem', fontWeight: 700, color: '#b91c1c' }}>
+                Cancellations are currently disabled by Click2Book.
+              </div>
+            )}
           </div>
 
           <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px', fontSize: '0.78rem', color: '#475569', marginBottom: '22px', display: 'flex', gap: '8px' }}>

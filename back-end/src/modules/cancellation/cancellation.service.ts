@@ -1,4 +1,7 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, BadRequestException } from '@nestjs/common';
+import { PlatformService } from '../platform/platform.service';
+import { ModuleRef } from '@nestjs/core';
+import { OfferService } from '../offer/offer.service';
 import { CancellationRepository } from './cancellation.repository';
 import { BookingService } from '../booking/booking.service';
 import { LedgerService } from '../ledger/ledger.service';
@@ -14,12 +17,18 @@ export class CancellationService {
     private readonly bookingService: BookingService,
     private readonly ledgerService: LedgerService,
     private readonly supportTicketService: SupportTicketService,
+    private readonly platformService: PlatformService,
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   cancel(dto: CreateCancellationDto) {
     const existing = this.cancellationRepo.findByBooking(dto.bookingId);
     if (existing) {
       return successResponse('Booking already cancelled', existing);
+    }
+
+    if (!this.platformService.get().cancellation.allowCancellation) {
+      throw new BadRequestException('Cancellations are currently disabled by Click2Book.');
     }
 
     // Cancel booking — this also releases the seat
@@ -42,6 +51,11 @@ export class CancellationService {
     } catch (e) {
       // support ticket creation failure should not abort booking cancellation
     }
+
+    // A cancelled booking gives back its offer use (so a one-time offer can be used again).
+    try {
+      this.moduleRef.get(OfferService, { strict: false }).releaseForBooking(canonicalBookingId);
+    } catch {}
 
     // Record cancellation under canonical ID and requested ID if different
     const cancellation = this.cancellationRepo.create(canonicalBookingId);

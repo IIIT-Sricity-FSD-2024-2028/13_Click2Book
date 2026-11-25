@@ -1,3 +1,5 @@
+import { setSection } from '../store/slices/uiSlice';
+
 // [id, sidebar label, page title, sidebar icon]
 export const SECTIONS = [
   ['dashboard', 'Overview', 'Dashboard Overview', '▦'],
@@ -14,13 +16,18 @@ export const SECTIONS = [
 export const BOOKING_STATUSES = ['confirmed', 'pending', 'cancelled', 'completed'];
 export const USER_ROLES = ['admin', 'customer', 'support', 'service_provider'];
 
-const SECTION_KEY = 'c2b_currentPage';
+let _storeRef = null;
+export function injectAdminSectionsStore(store) {
+  _storeRef = store;
+}
 
 export function loadSavedSection() {
-  const saved = localStorage.getItem(SECTION_KEY) || 'dashboard';
+  const saved = (_storeRef && _storeRef.getState()?.ui?.section) || 'dashboard';
   return SECTIONS.some(([id]) => id === saved) ? saved : 'dashboard';
 }
 
 export function saveSection(id) {
-  localStorage.setItem(SECTION_KEY, id);
+  if (_storeRef) {
+    _storeRef.dispatch(setSection(id));
+  }
 }

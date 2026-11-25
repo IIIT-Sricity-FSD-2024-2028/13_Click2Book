@@ -1,18 +1,31 @@
 import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { AlertCircle, CheckCircle, RotateCcw, ArrowRight, ArrowLeft } from 'lucide-react';
 import { API } from '../services/api';
 import { liveSync } from '../services/liveSync';
+import {
+  updateBooking,
+  createBooking,
+  createRefund,
+  updateTrip,
+  navigateTabThunk,
+  showToastThunk,
+} from '../store/actions';
 
-export default function CancelTicket({
-  preselectedBooking,
-  initialBooking,
-  customer,
-  user,
-  showToast,
-  onNavigate,
-  onNavigateToTrackRefund,
-  onBackToBookings,
-}) {
+export default function CancelTicket() {
+  const dispatch = useDispatch();
+  const user = useSelector((state) => state.auth.user);
+  const customer = user;
+  const preselectedBooking = useSelector((state) => state.bookings.selectedBookingForCancel);
+  const initialBooking = preselectedBooking;
+  const reduxBookings = useSelector((state) => state.bookings.items);
+  const reduxSchedules = useSelector((state) => state.trips.items);
+
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
+  const onNavigate = (tab) => dispatch(navigateTabThunk(tab));
+  const onNavigateToTrackRefund = (bId) => dispatch(navigateTabThunk('track-refunds', { bookingId: bId }));
+  const onBackToBookings = () => dispatch(navigateTabThunk('my-bookings'));
+
   const [cancellableTickets, setCancellableTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(preselectedBooking || initialBooking || null);
   const [cancelledResult, setCancelledResult] = useState(null);
@@ -25,17 +38,13 @@ export default function CancelTicket({
   }, [preselectedBooking, initialBooking]);
 
   useEffect(() => {
-    // Load active cancellable tickets from localStorage & API
     const loadTickets = async () => {
       const raw = [];
-      try {
-        const local = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-        local.forEach((b) => {
-          if (b.status === 'CONFIRMED' || b.booking_status === 'CONFIRMED') {
-            raw.push(b);
-          }
-        });
-      } catch {}
+      reduxBookings.forEach((b) => {
+        if (b.status === 'CONFIRMED' || b.booking_status === 'CONFIRMED') {
+          raw.push(b);
+        }
+      });
 
       try {
         const apiData = await API.bookings.getMine();
@@ -407,48 +416,38 @@ export default function CancelTicket({
       const isPartial = failedCancels.length > 0;
       const actualRefundAmt = perSeatRefund * successfulCancels.length;
 
-      // 3. Update localStorage bookings based on actual backend results
-      try {
-        const allBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-        let found = false;
-        allBookings.forEach((b) => {
-          const checkId = b.bookingId || b.booking_id || b.id;
-          if (checkId === bId || (bId && String(checkId).startsWith(`${bId}-`))) {
-            found = true;
-            if (isPartial) {
-              b.status = 'PARTIALLY_CANCELLED';
-              b.booking_status = 'PARTIALLY_CANCELLED';
-              b.bookingStatus = 'PARTIALLY_CANCELLED';
-              b.cancelledSeatIds = successfulCancels.map((c) => c.id);
-              b.remainingSeatIds = failedCancels.map((f) => f.id);
-            } else {
-              b.status = 'CANCELLED';
-              b.booking_status = 'CANCELLED';
-              b.bookingStatus = 'CANCELLED';
-              b.cancelled_at = new Date().toISOString();
-            }
-          }
-        });
-        if (!found) {
-          allBookings.unshift({
-            ...selectedTicket,
+      // 3. Update Redux bookings based on actual backend results
+      const cancelPatch = isPartial
+        ? {
             bookingId: bId,
             booking_id: bId,
-            status: isPartial ? 'PARTIALLY_CANCELLED' : 'CANCELLED',
-            booking_status: isPartial ? 'PARTIALLY_CANCELLED' : 'CANCELLED',
-            bookingStatus: isPartial ? 'PARTIALLY_CANCELLED' : 'CANCELLED',
+            status: 'PARTIALLY_CANCELLED',
+            booking_status: 'PARTIALLY_CANCELLED',
+            bookingStatus: 'PARTIALLY_CANCELLED',
+            cancelledSeatIds: successfulCancels.map((c) => c.id),
+            remainingSeatIds: failedCancels.map((f) => f.id),
+          }
+        : {
+            bookingId: bId,
+            booking_id: bId,
+            status: 'CANCELLED',
+            booking_status: 'CANCELLED',
+            bookingStatus: 'CANCELLED',
             cancelled_at: new Date().toISOString(),
-          });
-        }
-        localStorage.setItem('c2b_bookings', JSON.stringify(allBookings));
-      } catch {}
+          };
+      const existsInRedux = reduxBookings.some(
+        (b) => (b.bookingId || b.booking_id || b.id) === bId
+      );
+      if (existsInRedux) {
+        dispatch(updateBooking(cancelPatch));
+      } else {
+        dispatch(createBooking({ ...selectedTicket, ...cancelPatch }));
+      }
 
-      // 4. Save refund record to localStorage for the cancelled seats
+      // 4. Save refund record to Redux memory store for the cancelled seats
       if (successfulRefunds.length > 0) {
-        try {
-          const allRefunds = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
-          const existingIdx = allRefunds.findIndex((r) => r.booking_id === bId || r.bookingId === bId);
-          const refItem = {
+        dispatch(
+          createRefund({
             refund_id: `REF-${bId}`,
             refundId: `REF-${bId}`,
             booking_id: bId,
@@ -467,44 +466,32 @@ export default function CancelTicket({
             request_date: new Date().toISOString().split('T')[0],
             payment_method: 'UPI / Bank Source',
             arn: `ARN${Date.now().toString().slice(-9)}`,
-          };
-          if (existingIdx >= 0) {
-            allRefunds[existingIdx] = refItem;
-          } else {
-            allRefunds.unshift(refItem);
-          }
-          localStorage.setItem('c2b_refunds', JSON.stringify(allRefunds));
-        } catch {}
+          })
+        );
       }
 
-      // 5. Update schedule in c2b_bus_schedules so provider immediately sees released seat & deducted revenue
-      try {
-        const localScheds = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-        let updatedSched = false;
-        const seatCount = successfulCancels.length;
-        localScheds.forEach((s) => {
-          const tid = s.id || s.tripId || s.trip_id;
-          const matchId = tid && (tid === selectedTicket.tripId || tid === selectedTicket.backendTripId);
-          const matchRoute = s.from?.toLowerCase() === selectedTicket.from?.toLowerCase() &&
-                             s.to?.toLowerCase() === selectedTicket.to?.toLowerCase();
-          if (matchId || matchRoute) {
-            s.bookedSeats = Math.max(0, (s.bookedSeats || s.booked_seats || 0) - seatCount);
-            s.booked_seats = Math.max(0, (s.booked_seats || 0) - seatCount);
-            s.availableSeats = Math.min((s.totalSeats || s.total_seats || 40), (s.availableSeats || 0) + seatCount);
-            s.available_seats = Math.min((s.totalSeats || s.total_seats || 40), (s.available_seats || 0) + seatCount);
-            s.revenue = Math.max(0, (s.revenue || 0) - (selectedTicket.total || 0));
-            s.operatorPayout = Math.max(0, (s.operatorPayout || 0) - Math.round((selectedTicket.total || 0) * 0.90));
-            updatedSched = true;
-          }
-        });
-        if (updatedSched) {
-          localStorage.setItem('c2b_bus_schedules', JSON.stringify(localScheds));
+      // 5. Update schedule in Redux so provider/customer immediately sees released seat
+      const seatCount = successfulCancels.length;
+      reduxSchedules.forEach((s) => {
+        const tid = s.id || s.tripId || s.trip_id;
+        const matchId = tid && (tid === selectedTicket.tripId || tid === selectedTicket.backendTripId);
+        const matchRoute = s.from?.toLowerCase() === selectedTicket.from?.toLowerCase() &&
+                           s.to?.toLowerCase() === selectedTicket.to?.toLowerCase();
+        if (matchId || matchRoute) {
+          dispatch(
+            updateTrip({
+              ...s,
+              bookedSeats: Math.max(0, (s.bookedSeats || s.booked_seats || 0) - seatCount),
+              booked_seats: Math.max(0, (s.booked_seats || 0) - seatCount),
+              availableSeats: Math.min((s.totalSeats || s.total_seats || 40), (s.availableSeats || 0) + seatCount),
+              available_seats: Math.min((s.totalSeats || s.total_seats || 40), (s.available_seats || 0) + seatCount),
+              revenue: Math.max(0, (s.revenue || 0) - (selectedTicket.total || 0)),
+              operatorPayout: Math.max(0, (s.operatorPayout || 0) - Math.round((selectedTicket.total || 0) * 0.90)),
+            })
+          );
         }
-      } catch (e) {
-        console.warn('Could not update provider schedule stats on cancellation:', e);
-      }
+      });
 
-      window.dispatchEvent(new Event('storage'));
       try {
         window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'BOOKING_CANCELLED', payload: { bookingId: bId, status: 'CANCELLED' } } }));
       } catch {}

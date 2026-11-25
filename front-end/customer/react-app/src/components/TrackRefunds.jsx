@@ -1,12 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Search, CheckCircle, Clock, ShieldCheck, ArrowRight, RotateCcw } from 'lucide-react';
 import { API } from '../services/api';
+import {
+  fetchRefundsThunk,
+  updateRefund,
+  navigateTabThunk,
+  showToastThunk,
+} from '../store/actions';
 
-export default function TrackRefunds({ initialBookingId = '', customer, user, showToast, onNavigate }) {
+export default function TrackRefunds() {
+  const dispatch = useDispatch();
+  const initialBookingId = useSelector((state) => state.refunds.selectedBookingForRefund);
+  const refunds = useSelector((state) => state.refunds.items);
+  const loading = useSelector((state) => state.refunds.loading);
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
+  const onNavigate = (tab) => dispatch(navigateTabThunk(tab));
+
   const [searchTerm, setSearchTerm] = useState(initialBookingId);
   const [filter, setFilter] = useState('all'); // 'all' | 'processing' | 'completed'
-  const [refunds, setRefunds] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (initialBookingId) {
@@ -14,166 +26,25 @@ export default function TrackRefunds({ initialBookingId = '', customer, user, sh
     }
   }, [initialBookingId]);
 
-  const loadRefunds = useCallback(async () => {
-    setLoading(true);
-    const raw = [];
-    const customerId = customer?.id || user?.id || 'C001';
-
-    // 1. Fetch authoritative live customer bookings from backend
-    try {
-      const apiBookings = await API.bookings.getMine();
-      if (Array.isArray(apiBookings)) {
-        for (const b of apiBookings) {
-          if (b.bookingStatus === 'CANCELLED') {
-            const bId = b.bookingId;
-            let backendRefund = null;
-            try {
-              backendRefund = await API.refunds.getByBooking(bId);
-            } catch {
-              // Not yet recorded in backend refunds; attempt to record
-              try {
-                const fare = Number(b.totalAmount || b.fare || 650);
-                backendRefund = await API.refunds.request(bId, Math.max(0, fare - 50));
-              } catch {}
-            }
-
-            const fare = Number(b.totalAmount || b.fare || 650);
-            const fee = 50;
-            const refundAmt = backendRefund?.refundAmount !== undefined
-              ? Number(backendRefund.refundAmount)
-              : Math.max(0, fare - fee);
-
-            const bStatus = backendRefund?.refundStatus
-              ? backendRefund.refundStatus.toUpperCase()
-              : 'REQUESTED';
-
-            raw.push({
-              refund_id: `REF-${bId}`,
-              booking_id: bId,
-              customer_id: customerId,
-              route: `${b.from || 'Hyderabad'} → ${b.to || 'Chennai'}`,
-              bus_name: b.busName || 'Click2Book Express',
-              original_fare: fare,
-              fee,
-              refund_amount: refundAmt,
-              status: bStatus === 'COMPLETED' ? 'COMPLETED' : 'PROCESSING',
-              raw_status: bStatus,
-              request_date: backendRefund?.refundDate || b.bookingDate || new Date().toISOString().split('T')[0],
-              arn: `ARN${(bId.replace(/\D/g, '') || '7829104')}55`,
-              payment_method: 'UPI / Bank Source',
-            });
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('Backend refunds retrieval note:', err.message);
-    }
-
-    // 2. Check local storage refunds
-    try {
-      const localRefunds = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
-      if (Array.isArray(localRefunds)) {
-        localRefunds.forEach((r) => {
-          if (!r.customer_id || r.customer_id === customerId) {
-            raw.push(r);
-          }
-        });
-      }
-    } catch {}
-
-    // 3. Scan cancelled bookings in localStorage
-    try {
-      const localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-      localBookings.forEach((b) => {
-        const isCancelled = b.status === 'CANCELLED' || b.booking_status === 'CANCELLED';
-        if (isCancelled && (!b.customer_id || b.customer_id === customerId || b.customerId === customerId)) {
-          const bId = b.bookingId || b.booking_id;
-          const fare = Number(b.total || b.amount || 650);
-          raw.push({
-            refund_id: `REF-${bId}`,
-            booking_id: bId,
-            customer_id: customerId,
-            route: `${b.from || 'Hyderabad'} → ${b.to || 'Chennai'}`,
-            bus_name: b.busName || 'Click2Book Express',
-            original_fare: fare,
-            fee: 50,
-            refund_amount: Math.max(0, fare - 50),
-            status: 'PROCESSING',
-            raw_status: 'REQUESTED',
-            request_date: b.cancelled_at ? b.cancelled_at.split('T')[0] : new Date().toISOString().split('T')[0],
-            arn: `ARN${(bId.replace(/\D/g, '') || '7829104')}55`,
-            payment_method: 'UPI / Source Account',
-          });
-        }
-      });
-    } catch {}
-
-    // Deduplicate by booking_id
-    const seen = new Set();
-    const unified = [];
-    raw.forEach((r) => {
-      const bId = r.booking_id || r.bookingId;
-      if (!bId || seen.has(bId)) return;
-      seen.add(bId);
-
-      const status = (r.status || r.raw_status || 'PROCESSING').toUpperCase();
-      unified.push({
-        refundId: r.refund_id || `REF-${bId}`,
-        bookingId: bId,
-        route: r.route || 'Hyderabad → Chennai',
-        busName: r.bus_name || 'Click2Book Express',
-        originalFare: Number(r.original_fare || 650),
-        fee: Number(r.fee || 50),
-        refundAmount: Number(r.refund_amount !== undefined ? r.refund_amount : Math.max(0, (r.original_fare || 650) - 50)),
-        status: status === 'COMPLETED' ? 'COMPLETED' : 'PROCESSING',
-        rawStatus: status,
-        date: r.request_date || new Date().toISOString().split('T')[0],
-        arn: r.arn || `ARN${Date.now().toString().slice(-9)}`,
-        paymentMethod: r.payment_method || 'UPI (Source Account)',
-      });
-    });
-
-    // Keep localStorage synchronized with verified list
-    try {
-      localStorage.setItem('c2b_refunds', JSON.stringify(unified));
-    } catch {}
-
-    setRefunds(unified);
-    setLoading(false);
-  }, [customer, user]);
+  const loadRefunds = useCallback(() => {
+    dispatch(fetchRefundsThunk());
+  }, [dispatch]);
 
   useEffect(() => {
     loadRefunds();
-
-    const handleStorage = (e) => {
-      if (!e || !e.key || e.key.includes('refund') || e.key.includes('booking')) {
-        loadRefunds();
-      }
-    };
-    window.addEventListener('storage', handleStorage);
     window.addEventListener('c2b_sync', loadRefunds);
     const interval = setInterval(loadRefunds, 8000);
 
     return () => {
-      window.removeEventListener('storage', handleStorage);
       window.removeEventListener('c2b_sync', loadRefunds);
       clearInterval(interval);
     };
   }, [loadRefunds]);
 
   const handleAdvanceRefundStatus = (bookingId) => {
+    dispatch(updateRefund({ bookingId, booking_id: bookingId, status: 'COMPLETED', rawStatus: 'COMPLETED' }));
+    showToast('Bank settlement completed. Funds credited to customer source account.', 'success');
     try {
-      const stored = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
-      stored.forEach((item) => {
-        if ((item.booking_id || item.bookingId) === bookingId) {
-          item.status = 'COMPLETED';
-          item.raw_status = 'COMPLETED';
-        }
-      });
-      localStorage.setItem('c2b_refunds', JSON.stringify(stored));
-      loadRefunds();
-      if (showToast) showToast('Bank settlement completed. Funds credited to customer source account.', 'success');
-      window.dispatchEvent(new Event('storage'));
       window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'REFUND_SETTLED', bookingId } }));
     } catch {}
   };

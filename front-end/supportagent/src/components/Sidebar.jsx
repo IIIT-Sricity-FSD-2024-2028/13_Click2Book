@@ -1,4 +1,5 @@
 import React from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   LayoutDashboard,
   Ticket,
@@ -8,15 +9,29 @@ import {
   LogOut,
   Headphones,
 } from 'lucide-react';
+import { navigateTabThunk, logoutSupportAgentThunk } from '../store/actions';
 
-export default function Sidebar({
-  activeTab,
-  setActiveTab,
-  agent,
-  onLogout,
-  openTicketsCount = 0,
-  escalationsCount = 0,
-}) {
+export default function Sidebar() {
+  const dispatch = useDispatch();
+  const activeTab = useSelector((state) => state.ui.activeTab);
+  const agent = useSelector((state) => state.auth.agent);
+  const tickets = useSelector((state) => state.tickets.items);
+
+  const openTicketsCount = tickets.filter((t) => t.status === 'Open').length;
+  const escalationsCount = tickets.filter(
+    (t) =>
+      t.status === 'Escalated' ||
+      t.status === 'Escalated to Service Provider' ||
+      t.status === 'Escalated to Technical Team' ||
+      t.status === 'Pending Approval'
+  ).length;
+
+  const setActiveTab = (tabId) => dispatch(navigateTabThunk(tabId));
+  const onLogout = () => {
+    if (window.confirm('Are you sure you want to log out of the Support Panel?')) {
+      dispatch(logoutSupportAgentThunk());
+    }
+  };
   const navItems = [
     {
       id: 'dashboard',

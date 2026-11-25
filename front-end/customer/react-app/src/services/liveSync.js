@@ -1,8 +1,17 @@
 /**
  * Click2Book Live Cross-Actor Sync Client (Customer Portal)
- * Connects to NestJS Backend SSE stream at /api/sync/stream
- * Enables instant multi-actor data flow across Service Provider, Customer, Admin & Super Admin.
+ * Connects to NestJS Backend SSE stream at /api/sync/stream and syncs directly with Redux memory store.
  */
+
+import {
+  readTrips,
+  updateTrip,
+  setFleet,
+  setDeletedBuses,
+  setTripStatus,
+  setTripStatuses,
+} from '../store/slices/tripsSlice';
+import { createBooking, readBookings } from '../store/slices/bookingsSlice';
 
 const getApiBase = () => {
   if (typeof window === 'undefined') return 'http://localhost:3000/api';
@@ -11,6 +20,11 @@ const getApiBase = () => {
     : window.location.hostname;
   return `http://${h}:3000/api`;
 };
+
+let _storeRef = null;
+export function injectCustomerLiveSyncStore(store) {
+  _storeRef = store;
+}
 
 class LiveSyncClient {
   constructor() {
@@ -26,7 +40,6 @@ class LiveSyncClient {
     if (this.eventSource) return;
 
     this.connect();
-    // Fetch initial consolidated backend state on startup
     this.refreshStateFromBackend();
   }
 
@@ -73,101 +86,73 @@ class LiveSyncClient {
 
   handleEvent(data) {
     if (!data || !data.type || data.type === 'HEARTBEAT') return;
-
     const { type, payload } = data;
 
-    // 1. Synchronize local storage based on event type
     try {
-      if (type === 'SCHEDULE_UPDATED') {
-        const localScheds = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-        const tid = payload.id || payload.tripId;
-        const idx = localScheds.findIndex((s) => (s.id || s.tripId) === tid);
-        if (idx >= 0) {
-          localScheds[idx] = { ...localScheds[idx], ...payload };
-        } else {
-          localScheds.unshift(payload);
-        }
-        localStorage.setItem('c2b_bus_schedules', JSON.stringify(localScheds));
-      } else if (type === 'TRIP_STATUS_UPDATED') {
-        const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
-        if (payload.tripId && payload.status) {
-          statuses[payload.tripId] = payload.status;
-          localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
-        }
-      } else if (type === 'BOOKING_CREATED') {
-        const bookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-        const exists = bookings.some((b) => b.bookingId === payload.bookingId);
-        if (!exists) {
-          bookings.unshift(payload);
-          localStorage.setItem('c2b_bookings', JSON.stringify(bookings));
-        }
-      } else if (type === 'BUS_REGISTERED' || type === 'FLEET_ASSIGNED' || type === 'VEHICLE_CREATED') {
-        const bus = payload.bus || payload;
-        if (bus && (bus.vehicleNumber || bus.vehicleId)) {
-          const fleet = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
-          const clean = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-          const bNum = clean(bus.vehicleNumber || bus.regNo);
-          const bId = clean(bus.vehicleId || bus.id);
-
-          const deleted = JSON.parse(localStorage.getItem('c2b_deleted_buses') || '[]');
-          const filteredDel = deleted.filter(d => clean(d.id || d.vehicleId) !== bId && clean(d.plate || d.vehicleNumber) !== bNum);
-          localStorage.setItem('c2b_deleted_buses', JSON.stringify(filteredDel));
-
-          const idx = fleet.findIndex(
-            (b) =>
-              (bId && clean(b.vehicleId || b.id) === bId) ||
-              (bNum && clean(b.vehicleNumber) === bNum)
-          );
-          if (idx >= 0) {
-            fleet[idx] = { ...fleet[idx], ...bus };
-          } else {
-            fleet.unshift(bus);
-          }
-          localStorage.setItem('c2b_registered_fleet', JSON.stringify(fleet));
-        }
-      } else if (type === 'BUS_DELETED') {
-        const busId = payload.busId || payload.id;
-        const vNum = payload.vehicleNumber;
+      if (_storeRef) {
+        const st = _storeRef.getState();
         const clean = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-        const idNorm = clean(busId);
-        const plateNorm = clean(vNum);
 
-        const deleted = JSON.parse(localStorage.getItem('c2b_deleted_buses') || '[]');
-        if (!deleted.some(d => (idNorm && clean(d.id || d.vehicleId) === idNorm) || (plateNorm && clean(d.plate || d.vehicleNumber) === plateNorm))) {
-          deleted.push({ id: busId, vehicleId: busId, plate: vNum, vehicleNumber: vNum, deletedAt: new Date().toISOString() });
-          localStorage.setItem('c2b_deleted_buses', JSON.stringify(deleted));
+        if (type === 'SCHEDULE_UPDATED') {
+          _storeRef.dispatch(updateTrip(payload));
+        } else if (type === 'TRIP_STATUS_UPDATED') {
+          if (payload.tripId && payload.status) {
+            _storeRef.dispatch(setTripStatus({ tripId: payload.tripId, status: payload.status }));
+          }
+        } else if (type === 'BOOKING_CREATED') {
+          _storeRef.dispatch(createBooking(payload));
+        } else if (type === 'BUS_REGISTERED' || type === 'FLEET_ASSIGNED' || type === 'VEHICLE_CREATED') {
+          const bus = payload.bus || payload;
+          if (bus && (bus.vehicleNumber || bus.vehicleId)) {
+            const bNum = clean(bus.vehicleNumber || bus.regNo);
+            const bId = clean(bus.vehicleId || bus.id);
+            const filteredDel = (st.trips.deletedBuses || []).filter(
+              (d) => clean(d.id || d.vehicleId) !== bId && clean(d.plate || d.vehicleNumber) !== bNum
+            );
+            _storeRef.dispatch(setDeletedBuses(filteredDel));
+
+            const fleet = [...(st.trips.fleet || [])];
+            const idx = fleet.findIndex(
+              (b) => (bId && clean(b.vehicleId || b.id) === bId) || (bNum && clean(b.vehicleNumber) === bNum)
+            );
+            if (idx >= 0) fleet[idx] = { ...fleet[idx], ...bus };
+            else fleet.unshift(bus);
+            _storeRef.dispatch(setFleet(fleet));
+          }
+        } else if (type === 'BUS_DELETED') {
+          const busId = payload.busId || payload.id;
+          const vNum = payload.vehicleNumber;
+          const idNorm = clean(busId);
+          const plateNorm = clean(vNum);
+
+          const deleted = [...(st.trips.deletedBuses || [])];
+          if (!deleted.some((d) => (idNorm && clean(d.id || d.vehicleId) === idNorm) || (plateNorm && clean(d.plate || d.vehicleNumber) === plateNorm))) {
+            deleted.push({ id: busId, vehicleId: busId, plate: vNum, vehicleNumber: vNum, deletedAt: new Date().toISOString() });
+            _storeRef.dispatch(setDeletedBuses(deleted));
+          }
+
+          const updatedFleet = (st.trips.fleet || []).filter(
+            (b) => !(idNorm && clean(b.vehicleId || b.id) === idNorm) && !(plateNorm && clean(b.vehicleNumber) === plateNorm)
+          );
+          _storeRef.dispatch(setFleet(updatedFleet));
+
+          const updatedScheds = (st.trips.items || []).filter(
+            (s) => !(idNorm && clean(s.vehicleId) === idNorm) && !(plateNorm && clean(s.vehicleNumber) === plateNorm)
+          );
+          _storeRef.dispatch(readTrips(updatedScheds));
+        } else if (type === 'BUSES_CLEARED') {
+          _storeRef.dispatch(setFleet([]));
+          _storeRef.dispatch(readTrips([]));
         }
-
-        const fleet = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
-        const updated = fleet.filter(b => {
-          const bId = clean(b.vehicleId || b.id);
-          const bPlate = clean(b.vehicleNumber);
-          return !(idNorm && bId === idNorm) && !(plateNorm && bPlate === plateNorm);
-        });
-        localStorage.setItem('c2b_registered_fleet', JSON.stringify(updated));
-
-        const scheds = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-        const updatedScheds = scheds.filter(s => {
-          const sPlate = clean(s.vehicleNumber);
-          const sId = clean(s.vehicleId);
-          return !(idNorm && sId === idNorm) && !(plateNorm && sPlate === plateNorm);
-        });
-        localStorage.setItem('c2b_bus_schedules', JSON.stringify(updatedScheds));
-      } else if (type === 'BUSES_CLEARED') {
-        localStorage.setItem('c2b_registered_fleet', JSON.stringify([]));
-        localStorage.setItem('c2b_bus_schedules', JSON.stringify([]));
       }
     } catch (e) {
-      console.warn('[LiveSync] Error updating local cache:', e);
+      console.warn('[LiveSync] Error updating Redux state:', e);
     }
 
-    // 2. Dispatch storage and custom events to update all components in current window
     try {
-      window.dispatchEvent(new Event('storage'));
       window.dispatchEvent(new CustomEvent('c2b_sync', { detail: data }));
     } catch {}
 
-    // 3. Notify registered listeners
     this.listeners.forEach((fn) => {
       try {
         fn(data);
@@ -190,7 +175,7 @@ class LiveSyncClient {
         body: JSON.stringify({ type, payload }),
       });
     } catch (err) {
-      console.warn('[LiveSync] Broadcast failed, handled locally:', err);
+      console.warn('[LiveSync] Broadcast failed, handled in Redux memory:', err);
     }
   }
 
@@ -246,38 +231,44 @@ class LiveSyncClient {
     try {
       const res = await fetch(`${this.apiBase}/sync/state`);
       const json = await res.json();
-      if (json.success && json.data) {
-        const { trips, tripStatuses, customSchedules, vehicles } = json.data;
+      if (json.success && json.data && _storeRef) {
+        const st = _storeRef.getState();
+        const { tripStatuses, customSchedules, vehicles, bookings } = json.data;
+        const clean = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+
         if (Array.isArray(vehicles) && vehicles.length > 0) {
-          const fleet = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+          const currentFleet = [...(st.trips.fleet || [])];
+          const deletedBuses = st.trips.deletedBuses || [];
           let fleetChanged = false;
-          vehicles.forEach((vehicle) => {
-            const plate = String(vehicle.vehicleNumber || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-            const idx = fleet.findIndex((bus) => {
-              const busPlate = String(bus.vehicleNumber || bus.regNo || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-              return (
-                (vehicle.vehicleId && bus.vehicleId === vehicle.vehicleId) ||
-                (plate && busPlate === plate)
-              );
-            });
+          vehicles.forEach((v) => {
+            const vNum = v.vehicleNumber || v.regNo;
+            const vId = v.vehicleId || v.id;
+            const isDel = deletedBuses.some(
+              (d) => (vId && clean(vId) === clean(d.id || d.vehicleId)) || (vNum && clean(vNum) === clean(d.plate || d.vehicleNumber))
+            );
+            if (isDel) return;
+            const idx = currentFleet.findIndex(
+              (f) => (vId && f.vehicleId === vId) || (vNum && clean(f.vehicleNumber || f.regNo) === clean(vNum))
+            );
             if (idx >= 0) {
-              fleet[idx] = {
-                ...fleet[idx],
-                ...vehicle,
-                vehicleNumber: vehicle.vehicleNumber || fleet[idx].vehicleNumber,
-                seatLayout: vehicle.seatLayout || fleet[idx].seatLayout,
+              currentFleet[idx] = {
+                ...currentFleet[idx],
+                ...v,
+                vehicleNumber: v.vehicleNumber || currentFleet[idx].vehicleNumber,
+                seatLayout: v.seatLayout || currentFleet[idx].seatLayout,
               };
             } else {
-              fleet.unshift(vehicle);
+              currentFleet.unshift(v);
             }
             fleetChanged = true;
           });
           if (fleetChanged) {
-            localStorage.setItem('c2b_registered_fleet', JSON.stringify(fleet));
+            _storeRef.dispatch(setFleet(currentFleet));
           }
         }
-        if (customSchedules && Array.isArray(customSchedules) && customSchedules.length > 0) {
-          const current = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+
+        if (Array.isArray(customSchedules) && customSchedules.length > 0) {
+          const current = [...(st.trips.items || [])];
           const currentIds = new Set(current.map((s) => s.id || s.tripId));
           let updated = false;
           customSchedules.forEach((cs) => {
@@ -293,60 +284,15 @@ class LiveSyncClient {
               }
             }
           });
-          if (updated) {
-            localStorage.setItem('c2b_bus_schedules', JSON.stringify(current));
-            window.dispatchEvent(new Event('storage'));
-          }
+          if (updated) _storeRef.dispatch(readTrips(current));
         }
+
         if (tripStatuses && Object.keys(tripStatuses).length > 0) {
-          const localStatuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
-          Object.assign(localStatuses, tripStatuses);
-          localStorage.setItem('c2b_trip_statuses', JSON.stringify(localStatuses));
-          window.dispatchEvent(new Event('storage'));
+          _storeRef.dispatch(setTripStatuses(tripStatuses));
         }
-        const { bookings } = json.data;
-        if (vehicles && Array.isArray(vehicles) && vehicles.length > 0) {
-          const currentFleet = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
-          const deletedBuses = JSON.parse(localStorage.getItem('c2b_deleted_buses') || '[]');
-          const clean = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 
-          let updatedFleet = false;
-          vehicles.forEach((v) => {
-            const vNum = v.vehicleNumber || v.regNo;
-            const vId = v.vehicleId || v.id;
-            const isDel = deletedBuses.some((d) => {
-              const dId = clean(d.id || d.vehicleId);
-              const dPlate = clean(d.plate || d.vehicleNumber);
-              return (vId && dId && clean(vId) === dId) || (vNum && dPlate && clean(vNum) === dPlate);
-            });
-            if (isDel) {
-              const delIdx = currentFleet.findIndex(
-                (f) => (vId && clean(f.vehicleId || f.id) === clean(vId)) || (vNum && clean(f.vehicleNumber) === clean(vNum))
-              );
-              if (delIdx >= 0) {
-                currentFleet.splice(delIdx, 1);
-                updatedFleet = true;
-              }
-              return;
-            }
-
-            const idx = currentFleet.findIndex(
-              (f) => (v.vehicleId && f.vehicleId === v.vehicleId) || (vNum && f.vehicleNumber && clean(f.vehicleNumber) === clean(vNum))
-            );
-            if (idx >= 0) {
-              currentFleet[idx] = { ...v, ...currentFleet[idx] };
-            } else {
-              currentFleet.push(v);
-              updatedFleet = true;
-            }
-          });
-          if (updatedFleet) {
-            localStorage.setItem('c2b_registered_fleet', JSON.stringify(currentFleet));
-            window.dispatchEvent(new Event('storage'));
-          }
-        }
-        if (bookings && Array.isArray(bookings) && bookings.length > 0) {
-          const currentBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+        if (Array.isArray(bookings) && bookings.length > 0) {
+          const currentBookings = [...(st.bookings.items || [])];
           const existingIds = new Set(currentBookings.map((b) => b.bookingId));
           let updatedBookings = false;
           bookings.forEach((b) => {
@@ -355,10 +301,7 @@ class LiveSyncClient {
               updatedBookings = true;
             }
           });
-          if (updatedBookings) {
-            localStorage.setItem('c2b_bookings', JSON.stringify(currentBookings));
-            window.dispatchEvent(new Event('storage'));
-          }
+          if (updatedBookings) _storeRef.dispatch(readBookings(currentBookings));
         }
       }
     } catch (e) {

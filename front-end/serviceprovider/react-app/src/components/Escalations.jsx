@@ -1,86 +1,48 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { memStorage } from '../store/memoryBridge';
+import { fetchEscalationsThunk, updateEscalation, showToastThunk } from '../store/actions';
 
-export default function Escalations({ provider, showToast }) {
-  const [escalations, setEscalations] = useState([]);
+export default function Escalations() {
+  const dispatch = useDispatch();
+  const provider = useSelector((state) => state.auth.provider);
+  const escalations = useSelector((state) => state.escalations.items);
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
+
   const [remarksInput, setRemarksInput] = useState({});
   const [filter, setFilter] = useState('ALL');
 
   const loadEscalations = useCallback(() => {
-    try {
-      // 1. Read c2b_provider_escalations
-      let list = JSON.parse(localStorage.getItem('c2b_provider_escalations') || '[]');
-
-      // 2. If empty, check c2b_support_tickets_v2 for any escalated tickets
-      if (list.length === 0) {
-        const supportTickets = JSON.parse(localStorage.getItem('c2b_support_tickets_v2') || '[]');
-        const seeded = supportTickets
-          .filter((t) => t.status === 'Escalated to Service Provider' || t.status === 'Pending Approval' || t.escalation)
-          .map((t) => ({
-            id: t.escalation?.id || `ESC-${t.id}`,
-            ticketId: t.id,
-            bookingId: t.bookingId || 'B001',
-            customerName: t.customer,
-            complaint: t.escalation?.complaint || t.subject,
-            category: t.category || 'CANCELLATION',
-            amountInvolved: t.fare || 2000,
-            financialImpact: t.financialImpact,
-            providerId: t.providerId || provider?.id || 'P002',
-            providerName: t.serviceProvider || provider?.name || 'Kiran Travels',
-            requiredAction: t.escalation?.requiredAction || 'Review cancellation & approve refund settlement',
-            approvalRequired: true,
-            status: t.escalation?.escalationStatus || t.status === 'Approved' ? 'Approved' : (t.status === 'Rejected' ? 'Rejected' : 'Pending Approval'),
-            escalatedBy: t.assignedTo || 'Support Agent',
-            escalatedAt: t.escalation?.escalatedAt || t.createdAt || new Date().toISOString(),
-            providerRemarks: t.escalation?.providerRemarks || '',
-          }));
-        if (seeded.length > 0) {
-          list = seeded;
-          localStorage.setItem('c2b_provider_escalations', JSON.stringify(list));
-        }
-      }
-
-      setEscalations(list);
-    } catch (e) {
-      console.warn('Failed to load escalations in provider app', e);
-    }
-  }, [provider]);
+    dispatch(fetchEscalationsThunk(provider));
+  }, [dispatch, provider]);
 
   useEffect(() => {
     loadEscalations();
-
-    const onStorage = (e) => {
-      if (!e.key || e.key.includes('escalation') || e.key.includes('ticket')) {
-        loadEscalations();
-      }
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener('c2b_sync', loadEscalations);
+    return () => window.removeEventListener('c2b_sync', loadEscalations);
   }, [loadEscalations]);
 
   const handleDecision = (esc, decision) => {
     const remark = (remarksInput[esc.id] || '').trim();
     const now = new Date().toISOString();
 
-    // 1. Update c2b_provider_escalations
-    const updatedEscs = escalations.map((item) => {
-      if (item.id === esc.id || item.ticketId === esc.ticketId) {
-        return {
-          ...item,
-          status: decision,
-          providerRemarks: remark || (decision === 'Approved' ? 'Operator approved request.' : 'Operator rejected request.'),
-          respondedBy: provider?.name || 'Fleet Operator',
-          respondedAt: now,
-          updatedAt: now,
-        };
-      }
-      return item;
-    });
-    setEscalations(updatedEscs);
-    localStorage.setItem('c2b_provider_escalations', JSON.stringify(updatedEscs));
+    const updatedEsc = {
+      ...esc,
+      status: decision,
+      providerRemarks: remark || (decision === 'Approved' ? 'Operator approved request.' : 'Operator rejected request.'),
+      respondedBy: provider?.name || 'Fleet Operator',
+      respondedAt: now,
+      updatedAt: now,
+    };
+    dispatch(updateEscalation(updatedEsc));
 
-    // 2. Synchronize c2b_support_tickets_v2
+    const updatedEscs = escalations.map((item) =>
+      item.id === esc.id || item.ticketId === esc.ticketId ? updatedEsc : item
+    );
+    memStorage.setItem('c2b_provider_escalations', JSON.stringify(updatedEscs));
+
     try {
-      const tickets = JSON.parse(localStorage.getItem('c2b_support_tickets_v2') || '[]');
+      const tickets = JSON.parse(memStorage.getItem('c2b_support_tickets_v2') || '[]');
       const updatedTickets = tickets.map((t) => {
         if (t.id === esc.ticketId || (esc.bookingId && t.bookingId === esc.bookingId)) {
           const auditEntry = {
@@ -114,13 +76,12 @@ export default function Escalations({ provider, showToast }) {
         }
         return t;
       });
-      localStorage.setItem('c2b_support_tickets_v2', JSON.stringify(updatedTickets));
+      memStorage.setItem('c2b_support_tickets_v2', JSON.stringify(updatedTickets));
     } catch (_) {}
 
-    // 3. If approved cancellation, update c2b_bookings and c2b_refunds
     if (decision === 'Approved' && esc.bookingId) {
       try {
-        const bookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+        const bookings = JSON.parse(memStorage.getItem('c2b_bookings') || '[]');
         bookings.forEach((b) => {
           if (b.bookingId === esc.bookingId || b.booking_id === esc.bookingId) {
             b.booking_status = 'CANCELLED';
@@ -128,11 +89,11 @@ export default function Escalations({ provider, showToast }) {
             b.cancellation_approved_by_provider = true;
           }
         });
-        localStorage.setItem('c2b_bookings', JSON.stringify(bookings));
+        memStorage.setItem('c2b_bookings', JSON.stringify(bookings));
       } catch (_) {}
 
       try {
-        const refList = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
+        const refList = JSON.parse(memStorage.getItem('c2b_refunds') || '[]');
         const refIdx = refList.findIndex((r) => r.booking_id === esc.bookingId || r.bookingId === esc.bookingId);
         const refAmt = esc.financialImpact?.customerRefund || (esc.amountInvolved ? esc.amountInvolved - 300 : 1700);
         const refItem = {
@@ -151,19 +112,16 @@ export default function Escalations({ provider, showToast }) {
         } else {
           refList.unshift(refItem);
         }
-        localStorage.setItem('c2b_refunds', JSON.stringify(refList));
+        memStorage.setItem('c2b_refunds', JSON.stringify(refList));
       } catch (_) {}
     }
 
-    // 4. Dispatch storage event for real-time synchronization with Customer Support Portal
-    window.dispatchEvent(new Event('storage'));
+    try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'ESCALATION_DECISION', escId: esc.id, decision } })); } catch {}
 
-    if (showToast) {
-      showToast(
-        `✓ Request for Booking #${esc.bookingId} marked as ${decision}. Synced with Customer Support Portal.`,
-        decision === 'Approved' ? 'success' : 'info'
-      );
-    }
+    showToast(
+      `✓ Request for Booking #${esc.bookingId} marked as ${decision}. Synced with Customer Support Portal.`,
+      decision === 'Approved' ? 'success' : 'info'
+    );
   };
 
   const filteredEscalations = escalations.filter((e) => {

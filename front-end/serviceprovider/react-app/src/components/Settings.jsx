@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { showToastThunk } from '../store/actions';
 
 const PANES = [
   { id: 'account',       label: 'Account',       icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
@@ -18,14 +20,18 @@ function Toggle({ on, onToggle }) {
   );
 }
 
-export default function Settings({ provider, onNavigate, showToast }) {
+export default function Settings() {
+  const dispatch = useDispatch();
+  const provider = useSelector((state) => state.auth.provider);
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
+
   const [activePane, setActivePane] = useState('account');
   const [notifs, setNotifs] = useState({ bookings: true, capacity: true, confirmed: true, promotions: false });
   const [dark, setDark] = useState(false);
   const [compact, setCompact] = useState(false);
   const [form, setForm] = useState({
-    name: provider?.name || sessionStorage.getItem('c2b_userName') || '',
-    email: provider?.email || sessionStorage.getItem('c2b_userEmail') || '',
+    name: provider?.name || '',
+    email: provider?.email || '',
     phone: '', company: '', gst: '',
   });
 

@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { memStorage } from '../store/memoryBridge';
+import { navigateTabThunk, showToastThunk } from '../store/actions';
 import { fetchSchedulesFromAPI, updateLocalSchedule, deleteLocalSchedule, deletePermanentSchedule, getCancelledSchedules, getApprovedCities, getFleetBuses } from '../services/api';
 
 const STATUS_COLORS = {
@@ -577,7 +580,11 @@ function EditModal({ trip, onClose, onSaved, showToast }) {
 /* ─────────────────────────────────────────────────────────────
    Main ManageSchedules page
    ───────────────────────────────────────────────────────────── */
-export default function ManageSchedules({ provider, onNavigate, showToast }) {
+export default function ManageSchedules() {
+  const dispatch = useDispatch();
+  const provider = useSelector((state) => state.auth.provider);
+  const onNavigate = (tab) => dispatch(navigateTabThunk(tab));
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
   const [trips,           setTrips]           = useState([]);
   const [cancelledTrips,  setCancelledTrips]  = useState([]);
   const [isLive,          setIsLive]          = useState(false);
@@ -641,7 +648,7 @@ export default function ManageSchedules({ provider, onNavigate, showToast }) {
 
   // Delete/Cancel Trip handler
   const handleDeleteTrip = (t) => {
-    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
     const curStatus = statuses[t.tripId] || t.status || 'SCHEDULED';
 
     if (curStatus === 'IN_PROGRESS') {

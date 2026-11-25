@@ -1,25 +1,25 @@
 import React from 'react';
-import { clearAdminSession } from '../lib/session.js';
+import { useDispatch, useSelector } from 'react-redux';
 import { SECTIONS } from '../data/sections.js';
+import { initialsOf } from '../lib/session.js';
+import {
+  navigateSectionThunk,
+  navigateRouteThunk,
+  logoutAdminThunk,
+  toggleCollapsed,
+} from '../store/actions';
 
-export default function Sidebar({
-  section,
-  collapsed,
-  adminName,
-  initials,
-  onNavigate,
-  onToggle,
-  onLogout,
-  onViewRevenue,
-}) {
-  const handleLogout = () => {
-    clearAdminSession();
-    if (onLogout) {
-      onLogout();
-    } else {
-      window.location.hash = '#login';
-    }
-  };
+export default function Sidebar() {
+  const dispatch = useDispatch();
+  const section = useSelector((state) => state.ui.section);
+  const collapsed = useSelector((state) => state.ui.collapsed);
+  const adminName = useSelector((state) => state.auth.user?.name || 'Admin User');
+  const initials = initialsOf(adminName) || 'AD';
+
+  const onNavigate = (id) => dispatch(navigateSectionThunk(id));
+  const onToggle = () => dispatch(toggleCollapsed());
+  const onViewRevenue = () => dispatch(navigateRouteThunk('revenue'));
+  const handleLogout = () => dispatch(logoutAdminThunk());
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} style={{ overflowY: 'auto' }}>

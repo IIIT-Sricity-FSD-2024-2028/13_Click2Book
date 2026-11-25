@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { RotateCcw, CheckCircle, Clock, XCircle, ArrowRight, DollarSign } from 'lucide-react';
 import { formatRupees } from '../services/api';
+import { updateRefundStatusThunk } from '../store/actions';
 
-export default function Refunds({ refunds = [], onUpdateStatus }) {
+export default function Refunds() {
+  const dispatch = useDispatch();
+  const refunds = useSelector((state) => state.refunds.items);
+  const onUpdateStatus = (refundId, status) =>
+    dispatch(updateRefundStatusThunk({ refundId, status }));
   const [filterStatus, setFilterStatus] = useState('');
 
   const filtered = refunds.filter((r) => {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { ArrowLeftRight, Search, Star, Wifi, Wind, Zap, Coffee, Shield, Calendar, ArrowRight } from 'lucide-react';
 import SeatMap from './SeatMap';
 import PassengerForms from './PassengerForms';
@@ -10,6 +11,23 @@ import { MOCK_BUSES } from '../services/mockData';
 import busHeroImg from '../assets/bus_hero.png';
 import { calculateSeatDistributions, validateSeatBookings, executeSeatPayments } from '../utils/paymentRetry';
 import { liveSync } from '../services/liveSync';
+import {
+  setLoginModal,
+  setPendingBooking,
+  clearPendingBookingState,
+  readTrips,
+  updateTrip,
+  setFleet,
+  setSearchParams,
+  setAutoSearch,
+  markFleetCleaned,
+  readBookings,
+  createBooking,
+  setPendingBookingRecord,
+  setLastBookingSummary,
+  navigateTabThunk,
+  showToastThunk,
+} from '../store/actions';
 
 export { calculateSeatDistributions, validateSeatBookings, executeSeatPayments };
 
@@ -290,15 +308,33 @@ export function isDepartureTimeReached(journeyDate, departureTime) {
   }
 }
 
-export default function SearchTrips({
-  customer: propCustomer,
-  user: propUser,
-  onOpenLogin,
-  showToast,
-  onNavigate,
-  onNavigateToBookings,
-}) {
-  const customer = propCustomer || propUser;
+export default function SearchTrips() {
+  const dispatch = useDispatch();
+  const customer = useSelector((state) => state.auth.user);
+  const authPendingBooking = useSelector((state) => state.auth.pendingBooking);
+  const authReturnAfterLogin = useSelector((state) => state.auth.returnAfterLogin);
+  const authProceedToPassenger = useSelector((state) => state.auth.proceedToPassenger);
+  const authSessionVersion = useSelector((state) => state.auth.sessionVersion);
+
+  const reduxSchedules = useSelector((state) => state.trips.items);
+  const reduxFleet = useSelector((state) => state.trips.fleet);
+  const reduxDeletedBuses = useSelector((state) => state.trips.deletedBuses);
+  const reduxStatuses = useSelector((state) => state.trips.tripStatuses);
+  const reduxSeatBlocks = useSelector((state) => state.trips.seatBlocks);
+  const reduxSearchFrom = useSelector((state) => state.trips.searchFrom);
+  const reduxSearchTo = useSelector((state) => state.trips.searchTo);
+  const reduxSearchDate = useSelector((state) => state.trips.searchDate);
+  const reduxAutoSearch = useSelector((state) => state.trips.autoSearch);
+  const reduxFleetCleaned = useSelector((state) => state.trips.fleetCleaned);
+
+  const reduxBookings = useSelector((state) => state.bookings.items);
+  const reduxPendingBookingRecord = useSelector((state) => state.bookings.pendingBookingRecord);
+
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
+  const onOpenLogin = (opts) => dispatch(setLoginModal({ isOpen: true, ...(opts || {}) }));
+  const onNavigate = (tab) => dispatch(navigateTabThunk(tab));
+  const onNavigateToBookings = () => dispatch(navigateTabThunk('my-bookings'));
+
   const [step, setStep] = useState('search'); // 'search' | 'buses' | 'seats' | 'passenger' | 'payment' | 'confirmed'
 
   // Date limits: Today to 2 months ahead
@@ -307,12 +343,10 @@ export default function SearchTrips({
   maxDate.setMonth(maxDate.getMonth() + 2);
   const maxStr = maxDate.toISOString().split('T')[0];
 
-  // Search parameters (matches search-trips.html defaults)
-  const [fromCity, setFromCity] = useState(() => sessionStorage.getItem('searchFrom') || 'MUMBAI');
-  const [toCity, setToCity] = useState(() => sessionStorage.getItem('searchTo') || 'PUNE');
+  const [fromCity, setFromCity] = useState(() => reduxSearchFrom || 'MUMBAI');
+  const [toCity, setToCity] = useState(() => reduxSearchTo || 'PUNE');
   const [travelDate, setTravelDate] = useState(() => {
-    const stored = sessionStorage.getItem('searchDate');
-    if (stored && stored >= todayStr) return stored;
+    if (reduxSearchDate && reduxSearchDate >= todayStr) return reduxSearchDate;
     return todayStr;
   });
 
@@ -321,12 +355,11 @@ export default function SearchTrips({
   const [matchingBuses, setMatchingBuses] = useState([]);
   const [availableCities, setAvailableCities] = useState(DEFAULT_CITIES);
 
-  // Fetch unique routes dynamically from backend + local provider schedules to derive city list
+  // Fetch unique routes dynamically from backend + Redux provider schedules to derive city list
   useEffect(() => {
     let mounted = true;
     const updateCities = async () => {
       const cities = new Set(DEFAULT_CITIES);
-      // Backend routes
       try {
         if (API.routes && typeof API.routes.getAll === 'function') {
           const routes = await API.routes.getAll();
@@ -339,16 +372,12 @@ export default function SearchTrips({
         }
       } catch {}
 
-      // Local provider schedules
-      try {
-        const localScheds = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-        localScheds.forEach((s) => {
-          const sFrom = (s.from || s.source || '').trim();
-          const sTo = (s.to || s.destination || '').trim();
-          if (sFrom) cities.add(sFrom);
-          if (sTo) cities.add(sTo);
-        });
-      } catch {}
+      reduxSchedules.forEach((s) => {
+        const sFrom = (s.from || s.source || '').trim();
+        const sTo = (s.to || s.destination || '').trim();
+        if (sFrom) cities.add(sFrom);
+        if (sTo) cities.add(sTo);
+      });
 
       if (mounted && cities.size > 0) {
         setAvailableCities(Array.from(cities).sort());
@@ -356,14 +385,12 @@ export default function SearchTrips({
     };
 
     updateCities();
-    window.addEventListener('storage', updateCities);
     window.addEventListener('c2b_sync', updateCities);
     return () => {
       mounted = false;
-      window.removeEventListener('storage', updateCities);
       window.removeEventListener('c2b_sync', updateCities);
     };
-  }, []);
+  }, [reduxSchedules]);
 
   // Selected Booking Flow States
   const [selectedBus, setSelectedBus] = useState(null);
@@ -374,23 +401,22 @@ export default function SearchTrips({
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const [pendingBackendBookings, setPendingBackendBookings] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem('c2b_pendingBookingRecord');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.status === 'CANCELLED' || parsed.booking_status === 'CANCELLED') {
-          sessionStorage.removeItem('c2b_pendingBookingRecord');
-          return null;
-        }
-        if (parsed.seatBookings && Array.isArray(parsed.seatBookings)) {
-          return {
-            primaryBackendId: parsed.primaryBackendId || parsed.bookingId || null,
-            seatBookings: parsed.seatBookings,
-            tripId: parsed.tripId || parsed.backendTripId || null,
-          };
-        }
+    if (reduxPendingBookingRecord) {
+      if (
+        reduxPendingBookingRecord.status === 'CANCELLED' ||
+        reduxPendingBookingRecord.booking_status === 'CANCELLED'
+      ) {
+        return null;
       }
-    } catch {}
+      if (Array.isArray(reduxPendingBookingRecord.seatBookings)) {
+        return {
+          primaryBackendId:
+            reduxPendingBookingRecord.primaryBackendId || reduxPendingBookingRecord.bookingId || null,
+          seatBookings: reduxPendingBookingRecord.seatBookings,
+          tripId: reduxPendingBookingRecord.tripId || reduxPendingBookingRecord.backendTripId || null,
+        };
+      }
+    }
     return null;
   });
 
@@ -440,24 +466,21 @@ export default function SearchTrips({
     setSelectedBus(null);
     setSelectedSeats([]);
     setPendingBackendBookings(null);
-    try { sessionStorage.removeItem('c2b_pendingBookingRecord'); } catch {}
-
-    sessionStorage.setItem('searchFrom', targetFrom);
-    sessionStorage.setItem('searchTo', targetTo);
-    sessionStorage.setItem('searchDate', targetDate);
+    dispatch(setPendingBookingRecord(null));
+    dispatch(setSearchParams({ from: targetFrom, to: targetTo, date: targetDate }));
 
     setIsSearching(true);
     let results = [];
 
     // Sync latest bookings and cancellations from backend state
+    let latestBookings = [...reduxBookings];
     try {
       const syncRes = await fetch('/api/sync/state');
       const syncJson = await syncRes.json();
       const serverBookings = syncJson?.data?.bookings || [];
       if (Array.isArray(serverBookings) && serverBookings.length > 0) {
-        const cur = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
         const curMap = new Map();
-        cur.forEach((b) => {
+        latestBookings.forEach((b) => {
           const id = b.bookingId || b.booking_id || b.id;
           if (id) curMap.set(id, b);
         });
@@ -479,14 +502,15 @@ export default function SearchTrips({
           }
         });
         if (changed) {
-          localStorage.setItem('c2b_bookings', JSON.stringify(Array.from(curMap.values())));
+          latestBookings = Array.from(curMap.values());
+          dispatch(readBookings(latestBookings));
         }
       }
     } catch {}
 
-    const localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-    const localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    let localSchedules = [...reduxSchedules];
+    const localBookings = latestBookings;
+    const statuses = reduxStatuses || {};
     let providerSchedulesForDate = localSchedules.filter((schedule) =>
       schedule &&
       String(schedule.journeyDate || schedule.date || '').split('T')[0] === targetDate &&
@@ -494,30 +518,23 @@ export default function SearchTrips({
       statuses[schedule.backendTripId || schedule.tripId || schedule.id] !== 'COMPLETED' &&
       statuses[schedule.backendTripId || schedule.tripId || schedule.id] !== 'CANCELLED'
     );
-    const FRESH_KEY = 'c2b_fleet_fresh_v6';
-    try {
-      if (!localStorage.getItem(FRESH_KEY)) {
-        localStorage.setItem(FRESH_KEY, 'true');
-        const existingRaw = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
-        const cleanedRaw = existingRaw.filter((b) => !/^V0\d\d$/.test(b.vehicleId || b.id || '') && !/^BUS_10\d\d$/.test(b.vehicleId || b.id || ''));
-        localStorage.setItem('c2b_registered_fleet', JSON.stringify(cleanedRaw));
-        const scheds = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-        const cleanScheds = scheds.filter((s) => !/^V0\d\d$/.test(s.vehicleId || '') && !/^T0\d\d$/.test(s.id || s.tripId || ''));
-        localStorage.setItem('c2b_bus_schedules', JSON.stringify(cleanScheds));
-      }
-    } catch {}
+    let fleetBuses = [...reduxFleet];
+    if (!reduxFleetCleaned) {
+      dispatch(markFleetCleaned());
+      fleetBuses = fleetBuses.filter((b) => !/^V0\d\d$/.test(b.vehicleId || b.id || '') && !/^BUS_10\d\d$/.test(b.vehicleId || b.id || ''));
+      dispatch(setFleet(fleetBuses));
+      localSchedules = localSchedules.filter((s) => !/^V0\d\d$/.test(s.vehicleId || '') && !/^T0\d\d$/.test(s.id || s.tripId || ''));
+      dispatch(readTrips(localSchedules));
+    }
 
-    let fleetBuses = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
     let backendFleetLoaded = false;
     try {
       const vRes = await safeFetch('/vehicles', { timeout: 1200 });
       const bVehicles = Array.isArray(vRes?.data) ? vRes.data : Array.isArray(vRes) ? vRes : [];
       backendFleetLoaded = true;
-      const deletedBuses = JSON.parse(localStorage.getItem('c2b_deleted_buses') || '[]');
+      const deletedBuses = reduxDeletedBuses || [];
       const clean = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 
-      // The backend fleet is authoritative across browser ports/devices. Drop
-      // locally cached vehicles and schedules that a provider has deleted.
       const activeVehicleKeys = new Set(bVehicles.flatMap((vehicle) => [
         vehicle.vehicleId || vehicle.id,
         vehicle.vehicleNumber || vehicle.regNo,
@@ -530,7 +547,7 @@ export default function SearchTrips({
         activeVehicleKeys.has(clean(schedule.vehicleId || schedule.backendVehicleId)) ||
         activeVehicleKeys.has(clean(schedule.vehicleNumber || schedule.plateNumber))
       );
-      localStorage.setItem('c2b_registered_fleet', JSON.stringify(fleetBuses));
+      dispatch(setFleet(fleetBuses));
 
       if (bVehicles.length > 0) {
         let updatedFleet = false;
@@ -569,7 +586,7 @@ export default function SearchTrips({
           }
         });
         if (updatedFleet) {
-          localStorage.setItem('c2b_registered_fleet', JSON.stringify(fleetBuses));
+          dispatch(setFleet([...fleetBuses]));
         }
       }
     } catch {}
@@ -1104,15 +1121,14 @@ export default function SearchTrips({
 
   // Auto-search trigger when arriving from Landing Page
   useEffect(() => {
-    const autoSearch = sessionStorage.getItem('c2b_autoSearch');
-    if (autoSearch === 'true') {
-      sessionStorage.removeItem('c2b_autoSearch');
-      const sf = sessionStorage.getItem('searchFrom') || fromCity;
-      const st = sessionStorage.getItem('searchTo') || toCity;
-      const sd = sessionStorage.getItem('searchDate') || travelDate;
+    if (reduxAutoSearch) {
+      dispatch(setAutoSearch(false));
+      const sf = reduxSearchFrom || fromCity;
+      const st = reduxSearchTo || toCity;
+      const sd = reduxSearchDate || travelDate;
       handleSearch(null, sf, st, sd);
     }
-  }, []);
+  }, [reduxAutoSearch]);
 
   // Live dynamic update of matching buses when provider adds or updates a schedule
   useEffect(() => {
@@ -1124,10 +1140,8 @@ export default function SearchTrips({
       }
     };
 
-    window.addEventListener('storage', handleLiveScheduleSync);
     window.addEventListener('c2b_sync', handleLiveScheduleSync);
     return () => {
-      window.removeEventListener('storage', handleLiveScheduleSync);
       window.removeEventListener('c2b_sync', handleLiveScheduleSync);
     };
   }, [step, fromCity, toCity, travelDate]);
@@ -1138,16 +1152,15 @@ export default function SearchTrips({
     const cleanPlate = (p) => String(p || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     const busPlate = cleanPlate(bus?.vehicleNumber || bus?.plateNumber);
 
-    // Check localStorage bookings for matching trip or same bus on same date
     try {
+      let localBookings = [...reduxBookings];
       try {
         const syncRes = await fetch('/api/sync/state');
         const syncJson = await syncRes.json();
         const serverBookings = syncJson?.data?.bookings || [];
         if (Array.isArray(serverBookings) && serverBookings.length > 0) {
-          const cur = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
           const curMap = new Map();
-          cur.forEach((b) => {
+          localBookings.forEach((b) => {
             const id = b.bookingId || b.booking_id || b.id;
             if (id) curMap.set(id, b);
           });
@@ -1169,12 +1182,12 @@ export default function SearchTrips({
             }
           });
           if (changed) {
-            localStorage.setItem('c2b_bookings', JSON.stringify(Array.from(curMap.values())));
+            localBookings = Array.from(curMap.values());
+            dispatch(readBookings(localBookings));
           }
         }
       } catch {}
 
-      const localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
       const targetDate = bus?.date || bus?.journeyDate || travelDate;
       localBookings.forEach((b) => {
         const isCancelled =
@@ -1206,8 +1219,7 @@ export default function SearchTrips({
           if (bFrom && bTo && searchFrom && searchTo) {
             let fullStops = [];
             try {
-              const fleetBuses = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
-              const fleetBus = fleetBuses.find((f) =>
+              const fleetBus = reduxFleet.find((f) =>
                 (busPlate && cleanPlate(f.vehicleNumber) === busPlate) ||
                 (bus?.vehicleId && f.vehicleId === bus.vehicleId)
               );
@@ -1264,9 +1276,8 @@ export default function SearchTrips({
         }
       });
 
-      // Check operator blocked seats
-      const seatBlocks = JSON.parse(localStorage.getItem('c2b_seat_blocks') || '[]');
-      seatBlocks.forEach((blk) => {
+      // Check operator blocked seats from Redux memory state
+      (reduxSeatBlocks || []).forEach((blk) => {
         const blkPlate = cleanPlate(blk.vehicleNumber);
         const busMatch = (blk.busId && (blk.busId === bus?.vehicleId || blk.busId === bus?.tripId)) ||
                          (busPlate && blkPlate && busPlate === blkPlate);
@@ -1283,23 +1294,18 @@ export default function SearchTrips({
   const handleSelectBus = async (bus) => {
     let effectiveBus = { ...bus };
     if (!effectiveBus.seatLayout) {
-      try {
-        const fleetBuses = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
-        const match = fleetBuses.find(
-          (f) => (bus.vehicleId && f.vehicleId === bus.vehicleId) ||
-                 (bus.vehicleNumber && f.vehicleNumber === bus.vehicleNumber)
-        );
-        if (match?.seatLayout) {
-          effectiveBus.seatLayout = match.seatLayout;
-        }
-      } catch {}
+      const match = reduxFleet.find(
+        (f) => (bus.vehicleId && f.vehicleId === bus.vehicleId) ||
+               (bus.vehicleNumber && f.vehicleNumber === bus.vehicleNumber)
+      );
+      if (match?.seatLayout) {
+        effectiveBus.seatLayout = match.seatLayout;
+      }
     }
     setSelectedBus(effectiveBus);
     setSelectedSeats([]);
     setPendingBackendBookings(null);
-    try {
-      sessionStorage.removeItem('c2b_pendingBookingRecord');
-    } catch {}
+    dispatch(setPendingBookingRecord(null));
     const occupied = await fetchOccupiedSeats(effectiveBus);
     setBookedSeats(occupied);
     setStep('seats');
@@ -1339,18 +1345,9 @@ export default function SearchTrips({
     }
 
     if (!customer || !customer.id || !customer.isLoggedIn) {
-      // Guest booking interception: store pending selection safely
-      sessionStorage.setItem('c2b_returnAfterLogin', 'passenger');
-      sessionStorage.setItem('c2b_proceedToPassenger', 'true');
-      sessionStorage.setItem('c2b_redirectAfterLogin', '#search-trips');
-      sessionStorage.setItem('c2b_pendingBus', selectedBus?.busName || '');
-      sessionStorage.setItem('c2b_pendingType', selectedBus?.vehicleType || '');
-      sessionStorage.setItem('c2b_pendingPrice', `₹${selectedBus?.price || 0}`);
-      sessionStorage.setItem('c2b_pendingFare', String(selectedBus?.price || 0));
-      sessionStorage.setItem('c2b_pendingSeats', JSON.stringify(selectedSeats));
-      sessionStorage.setItem(
-        'c2b_pendingBooking',
-        JSON.stringify({
+      // Guest booking interception: store pending selection safely in Redux memory state
+      dispatch(
+        setPendingBooking({
           bus: selectedBus,
           fromCity,
           toCity,
@@ -1359,7 +1356,6 @@ export default function SearchTrips({
         })
       );
 
-      sessionStorage.setItem('c2b_loginPrompt', 'Please sign in to continue with your booking.');
       if (onOpenLogin) {
         onOpenLogin({
           promptMessage: 'Please sign in to continue with your booking.',
@@ -1377,31 +1373,17 @@ export default function SearchTrips({
 
   // Restore pending booking when customer logs in
   useEffect(() => {
-    const pendingRaw = sessionStorage.getItem('c2b_pendingBooking');
-    const returnFlag =
-      sessionStorage.getItem('c2b_returnAfterLogin') === 'passenger' ||
-      sessionStorage.getItem('c2b_proceedToPassenger') === 'true';
+    const returnFlag = authReturnAfterLogin === 'passenger' || authProceedToPassenger;
 
-    if (customer && customer.isLoggedIn && (pendingRaw || returnFlag)) {
+    if (customer && customer.isLoggedIn && (authPendingBooking || returnFlag)) {
       try {
-        let restoredBus = selectedBus;
-        let restoredSeats = selectedSeats;
-        let restoredFrom = fromCity;
-        let restoredTo = toCity;
-        let restoredDate = travelDate;
+        let restoredBus = authPendingBooking?.bus || selectedBus;
+        let restoredSeats = authPendingBooking?.selectedSeats || selectedSeats;
+        let restoredFrom = authPendingBooking?.fromCity || fromCity;
+        let restoredTo = authPendingBooking?.toCity || toCity;
+        let restoredDate = authPendingBooking?.travelDate || travelDate;
 
-        if (pendingRaw) {
-          const parsed = JSON.parse(pendingRaw);
-          if (parsed.bus) restoredBus = parsed.bus;
-          if (parsed.selectedSeats) restoredSeats = parsed.selectedSeats;
-          if (parsed.fromCity) restoredFrom = parsed.fromCity;
-          if (parsed.toCity) restoredTo = parsed.toCity;
-          if (parsed.travelDate) restoredDate = parsed.travelDate;
-        }
-
-        sessionStorage.removeItem('c2b_returnAfterLogin');
-        sessionStorage.removeItem('c2b_proceedToPassenger');
-        sessionStorage.removeItem('c2b_redirectAfterLogin');
+        dispatch(clearPendingBookingState());
 
         if (restoredBus && restoredSeats && restoredSeats.length > 0) {
           setSelectedBus(restoredBus);
@@ -1416,7 +1398,7 @@ export default function SearchTrips({
         console.warn('Failed restoring pending booking state:', err);
       }
     }
-  }, [customer]);
+  }, [customer, authPendingBooking, authReturnAfterLogin, authProceedToPassenger]);
 
   const handleProceedToPayment = (paxList) => {
     setPassengers(paxList);
@@ -1446,14 +1428,11 @@ export default function SearchTrips({
 
       const safeFetch = async (endpoint, opts = {}) => {
         const providerId = selectedBus?.providerId;
-        const providerSessionVersion =
-          sessionStorage.getItem('c2b_sessionVersion') ||
-          localStorage.getItem('c2b_sessionVersion');
         const headers = {
           'Content-Type': 'application/json',
           'x-role': 'PROVIDER',
           ...(providerId ? { 'x-user-id': providerId } : {}),
-          ...(providerSessionVersion ? { 'x-session-version': providerSessionVersion } : {}),
+          ...(authSessionVersion !== null && authSessionVersion !== undefined ? { 'x-session-version': String(authSessionVersion) } : {}),
           ...(opts.headers || {}),
         };
         try {
@@ -1646,31 +1625,23 @@ export default function SearchTrips({
           throw new Error(`Unable to resolve authoritative backend trip for ${selectedBus?.busName || 'selected bus'}. Please retry or choose a scheduled trip.`);
         }
 
-        // Synchronize canonical backend trip ID back to localStorage c2b_bus_schedules
-        try {
-          const raw = localStorage.getItem('c2b_bus_schedules');
-          if (raw) {
-            const schedules = JSON.parse(raw);
-            let updated = false;
-            schedules.forEach((s) => {
-              if (
-                s.tripId === selectedBus?.tripId ||
-                s.id === selectedBus?.tripId ||
-                (s.busName && selectedBus?.busName && s.busName.toLowerCase() === selectedBus.busName.toLowerCase())
-              ) {
-                s.tripId = effectiveTripId;
-                s.id = effectiveTripId;
-                s.backendTripId = effectiveTripId;
-                updated = true;
-              }
-            });
-            if (updated) {
-              localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
-            }
+        // Synchronize canonical backend trip ID back to Redux schedules
+        reduxSchedules.forEach((s) => {
+          if (
+            s.tripId === selectedBus?.tripId ||
+            s.id === selectedBus?.tripId ||
+            (s.busName && selectedBus?.busName && s.busName.toLowerCase() === selectedBus.busName.toLowerCase())
+          ) {
+            dispatch(
+              updateTrip({
+                ...s,
+                tripId: effectiveTripId,
+                id: effectiveTripId,
+                backendTripId: effectiveTripId,
+              })
+            );
           }
-        } catch (storageErr) {
-          console.warn('Sync canonical trip to local schedules notice:', storageErr);
-        }
+        });
       }
 
       // Recalculate coupon and checkout totals against the backend's canonical
@@ -1841,7 +1812,7 @@ export default function SearchTrips({
               providerId: selectedBus.providerId || 'P001',
               provider_id: selectedBus.providerId || 'P001',
             };
-            sessionStorage.setItem('c2b_pendingBookingRecord', JSON.stringify(inProgressRecord));
+            dispatch(setPendingBookingRecord(inProgressRecord));
           } catch {}
         },
       });
@@ -1934,94 +1905,75 @@ export default function SearchTrips({
         provider_id: selectedBus.providerId || 'P001',
       };
 
-      // 7. Save confirmed booking to localStorage (prevent duplicates by booking ID)
-      const existing = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-      const filtered = existing.filter((b) => (b.bookingId || b.booking_id) !== bookingId);
-      filtered.unshift(newBooking);
-      localStorage.setItem('c2b_bookings', JSON.stringify(filtered));
+      // 7. Save confirmed booking to Redux memory store (prevent duplicates by booking ID)
+      dispatch(createBooking(newBooking));
+      const allBookings = [newBooking, ...reduxBookings.filter((b) => (b.bookingId || b.booking_id) !== bookingId)];
 
-      // 7b. Update schedule in c2b_bus_schedules so provider immediately sees booked count & revenue
-      try {
-        const localScheds = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-        let updatedSched = false;
-        localScheds.forEach((s) => {
-          const tid = s.id || s.tripId;
-          const matchId = tid && (tid === effectiveTripId || tid === selectedBus.tripId || tid === selectedBus.backendTripId);
-          const matchRoute = s.from?.toLowerCase() === fromCity.trim().toLowerCase() &&
-                             s.to?.toLowerCase() === toCity.trim().toLowerCase() &&
-                             (!s.journeyDate || s.journeyDate === travelDate);
-          if (matchId || matchRoute) {
-            if (effectiveTripId && /^T\d+$/.test(effectiveTripId)) {
-              s.id = effectiveTripId;
-              s.tripId = effectiveTripId;
-              s.backendTripId = effectiveTripId;
-            }
-            const allBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-            const distinctBookedSeats = new Set();
-            allBookings.forEach((booking) => {
-              if (booking.status === 'CANCELLED' || booking.booking_status === 'CANCELLED') return;
-              const bookingDate = String(booking.date || booking.journeyDate || '').split('T')[0];
-              const scheduleDate = String(s.journeyDate || s.date || travelDate).split('T')[0];
-              if (bookingDate && scheduleDate && bookingDate !== scheduleDate) return;
-              const bookingTripMatches =
-                booking.tripId === effectiveTripId ||
-                booking.backendTripId === effectiveTripId ||
-                (
-                  booking.busName &&
-                  s.busName &&
-                  booking.busName.toLowerCase() === s.busName.toLowerCase()
-                );
-              if (!bookingTripMatches) return;
-              const seats = Array.isArray(booking.seat_list)
-                ? booking.seat_list
-                : typeof booking.seats === 'string'
-                ? booking.seats.split(',')
-                : booking.seatNumber != null
-                ? [booking.seatNumber]
-                : [];
-              seats.forEach((seat) => distinctBookedSeats.add(String(seat).trim().toUpperCase()));
-            });
-            s.bookedSeats = distinctBookedSeats.size;
-            s.availableSeats = Math.max(0, (s.totalSeats || 40) - s.bookedSeats);
-            s.revenue = (s.revenue || 0) + grossFare;
-            s.operatorPayout = (s.operatorPayout || 0) + operatorPayout;
-            updatedSched = true;
-          }
-        });
-        if (updatedSched) {
-          localStorage.setItem('c2b_bus_schedules', JSON.stringify(localScheds));
+      // 7b. Update schedule in Redux so provider/customer immediately sees booked count & revenue
+      reduxSchedules.forEach((s) => {
+        const tid = s.id || s.tripId;
+        const matchId = tid && (tid === effectiveTripId || tid === selectedBus.tripId || tid === selectedBus.backendTripId);
+        const matchRoute = s.from?.toLowerCase() === fromCity.trim().toLowerCase() &&
+                           s.to?.toLowerCase() === toCity.trim().toLowerCase() &&
+                           (!s.journeyDate || s.journeyDate === travelDate);
+        if (matchId || matchRoute) {
+          const distinctBookedSeats = new Set();
+          allBookings.forEach((booking) => {
+            if (booking.status === 'CANCELLED' || booking.booking_status === 'CANCELLED') return;
+            const bookingDate = String(booking.date || booking.journeyDate || '').split('T')[0];
+            const scheduleDate = String(s.journeyDate || s.date || travelDate).split('T')[0];
+            if (bookingDate && scheduleDate && bookingDate !== scheduleDate) return;
+            const bookingTripMatches =
+              booking.tripId === effectiveTripId ||
+              booking.backendTripId === effectiveTripId ||
+              (booking.busName && s.busName && booking.busName.toLowerCase() === s.busName.toLowerCase());
+            if (!bookingTripMatches) return;
+            const seats = Array.isArray(booking.seat_list)
+              ? booking.seat_list
+              : typeof booking.seats === 'string'
+              ? booking.seats.split(',')
+              : booking.seatNumber != null
+              ? [booking.seatNumber]
+              : [];
+            seats.forEach((seat) => distinctBookedSeats.add(String(seat).trim().toUpperCase()));
+          });
+          dispatch(
+            updateTrip({
+              ...s,
+              ...(effectiveTripId && /^T\d+$/.test(effectiveTripId)
+                ? { id: effectiveTripId, tripId: effectiveTripId, backendTripId: effectiveTripId }
+                : {}),
+              bookedSeats: distinctBookedSeats.size,
+              availableSeats: Math.max(0, (s.totalSeats || 40) - distinctBookedSeats.size),
+              revenue: (s.revenue || 0) + grossFare,
+              operatorPayout: (s.operatorPayout || 0) + operatorPayout,
+            })
+          );
         }
-      } catch (err) {
-        console.warn('Could not update schedule booking stats:', err);
-      }
-      try { window.dispatchEvent(new Event('storage')); } catch {}
+      });
       try { liveSync.syncBooking(newBooking); } catch (e) { console.warn('Sync booking error:', e); }
 
-      // 8. Update sessionStorage for confirmation page and legacy parity
-      sessionStorage.setItem('lastBookingId', bookingId);
-      sessionStorage.setItem('lastBusName', selectedBus.busName);
-      sessionStorage.setItem('lastSeats', selectedSeats.join(', '));
-      sessionStorage.setItem('lastTotal', paymentDetails.total.toString());
-      sessionStorage.setItem('lastDiscount', paymentDetails.discount.toString());
-      sessionStorage.setItem('lastFrom', fromCity.trim());
-      sessionStorage.setItem('lastTo', toCity.trim());
-      sessionStorage.setItem('lastDate', travelDate);
-      sessionStorage.setItem('lastBusType', selectedBus.vehicleType || 'AC');
-      sessionStorage.setItem('lastPayMethod', paymentDetails.method);
-      sessionStorage.setItem('lastPassengerCount', selectedSeats.length.toString());
-      sessionStorage.setItem('lastPassengers', JSON.stringify(passengers));
+      // 8. Save last booking summary in Redux memory state
+      dispatch(
+        setLastBookingSummary({
+          lastBookingId: bookingId,
+          lastBusName: selectedBus.busName,
+          lastSeats: selectedSeats.join(', '),
+          lastTotal: paymentDetails.total.toString(),
+          lastDiscount: paymentDetails.discount.toString(),
+          lastFrom: fromCity.trim(),
+          lastTo: toCity.trim(),
+          lastDate: travelDate,
+          lastBusType: selectedBus.vehicleType || 'AC',
+          lastPayMethod: paymentDetails.method,
+          lastPassengerCount: selectedSeats.length.toString(),
+          lastPassengers: passengers,
+        })
+      );
 
-      // 9. Clear pending booking state and any stale redirect targets
-      sessionStorage.removeItem('c2b_pendingBooking');
-      sessionStorage.removeItem('c2b_pendingBookingRecord');
-      sessionStorage.removeItem('c2b_pendingSeats');
-      sessionStorage.removeItem('c2b_pendingBus');
-      sessionStorage.removeItem('c2b_pendingType');
-      sessionStorage.removeItem('c2b_pendingPrice');
-      sessionStorage.removeItem('c2b_pendingFare');
-      sessionStorage.removeItem('c2b_returnAfterLogin');
-      sessionStorage.removeItem('c2b_proceedToPassenger');
-      sessionStorage.removeItem('c2b_redirectAfterLogin');
+      // 9. Clear pending booking state in Redux memory
+      dispatch(setPendingBookingRecord(null));
+      dispatch(clearPendingBookingState());
 
       setPendingBackendBookings(null);
       showToast(`Booking ${bookingId} confirmed successfully!`, 'success');
@@ -2067,11 +2019,8 @@ export default function SearchTrips({
         provider_id: selectedBus?.providerId || 'P001',
       };
 
-      try {
-        sessionStorage.setItem('c2b_pendingBookingRecord', JSON.stringify(pendingRecord));
-      } catch {}
+      dispatch(setPendingBookingRecord(pendingRecord));
 
-      // Retain the seatBookings state in React so retry immediately has access to already paid seats
       if (currentSeatBookings.length > 0) {
         setPendingBackendBookings({
           primaryBackendId: pendingId,
@@ -2391,7 +2340,7 @@ export default function SearchTrips({
             setSelectedSeats([]);
             setConfirmedBooking(null);
             setPendingBackendBookings(null);
-            try { sessionStorage.removeItem('c2b_pendingBookingRecord'); } catch {}
+            dispatch(setPendingBookingRecord(null));
             setStep('search');
           }}
         />

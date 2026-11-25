@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { memStorage } from '../store/memoryBridge';
+import { navigateTabThunk, showToastThunk } from '../store/actions';
 import {
   getFleetBuses,
   getBackendFleetBuses,
@@ -88,7 +91,11 @@ const HUB_TYPES = [
   'Suburban Satellite Hub',
 ];
 
-export default function BusFleetManagement({ provider, showToast, onNavigate }) {
+export default function BusFleetManagement() {
+  const dispatch = useDispatch();
+  const provider = useSelector((state) => state.auth.provider);
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
+  const onNavigate = (tab) => dispatch(navigateTabThunk(tab));
   const providerId = provider?.id || 'P001';
 
   // Navigation Sub-tabs: 'overview' | 'register' | 'assigned-table' | 'assign-route' | 'roundtrip-schedule'
@@ -410,7 +417,7 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
 
   // Physical bus availability for UP journey across the week
   const availableUpDays = useMemo(() => {
-    const allSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const allSchedules = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
     const currentBusNumber = currentScheduleBus?.vehicleNumber;
     const busyDays = new Set();
     if (currentBusNumber) {

@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { navigateTabThunk, showToastThunk } from '../store/actions';
 import {
   saveSchedule,
   getApprovedCities,
@@ -72,7 +74,11 @@ function formatDuration(h, m) {
   return parts.join(' ');
 }
 
-export default function AddSchedule({ provider, onNavigate, showToast }) {
+export default function AddSchedule() {
+  const dispatch = useDispatch();
+  const provider = useSelector((state) => state.auth.provider);
+  const onNavigate = (tab) => dispatch(navigateTabThunk(tab));
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
   const today = new Date().toISOString().split('T')[0];
   const maxDate = (() => {
     const d = new Date();

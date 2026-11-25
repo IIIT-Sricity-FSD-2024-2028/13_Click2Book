@@ -1,25 +1,30 @@
 import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { fetchRevenue } from '../services/api';
+import { memStorage } from '../store/memoryBridge';
+import { navigateTabThunk, showToastThunk } from '../store/actions';
 
-export default function Revenue({ provider, onNavigate, showToast }) {
+export default function Revenue() {
+  const dispatch = useDispatch();
+  const provider = useSelector((state) => state.auth.provider);
+  const onNavigate = (tab) => dispatch(navigateTabThunk(tab));
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
+
   const [stats, setStats] = useState({ totalGross: 0, totalDiscount: 0, totalAfterCoupon: 0, totalNet: 0, totalBookings: 0, totalSeats: 0 });
   const [rows, setRows] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [isLive, setIsLive] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const providerId = provider?.id
-    || sessionStorage.getItem('c2b_loggedInId')
-    || localStorage.getItem('c2b_loggedInId')
-    || 'P001';
+  const providerId = provider?.id || 'P001';
 
   useEffect(() => {
     const loadRevenue = () => {
       fetchRevenue(providerId).then(({ data, localBookings, localSchedules, isLive: live }) => {
         setIsLive(live);
 
-        const bookings  = localBookings  || JSON.parse(localStorage.getItem('c2b_bookings')       || '[]');
-        const schedules = localSchedules || JSON.parse(localStorage.getItem('c2b_bus_schedules')  || '[]');
+        const bookings  = localBookings  || JSON.parse(memStorage.getItem('c2b_bookings')       || '[]');
+        const schedules = localSchedules || JSON.parse(memStorage.getItem('c2b_bus_schedules')  || '[]');
 
         if (live && data) {
           // Use API data shape

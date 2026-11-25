@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Navigation, MapPin, AlertTriangle, ShieldAlert, X } from 'lucide-react';
+import { memStorage } from '../store/memoryBridge';
 
 /* ── Google Maps JavaScript API Loader ── */
 function loadGoogleMapsScript(apiKey, callback) {
@@ -49,7 +50,7 @@ export default function LiveBusTrackerModal({
     : [];
 
   const [telemetry, setTelemetry] = useState(() => {
-    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
     const st = statuses[tripId] || item.status || 'SCHEDULED';
     const nextSt = st === 'COMPLETED'
       ? `${toCity} Terminal`
@@ -83,10 +84,10 @@ export default function LiveBusTrackerModal({
     || (typeof window !== 'undefined' && (window.VITE_GOOGLE_MAPS_API_KEY || window.GOOGLE_MAPS_API_KEY))
     || '';
 
-  // Poll live telemetry from localStorage and events
+  // Poll live telemetry from Redux memory store and events
   useEffect(() => {
     const updateTelemetry = () => {
-      const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+      const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
       const st = statuses[tripId] || item.status || 'SCHEDULED';
 
       setTelemetry((prev) => ({

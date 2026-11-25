@@ -1,7 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  updateCustomerProfileThunk,
+  uploadCustomerAvatarThunk,
+  logoutCustomerThunk,
+  showToastThunk,
+} from '../store/actions';
 
-export default function MyProfile({ user, onUpdateUser, onNavigate, showToast }) {
+export default function MyProfile() {
+  const dispatch = useDispatch();
+  const user = useSelector((state) => state.auth.user);
+  const storedBookings = useSelector((state) => state.bookings.items);
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
+
   const [profileName, setProfileName] = useState(user?.name || 'Rahul');
   const [profileEmail, setProfileEmail] = useState(user?.email || 'rahul.sharma@email.com');
   const [profilePhone, setProfilePhone] = useState(user?.phone || '+91 9876543210');
@@ -37,19 +48,13 @@ export default function MyProfile({ user, onUpdateUser, onNavigate, showToast })
       setEditPhone(user.phone || '+91 9876543210');
     }
 
-    // Try reading bookings count for dynamic trip stats
-    try {
-      const storedBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-      if (storedBookings.length > 0) {
-        setTripsCount(storedBookings.length);
-        const totalPaid = storedBookings.reduce((sum, b) => sum + (Number(b.totalAmount || b.fare || 0)), 0);
-        setPoints(Math.round(totalPaid * 0.1) || 550);
-        setSavings(Math.round(totalPaid * 0.15) || 506);
-      }
-    } catch {
-      // Fallback defaults
+    if (storedBookings.length > 0) {
+      setTripsCount(storedBookings.length);
+      const totalPaid = storedBookings.reduce((sum, b) => sum + Number(b.totalAmount || b.fare || 0), 0);
+      setPoints(Math.round(totalPaid * 0.1) || 550);
+      setSavings(Math.round(totalPaid * 0.15) || 506);
     }
-  }, [user]);
+  }, [user, storedBookings]);
 
   const initials = profileName
     .trim()
@@ -80,27 +85,17 @@ export default function MyProfile({ user, onUpdateUser, onNavigate, showToast })
     setProfileEmail(editEmail);
     setProfilePhone(editPhone);
 
-    const updated = {
-      ...user,
-      name: editName,
-      email: editEmail,
-      phone: editPhone
-    };
-
-    try {
-      if (user?.id) {
-        await api.customers.updateProfile(user.id, {
+    await dispatch(
+      updateCustomerProfileThunk({
+        id: user?.id,
+        data: {
           name: editName,
           email: editEmail,
           phone: editPhone,
           phoneNumber: editPhone,
-        });
-      }
-    } catch {
-      // Offline fallback ok
-    }
-
-    if (onUpdateUser) onUpdateUser(updated);
+        },
+      })
+    );
     setIsEditModalOpen(false);
     showToast('✅ Profile updated successfully!', 'success');
   };
@@ -139,20 +134,7 @@ export default function MyProfile({ user, onUpdateUser, onNavigate, showToast })
     reader.onload = async (uploadEvent) => {
       const dataUrl = uploadEvent.target.result;
       setAvatarUrl(dataUrl);
-
-      const updated = { ...user, avatar: dataUrl };
-      localStorage.setItem('c2b_user_avatar', dataUrl);
-      sessionStorage.setItem('c2b_user_avatar', dataUrl);
-
-      try {
-        if (user?.id) {
-          await api.customers.uploadProfilePicture(user.id, file);
-        }
-      } catch {
-        // Fallback Base64 already saved
-      }
-
-      if (onUpdateUser) onUpdateUser(updated);
+      await dispatch(uploadCustomerAvatarThunk({ id: user?.id, file, dataUrl }));
       setIsPhotoModalOpen(false);
       showToast('✅ Profile photo updated!', 'success');
     };
@@ -161,9 +143,7 @@ export default function MyProfile({ user, onUpdateUser, onNavigate, showToast })
 
   const handleDeletePhoto = () => {
     setAvatarUrl('');
-    localStorage.removeItem('c2b_user_avatar');
-    sessionStorage.removeItem('c2b_user_avatar');
-    if (onUpdateUser) onUpdateUser({ ...user, avatar: '' });
+    dispatch(updateCustomerProfileThunk({ id: user?.id, data: { avatar: '' } }));
     setIsPhotoModalOpen(false);
     showToast('🗑️ Profile photo removed.', 'info');
   };
@@ -172,9 +152,7 @@ export default function MyProfile({ user, onUpdateUser, onNavigate, showToast })
     if (window.confirm('⚠️ Are you sure you want to delete your Click2Book account? This cannot be undone.')) {
       showToast('Account scheduled for deactivation.', 'info');
       setTimeout(() => {
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.reload();
+        dispatch(logoutCustomerThunk());
       }, 1500);
     }
   };

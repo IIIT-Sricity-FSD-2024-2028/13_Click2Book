@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useDispatch } from 'react-redux';
 import BrandMark from './BrandMark.jsx';
 import { EMAIL_PATTERN } from '../lib/format.js';
-import { DASHBOARD_PATH, SUPER_USER_AUTH_KEY } from '../lib/session.js';
+import { DASHBOARD_PATH } from '../lib/session.js';
+import { setSuperUserAuthed } from '../store/actions';
 import '../styles/super-user-login.css';
 
 const CREDENTIALS = [
@@ -29,6 +31,7 @@ function redirectTarget() {
 }
 
 export default function SuperUserLoginPage() {
+  const dispatch = useDispatch();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -50,7 +53,7 @@ export default function SuperUserLoginPage() {
 
     setError('');
     setBusy(true);
-    sessionStorage.setItem(SUPER_USER_AUTH_KEY, 'true');
+    dispatch(setSuperUserAuthed(true));
     const target = redirectTarget();
     window.setTimeout(() => { location.href = target; }, 800);
   };

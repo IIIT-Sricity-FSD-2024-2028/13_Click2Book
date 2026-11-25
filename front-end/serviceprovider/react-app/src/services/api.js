@@ -4,6 +4,7 @@
    ────────────────────────────────────────────────────────── */
 
 import { liveSync } from './liveSync.js';
+import { memStorage, getAuthFromStore } from '../store/memoryBridge.js';
 
 const getHost = () => {
   try {
@@ -42,13 +43,14 @@ function createTimeoutSignal(ms = 2500, existingSignal) {
 async function spFetch(path, options = {}) {
   const url = path.startsWith('/api') ? path : `/api${path}`;
   const timeoutMs = options.timeout || 2500;
-  const userId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId');
-  const sessionVersion = sessionStorage.getItem('c2b_sessionVersion') || localStorage.getItem('c2b_sessionVersion');
+  const auth = getAuthFromStore();
+  const userId = auth?.provider?.id || memStorage.getItem('c2b_loggedInId');
+  const sessionVersion = auth?.sessionVersion ?? memStorage.getItem('c2b_sessionVersion');
   const headers = {
     'Content-Type': 'application/json',
     'x-role': 'PROVIDER',
     ...(userId ? { 'x-user-id': userId } : {}),
-    ...(sessionVersion ? { 'x-session-version': sessionVersion } : {}),
+    ...(sessionVersion !== null && sessionVersion !== undefined ? { 'x-session-version': String(sessionVersion) } : {}),
     ...(options.headers || {}),
   };
   let res;
@@ -88,15 +90,12 @@ async function spFetch(path, options = {}) {
 }
 
 function clearProviderSession() {
-  for (const storage of [sessionStorage, localStorage]) {
-    ['c2b_loggedIn', 'c2b_userName', 'c2b_userEmail', 'c2b_loggedInId', 'c2b_role', 'c2b_sessionVersion'].forEach((key) => storage.removeItem(key));
-  }
+  ['c2b_loggedIn', 'c2b_userName', 'c2b_userEmail', 'c2b_loggedInId', 'c2b_role', 'c2b_sessionVersion'].forEach((key) => memStorage.removeItem(key));
 }
 
 export async function getProviderBookings(providerId) {
-  const id = providerId ||
-    sessionStorage.getItem('c2b_loggedInId') ||
-    localStorage.getItem('c2b_loggedInId');
+  const auth = getAuthFromStore();
+  const id = providerId || auth?.provider?.id || memStorage.getItem('c2b_loggedInId');
   if (!id) return [];
   const result = await spFetch(`/bookings/provider/${encodeURIComponent(id)}`);
   if (Array.isArray(result)) return result;
@@ -142,7 +141,7 @@ export async function loginProvider(email, password) {
 /* ── Dashboard Stats ── */
 export function getDashboardData(providerId) {
   initFleetStorage();
-  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
+  const loggedId = memStorage.getItem('c2b_loggedInId') || memStorage.getItem('c2b_loggedInId') || 'P001';
   const targetId = providerId || loggedId;
   const fleetBuses = getFleetBuses(targetId);
   const assignedFleet = fleetBuses.filter((b) => b.assignedRoute || b.status === 'Assigned' || b.route);
@@ -154,19 +153,19 @@ export function getDashboardData(providerId) {
 
   let localSchedules = [];
   try {
-    localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    localSchedules = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
     if (!Array.isArray(localSchedules)) localSchedules = [];
   } catch { localSchedules = []; }
 
   let localBookings = [];
   try {
-    localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+    localBookings = JSON.parse(memStorage.getItem('c2b_bookings') || '[]');
     if (!Array.isArray(localBookings)) localBookings = [];
   } catch { localBookings = []; }
 
   let statuses = {};
   try {
-    statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
     if (!statuses || typeof statuses !== 'object' || Array.isArray(statuses)) statuses = {};
   } catch { statuses = {}; }
 
@@ -310,11 +309,11 @@ export function ensureTodayJourneysForAssignedFleet(assignedFleet) {
 
     let modified = false;
     let fleetModified = false;
-    const raw = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-    const cancelledList = JSON.parse(localStorage.getItem('c2b_cancelled_schedules') || '[]');
-    const cancelledIds = JSON.parse(localStorage.getItem('c2b_cancelled_trip_ids') || '[]');
+    const raw = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
+    const cancelledList = JSON.parse(memStorage.getItem('c2b_cancelled_schedules') || '[]');
+    const cancelledIds = JSON.parse(memStorage.getItem('c2b_cancelled_trip_ids') || '[]');
     const cancelledIdSet = new Set([...cancelledIds, ...cancelledList.map((c) => c.tripId)]);
-    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
 
     assignedFleet.forEach((bus) => {
       // If bus is assigned, make sure it has assignedRoute
@@ -442,12 +441,12 @@ export function ensureTodayJourneysForAssignedFleet(assignedFleet) {
 
     if (fleetModified) {
       try {
-        const allFleet = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+        const allFleet = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
         assignedFleet.forEach((b) => {
           const idx = allFleet.findIndex((x) => x.vehicleId === b.vehicleId || x.id === b.id || x.vehicleNumber === b.vehicleNumber);
           if (idx >= 0) allFleet[idx] = { ...allFleet[idx], ...b };
         });
-        localStorage.setItem('c2b_registered_fleet', JSON.stringify(allFleet));
+        memStorage.setItem('c2b_registered_fleet', JSON.stringify(allFleet));
       } catch {}
     }
 
@@ -500,7 +499,7 @@ export function safeSaveSchedules(schedules) {
     const cleaned = deduplicateSchedules(schedules);
 
     try {
-      localStorage.setItem('c2b_bus_schedules', JSON.stringify(cleaned));
+      memStorage.setItem('c2b_bus_schedules', JSON.stringify(cleaned));
       return true;
     } catch (quotaErr) {
       console.warn('LocalStorage quota exceeded on c2b_bus_schedules, performing aggressive prune...', quotaErr);
@@ -510,7 +509,7 @@ export function safeSaveSchedules(schedules) {
         if (jDate && jDate < todayStr && !s.bookedSeats) return false;
         return true;
       });
-      localStorage.setItem('c2b_bus_schedules', JSON.stringify(pruned));
+      memStorage.setItem('c2b_bus_schedules', JSON.stringify(pruned));
       return true;
     }
   } catch (criticalErr) {
@@ -518,9 +517,9 @@ export function safeSaveSchedules(schedules) {
     try {
       // Keep only active upcoming schedules for today and future
       const todayStr = new Date().toISOString().split('T')[0];
-      const raw = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+      const raw = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
       const minimal = deduplicateSchedules(raw).filter((s) => !s.isSegment && (s.journeyDate || '').split('T')[0] >= todayStr);
-      localStorage.setItem('c2b_bus_schedules', JSON.stringify(minimal));
+      memStorage.setItem('c2b_bus_schedules', JSON.stringify(minimal));
     } catch {}
     return false;
   }
@@ -530,7 +529,7 @@ export function safeSaveSchedules(schedules) {
 export function getLocalSchedules(providerId) {
   try {
     initFleetStorage();
-    const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
+    const loggedId = memStorage.getItem('c2b_loggedInId') || memStorage.getItem('c2b_loggedInId') || 'P001';
     const targetId = providerId || loggedId;
     const fleetBuses = getFleetBuses(targetId);
     const assignedFleet = fleetBuses.filter((b) => b.assignedRoute || b.status === 'Assigned' || b.route);
@@ -546,7 +545,7 @@ export function getLocalSchedules(providerId) {
     const clean = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     const cleanName = (s) => String(s || '').toLowerCase().trim();
 
-    const raw = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const raw = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
     // Automatic purge of stored duplicates in localStorage
     const dedupedRaw = deduplicateSchedules(raw);
     if (dedupedRaw.length !== raw.length) {
@@ -588,9 +587,9 @@ export function getLocalSchedules(providerId) {
       return true;
     });
 
-    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
-    const completions = JSON.parse(localStorage.getItem('c2b_trip_completions') || '{}');
-    const localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+    const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
+    const completions = JSON.parse(memStorage.getItem('c2b_trip_completions') || '{}');
+    const localBookings = JSON.parse(memStorage.getItem('c2b_bookings') || '[]');
 
     const mapped = primaryOnly.map((s, i) => {
       const tripId = s.id || s.tripId || `LOCAL-${i + 1}`;
@@ -674,9 +673,9 @@ export function getLocalSchedules(providerId) {
 
     // Guarantee that EVERY assigned bus in assignedFleet is shown (unless deleted)
     const todayStr = new Date().toISOString().split('T')[0];
-    const cancelledIds = JSON.parse(localStorage.getItem('c2b_cancelled_trip_ids') || '[]');
+    const cancelledIds = JSON.parse(memStorage.getItem('c2b_cancelled_trip_ids') || '[]');
     let schedulesAdded = false;
-    const rawToPersist = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const rawToPersist = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
 
     assignedFleet.forEach((bus) => {
       const bPlate = clean(bus.vehicleNumber || bus.regNo || bus.vehicleId);
@@ -784,7 +783,7 @@ export function getLocalSchedules(providerId) {
 
 export async function fetchSchedulesFromAPI(providerId) {
   const localTrips = getLocalSchedules(providerId);
-  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
+  const loggedId = memStorage.getItem('c2b_loggedInId') || memStorage.getItem('c2b_loggedInId') || 'P001';
   const targetId = providerId || loggedId;
   const fleetBuses = getFleetBuses(targetId);
   const assignedFleet = fleetBuses.filter((b) => b.assignedRoute || b.status === 'Assigned' || b.route);
@@ -798,8 +797,8 @@ export async function fetchSchedulesFromAPI(providerId) {
   const assignedNameSet = new Set(assignedFleet.map((b) => (b.busName || '').toLowerCase()).filter(Boolean));
   const assignedIdSet = new Set(assignedFleet.map((b) => (b.vehicleId || b.id || '').toUpperCase()).filter(Boolean));
 
-  const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
-  const completions = JSON.parse(localStorage.getItem('c2b_trip_completions') || '{}');
+  const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
+  const completions = JSON.parse(memStorage.getItem('c2b_trip_completions') || '{}');
 
   try {
     const apiData = await spFetch('/trips', {});
@@ -828,7 +827,7 @@ export async function fetchSchedulesFromAPI(providerId) {
 }
 
 export async function saveSchedule(payload) {
-  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId');
+  const loggedId = memStorage.getItem('c2b_loggedInId') || memStorage.getItem('c2b_loggedInId');
   const providerId = (loggedId && /^P\d+$/.test(loggedId)) ? loggedId : 'P001';
   const {
     journeyDate,
@@ -1014,7 +1013,7 @@ function _saveToLocalStorage({
   vehicleNumber,
   direction,
 }) {
-  const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+  const schedules = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
   const canonicalId = backendTripId || (tripId && /^T\d+$/.test(tripId) ? tripId : null);
   const effectiveId = canonicalId || tripId;
 
@@ -1145,7 +1144,7 @@ export function updateLocalSchedule(tripId, payload = {}) {
   // 2. Synchronize back into c2b_registered_fleet so assignedRoute & roundTripSchedule reflect the edit
   try {
     initFleetStorage();
-    const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+    const all = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
     const targetPlate = (vehicleNumber || '').toUpperCase();
     const targetName = (busName || '').toLowerCase();
 
@@ -1197,7 +1196,7 @@ export function updateLocalSchedule(tripId, payload = {}) {
 
       bus.updatedAt = new Date().toISOString();
       all[busIdx] = bus;
-      localStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
+      memStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
       try { window.dispatchEvent(new Event('storage')); } catch {}
     }
   } catch (syncErr) {
@@ -1245,8 +1244,8 @@ export function isDepartureTimeReached(journeyDate, departureTime) {
 
 /* ── Central Auto-start: Any trip whose starting time is reached auto-starts ── */
 export function autoStartDueTrips(additionalTrips = []) {
-  const localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-  const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+  const localSchedules = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
+  const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
   let changed = false;
   const autoStarted = [];
 
@@ -1294,8 +1293,8 @@ export function autoStartDueTrips(additionalTrips = []) {
   });
 
   if (changed) {
-    localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
-    localStorage.setItem('c2b_bus_schedules', JSON.stringify(localSchedules));
+    memStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+    memStorage.setItem('c2b_bus_schedules', JSON.stringify(localSchedules));
     try { window.dispatchEvent(new Event('storage')); } catch {}
     autoStarted.forEach((item) => {
       try { liveSync.syncTripStatus(item.tripId, 'IN_PROGRESS'); } catch {}
@@ -1309,19 +1308,19 @@ export function autoStartDueTrips(additionalTrips = []) {
 export function deleteLocalSchedule(tripId, tripMeta = {}) {
   try {
     // Mark status as CANCELLED
-    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
     statuses[tripId] = 'CANCELLED';
-    localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+    memStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
 
     // Record in cancelled/deleted trip IDs set so recurring instances are NEVER auto-resurrected
-    const cancelledIds = JSON.parse(localStorage.getItem('c2b_cancelled_trip_ids') || '[]');
+    const cancelledIds = JSON.parse(memStorage.getItem('c2b_cancelled_trip_ids') || '[]');
     if (!cancelledIds.includes(tripId)) {
       cancelledIds.push(tripId);
-      localStorage.setItem('c2b_cancelled_trip_ids', JSON.stringify(cancelledIds));
+      memStorage.setItem('c2b_cancelled_trip_ids', JSON.stringify(cancelledIds));
     }
 
     // Store in cancelled schedules list for display in Cancelled tab
-    const cancelled = JSON.parse(localStorage.getItem('c2b_cancelled_schedules') || '[]');
+    const cancelled = JSON.parse(memStorage.getItem('c2b_cancelled_schedules') || '[]');
     // Upsert: always store/update with latest meta so details are never blank
     const existingIdx = cancelled.findIndex((c) => c.tripId === tripId);
     const cancelledEntry = {
@@ -1343,19 +1342,19 @@ export function deleteLocalSchedule(tripId, tripMeta = {}) {
     } else {
       cancelled.push(cancelledEntry);
     }
-    localStorage.setItem('c2b_cancelled_schedules', JSON.stringify(cancelled));
+    memStorage.setItem('c2b_cancelled_schedules', JSON.stringify(cancelled));
 
     // Also remove from active local schedules (c2b_bus_schedules) including subsegments
-    const raw = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const raw = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
     const filtered = raw.filter(
       (s) => s.id !== tripId && s.tripId !== tripId && s.parentTripId !== tripId && !String(s.id).startsWith(`${tripId}_SEG_`)
     );
-    localStorage.setItem('c2b_bus_schedules', JSON.stringify(filtered));
+    memStorage.setItem('c2b_bus_schedules', JSON.stringify(filtered));
 
     // Clean up completions for this trip
-    const completions = JSON.parse(localStorage.getItem('c2b_trip_completions') || '{}');
+    const completions = JSON.parse(memStorage.getItem('c2b_trip_completions') || '{}');
     delete completions[tripId];
-    localStorage.setItem('c2b_trip_completions', JSON.stringify(completions));
+    memStorage.setItem('c2b_trip_completions', JSON.stringify(completions));
 
     try { window.dispatchEvent(new Event('storage')); } catch {}
     try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'SCHEDULE_CANCELLED', tripId } })); } catch {}
@@ -1369,33 +1368,33 @@ export function deleteLocalSchedule(tripId, tripMeta = {}) {
 export function deletePermanentSchedule(tripId) {
   try {
     // 1. Remove from cancelled schedules list
-    const cancelled = JSON.parse(localStorage.getItem('c2b_cancelled_schedules') || '[]');
+    const cancelled = JSON.parse(memStorage.getItem('c2b_cancelled_schedules') || '[]');
     const filteredCancelled = cancelled.filter((c) => c.tripId !== tripId);
-    localStorage.setItem('c2b_cancelled_schedules', JSON.stringify(filteredCancelled));
+    memStorage.setItem('c2b_cancelled_schedules', JSON.stringify(filteredCancelled));
 
     // 2. Remove from active schedules (c2b_bus_schedules)
-    const raw = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const raw = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
     const filtered = raw.filter(
       (s) => s.id !== tripId && s.tripId !== tripId && s.parentTripId !== tripId && !String(s.id).startsWith(`${tripId}_SEG_`)
     );
-    localStorage.setItem('c2b_bus_schedules', JSON.stringify(filtered));
+    memStorage.setItem('c2b_bus_schedules', JSON.stringify(filtered));
 
     // 3. Remove from statuses
-    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
     delete statuses[tripId];
-    localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+    memStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
 
     // 4. Ensure it remains in deleted trip IDs so it is never auto-regenerated
-    const cancelledIds = JSON.parse(localStorage.getItem('c2b_cancelled_trip_ids') || '[]');
+    const cancelledIds = JSON.parse(memStorage.getItem('c2b_cancelled_trip_ids') || '[]');
     if (!cancelledIds.includes(tripId)) {
       cancelledIds.push(tripId);
-      localStorage.setItem('c2b_cancelled_trip_ids', JSON.stringify(cancelledIds));
+      memStorage.setItem('c2b_cancelled_trip_ids', JSON.stringify(cancelledIds));
     }
 
     // 5. Clean completions
-    const completions = JSON.parse(localStorage.getItem('c2b_trip_completions') || '{}');
+    const completions = JSON.parse(memStorage.getItem('c2b_trip_completions') || '{}');
     delete completions[tripId];
-    localStorage.setItem('c2b_trip_completions', JSON.stringify(completions));
+    memStorage.setItem('c2b_trip_completions', JSON.stringify(completions));
 
     try { window.dispatchEvent(new Event('storage')); } catch {}
     try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'SCHEDULE_PERMANENTLY_DELETED', tripId } })); } catch {}
@@ -1408,12 +1407,12 @@ export function deletePermanentSchedule(tripId) {
 /* ── Get all cancelled schedules ── */
 export function getCancelledSchedules() {
   try {
-    const all = JSON.parse(localStorage.getItem('c2b_cancelled_schedules') || '[]');
+    const all = JSON.parse(memStorage.getItem('c2b_cancelled_schedules') || '[]');
     // Filter out stale entries that were saved without bus details (from earlier buggy version)
     const valid = all.filter((c) => c.busName && c.busName !== '-' && c.busName !== '—');
     // If we filtered some out, persist the cleaned list
     if (valid.length !== all.length) {
-      localStorage.setItem('c2b_cancelled_schedules', JSON.stringify(valid));
+      memStorage.setItem('c2b_cancelled_schedules', JSON.stringify(valid));
     }
     return valid;
   } catch {
@@ -1462,7 +1461,7 @@ function getEquivalentSeatIds(rawSeatId, totalSeats = 40, isSleeper = false) {
 /* ── Seat Management: Real assigned fleet buses & verified schedules (Clean, No Mock Data) ── */
 export function getSeatData(providerId) {
   initFleetStorage();
-  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
+  const loggedId = memStorage.getItem('c2b_loggedInId') || memStorage.getItem('c2b_loggedInId') || 'P001';
   const targetId = providerId || loggedId;
 
   // 1. Get assigned fleet buses strictly belonging to this provider
@@ -1475,7 +1474,7 @@ export function getSeatData(providerId) {
   // 2. Read schedules from c2b_bus_schedules (filter out segments, cancellations, and past dates)
   let localSchedules = [];
   try {
-    localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    localSchedules = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
   } catch { localSchedules = []; }
 
   // Immediately deduplicate stored schedules to eliminate any 980 duplicates from storage
@@ -1485,10 +1484,10 @@ export function getSeatData(providerId) {
   }
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const cancelledList = JSON.parse(localStorage.getItem('c2b_cancelled_schedules') || '[]');
-  const cancelledIds = JSON.parse(localStorage.getItem('c2b_cancelled_trip_ids') || '[]');
+  const cancelledList = JSON.parse(memStorage.getItem('c2b_cancelled_schedules') || '[]');
+  const cancelledIds = JSON.parse(memStorage.getItem('c2b_cancelled_trip_ids') || '[]');
   const cancelledIdSet = new Set([...cancelledIds, ...cancelledList.map((c) => c.tripId)]);
-  const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+  const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
 
   const cleanSchedules = dedupedLocal.filter((s) => {
     if (!s || s.isSegment) return false;
@@ -1656,7 +1655,7 @@ export function getSeatData(providerId) {
   // 3b. Guarantee trip instances exist for any dates where real bookings exist for an assigned bus
   let localBookings = [];
   try {
-    localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+    localBookings = JSON.parse(memStorage.getItem('c2b_bookings') || '[]');
   } catch { localBookings = []; }
 
   assignedFleet.forEach((bus) => {
@@ -1895,16 +1894,16 @@ export function getSeatData(providerId) {
 /* ── Blocked seats: get/set per trip ── */
 export function getBlockedSeatsForTrip(tripId) {
   try {
-    const all = JSON.parse(localStorage.getItem('c2b_blocked_seats') || '{}');
+    const all = JSON.parse(memStorage.getItem('c2b_blocked_seats') || '{}');
     return all[tripId] || [];
   } catch { return []; }
 }
 
 export function setBlockedSeatsForTrip(tripId, seatIds) {
   try {
-    const all = JSON.parse(localStorage.getItem('c2b_blocked_seats') || '{}');
+    const all = JSON.parse(memStorage.getItem('c2b_blocked_seats') || '{}');
     all[tripId] = seatIds;
-    localStorage.setItem('c2b_blocked_seats', JSON.stringify(all));
+    memStorage.setItem('c2b_blocked_seats', JSON.stringify(all));
     try { window.dispatchEvent(new Event('storage')); } catch {}
     return true;
   } catch { return false; }
@@ -1929,7 +1928,7 @@ export function unblockSeat(tripId, seatId, bookedSeatList = []) {
 function getLocalTripsForConfirm(localStatuses, providerId) {
   try {
     initFleetStorage();
-    const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
+    const loggedId = memStorage.getItem('c2b_loggedInId') || memStorage.getItem('c2b_loggedInId') || 'P001';
     const targetId = providerId || loggedId;
     const fleetBuses = getFleetBuses(targetId);
     const assignedFleet = fleetBuses.filter((b) => b.assignedRoute || b.status === 'Assigned' || b.route);
@@ -1949,14 +1948,14 @@ function getLocalTripsForConfirm(localStatuses, providerId) {
     const assignedNameSet = new Set(assignedFleet.map((b) => cleanName(b.busName)).filter(Boolean));
     const assignedIdSet = new Set(assignedFleet.map((b) => clean(b.vehicleId || b.id)).filter(Boolean));
 
-    const raw = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const raw = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
     const localSchedules = deduplicateSchedules(raw);
     if (localSchedules.length !== raw.length) {
       safeSaveSchedules(localSchedules);
     }
 
-    const cancelledIds = JSON.parse(localStorage.getItem('c2b_cancelled_trip_ids') || '[]');
-    const cancelledList = JSON.parse(localStorage.getItem('c2b_cancelled_schedules') || '[]');
+    const cancelledIds = JSON.parse(memStorage.getItem('c2b_cancelled_trip_ids') || '[]');
+    const cancelledList = JSON.parse(memStorage.getItem('c2b_cancelled_schedules') || '[]');
     const cancelledSet = new Set([...cancelledIds, ...cancelledList.map((c) => c?.tripId).filter(Boolean)]);
 
     const assignedSchedules = localSchedules.filter((s) => {
@@ -2134,7 +2133,7 @@ function getLocalTripsForConfirm(localStatuses, providerId) {
 
 /* ── Confirm Trips / Live Trips ── */
 export async function fetchLiveTrips(providerId) {
-  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
+  const loggedId = memStorage.getItem('c2b_loggedInId') || memStorage.getItem('c2b_loggedInId') || 'P001';
   const targetId = providerId || loggedId;
   const fleetBuses = getFleetBuses(targetId);
   const assignedFleet = fleetBuses.filter((b) => b.assignedRoute || b.status === 'Assigned' || b.route);
@@ -2151,7 +2150,7 @@ export async function fetchLiveTrips(providerId) {
   const assignedNameSet = new Set(assignedFleet.map((b) => cleanName(b.busName)).filter(Boolean));
   const assignedIdSet = new Set(assignedFleet.map((b) => clean(b.vehicleId || b.id)).filter(Boolean));
 
-  const localStatuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+  const localStatuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
   const localTrips = getLocalTripsForConfirm(localStatuses, targetId);
 
   try {
@@ -2221,9 +2220,9 @@ export async function fetchLiveTrips(providerId) {
 }
 
 export async function confirmTrip(tripId) {
-  const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+  const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
   statuses[tripId] = 'CONFIRMED';
-  localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+  memStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
   notifyChange('TRIP_STATUS_UPDATED', { tripId, status: 'CONFIRMED' });
 
   try {
@@ -2236,9 +2235,9 @@ export async function confirmTrip(tripId) {
 }
 
 export async function startTrip(tripId) {
-  const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+  const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
   statuses[tripId] = 'IN_PROGRESS';
-  localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+  memStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
   notifyChange('TRIP_STATUS_UPDATED', { tripId, status: 'IN_PROGRESS' });
 
   try {
@@ -2247,16 +2246,16 @@ export async function startTrip(tripId) {
 }
 
 export async function endTrip(tripId) {
-  const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+  const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
   statuses[tripId] = 'COMPLETED';
-  localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+  memStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
 
-  const completions = JSON.parse(localStorage.getItem('c2b_trip_completions') || '{}');
+  const completions = JSON.parse(memStorage.getItem('c2b_trip_completions') || '{}');
   completions[tripId] = new Date().toISOString();
-  localStorage.setItem('c2b_trip_completions', JSON.stringify(completions));
+  memStorage.setItem('c2b_trip_completions', JSON.stringify(completions));
 
   try {
-    const bookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+    const bookings = JSON.parse(memStorage.getItem('c2b_bookings') || '[]');
     let changed = false;
     bookings.forEach((b) => {
       if (b.tripId === tripId || b.trip_id === tripId) {
@@ -2266,7 +2265,7 @@ export async function endTrip(tripId) {
       }
     });
     if (changed) {
-      localStorage.setItem('c2b_bookings', JSON.stringify(bookings));
+      memStorage.setItem('c2b_bookings', JSON.stringify(bookings));
     }
   } catch (e) {}
 
@@ -2287,7 +2286,7 @@ export async function endTrip(tripId) {
 
 export async function updateLocation(tripId, lat, lng, status, nextStop, providerId) {
   try {
-    const allTracking = JSON.parse(localStorage.getItem('c2b_live_tracking') || '{}');
+    const allTracking = JSON.parse(memStorage.getItem('c2b_live_tracking') || '{}');
     allTracking[tripId] = {
       lat,
       lng,
@@ -2295,7 +2294,7 @@ export async function updateLocation(tripId, lat, lng, status, nextStop, provide
       nextStop: nextStop || '',
       updatedAt: new Date().toISOString(),
     };
-    localStorage.setItem('c2b_live_tracking', JSON.stringify(allTracking));
+    memStorage.setItem('c2b_live_tracking', JSON.stringify(allTracking));
     notifyChange('TRACKING_UPDATED', { tripId, lat, lng, status, nextStop });
   } catch {}
 
@@ -2393,8 +2392,8 @@ export async function fetchRevenue(providerId) {
     };
   } catch {
     // Fallback: compute from localStorage bookings
-    const localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-    const localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const localBookings = JSON.parse(memStorage.getItem('c2b_bookings') || '[]');
+    const localSchedules = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
     return { data: null, localBookings, localSchedules, isLive: false };
   }
 }
@@ -2530,7 +2529,7 @@ export const APPROVED_MAJOR_CITIES = [
 
 export function getApprovedCities() {
   try {
-    const custom = JSON.parse(localStorage.getItem('c2b_approved_cities') || '[]');
+    const custom = JSON.parse(memStorage.getItem('c2b_approved_cities') || '[]');
     const all = Array.from(new Set([...APPROVED_MAJOR_CITIES, ...custom])).sort((a, b) =>
       a.localeCompare(b)
     );
@@ -2557,7 +2556,7 @@ export async function searchOsmLocations(query) {
 
   // 2. Client fallback with session cache to respect Nominatim policy
   const cacheKey = `c2b_osm_${clean.toLowerCase()}`;
-  const cached = sessionStorage.getItem(cacheKey);
+  const cached = memStorage.getItem(cacheKey);
   if (cached) {
     try {
       return JSON.parse(cached);
@@ -2620,7 +2619,7 @@ export async function searchOsmLocations(query) {
         };
       });
 
-      sessionStorage.setItem(cacheKey, JSON.stringify(formatted));
+      memStorage.setItem(cacheKey, JSON.stringify(formatted));
       return formatted;
     }
   } catch {}
@@ -2674,8 +2673,8 @@ export async function submitOsmLocationRequest({
     throw new Error(`A request for "${cleanCity}" (OSM ID: ${osmId}) is already pending admin review.`);
   }
 
-  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
-  const loggedName = localStorage.getItem('c2b_userName') || 'Kiran Travels';
+  const loggedId = memStorage.getItem('c2b_loggedInId') || memStorage.getItem('c2b_loggedInId') || 'P001';
+  const loggedName = memStorage.getItem('c2b_userName') || 'Kiran Travels';
 
   const newReq = {
     requestId: `REQ_${Date.now()}`,
@@ -2699,7 +2698,7 @@ export async function submitOsmLocationRequest({
   };
 
   requests.unshift(newReq);
-  localStorage.setItem('c2b_destination_requests', JSON.stringify(requests));
+  memStorage.setItem('c2b_destination_requests', JSON.stringify(requests));
 
   // Sync to NestJS backend if available
   try {
@@ -2735,7 +2734,7 @@ export async function submitOsmLocationRequest({
 
 export function getDestinationRequests() {
   try {
-    const stored = JSON.parse(localStorage.getItem('c2b_destination_requests') || 'null');
+    const stored = JSON.parse(memStorage.getItem('c2b_destination_requests') || 'null');
     if (!stored || !Array.isArray(stored)) {
       const initial = [
         {
@@ -2751,7 +2750,7 @@ export function getDestinationRequests() {
           submittedAt: new Date(Date.now() - 3600000 * 5).toISOString(),
         },
       ];
-      localStorage.setItem('c2b_destination_requests', JSON.stringify(initial));
+      memStorage.setItem('c2b_destination_requests', JSON.stringify(initial));
       return initial;
     }
     return stored;
@@ -2779,8 +2778,8 @@ export function submitDestinationRequest({ cityName, state, hubType, connectingR
     throw new Error(`A request for "${cleanCity}" is already pending admin review.`);
   }
 
-  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
-  const loggedName = localStorage.getItem('c2b_userName') || 'Kiran Travels';
+  const loggedId = memStorage.getItem('c2b_loggedInId') || memStorage.getItem('c2b_loggedInId') || 'P001';
+  const loggedName = memStorage.getItem('c2b_userName') || 'Kiran Travels';
 
   const newReq = {
     requestId: `REQ_${Date.now()}`,
@@ -2796,7 +2795,7 @@ export function submitDestinationRequest({ cityName, state, hubType, connectingR
   };
 
   requests.unshift(newReq);
-  localStorage.setItem('c2b_destination_requests', JSON.stringify(requests));
+  memStorage.setItem('c2b_destination_requests', JSON.stringify(requests));
   return newReq;
 }
 
@@ -2808,12 +2807,12 @@ export function approveDestinationRequest(requestId) {
   const req = requests[idx];
   req.status = 'APPROVED';
   req.approvedAt = new Date().toISOString();
-  localStorage.setItem('c2b_destination_requests', JSON.stringify(requests));
+  memStorage.setItem('c2b_destination_requests', JSON.stringify(requests));
 
-  const custom = JSON.parse(localStorage.getItem('c2b_approved_cities') || '[]');
+  const custom = JSON.parse(memStorage.getItem('c2b_approved_cities') || '[]');
   if (!custom.some((c) => c.toLowerCase() === req.cityName.toLowerCase())) {
     custom.push(req.cityName);
-    localStorage.setItem('c2b_approved_cities', JSON.stringify(custom));
+    memStorage.setItem('c2b_approved_cities', JSON.stringify(custom));
   }
 
   return req;
@@ -2826,14 +2825,14 @@ export function rejectDestinationRequest(requestId) {
 
   requests[idx].status = 'REJECTED';
   requests[idx].rejectedAt = new Date().toISOString();
-  localStorage.setItem('c2b_destination_requests', JSON.stringify(requests));
+  memStorage.setItem('c2b_destination_requests', JSON.stringify(requests));
   return requests[idx];
 }
 
 /* ── Coupons & Promotional Tokens Module ── */
 export function getProviderCoupons() {
   try {
-    const stored = JSON.parse(localStorage.getItem('c2b_provider_coupons') || 'null');
+    const stored = JSON.parse(memStorage.getItem('c2b_provider_coupons') || 'null');
     if (!stored || !Array.isArray(stored) || stored.length === 0) {
       const now = Date.now();
       const initialCoupons = [
@@ -2910,7 +2909,7 @@ export function getProviderCoupons() {
           ],
         },
       ];
-      localStorage.setItem('c2b_provider_coupons', JSON.stringify(initialCoupons));
+      memStorage.setItem('c2b_provider_coupons', JSON.stringify(initialCoupons));
       syncCouponsToCustomerEnd(initialCoupons);
       return initialCoupons;
     }
@@ -2925,7 +2924,7 @@ function syncCouponsToCustomerEnd(coupons) {
     const activeForCustomers = (coupons || []).filter(
       (c) => c.status === 'ACTIVE' && Number(c.usedCount || 0) < Number(c.maxQuota || 9999)
     );
-    localStorage.setItem('c2b_active_coupons', JSON.stringify(activeForCustomers));
+    memStorage.setItem('c2b_active_coupons', JSON.stringify(activeForCustomers));
   } catch {}
 }
 
@@ -2949,8 +2948,8 @@ export async function createProviderCoupon(payload) {
     throw new Error('Please enter a valid discount value.');
   }
 
-  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
-  const loggedName = localStorage.getItem('c2b_userName') || 'Kiran Travels';
+  const loggedId = memStorage.getItem('c2b_loggedInId') || memStorage.getItem('c2b_loggedInId') || 'P001';
+  const loggedName = memStorage.getItem('c2b_userName') || 'Kiran Travels';
 
   const newCoupon = {
     id: `CPN-${Date.now()}`,
@@ -2976,7 +2975,7 @@ export async function createProviderCoupon(payload) {
   };
 
   coupons.unshift(newCoupon);
-  localStorage.setItem('c2b_provider_coupons', JSON.stringify(coupons));
+  memStorage.setItem('c2b_provider_coupons', JSON.stringify(coupons));
   syncCouponsToCustomerEnd(coupons);
 
   try {
@@ -3010,14 +3009,14 @@ export function toggleCouponStatus(couponId) {
   }
 
   cur.status = cur.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
-  localStorage.setItem('c2b_provider_coupons', JSON.stringify(coupons));
+  memStorage.setItem('c2b_provider_coupons', JSON.stringify(coupons));
   syncCouponsToCustomerEnd(coupons);
   return cur;
 }
 
 export function deleteProviderCoupon(couponId) {
   const coupons = getProviderCoupons().filter((c) => c.id !== couponId);
-  localStorage.setItem('c2b_provider_coupons', JSON.stringify(coupons));
+  memStorage.setItem('c2b_provider_coupons', JSON.stringify(coupons));
   syncCouponsToCustomerEnd(coupons);
   return true;
 }
@@ -3072,7 +3071,7 @@ export function simulateCustomerRedemption(couponId) {
     exhausted = true;
   }
 
-  localStorage.setItem('c2b_provider_coupons', JSON.stringify(coupons));
+  memStorage.setItem('c2b_provider_coupons', JSON.stringify(coupons));
   syncCouponsToCustomerEnd(coupons);
 
   return { coupon, redemption: newRedemption, exhausted };
@@ -3179,12 +3178,12 @@ const DEFAULT_SEED_REVIEWS = [
 export function getBusReviews(providerId, tripId) {
   let reviews = [];
   try {
-    const raw = localStorage.getItem('c2b_bus_reviews');
+    const raw = memStorage.getItem('c2b_bus_reviews');
     if (raw) {
       reviews = JSON.parse(raw);
     } else {
       reviews = [...DEFAULT_SEED_REVIEWS];
-      localStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
+      memStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
     }
   } catch (e) {
     reviews = [...DEFAULT_SEED_REVIEWS];
@@ -3221,7 +3220,7 @@ export function getBusReviews(providerId, tripId) {
           }
         });
         if (changed) {
-          localStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
+          memStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
         }
       }
     } catch {}
@@ -3243,7 +3242,7 @@ export async function submitCustomerReview(payload) {
   const reviews = getBusReviews();
 
   // Look up bus info if not provided
-  const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+  const schedules = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
   const matchedSchedule = schedules.find((s) => (s.id || s.tripId) === payload.tripId);
   const busName = payload.busName || matchedSchedule?.busName || (payload.tripId === 'T001' ? 'Volvo A/C B12' : payload.tripId === 'T002' ? 'Scania AC' : payload.tripId === 'T003' ? 'Volvo A/C B12' : payload.tripId === 'T004' ? 'Sleeper Bus' : 'Express Bus');
   const route = payload.route || (matchedSchedule ? `${matchedSchedule.from} → ${matchedSchedule.to}` : (payload.tripId === 'T001' ? 'SriCity → Chennai' : payload.tripId === 'T002' ? 'Tada → Vizag' : payload.tripId === 'T003' ? 'Tada → Hyderabad' : payload.tripId === 'T004' ? 'Pune → Mumbai' : 'Intercity Route'));
@@ -3274,7 +3273,7 @@ export async function submitCustomerReview(payload) {
   };
 
   reviews.unshift(newReview);
-  localStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
+  memStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
 
   // Sync to NestJS backend if available
   try {
@@ -3317,7 +3316,7 @@ export function replyToReview(reviewId, replyText, providerName = 'Kiran Travels
   reviews[idx].repliedAt = new Date().toISOString();
   reviews[idx].providerName = providerName || 'Kiran Travels';
 
-  localStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
+  memStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
 
   try {
     window.dispatchEvent(new Event('storage'));
@@ -3337,7 +3336,7 @@ export function deleteReviewReply(reviewId) {
   reviews[idx].providerReply = null;
   reviews[idx].repliedAt = null;
 
-  localStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
+  memStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
 
   try {
     window.dispatchEvent(new Event('storage'));
@@ -3427,7 +3426,7 @@ export function getProviderFleetRatingSummary(providerId) {
    ────────────────────────────────────────────────────────── */
 
 export function getActiveCouponsForCustomer(context = {}) {
-  const stored = JSON.parse(localStorage.getItem('c2b_active_coupons') || '[]');
+  const stored = JSON.parse(memStorage.getItem('c2b_active_coupons') || '[]');
   const now = new Date();
 
   return stored
@@ -3517,7 +3516,7 @@ export function redeemCouponAtCustomer(couponCode, bookingContext = {}) {
     exhausted = true;
   }
 
-  localStorage.setItem('c2b_provider_coupons', JSON.stringify(coupons));
+  memStorage.setItem('c2b_provider_coupons', JSON.stringify(coupons));
   syncCouponsToCustomerEnd(coupons);
 
   return {
@@ -4289,7 +4288,7 @@ export async function discoverRouteCorridors(source, destination) {
       return { name: p.name, lat: p.lat, lng: p.lng };
     }
     try {
-      const cached = sessionStorage.getItem(`c2b_osm_${clean}`);
+      const cached = memStorage.getItem(`c2b_osm_${clean}`);
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].latitude) {
@@ -4930,8 +4929,8 @@ export function validateFutureDeparture(journeyDate, departureTime) {
 /* ── Check if Bus is Currently In Trip (Active Trip Check) ── */
 export function isBusInActiveTrip(vehicleNumber) {
   if (!vehicleNumber) return null;
-  const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-  const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+  const schedules = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
+  const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
   const now = new Date();
   const today = now.toISOString().split('T')[0];
   const curHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -5072,7 +5071,7 @@ const DELETED_BUSES_KEY = 'c2b_deleted_buses';
 
 export function getDeletedBuses() {
   try {
-    return JSON.parse(localStorage.getItem(DELETED_BUSES_KEY) || '[]');
+    return JSON.parse(memStorage.getItem(DELETED_BUSES_KEY) || '[]');
   } catch {
     return [];
   }
@@ -5113,7 +5112,7 @@ export function markBusDeleted(bus) {
       vehicleNumber: busPlate || '',
       deletedAt: new Date().toISOString(),
     });
-    localStorage.setItem(DELETED_BUSES_KEY, JSON.stringify(deleted));
+    memStorage.setItem(DELETED_BUSES_KEY, JSON.stringify(deleted));
   }
 }
 
@@ -5127,30 +5126,30 @@ export function unmarkBusDeleted(busIdOrPlate) {
     const dPlate = clean(d.plate || d.vehicleNumber);
     return dId !== target && dPlate !== target;
   });
-  localStorage.setItem(DELETED_BUSES_KEY, JSON.stringify(filtered));
+  memStorage.setItem(DELETED_BUSES_KEY, JSON.stringify(filtered));
 }
 
 /* ── Initialize Fleet Storage ── */
 export function initFleetStorage() {
   const FRESH_KEY = 'c2b_fleet_fresh_v6';
   try {
-    if (!localStorage.getItem(FRESH_KEY)) {
-      localStorage.setItem(FRESH_KEY, 'true');
-      const existingRaw = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+    if (!memStorage.getItem(FRESH_KEY)) {
+      memStorage.setItem(FRESH_KEY, 'true');
+      const existingRaw = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
       const cleanedRaw = existingRaw.filter((b) => !/^V0\d\d$/.test(b.vehicleId || b.id || '') && !/^BUS_10\d\d$/.test(b.vehicleId || b.id || ''));
-      localStorage.setItem('c2b_registered_fleet', JSON.stringify(cleanedRaw));
-      const scheds = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+      memStorage.setItem('c2b_registered_fleet', JSON.stringify(cleanedRaw));
+      const scheds = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
       const cleanScheds = scheds.filter((s) => !/^V0\d\d$/.test(s.vehicleId || '') && !/^T0\d\d$/.test(s.id || s.tripId || ''));
-      localStorage.setItem('c2b_bus_schedules', JSON.stringify(cleanScheds));
+      memStorage.setItem('c2b_bus_schedules', JSON.stringify(cleanScheds));
     }
   } catch {}
 
-  const existing = localStorage.getItem('c2b_registered_fleet');
+  const existing = memStorage.getItem('c2b_registered_fleet');
   const deleted = getDeletedBuses();
   const clean = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 
   if (!existing) {
-    localStorage.setItem('c2b_registered_fleet', JSON.stringify([]));
+    memStorage.setItem('c2b_registered_fleet', JSON.stringify([]));
   } else {
     try {
       const parsed = JSON.parse(existing);
@@ -5202,14 +5201,14 @@ export function initFleetStorage() {
         }
       });
       if (fleetChanged) {
-        localStorage.setItem('c2b_registered_fleet', JSON.stringify(cleaned));
+        memStorage.setItem('c2b_registered_fleet', JSON.stringify(cleaned));
       }
     } catch {}
   }
 
   // Also purge legacy mock schedules, duplicates, and bloated subsegments from c2b_bus_schedules
   try {
-    const rawSched = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const rawSched = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
     const cleanedSched = deduplicateSchedules(rawSched);
     if (cleanedSched.length !== rawSched.length) {
       safeSaveSchedules(cleanedSched);
@@ -5220,13 +5219,13 @@ export function initFleetStorage() {
 /* ── Get Registered Fleet for Provider (Multi-Provider Isolation) ── */
 export function getFleetBuses(providerId) {
   initFleetStorage();
-  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
+  const loggedId = memStorage.getItem('c2b_loggedInId') || memStorage.getItem('c2b_loggedInId') || 'P001';
   const targetId = providerId || loggedId;
   const deleted = getDeletedBuses();
   const clean = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 
   try {
-    const raw = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+    const raw = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
     // Filter by providerId to strictly prevent cross-provider access and exclude legacy mock buses & deleted buses
     return raw.filter((b) => {
       if (/^BUS_10\d\d$/.test(b.vehicleId || b.id || '')) return false;
@@ -5251,8 +5250,8 @@ export function getFleetBuses(providerId) {
 /* Load the provider's backend vehicles and normalize the API response to a list. */
 export async function getBackendFleetBuses(providerId) {
   const targetId = providerId ||
-    sessionStorage.getItem('c2b_loggedInId') ||
-    localStorage.getItem('c2b_loggedInId') ||
+    memStorage.getItem('c2b_loggedInId') ||
+    memStorage.getItem('c2b_loggedInId') ||
     'P001';
   const result = await spFetch(`/vehicles?providerId=${encodeURIComponent(targetId)}`);
   if (Array.isArray(result)) return result;
@@ -5263,8 +5262,8 @@ export async function getBackendFleetBuses(providerId) {
 
 export async function getBackendProviderCoupons(providerId) {
   const targetId = providerId ||
-    sessionStorage.getItem('c2b_loggedInId') ||
-    localStorage.getItem('c2b_loggedInId') ||
+    memStorage.getItem('c2b_loggedInId') ||
+    memStorage.getItem('c2b_loggedInId') ||
     'P001';
   const result = await spFetch('/offers');
   const offers = Array.isArray(result) ? result : result?.offers;
@@ -5299,14 +5298,14 @@ export function getFleetStats(providerId) {
 /* ── Get Bus by ID ── */
 export function getBusById(busId) {
   initFleetStorage();
-  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  const all = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
   return all.find((b) => b.vehicleId === busId || b.id === busId || b.vehicleNumber === busId) || null;
 }
 
 /* ── Register New Bus (Validates Unique Registration Number & Indian Plate Format) ── */
 export async function registerNewBus(busData) {
   initFleetStorage();
-  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
+  const loggedId = memStorage.getItem('c2b_loggedInId') || memStorage.getItem('c2b_loggedInId') || 'P001';
 
   // 1. Validate Registration Number Format strictly against official Indian Vehicle Plate Format
   const plateCheck = validateVehicleNumberPlate(busData.vehicleNumber);
@@ -5324,7 +5323,7 @@ export async function registerNewBus(busData) {
     );
   }
 
-  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  const all = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
 
   // 3. Validate uniqueness across all buses (ignoring spaces / hyphens)
   const duplicate = all.find(
@@ -5367,7 +5366,7 @@ export async function registerNewBus(busData) {
   };
 
   all.unshift(newBus);
-  localStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
+  memStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
 
   // Sync to backend if online
   try {
@@ -5396,7 +5395,7 @@ export async function registerNewBus(busData) {
 /* ── Save / Update Dynamic Seat Layout Configuration ── */
 export async function saveBusSeatLayout(busId, layoutConfig) {
   initFleetStorage();
-  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  const all = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
   const idx = all.findIndex((b) => b.vehicleId === busId || b.id === busId);
 
   if (idx === -1) {
@@ -5422,7 +5421,7 @@ export async function saveBusSeatLayout(busId, layoutConfig) {
   all[idx].totalSeats = layoutConfig.totalSeats;
   all[idx].updatedAt = new Date().toISOString();
 
-  localStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
+  memStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
 
   // Sync to backend if online
   try {
@@ -5442,8 +5441,8 @@ export async function saveBusSeatLayout(busId, layoutConfig) {
 export function checkBusActiveBookings(vehicleNumber) {
   try {
     const today = new Date().toISOString().split('T')[0];
-    const bookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-    const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const bookings = JSON.parse(memStorage.getItem('c2b_bookings') || '[]');
+    const schedules = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
 
     // Find schedules matching this bus
     const matchingTripIds = new Set(
@@ -5466,7 +5465,7 @@ export function checkBusActiveBookings(vehicleNumber) {
 /* ── Assign Bus to Permanent Route Corridor (Module 3) ── */
 export async function assignBusToRoute(busId, routeData) {
   initFleetStorage();
-  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  const all = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
   const cleanId = (value) => String(value || '').trim().toUpperCase();
   let idx = all.findIndex((b) =>
     [b.vehicleId, b.id, b.backendVehicleId, b.vehicleNumber, b.regNo]
@@ -5606,18 +5605,18 @@ export async function assignBusToRoute(busId, routeData) {
     }),
   });
 
-  localStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
+  memStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
 
   // Clean any prior cancellation locks for this bus so new assignment schedules generate freely
   try {
     const cleanCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     const bPlate = cleanCode(bus.vehicleNumber);
     const bId = cleanCode(bus.vehicleId);
-    const cancelledIds = JSON.parse(localStorage.getItem('c2b_cancelled_trip_ids') || '[]');
+    const cancelledIds = JSON.parse(memStorage.getItem('c2b_cancelled_trip_ids') || '[]');
     const unblockedCancelled = cancelledIds.filter((cid) => !(bPlate && cid.includes(bPlate)) && !(bId && cid.includes(bId)));
-    localStorage.setItem('c2b_cancelled_trip_ids', JSON.stringify(unblockedCancelled));
+    memStorage.setItem('c2b_cancelled_trip_ids', JSON.stringify(unblockedCancelled));
 
-    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
     let stChanged = false;
     Object.keys(statuses).forEach((tid) => {
       if ((bPlate && tid.includes(bPlate)) || (bId && tid.includes(bId))) {
@@ -5627,7 +5626,7 @@ export async function assignBusToRoute(busId, routeData) {
         }
       }
     });
-    if (stChanged) localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+    if (stChanged) memStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
   } catch {}
 
   // Generate actual bookable recurring schedule instances into c2b_bus_schedules
@@ -5641,7 +5640,7 @@ export async function assignBusToRoute(busId, routeData) {
 /* ── Change Route Assignment with Booking Conflict Check (Module 6) ── */
 export async function changeBusRoute(busId, newRouteData, confirmationOptions = {}) {
   initFleetStorage();
-  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  const all = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
   const idx = all.findIndex((b) => b.vehicleId === busId || b.id === busId);
 
   if (idx === -1) {
@@ -5674,7 +5673,7 @@ export async function changeBusRoute(busId, newRouteData, confirmationOptions = 
 /* ── Save Round-Trip Schedules: UP and DOWN (Module 4 & 5) ── */
 export async function saveRoundTripSchedules(busId, scheduleConfig) {
   initFleetStorage();
-  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  const all = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
   const idx = all.findIndex((b) => b.vehicleId === busId || b.id === busId);
 
   if (idx === -1) {
@@ -5753,18 +5752,18 @@ export async function saveRoundTripSchedules(busId, scheduleConfig) {
   bus.roundTripSchedule = roundTripData;
   bus.updatedAt = new Date().toISOString();
 
-  localStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
+  memStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
 
   // Clean any prior cancellation locks for this bus so new schedules generate freely
   try {
     const cleanCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     const bPlate = cleanCode(bus.vehicleNumber);
     const bId = cleanCode(bus.vehicleId);
-    const cancelledIds = JSON.parse(localStorage.getItem('c2b_cancelled_trip_ids') || '[]');
+    const cancelledIds = JSON.parse(memStorage.getItem('c2b_cancelled_trip_ids') || '[]');
     const unblockedCancelled = cancelledIds.filter((cid) => !(bPlate && cid.includes(bPlate)) && !(bId && cid.includes(bId)));
-    localStorage.setItem('c2b_cancelled_trip_ids', JSON.stringify(unblockedCancelled));
+    memStorage.setItem('c2b_cancelled_trip_ids', JSON.stringify(unblockedCancelled));
 
-    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
     let stChanged = false;
     Object.keys(statuses).forEach((tid) => {
       if ((bPlate && tid.includes(bPlate)) || (bId && tid.includes(bId))) {
@@ -5774,7 +5773,7 @@ export async function saveRoundTripSchedules(busId, scheduleConfig) {
         }
       }
     });
-    if (stChanged) localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+    if (stChanged) memStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
   } catch {}
 
   // Generate actual bookable recurring schedule instances into c2b_bus_schedules (Module 5)
@@ -5786,9 +5785,9 @@ export async function saveRoundTripSchedules(busId, scheduleConfig) {
 
 /* ── Generate Journey Instances for Operating Dates (Module 5) ── */
 function generateRecurringJourneyInstances(bus, roundTripData, dispatchEvents = true) {
-  const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
-  const cancelledList = JSON.parse(localStorage.getItem('c2b_cancelled_schedules') || '[]');
-  const cancelledIds = JSON.parse(localStorage.getItem('c2b_cancelled_trip_ids') || '[]');
+  const schedules = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
+  const cancelledList = JSON.parse(memStorage.getItem('c2b_cancelled_schedules') || '[]');
+  const cancelledIds = JSON.parse(memStorage.getItem('c2b_cancelled_trip_ids') || '[]');
   const cancelledIdSet = new Set([...cancelledIds, ...cancelledList.map((c) => c.tripId)]);
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
@@ -5828,7 +5827,7 @@ function generateRecurringJourneyInstances(bus, roundTripData, dispatchEvents = 
     : 30;
 
   const routeDurMins = parseDurationToMinutes(bus.assignedRoute?.durationEst);
-  const existingStatuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+  const existingStatuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
 
   const seenSlotsInRun = new Set();
 
@@ -5970,7 +5969,7 @@ function generateRecurringJourneyInstances(bus, roundTripData, dispatchEvents = 
     }
   }
 
-  try { localStorage.setItem('c2b_trip_statuses', JSON.stringify(existingStatuses)); } catch {}
+  try { memStorage.setItem('c2b_trip_statuses', JSON.stringify(existingStatuses)); } catch {}
   const dedupedFinal = deduplicateSchedules(cleanSchedules);
   safeSaveSchedules(dedupedFinal);
   if (dispatchEvents) {
@@ -5982,7 +5981,7 @@ function generateRecurringJourneyInstances(bus, roundTripData, dispatchEvents = 
 /* ── Update Bus Operating Status (Available, Maintenance, Inactive) ── */
 export async function updateBusStatus(busId, newStatus) {
   initFleetStorage();
-  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  const all = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
   const idx = all.findIndex((b) => b.vehicleId === busId || b.id === busId);
 
   if (idx === -1) {
@@ -5992,7 +5991,7 @@ export async function updateBusStatus(busId, newStatus) {
   all[idx].status = newStatus;
   all[idx].updatedAt = new Date().toISOString();
 
-  localStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
+  memStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
 
   // Sync to backend
   try {
@@ -6011,7 +6010,7 @@ export async function updateBusStatus(busId, newStatus) {
 /* ── Delete Registered Bus (Safe Deletion Check & Permanent Persistence Across Refreshes) ── */
 export async function deleteBus(busId) {
   initFleetStorage();
-  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  const all = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
   const normalize = (value) => String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
   const idx = all.findIndex((b) =>
     [b.vehicleId, b.backendVehicleId, b.id, b.vehicleNumber, b.regNo]
@@ -6039,7 +6038,7 @@ export async function deleteBus(busId) {
 
   if (idx !== -1) {
     all.splice(idx, 1);
-    localStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
+    memStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
   }
 
   const clean = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -6050,7 +6049,7 @@ export async function deleteBus(busId) {
 
   // Cascade Delete: Remove ALL schedules belonging to this bus from c2b_bus_schedules
   try {
-    const rawSched = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const rawSched = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
     const cleanedSched = rawSched.filter((s) => {
       const sPlate = clean(s.vehicleNumber);
       const sId = clean(s.vehicleId);
@@ -6064,24 +6063,24 @@ export async function deleteBus(busId) {
         (bId && sTripId.includes(bId));
       return !matches;
     });
-    localStorage.setItem('c2b_bus_schedules', JSON.stringify(cleanedSched));
+    memStorage.setItem('c2b_bus_schedules', JSON.stringify(cleanedSched));
   } catch {}
 
   // Cascade Delete: Remove ALL cancelled schedules belonging to this bus
   try {
-    const cancelled = JSON.parse(localStorage.getItem('c2b_cancelled_schedules') || '[]');
+    const cancelled = JSON.parse(memStorage.getItem('c2b_cancelled_schedules') || '[]');
     const cleanedCancelled = cancelled.filter((c) => {
       const cTripId = String(c.tripId || '');
       const cName = cleanName(c.busName);
       const matches = (bPlate && cTripId.includes(bPlate)) || (bId && cTripId.includes(bId)) || (bName && cName === bName);
       return !matches;
     });
-    localStorage.setItem('c2b_cancelled_schedules', JSON.stringify(cleanedCancelled));
+    memStorage.setItem('c2b_cancelled_schedules', JSON.stringify(cleanedCancelled));
   } catch {}
 
   // Cascade Delete: Clean up c2b_trip_statuses for trips of this bus
   try {
-    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
     let statusChanged = false;
     Object.keys(statuses).forEach((tid) => {
       if ((bPlate && tid.includes(bPlate)) || (bId && tid.includes(bId))) {
@@ -6089,12 +6088,12 @@ export async function deleteBus(busId) {
         statusChanged = true;
       }
     });
-    if (statusChanged) localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+    if (statusChanged) memStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
   } catch {}
 
   // Cascade Delete: Clean up completions
   try {
-    const completions = JSON.parse(localStorage.getItem('c2b_trip_completions') || '{}');
+    const completions = JSON.parse(memStorage.getItem('c2b_trip_completions') || '{}');
     let compChanged = false;
     Object.keys(completions).forEach((tid) => {
       if ((bPlate && tid.includes(bPlate)) || (bId && tid.includes(bId))) {
@@ -6102,7 +6101,7 @@ export async function deleteBus(busId) {
         compChanged = true;
       }
     });
-    if (compChanged) localStorage.setItem('c2b_trip_completions', JSON.stringify(completions));
+    if (compChanged) memStorage.setItem('c2b_trip_completions', JSON.stringify(completions));
   } catch {}
 
   notifyChange('BUS_DELETED', { busId, vehicleNumber: bus?.vehicleNumber });
@@ -6113,18 +6112,18 @@ export async function deleteBus(busId) {
 /* ── Clear All Fleet Buses (Reset Fleet to Start Completely Fresh) ── */
 export async function clearAllBuses(providerId) {
   initFleetStorage();
-  const loggedId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'P001';
+  const loggedId = memStorage.getItem('c2b_loggedInId') || memStorage.getItem('c2b_loggedInId') || 'P001';
   const targetId = providerId || loggedId;
-  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  const all = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
 
   all.forEach((b) => {
     markBusDeleted(b);
   });
 
-  localStorage.setItem('c2b_registered_fleet', JSON.stringify([]));
-  localStorage.setItem('c2b_bus_schedules', JSON.stringify([]));
-  localStorage.setItem('c2b_cancelled_schedules', JSON.stringify([]));
-  localStorage.setItem('c2b_trip_statuses', JSON.stringify({}));
+  memStorage.setItem('c2b_registered_fleet', JSON.stringify([]));
+  memStorage.setItem('c2b_bus_schedules', JSON.stringify([]));
+  memStorage.setItem('c2b_cancelled_schedules', JSON.stringify([]));
+  memStorage.setItem('c2b_trip_statuses', JSON.stringify({}));
 
   try {
     await spFetch(`/vehicles?providerId=${encodeURIComponent(targetId)}`, {
@@ -6143,7 +6142,7 @@ export async function clearAllBuses(providerId) {
 /* ── Unassign Bus Route (Removes Corridor Binding and Slices All Schedules) ── */
 export async function unassignBusRoute(busId) {
   initFleetStorage();
-  const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+  const all = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
   const idx = all.findIndex((b) => b.vehicleId === busId || b.id === busId);
   if (idx === -1) {
     throw new Error(`Bus ${busId} not found.`);
@@ -6168,11 +6167,11 @@ export async function unassignBusRoute(busId) {
   bus.assignedRoute = null;
   bus.roundTripSchedule = null;
   bus.updatedAt = new Date().toISOString();
-  localStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
+  memStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
 
   // Purge schedules from c2b_bus_schedules
   try {
-    const rawSched = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+    const rawSched = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
     const cleanedSched = rawSched.filter((s) => {
       const sPlate = clean(s.vehicleNumber);
       const sId = clean(s.vehicleId);
@@ -6186,7 +6185,7 @@ export async function unassignBusRoute(busId) {
         (bId && sTripId.includes(bId));
       return !matches;
     });
-    localStorage.setItem('c2b_bus_schedules', JSON.stringify(cleanedSched));
+    memStorage.setItem('c2b_bus_schedules', JSON.stringify(cleanedSched));
   } catch {}
 
   // Sync to backend if supported

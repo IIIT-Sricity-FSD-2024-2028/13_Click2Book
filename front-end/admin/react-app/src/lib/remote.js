@@ -14,6 +14,12 @@
  * the backend DTO accepts (the API rejects unknown properties).
  */
 import { apiFetch } from './api.js';
+import { replaceTableRecords } from '../store/slices/tablesSlice';
+
+let _storeRef = null;
+export function injectAdminRemoteStore(store) {
+  _storeRef = store;
+}
 
 const toSnake = (key) => key.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
 
@@ -145,10 +151,8 @@ export const remoteCapabilities = (dbKey) => {
 };
 
 function replaceTable(dbKey, rows) {
-  try {
-    localStorage.setItem('c2b_' + dbKey, JSON.stringify(rows.map(rowToLocal)));
-  } catch (e) {
-    console.warn(`[DB] Failed to cache "${dbKey}":`, e);
+  if (_storeRef) {
+    _storeRef.dispatch(replaceTableRecords({ tableKey: dbKey, rows: rows.map(rowToLocal) }));
   }
 }
 

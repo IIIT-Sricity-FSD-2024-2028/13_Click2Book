@@ -1,15 +1,27 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Link, Navigate } from 'react-router-dom';
 import usePageTitle from '../hooks/usePageTitle';
-import { revenueRequest, useRevenueDemo } from './revenueMock';
+import { useRevenueDemo } from './revenueMock';
 import CanvasChart from './CanvasChart';
 import { downloadCsv, lastDays, lastMonths } from './revenueUtils';
 import PricingRulesCard from './PricingRulesCard';
 import RefundsCard from './RefundsCard';
+import {
+  fetchLedgerThunk,
+  fetchPaymentsThunk,
+  fetchSupportTicketsThunk,
+  initRevenueDashboardThunk,
+  refreshRevenueDashboardThunk,
+  resolveSupportTicketThunk,
+  saveRevenueConfigThunk,
+  setLedgerFilter,
+  setPaymentFilter,
+  setTicketFilter,
+  setTrendMode,
+  transferPayoutThunk,
+} from '../store/actions';
 import './Revenue.css';
-
-/** The revenue endpoints are ADMIN-role routes on the backend (demo data when it is offline). */
-const adminFetch = (path, opts) => revenueRequest(path, { role: 'ADMIN', ...opts });
 
 /** Backend money values are paise. */
 const rupees = (paise) => (paise / 100).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
@@ -31,8 +43,6 @@ function revenueSeries(periods, payments, keyOf) {
   return periods.map((p) => rows[p.key]);
 }
 
-const EMPTY_CONFIG = { commissionPct: '', convenienceFee: '', gatewayFeePct: '' };
-
 /** "lost_and_found" → "Lost and found" */
 const humanize = (v) =>
   v
@@ -47,138 +57,71 @@ function StatusBadge({ status, ticket }) {
 }
 
 /**
- * Super Admin revenue page: gross revenue, the revenue-split config, checkout
- * fees and refund rules, operator payouts, the transaction ledger, payments,
- * refunds and support costs. Money lives only here — the Admin console does not show it.
+ * Super Admin revenue page backed by Redux Toolkit store.
  */
 export default function Revenue() {
   usePageTitle('Revenue – Click2Book Super Admin');
-  if (sessionStorage.getItem('superUserAuth') !== 'true') return <Navigate to="/super-admin/login" replace />;
+  const isAuthenticated = useSelector((state) => state.auth.superUserAuth);
+  if (!isAuthenticated) return <Navigate to="/super-admin/login" replace />;
   return <RevenueDashboard />;
 }
 
 function RevenueDashboard() {
-  const [connected, setConnected] = useState(null); // null = connecting
+  const dispatch = useDispatch();
   const demo = useRevenueDemo();
-  const [config, setConfig] = useState(EMPTY_CONFIG);
-  const [warning, setWarning] = useState('');
-  const [stats, setStats] = useState(null);
-  const [ledgerFilter, setLedgerFilter] = useState('');
-  const [ledger, setLedger] = useState(null);
-  const [ticketFilter, setTicketFilter] = useState('');
-  const [tickets, setTickets] = useState(null);
-  const [payments, setPayments] = useState(null);
-  const [paymentFilter, setPaymentFilter] = useState('');
-  const [payouts, setPayouts] = useState(null);
-  const [transfers, setTransfers] = useState([]);
-  const [transferring, setTransferring] = useState('');
-  const [trendMode, setTrendMode] = useState('daily');
+  const {
+    connected,
+    config: storeConfig,
+    warning,
+    stats,
+    ledger,
+    tickets,
+    payments,
+    payouts,
+    transfers,
+    transferring,
+  } = useSelector((state) => state.revenue);
+  const { ledgerFilter, ticketFilter, paymentFilter, trendMode } = useSelector((state) => state.ui);
 
-  const loadSummaryStats = useCallback(async () => {
-    setStats({ summary: await adminFetch('/admin/ledger/summary') });
-  }, []);
-
-  const renderLedger = useCallback(
-    async (status) => setLedger(await adminFetch('/admin/ledger' + (status ? `?status=${status}` : ''))),
-    [],
-  );
-  // Only payments for bookings made through the live booking flow count. Every new booking gets a
-  // ledger row; the seeded demo payments (PAY001–PAY003) have none, so they are left out.
-  const loadPayouts = useCallback(async () => {
-    setPayouts(await adminFetch('/admin/payouts/summary'));
-    setTransfers(await adminFetch('/admin/payouts/transfers').catch(() => []));
-  }, []);
-
-  const loadPayments = useCallback(async () => {
-    const [all, ledgerRows] = await Promise.all([adminFetch('/payments'), adminFetch('/admin/ledger')]);
-    const ledgered = new Set(ledgerRows.map((r) => r.bookingId));
-    setPayments(all.filter((p) => ledgered.has(p.bookingId)));
-  }, []);
-  const renderTickets = useCallback(
-    async (status) => setTickets(await adminFetch('/support-ticket' + (status ? `?status=${status}` : ''))),
-    [],
-  );
+  const [config, setConfig] = useState(storeConfig);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const cfg = await adminFetch('/admin/revenue-config');
-        setConfig({
-          commissionPct: cfg.commissionPct,
-          convenienceFee: (cfg.convenienceFeeFlat / 100).toFixed(2),
-          gatewayFeePct: cfg.gatewayFeePct,
-        });
-        await loadSummaryStats();
-        await renderLedger('');
-        await renderTickets('');
-        await loadPayments();
-        await loadPayouts();
-        setConnected(true);
-      } catch (err) {
-        setConnected(false);
-        console.error(err);
-      }
-    })();
-  }, [loadSummaryStats, renderLedger, renderTickets, loadPayments, loadPayouts]);
+    setConfig(storeConfig);
+  }, [storeConfig]);
+
+  useEffect(() => {
+    dispatch(initRevenueDashboardThunk());
+  }, [dispatch]);
 
   // Pick up new customer bookings and payments without a manual reload.
   useEffect(() => {
     if (!connected || demo) return undefined;
-    const refresh = () =>
-      Promise.all([
-        loadSummaryStats(),
-        loadPayments(),
-        renderLedger(ledgerFilter),
-        loadPayouts(),
-      ]).catch((err) => console.error(err));
-    const timer = setInterval(refresh, 5000);
+    const timer = setInterval(() => {
+      dispatch(refreshRevenueDashboardThunk(ledgerFilter));
+    }, 5000);
     return () => clearInterval(timer);
-  }, [connected, demo, ledgerFilter, loadSummaryStats, loadPayments, renderLedger, loadPayouts]);
+  }, [connected, demo, ledgerFilter, dispatch]);
 
   const saveConfig = async (e) => {
     e.preventDefault();
-    setWarning('');
-    try {
-      // Support tickets are free: no ticket type draws any cost. Cancellations are charged only by the refund rules.
-      const supportCostWeights = { cancellation: 0, complaint: 0, sos: 0, lost_and_found: 0, dispute: 0 };
-      const json = await adminFetch('/admin/revenue-config', {
-        method: 'POST',
-        raw: true,
-        body: {
-          commissionPct: parseFloat(config.commissionPct),
-          convenienceFeeFlat: Math.round(parseFloat(config.convenienceFee) * 100),
-          gatewayFeePct: parseFloat(config.gatewayFeePct),
-          supportCostWeights,
-        },
-      });
-      if (!json.success) throw new Error(json.message || 'Save failed');
-      if (json.warning) setWarning('⚠ ' + json.warning);
-      loadSummaryStats();
-    } catch (err) {
-      alert('Failed to save config: ' + err.message);
+    const res = await dispatch(saveRevenueConfigThunk(config));
+    if (!res?.success) {
+      alert('Failed to save config: ' + res?.error);
     }
   };
 
   const transferTo = async (p) => {
     if (!window.confirm(`Transfer ${rupees(p.total)} to ${p.label} for ${p.count} booking(s)?`)) return;
-    setTransferring(p.id);
-    try {
-      await adminFetch(`/admin/payouts/${p.id}/transfer`, { method: 'POST' });
-      await Promise.all([loadPayouts(), renderLedger(ledgerFilter)]);
-    } catch (err) {
-      alert('Transfer failed: ' + err.message);
-    } finally {
-      setTransferring('');
+    const res = await dispatch(transferPayoutThunk(p.id, ledgerFilter));
+    if (!res?.success) {
+      alert('Transfer failed: ' + res?.error);
     }
   };
 
   const resolveTicket = async (ticketId) => {
-    try {
-      await adminFetch(`/support-ticket/${ticketId}/resolve`, { method: 'PATCH' });
-      await renderTickets(ticketFilter);
-      await loadSummaryStats();
-    } catch (err) {
-      alert('Failed to resolve ticket: ' + err.message);
+    const res = await dispatch(resolveSupportTicketThunk(ticketId, ticketFilter));
+    if (!res?.success) {
+      alert('Failed to resolve ticket: ' + res?.error);
     }
   };
 
@@ -244,10 +187,10 @@ function RevenueDashboard() {
           <div className="card-sub">Successful payments after discounts, by payment date.</div>
           <div className="filter-bar">
             <div className="seg">
-              <button className={trendMode === 'daily' ? 'on' : ''} id="dailyBtn" onClick={() => setTrendMode('daily')}>
+              <button className={trendMode === 'daily' ? 'on' : ''} id="dailyBtn" onClick={() => dispatch(setTrendMode('daily'))}>
                 Daily (14 days)
               </button>
-              <button className={trendMode === 'monthly' ? 'on' : ''} id="monthlyBtn" onClick={() => setTrendMode('monthly')}>
+              <button className={trendMode === 'monthly' ? 'on' : ''} id="monthlyBtn" onClick={() => dispatch(setTrendMode('monthly'))}>
                 Monthly (12 months)
               </button>
             </div>{' '}
@@ -451,8 +394,8 @@ function RevenueDashboard() {
               id="ledgerStatusFilter"
               value={ledgerFilter}
               onChange={(e) => {
-                setLedgerFilter(e.target.value);
-                renderLedger(e.target.value);
+                dispatch(setLedgerFilter(e.target.value));
+                dispatch(fetchLedgerThunk(e.target.value));
               }}
             >
               <option value="">All statuses</option>
@@ -460,7 +403,7 @@ function RevenueDashboard() {
               <option value="cancelled">Cancelled</option>
               <option value="disputed">Disputed</option>
             </select>{' '}
-            <button className="btn btn-ghost btn-sm" id="refreshLedgerBtn" onClick={() => renderLedger(ledgerFilter)}>
+            <button className="btn btn-ghost btn-sm" id="refreshLedgerBtn" onClick={() => dispatch(fetchLedgerThunk(ledgerFilter))}>
               Refresh
             </button>
           </div>
@@ -509,7 +452,7 @@ function RevenueDashboard() {
           <div className="card-title">Payments</div>
           <div className="card-sub">Every customer payment. Gross revenue counts successful payments after discounts.</div>
           <div className="filter-bar">
-            <select id="paymentStatusFilter" value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)}>
+            <select id="paymentStatusFilter" value={paymentFilter} onChange={(e) => dispatch(setPaymentFilter(e.target.value))}>
               <option value="">All statuses</option>
               <option value="SUCCESS">Success</option>
               <option value="PENDING">Pending</option>
@@ -564,7 +507,7 @@ function RevenueDashboard() {
           </div>
         </div>
 
-        <RefundsCard onChange={loadPayments} />
+        <RefundsCard onChange={() => dispatch(fetchPaymentsThunk())} />
 
         <div className="card">
           <div className="card-title">Support Tickets</div>
@@ -576,15 +519,15 @@ function RevenueDashboard() {
               id="ticketStatusFilter"
               value={ticketFilter}
               onChange={(e) => {
-                setTicketFilter(e.target.value);
-                renderTickets(e.target.value);
+                dispatch(setTicketFilter(e.target.value));
+                dispatch(fetchSupportTicketsThunk(e.target.value));
               }}
             >
               <option value="">All statuses</option>
               <option value="open">Open</option>
               <option value="resolved">Resolved</option>
             </select>{' '}
-            <button className="btn btn-ghost btn-sm" id="refreshTicketsBtn" onClick={() => renderTickets(ticketFilter)}>
+            <button className="btn btn-ghost btn-sm" id="refreshTicketsBtn" onClick={() => dispatch(fetchSupportTicketsThunk(ticketFilter))}>
               Refresh
             </button>
           </div>

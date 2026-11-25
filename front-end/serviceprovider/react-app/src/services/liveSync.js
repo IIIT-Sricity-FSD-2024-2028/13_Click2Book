@@ -4,6 +4,8 @@
  * Enables instant multi-actor data flow across Service Provider, Customer, Admin & Super Admin.
  */
 
+import { memStorage } from '../store/memoryBridge';
+
 const getApiBase = () => {
   if (typeof window === 'undefined') return 'http://localhost:3000/api';
   const h = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -78,14 +80,14 @@ class LiveSyncClient {
     // 1. Synchronize local storage based on event type
     try {
       if (type === 'BOOKING_CREATED') {
-        const bookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+        const bookings = JSON.parse(memStorage.getItem('c2b_bookings') || '[]');
         const exists = bookings.some((b) => b.bookingId === payload.bookingId);
         if (!exists) {
           bookings.unshift(payload);
-          localStorage.setItem('c2b_bookings', JSON.stringify(bookings));
+          memStorage.setItem('c2b_bookings', JSON.stringify(bookings));
 
           // Also update booked seats count and revenue on schedule
-          const schedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+          const schedules = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
           const tid = payload.tripId || payload.scheduleId;
           const s = schedules.find((item) => (item.id || item.tripId) === tid);
           if (s) {
@@ -93,11 +95,11 @@ class LiveSyncClient {
             s.bookedSeats = (s.bookedSeats || 0) + seatCount;
             s.availableSeats = Math.max(0, (s.totalSeats || 40) - s.bookedSeats);
             s.revenue = (s.revenue || 0) + (Number(payload.total) || Number(payload.amount) || (s.fare * seatCount));
-            localStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
+            memStorage.setItem('c2b_bus_schedules', JSON.stringify(schedules));
           }
         }
       } else if (type === 'SCHEDULE_UPDATED') {
-        const localScheds = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+        const localScheds = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
         const tid = payload.id || payload.tripId;
         const idx = localScheds.findIndex((s) => (s.id || s.tripId) === tid);
         if (idx >= 0) {
@@ -105,25 +107,25 @@ class LiveSyncClient {
         } else {
           localScheds.unshift(payload);
         }
-        localStorage.setItem('c2b_bus_schedules', JSON.stringify(localScheds));
+        memStorage.setItem('c2b_bus_schedules', JSON.stringify(localScheds));
       } else if (type === 'TRIP_STATUS_UPDATED') {
-        const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+        const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
         if (payload.tripId && payload.status) {
           statuses[payload.tripId] = payload.status;
-          localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+          memStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
         }
       } else if (type === 'BUS_REGISTERED' || type === 'FLEET_ASSIGNED' || type === 'VEHICLE_CREATED') {
         const bus = payload.bus || payload;
         if (bus && (bus.vehicleNumber || bus.vehicleId)) {
-          const fleet = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+          const fleet = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
           const clean = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
           const bNum = clean(bus.vehicleNumber || bus.regNo);
           const bId = clean(bus.vehicleId || bus.id);
 
           // If it was previously marked deleted, unmark it
-          const deleted = JSON.parse(localStorage.getItem('c2b_deleted_buses') || '[]');
+          const deleted = JSON.parse(memStorage.getItem('c2b_deleted_buses') || '[]');
           const filteredDel = deleted.filter(d => clean(d.id || d.vehicleId) !== bId && clean(d.plate || d.vehicleNumber) !== bNum);
-          localStorage.setItem('c2b_deleted_buses', JSON.stringify(filteredDel));
+          memStorage.setItem('c2b_deleted_buses', JSON.stringify(filteredDel));
 
           const idx = fleet.findIndex(
             (b) =>
@@ -135,7 +137,7 @@ class LiveSyncClient {
           } else {
             fleet.unshift(bus);
           }
-          localStorage.setItem('c2b_registered_fleet', JSON.stringify(fleet));
+          memStorage.setItem('c2b_registered_fleet', JSON.stringify(fleet));
         }
       } else if (type === 'BUS_DELETED') {
         const busId = payload.busId || payload.id;
@@ -144,30 +146,30 @@ class LiveSyncClient {
         const idNorm = clean(busId);
         const plateNorm = clean(vNum);
 
-        const deleted = JSON.parse(localStorage.getItem('c2b_deleted_buses') || '[]');
+        const deleted = JSON.parse(memStorage.getItem('c2b_deleted_buses') || '[]');
         if (!deleted.some(d => (idNorm && clean(d.id || d.vehicleId) === idNorm) || (plateNorm && clean(d.plate || d.vehicleNumber) === plateNorm))) {
           deleted.push({ id: busId, vehicleId: busId, plate: vNum, vehicleNumber: vNum, deletedAt: new Date().toISOString() });
-          localStorage.setItem('c2b_deleted_buses', JSON.stringify(deleted));
+          memStorage.setItem('c2b_deleted_buses', JSON.stringify(deleted));
         }
 
-        const fleet = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+        const fleet = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
         const updated = fleet.filter(b => {
           const bId = clean(b.vehicleId || b.id);
           const bPlate = clean(b.vehicleNumber);
           return !(idNorm && bId === idNorm) && !(plateNorm && bPlate === plateNorm);
         });
-        localStorage.setItem('c2b_registered_fleet', JSON.stringify(updated));
+        memStorage.setItem('c2b_registered_fleet', JSON.stringify(updated));
 
-        const scheds = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+        const scheds = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
         const updatedScheds = scheds.filter(s => {
           const sPlate = clean(s.vehicleNumber);
           const sId = clean(s.vehicleId);
           return !(idNorm && sId === idNorm) && !(plateNorm && sPlate === plateNorm);
         });
-        localStorage.setItem('c2b_bus_schedules', JSON.stringify(updatedScheds));
+        memStorage.setItem('c2b_bus_schedules', JSON.stringify(updatedScheds));
       } else if (type === 'BUSES_CLEARED') {
-        localStorage.setItem('c2b_registered_fleet', JSON.stringify([]));
-        localStorage.setItem('c2b_bus_schedules', JSON.stringify([]));
+        memStorage.setItem('c2b_registered_fleet', JSON.stringify([]));
+        memStorage.setItem('c2b_bus_schedules', JSON.stringify([]));
       }
     } catch (e) {
       console.warn('[LiveSync] Error updating local cache:', e);
@@ -257,7 +259,7 @@ class LiveSyncClient {
       if (json.success && json.data) {
         const { customSchedules, tripStatuses, bookings } = json.data;
         if (customSchedules && Array.isArray(customSchedules) && customSchedules.length > 0) {
-          const current = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
+          const current = JSON.parse(memStorage.getItem('c2b_bus_schedules') || '[]');
           const currentIds = new Set(current.map((s) => s.id || s.tripId));
           let updated = false;
           customSchedules.forEach((cs) => {
@@ -268,18 +270,18 @@ class LiveSyncClient {
             }
           });
           if (updated) {
-            localStorage.setItem('c2b_bus_schedules', JSON.stringify(current));
+            memStorage.setItem('c2b_bus_schedules', JSON.stringify(current));
             window.dispatchEvent(new Event('storage'));
           }
         }
         if (tripStatuses && Object.keys(tripStatuses).length > 0) {
-          const localStatuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+          const localStatuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
           Object.assign(localStatuses, tripStatuses);
-          localStorage.setItem('c2b_trip_statuses', JSON.stringify(localStatuses));
+          memStorage.setItem('c2b_trip_statuses', JSON.stringify(localStatuses));
           window.dispatchEvent(new Event('storage'));
         }
         if (bookings && Array.isArray(bookings) && bookings.length > 0) {
-          const currentBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+          const currentBookings = JSON.parse(memStorage.getItem('c2b_bookings') || '[]');
           const existingIds = new Set(currentBookings.map((b) => b.bookingId));
           let updatedBookings = false;
           bookings.forEach((b) => {
@@ -289,14 +291,14 @@ class LiveSyncClient {
             }
           });
           if (updatedBookings) {
-            localStorage.setItem('c2b_bookings', JSON.stringify(currentBookings));
+            memStorage.setItem('c2b_bookings', JSON.stringify(currentBookings));
             window.dispatchEvent(new Event('storage'));
           }
         }
         const { vehicles } = json.data;
         if (vehicles && Array.isArray(vehicles) && vehicles.length > 0) {
-          const currentFleet = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
-          const deletedBuses = JSON.parse(localStorage.getItem('c2b_deleted_buses') || '[]');
+          const currentFleet = JSON.parse(memStorage.getItem('c2b_registered_fleet') || '[]');
+          const deletedBuses = JSON.parse(memStorage.getItem('c2b_deleted_buses') || '[]');
           const clean = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 
           let updatedFleet = false;
@@ -330,7 +332,7 @@ class LiveSyncClient {
             }
           });
           if (updatedFleet) {
-            localStorage.setItem('c2b_registered_fleet', JSON.stringify(currentFleet));
+            memStorage.setItem('c2b_registered_fleet', JSON.stringify(currentFleet));
             window.dispatchEvent(new Event('storage'));
           }
         }

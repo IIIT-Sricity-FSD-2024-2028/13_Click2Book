@@ -1,37 +1,24 @@
 import { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import usePageTitle from '../hooks/usePageTitle';
 import useEnterKey from '../hooks/useEnterKey';
+import { loginSuperAdminThunk } from '../store/actions';
 import './Login.css';
-
-const EMAIL_RE = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
-const SUPER_USERS = [
-  { email: 'superuser@click2book.com', password: 'super123' },
-  { email: 'superadmin@click2book.com', password: 'SuperAdmin@123' },
-  { email: 'sarath@click2book.com', password: 'Sarath@123' },
-  { email: 'admin@c2b.com', password: 'admin123' },
-];
 
 export default function SuperAdminLogin() {
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useDispatch();
+  const error = useSelector((state) => state.auth.error);
+  const busy = useSelector((state) => state.auth.loading);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
 
-  function doLogin() {
-    setError('');
-    const mail = email.trim();
-    if (!mail) return setError('Please enter your supervisor email.');
-    if (!EMAIL_RE.test(mail)) return setError('Please enter a valid email address (e.g. superuser@click2book.com).');
-    if (!password) return setError('Please enter your access key.');
-    if (password.length < 6) return setError('Access key must be at least 6 characters.');
-    const matched = SUPER_USERS.find((u) => u.email.toLowerCase() === mail.toLowerCase() && u.password === password);
-    if (!matched) return setError('Invalid Super Admin credentials. Please check your email and access key.');
+  async function doLogin() {
+    const res = await dispatch(loginSuperAdminThunk({ email, password }));
+    if (!res?.success) return;
 
-    setBusy(true);
-    sessionStorage.setItem('superUserAuth', 'true');
     // Sent here from another portal's data panel? Go back there with it open; otherwise the Super Admin console.
     const from = location.state?.from;
     const returnTo = from ? from + (from.includes('?') ? '&' : '?') + 'superUser=open' : '/super-admin';

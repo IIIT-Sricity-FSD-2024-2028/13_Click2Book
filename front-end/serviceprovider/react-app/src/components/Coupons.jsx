@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   getProviderCoupons,
   createProviderCoupon,
@@ -8,8 +9,13 @@ import {
   getBackendProviderCoupons,
   getApprovedCities,
 } from '../services/api';
+import { navigateTabThunk, showToastThunk } from '../store/actions';
 
-export default function Coupons({ provider, showToast, onNavigate }) {
+export default function Coupons() {
+  const dispatch = useDispatch();
+  const provider = useSelector((state) => state.auth.provider);
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
+  const onNavigate = (tab) => dispatch(navigateTabThunk(tab));
   const [coupons, setCoupons] = useState([]);
   const [activeFilter, setActiveFilter] = useState('ALL'); // 'ALL' | 'TICKET_COUNT' | 'REGULAR_CUSTOMER' | 'ANY_BOOKING' | 'EXHAUSTED'
   const [showCreateModal, setShowCreateModal] = useState(false);

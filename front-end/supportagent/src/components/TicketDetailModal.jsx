@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   X,
   CheckCircle2,
@@ -13,14 +14,22 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { CATEGORY_CHECKLISTS, CATEGORY_DEFINITIONS, detectTicketCategory, formatRupees } from '../services/api';
+import { setSelectedTicketId, setResolutionTicketId } from '../store/actions';
 
-export default function TicketDetailModal({
-  ticket,
-  onClose,
-  onResolve,
-  onDeescalate,
-  onOpenResolutionWorkflow,
-}) {
+export default function TicketDetailModal() {
+  const dispatch = useDispatch();
+  const selectedTicketId = useSelector((state) => state.tickets.selectedTicketId);
+  const ticket = useSelector((state) =>
+    state.tickets.items.find((t) => t.id === selectedTicketId) || null
+  );
+  const onClose = () => dispatch(setSelectedTicketId(null));
+  const onOpenResolutionWorkflow = (t) => {
+    dispatch(setSelectedTicketId(null));
+    dispatch(setResolutionTicketId(t?.id));
+  };
+  const onResolve = null;
+  const onDeescalate = null;
+
   if (!ticket) return null;
 
   const [notes, setNotes] = useState('');

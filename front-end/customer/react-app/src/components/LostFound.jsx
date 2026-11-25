@@ -1,17 +1,23 @@
 import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { api } from '../services/api';
+import { fetchLostFoundThunk, reportLostFoundThunk, showToastThunk } from '../store/actions';
 
-export default function LostFound({ user, showToast }) {
+export default function LostFound() {
+  const dispatch = useDispatch();
+  const user = useSelector((state) => state.auth.user);
+  const reduxBookings = useSelector((state) => state.bookings.items);
+  const reports = useSelector((state) => state.lostFound.items);
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
+
   const [bookings, setBookings] = useState([]);
   const [selectedBookingId, setSelectedBookingId] = useState('');
   const [itemDescription, setItemDescription] = useState('');
   const [category, setCategory] = useState('Bag');
   const [dateLost, setDateLost] = useState(new Date().toISOString().split('T')[0]);
   const [contactPhone, setContactPhone] = useState(user?.phone || '9876543210');
-  const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Load user bookings for the dropdown
   const loadBookings = async () => {
     let list = [];
     try {
@@ -19,17 +25,10 @@ export default function LostFound({ user, showToast }) {
       if (Array.isArray(mine) && mine.length > 0) {
         list = mine;
       }
-    } catch {
-      // Backend offline
-    }
+    } catch {}
 
-    if (list.length === 0) {
-      try {
-        const stored = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-        if (Array.isArray(stored) && stored.length > 0) {
-          list = stored;
-        }
-      } catch {}
+    if (list.length === 0 && reduxBookings.length > 0) {
+      list = reduxBookings;
     }
 
     if (list.length === 0) {
@@ -45,53 +44,10 @@ export default function LostFound({ user, showToast }) {
     }
   };
 
-  // Load past reports
-  const loadReports = async () => {
-    let list = [];
-    try {
-      const mine = await api.lostFound.getMine();
-      if (Array.isArray(mine)) {
-        list = mine;
-      }
-    } catch {
-      // Fallback to local storage
-    }
-
-    try {
-      const local = JSON.parse(localStorage.getItem('c2b_lost_found') || '[]');
-      if (Array.isArray(local) && local.length > 0) {
-        // Merge with API
-        const seen = new Set(list.map((r) => r.id || r.reportId));
-        for (const r of local) {
-          if (!seen.has(r.id || r.reportId)) {
-            list.unshift(r);
-          }
-        }
-      }
-    } catch {}
-
-    if (list.length === 0) {
-      list = [
-        {
-          id: 'LF-101',
-          bookingId: 'BK1002',
-          tripId: 'TRIP-102',
-          itemDescription: 'Black laptop sleeve left under Seat 15',
-          category: 'Electronics',
-          dateLost: '2026-03-24',
-          status: 'FOUND',
-          foundNote: 'Item stored at Pune Station operator office for verification.'
-        }
-      ];
-    }
-
-    setReports(list);
-  };
-
   useEffect(() => {
     loadBookings();
-    loadReports();
-  }, []);
+    dispatch(fetchLostFoundThunk());
+  }, [dispatch]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -116,34 +72,14 @@ export default function LostFound({ user, showToast }) {
       dateLost,
       contactPhone: contactPhone.trim(),
       status: 'REPORTED',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
 
-    // Store locally
-    try {
-      const local = JSON.parse(localStorage.getItem('c2b_lost_found') || '[]');
-      local.unshift(newReport);
-      localStorage.setItem('c2b_lost_found', JSON.stringify(local));
-    } catch {}
-
-    // Dispatch to API
-    try {
-      await api.lostFound.report(
-        booking.tripId,
-        selectedBookingId,
-        itemDescription.trim(),
-        category,
-        dateLost,
-        contactPhone.trim()
-      );
-    } catch (err) {
-      console.warn('[LostFound] API fallback used:', err.message);
-    }
+    await dispatch(reportLostFoundThunk(newReport));
 
     setLoading(false);
     setItemDescription('');
     showToast('✅ Report submitted — operator notified!', 'success');
-    loadReports();
   };
 
   return (

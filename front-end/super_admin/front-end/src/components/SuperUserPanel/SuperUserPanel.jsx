@@ -1,17 +1,28 @@
 /**
- * Super User CRUD panel (React port of crud functions/js/ui-shared.js).
- *
- * A floating "Super User" button opens a full-screen manager over the mock
- * localStorage DB. Each portal passes its own table schemas (see
- * src/lib/crudSchemas). Opening the panel requires `superUserAuth` in
- * sessionStorage; otherwise the user is sent to the super-user login.
+ * Super User CRUD panel backed by Redux Toolkit store.
+ * Each portal passes its own table schemas (see src/lib/crudSchemas).
+ * Access checks `auth.superUserAuth` in Redux memory; otherwise navigates to Super Admin login.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 import DB from '../../lib/db';
-import { isRemoteTable, pullAll, remoteDelete, remoteSave } from '../../lib/db/remote';
+import { isRemoteTable } from '../../lib/db/remote';
 import { liveSync } from '../../lib/liveSync';
+import {
+  createTableRecordThunk,
+  deleteTableRecordThunk,
+  pullAllTablesThunk,
+  resetAllTablesThunk,
+  setCurrentTable,
+  setPanelModal,
+  setPanelOpen,
+  setPendingDelete,
+  setSearchFilter,
+  showPanelToastThunk,
+  updateTableRecordThunk,
+} from '../../store/actions';
 import Sidebar from './Sidebar';
 import PageHeader from './PageHeader';
 import SearchBar from './SearchBar';
@@ -20,20 +31,6 @@ import HeaderActions from './HeaderActions';
 import StatsRow from './StatsRow';
 import DataTable from './DataTable';
 import './SuperUserPanel.css';
-
-const isAuthorised = () => sessionStorage.getItem('superUserAuth') === 'true';
-
-function useToast() {
-  const [toast, setToast] = useState({ message: '', type: 'success', show: false });
-  const timer = useRef();
-  const showToast = (message, type = 'success') => {
-    clearTimeout(timer.current);
-    setToast({ message, type, show: true });
-    timer.current = setTimeout(() => setToast((t) => ({ ...t, show: false })), 3200);
-  };
-  useEffect(() => () => clearTimeout(timer.current), []);
-  return [toast, showToast];
-}
 
 /** Look up a record, retrying with a numeric key (seat numbers etc.). */
 function getRecord(dbKey, pk) {
@@ -45,7 +42,11 @@ function getRecord(dbKey, pk) {
 function RecordForm({ schema, record, formRef, remote }) {
   const isEdit = record !== null;
   if (!schema.fields || schema.fields.length === 0) {
-    return <p style={{ color: '#6b7280', fontSize: 14, gridColumn: '1/-1' }}>This table is read-only — no fields to edit.</p>;
+    return (
+      <p style={{ color: '#6b7280', fontSize: 14, gridColumn: '1/-1' }}>
+        This table is read-only — no fields to edit.
+      </p>
+    );
   }
   return (
     <form className="c2b-form" id="c2b-recordForm" ref={formRef} onSubmit={(e) => e.preventDefault()}>
@@ -106,60 +107,69 @@ export default function SuperUserPanel({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [open, setOpen] = useState(alwaysOpen);
-  const [currentTable, setCurrentTable] = useState(defaultTable);
-  const [filter, setFilter] = useState('');
-  const [modal, setModal] = useState(null); // { record: object|null }
-  const [pendingDelete, setPendingDelete] = useState(null);
-  const [, setVersion] = useState(0); // bump to re-read the DB
-  const [toast, showToast] = useToast();
-  const [sync, setSync] = useState({ state: 'loading', at: null, failed: [] });
-  const [saving, setSaving] = useState(false);
+  const dispatch = useDispatch();
+
+  const isAuthorised = useSelector((state) => state.auth.superUserAuth);
+  const tablesState = useSelector((state) => state.tables);
+  const { sync, saving } = tablesState;
+  const {
+    panelOpen,
+    currentTable: storeTable,
+    searchFilter: filter,
+    modalRecord: modal,
+    pendingDelete,
+    toast,
+  } = useSelector((state) => state.ui);
+
+  const open = alwaysOpen || panelOpen;
+  const currentTable = storeTable && schemas[storeTable] ? storeTable : defaultTable;
   const formRef = useRef(null);
+
+  useEffect(() => {
+    if (!storeTable || !schemas[storeTable]) {
+      dispatch(setCurrentTable(defaultTable));
+    }
+  }, [defaultTable, schemas, storeTable, dispatch]);
 
   const schema = schemas[currentTable];
   const remote = schema ? isRemoteTable(schema.dbKey) : false;
 
-  /* ── Keep the cache in step with the backend ── */
+  /* ── Keep the Redux cache in step with the backend ── */
   useEffect(() => {
     if (!open) return undefined;
-    let cancelled = false;
-    const pull = () =>
-      pullAll().then((r) => {
-        if (cancelled) return;
-        setSync({ state: r.offline ? 'offline' : r.ok ? 'live' : 'partial', at: new Date(), failed: r.failed });
-        setVersion((v) => v + 1);
-      });
+    const pull = () => dispatch(pullAllTablesThunk());
     pull();
     const timer = setInterval(() => document.visibilityState === 'visible' && pull(), 10000);
     const unsubscribe = liveSync.subscribe(pull);
     window.addEventListener('focus', pull);
     return () => {
-      cancelled = true;
       clearInterval(timer);
       unsubscribe();
       window.removeEventListener('focus', pull);
     };
-  }, [open]);
+  }, [open, dispatch]);
 
   /* ── Auto-open for Super User (?superUser=open) ── */
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    if (params.get('superUser') === 'open' && isAuthorised()) {
-      setOpen(true);
+    if (params.get('superUser') === 'open' && isAuthorised) {
+      dispatch(setPanelOpen(true));
       navigate(location.pathname, { replace: true });
     }
-  }, [location.search, location.pathname, navigate]);
+  }, [location.search, location.pathname, navigate, isAuthorised, dispatch]);
 
   const openPanel = (e) => {
     e?.preventDefault?.();
-    if (isAuthorised()) setOpen(true);
+    if (isAuthorised) dispatch(setPanelOpen(true));
     else navigate('/super-admin/login', { state: { from: location.pathname + location.search } });
   };
 
-  // Tables are tiny, so re-read localStorage on every render; `version`
-  // changes after each mutation to trigger one.
-  const allRecords = schema ? (schema.getData ? schema.getData() : DB[schema.dbKey].getAll()) : [];
+  // Subscribe cleanly via Redux `tablesState` so edits/pulls re-render automatically.
+  const allRecords = schema
+    ? schema.getData
+      ? schema.getData()
+      : tablesState.tables[schema.dbKey] || []
+    : [];
 
   const lc = filter.trim().toLowerCase();
   const filtered = lc
@@ -172,19 +182,19 @@ export default function SuperUserPanel({
       )
     : allRecords;
 
-  const refresh = () => setVersion((v) => v + 1);
+  const showToast = (message, type = 'success') => dispatch(showPanelToastThunk(message, type));
 
   /* ── Add / Edit ── */
   const openAdd = () => {
     if (schema.readOnly) return showToast('This view is read-only.', 'error');
-    setModal({ record: null });
+    dispatch(setPanelModal({ record: null }));
   };
 
   const openEdit = (pk) => {
     if (schema.readOnly) return showToast('This view is read-only.', 'error');
     const result = getRecord(schema.dbKey, pk);
     if (!result.success) return showToast('Record not found: ' + pk, 'error');
-    setModal({ record: result.data });
+    dispatch(setPanelModal({ record: result.data }));
   };
 
   const save = async () => {
@@ -208,25 +218,16 @@ export default function SuperUserPanel({
       }
     }
 
-    let result;
     const pk = isEdit ? (form.elements[schema.pkField]?.value ?? formData[schema.pkField]) : null;
-    if (remote) {
-      setSaving(true);
-      result = await remoteSave(schema.dbKey, pk, formData, isEdit ? modal.record : null);
-      setSaving(false);
-    } else if (isEdit) {
-      result = DB[schema.dbKey].update(pk, formData);
-      if (!result.success && !isNaN(Number(pk))) result = DB[schema.dbKey].update(Number(pk), formData);
-    } else {
-      result = DB[schema.dbKey].create(formData);
-    }
+    const result = isEdit
+      ? await dispatch(updateTableRecordThunk(schema.dbKey, pk, formData, modal.record))
+      : await dispatch(createTableRecordThunk(schema.dbKey, formData));
 
-    if (result.success) {
-      setModal(null);
-      refresh();
+    if (result?.success) {
+      dispatch(setPanelModal(null));
       showToast(result.message, 'success');
     } else {
-      showToast(result.error, 'error');
+      showToast(result?.error || 'Failed to save record.', 'error');
     }
   };
 
@@ -242,48 +243,30 @@ export default function SuperUserPanel({
       }
     }
     if (!check.success) return showToast('Record not found: ' + pkValue, 'error');
-    setPendingDelete({ pkField: schema.pkField, pkValue, dbKey: schema.dbKey });
+    dispatch(setPendingDelete({ pkField: schema.pkField, pkValue, dbKey: schema.dbKey }));
   };
 
   const confirmDelete = async () => {
     if (!pendingDelete || saving) return;
-    let result;
-    if (isRemoteTable(pendingDelete.dbKey)) {
-      setSaving(true);
-      result = await remoteDelete(pendingDelete.dbKey, pendingDelete.pkValue);
-      setSaving(false);
-    } else {
-      result = DB[pendingDelete.dbKey].delete(pendingDelete.pkValue);
-    }
-    setPendingDelete(null);
-    if (result.success) {
-      refresh();
+    const result = await dispatch(deleteTableRecordThunk(pendingDelete.dbKey, pendingDelete.pkValue));
+    dispatch(setPendingDelete(null));
+    if (result?.success) {
       showToast(result.message, 'success');
     } else {
-      showToast(result.error, 'error');
+      showToast(result?.error || 'Failed to delete record.', 'error');
     }
   };
 
   const resetDb = async () => {
-    // Backend-connected tables are the source of truth: re-sync instead of
-    // overwriting them with mock data that no other portal would see.
-    if (remote) {
-      const r = await pullAll();
-      setSync({ state: r.offline ? 'offline' : r.ok ? 'live' : 'partial', at: new Date(), failed: r.failed });
-      refresh();
-      showToast(r.offline ? 'Backend offline — showing cached data.' : 'Reloaded all tables from the backend.', r.offline ? 'error' : 'success');
+    if (!remote && !window.confirm('⚠️ Reset ALL tables back to original mock data?\nEvery change will be lost.')) {
       return;
     }
-    if (window.confirm('⚠️ Reset ALL tables back to original mock data?\nEvery change will be lost.')) {
-      const r = DB.resetAll();
-      refresh();
-      showToast(r.success ? 'Database reset to mock data.' : r.error, r.success ? 'success' : 'error');
-    }
+    const r = await dispatch(resetAllTablesThunk(remote));
+    showToast(r.message, r.offline || !r.success ? 'error' : 'success');
   };
 
   const selectTable = (key) => {
-    setCurrentTable(key);
-    setFilter('');
+    dispatch(setCurrentTable(key));
   };
 
   // Rendered on <body> so the host page's scoped resets (padding: 0, fonts, colours) cannot reach it.
@@ -305,7 +288,7 @@ export default function SuperUserPanel({
       <div
         id="c2b-root"
         className={(open ? 'c2b-open' : '') + (alwaysOpen ? ' c2b-page' : '')}
-        onClick={(e) => !alwaysOpen && e.target === e.currentTarget && setOpen(false)}
+        onClick={(e) => !alwaysOpen && e.target === e.currentTarget && dispatch(setPanelOpen(false))}
       >
         <div id="c2b-panel">
           <Sidebar
@@ -322,14 +305,19 @@ export default function SuperUserPanel({
             <div className="c2b-topbar">
               <PageHeader title={schema?.label ?? '—'} subtitle={schema?.subtitle || ''} />
               <div className="c2b-topbar-right">
-                <SearchBar schema={schema} records={allRecords} value={filter} onChange={setFilter} />
+                <SearchBar
+                  schema={schema}
+                  records={allRecords}
+                  value={filter}
+                  onChange={(val) => dispatch(setSearchFilter(val))}
+                />
                 <RecordCount count={filtered.length} />
                 <HeaderActions
                   onAdd={openAdd}
                   onReset={resetDb}
                   alwaysOpen={alwaysOpen}
                   onLogout={onClose}
-                  onClosePanel={() => setOpen(false)}
+                  onClosePanel={() => dispatch(setPanelOpen(false))}
                 />
               </div>
             </div>
@@ -351,7 +339,7 @@ export default function SuperUserPanel({
                   <div className="c2b-empty-icon">📭</div>
                   <p>{lc ? `No records match “${filter.trim()}”.` : 'No records found.'}</p>
                   {lc && (
-                    <button className="c2b-btn c2b-btn-ghost" onClick={() => setFilter('')}>
+                    <button className="c2b-btn c2b-btn-ghost" onClick={() => dispatch(setSearchFilter(''))}>
                       Clear search
                     </button>
                   )}
@@ -366,13 +354,13 @@ export default function SuperUserPanel({
 
       {/* Add / Edit Modal */}
       {modal && (
-        <div id="c2b-modalOverlay" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
+        <div id="c2b-modalOverlay" onClick={(e) => e.target === e.currentTarget && dispatch(setPanelModal(null))}>
           <div className="c2b-modal">
             <div className="c2b-modal-header">
               <h3 id="c2b-modalTitle">
                 {modal.record ? 'Edit' : 'Add'} {schema.label} Record
               </h3>
-              <button className="c2b-btn-close" onClick={() => setModal(null)}>
+              <button className="c2b-btn-close" onClick={() => dispatch(setPanelModal(null))}>
                 ✕
               </button>
             </div>
@@ -386,7 +374,7 @@ export default function SuperUserPanel({
               />
             </div>
             <div className="c2b-modal-footer">
-              <button className="c2b-btn c2b-btn-ghost" onClick={() => setModal(null)}>
+              <button className="c2b-btn c2b-btn-ghost" onClick={() => dispatch(setPanelModal(null))}>
                 Cancel
               </button>
               <button className="c2b-btn c2b-btn-primary" onClick={save} disabled={saving}>
@@ -399,7 +387,7 @@ export default function SuperUserPanel({
 
       {/* Confirm Delete */}
       {pendingDelete && (
-        <div id="c2b-confirmOverlay" onClick={(e) => e.target === e.currentTarget && setPendingDelete(null)}>
+        <div id="c2b-confirmOverlay" onClick={(e) => e.target === e.currentTarget && dispatch(setPendingDelete(null))}>
           <div className="c2b-confirm-box">
             <div className="c2b-confirm-icon">🗑️</div>
             <h3>Delete Record?</h3>
@@ -407,7 +395,7 @@ export default function SuperUserPanel({
               Delete {pendingDelete.pkField} = "{String(pendingDelete.pkValue)}"? This action cannot be undone.
             </p>
             <div className="c2b-confirm-actions">
-              <button className="c2b-btn c2b-btn-ghost" onClick={() => setPendingDelete(null)}>
+              <button className="c2b-btn c2b-btn-ghost" onClick={() => dispatch(setPendingDelete(null))}>
                 Cancel
               </button>
               <button className="c2b-btn c2b-btn-danger" onClick={confirmDelete} disabled={saving}>

@@ -13,6 +13,7 @@
  * the backend DTO accepts (the API rejects unknown properties).
  */
 import { apiRequest } from '../http';
+import { replaceCachedTable } from './index';
 
 const toSnake = (key) => key.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
 
@@ -147,7 +148,7 @@ export const remoteCapabilities = (dbKey) => {
 
 function replaceTable(dbKey, rows) {
   try {
-    localStorage.setItem('c2b_' + dbKey, JSON.stringify(rows.map(rowToLocal)));
+    replaceCachedTable(dbKey, rows.map(rowToLocal));
   } catch (e) {
     console.warn(`[DB] Failed to cache "${dbKey}":`, e);
   }

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   X,
   AlertCircle,
@@ -7,13 +8,14 @@ import {
   CheckCircle2,
   CheckCheck,
 } from 'lucide-react';
+import { setNotifOpen, markAllNotificationsReadThunk } from '../store/actions';
 
-export default function NotificationDrawer({
-  isOpen,
-  onClose,
-  notifications = [],
-  onMarkAllRead,
-}) {
+export default function NotificationDrawer() {
+  const dispatch = useDispatch();
+  const isOpen = useSelector((state) => state.ui.isNotifOpen);
+  const notifications = useSelector((state) => state.notifications.items);
+  const onClose = () => dispatch(setNotifOpen(false));
+  const onMarkAllRead = () => dispatch(markAllNotificationsReadThunk());
   if (!isOpen) return null;
 
   const getIcon = (type) => {

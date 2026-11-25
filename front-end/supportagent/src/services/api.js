@@ -118,14 +118,22 @@ const HOSTNAME = (typeof window !== 'undefined' && (window.location.hostname ===
 
 export const API_BASE = `http://${HOSTNAME}:3000/api`;
 
+let _storeRef = null;
+export function injectApiStore(store) {
+  _storeRef = store;
+}
+
 function supportAuthHeaders(headers = {}) {
-  const supporterId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId');
-  const sessionVersion = sessionStorage.getItem('c2b_sessionVersion') || localStorage.getItem('c2b_sessionVersion');
+  const auth = _storeRef ? _storeRef.getState()?.auth : null;
+  const supporterId = auth?.supporterId || auth?.agent?.id || null;
+  const sessionVersion = auth?.sessionVersion ?? null;
   return {
     'Content-Type': 'application/json',
     'x-role': 'SUPPORT',
     ...(supporterId ? { 'x-user-id': supporterId } : {}),
-    ...(sessionVersion ? { 'x-session-version': sessionVersion } : {}),
+    ...(sessionVersion !== null && sessionVersion !== undefined
+      ? { 'x-session-version': String(sessionVersion) }
+      : {}),
     ...headers,
   };
 }
@@ -139,9 +147,6 @@ async function supportFetch(url, options = {}) {
     const body = await response.clone().json().catch(() => ({}));
     const message = String(body.message || '');
     if (message.includes('customer support account has been deactivated') || message.includes('session is no longer valid')) {
-      for (const storage of [sessionStorage, localStorage]) {
-        ['c2b_loggedIn', 'c2b_userName', 'c2b_userEmail', 'c2b_loggedInId', 'c2b_role', 'c2b_sessionVersion'].forEach((key) => storage.removeItem(key));
-      }
       window.dispatchEvent(new CustomEvent('c2b_account_deactivated', {
         detail: {
           message: message.includes('customer support account has been deactivated')
@@ -220,7 +225,7 @@ export function getSyncChannel() {
   return null;
 }
 
-/* ── LocalStorage Helpers ── */
+/* ── In-Memory Repository Store (backed by Redux memory state) ── */
 export const STORAGE_KEYS = {
   TICKETS: 'c2b_support_tickets_v2',
   REFUNDS: 'c2b_support_refunds_v2',
@@ -228,31 +233,34 @@ export const STORAGE_KEYS = {
   NOTIFICATIONS: 'c2b_support_notifications_v2',
   ESCALATIONS_RESOLVED: 'c2b_support_esc_resolved_v2',
   PROVIDER_ESCALATIONS: 'c2b_provider_escalations',
+  CUSTOMER_REQUESTS: 'c2b_support_requests',
+  CUSTOMER_REFUNDS: 'c2b_refunds',
+  CUSTOMER_BOOKINGS: 'c2b_bookings',
 };
 
+const _memoryRepo = new Map();
+
 function getLocal(key, defaultVal) {
-  if (typeof window === 'undefined') return defaultVal;
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : defaultVal;
-  } catch (e) {
-    console.warn(`[API] Failed to parse ${key}`, e);
-    return defaultVal;
+  if (_storeRef) {
+    const st = _storeRef.getState();
+    if (key === STORAGE_KEYS.TICKETS && st.tickets?.items) return st.tickets.items;
+    if (key === STORAGE_KEYS.REFUNDS && st.refunds?.items) return st.refunds.items;
+    if (key === STORAGE_KEYS.CUSTOMERS && st.customers?.items) return st.customers.items;
+    if (key === STORAGE_KEYS.NOTIFICATIONS && st.notifications?.items) return st.notifications.items;
+    if (key === STORAGE_KEYS.ESCALATIONS_RESOLVED && st.escalations?.resolvedEscalations) {
+      return st.escalations.resolvedEscalations;
+    }
+    if (key === STORAGE_KEYS.PROVIDER_ESCALATIONS && st.escalations?.providerEscalations) {
+      return st.escalations.providerEscalations;
+    }
   }
+  return _memoryRepo.has(key) ? _memoryRepo.get(key) : defaultVal;
 }
 
 function setLocal(key, val, shouldNotify = true) {
-  if (typeof window === 'undefined') return;
-  try {
-    const serialized = JSON.stringify(val);
-    const existing = localStorage.getItem(key);
-    if (existing === serialized) return; // Value unchanged, avoid duplicate writes and render thrashing
-    localStorage.setItem(key, serialized);
-    if (shouldNotify) {
-      window.dispatchEvent(new CustomEvent('c2b_data_changed', { detail: { key } }));
-    }
-  } catch (e) {
-    console.warn(`[API] Failed to save ${key}`, e);
+  _memoryRepo.set(key, val);
+  if (shouldNotify && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('c2b_data_changed', { detail: { key } }));
   }
 }
 
@@ -335,11 +343,8 @@ export async function getTickets(forceRefresh = false) {
     });
   }
 
-  // 3. Customer portal submissions (c2b_support_requests)
-  let customerRequests = [];
-  try {
-    customerRequests = JSON.parse(localStorage.getItem('c2b_support_requests') || '[]');
-  } catch (_) {}
+  // 3. In-memory customer portal submissions
+  const customerRequests = getLocal(STORAGE_KEYS.CUSTOMER_REQUESTS, []);
 
   // 4. Legacy window.DB if present
   let dbTickets = [];
@@ -705,23 +710,19 @@ export async function updateServiceProviderResponse(ticketId, decision, remarks 
 
     setLocal(STORAGE_KEYS.TICKETS, updatedTickets);
 
-    // If cancellation was approved, update c2b_bookings and c2b_refunds
+    // If cancellation was approved, update in-memory bookings and refunds
     if (decision === 'Approved' && (target.category === 'CANCELLATION' || target.category === 'REFUND') && target.bookingId) {
       try {
-        const bookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-        bookings.forEach((b) => {
-          if (b.bookingId === target.bookingId || b.booking_id === target.bookingId) {
-            b.booking_status = 'CANCELLED';
-            b.status = 'CANCELLED';
-            b.cancellation_approved_by_provider = true;
-          }
-        });
-        localStorage.setItem('c2b_bookings', JSON.stringify(bookings));
+        const bookings = [...(getLocal(STORAGE_KEYS.CUSTOMER_BOOKINGS, []) || [])].map((b) =>
+          b.bookingId === target.bookingId || b.booking_id === target.bookingId
+            ? { ...b, booking_status: 'CANCELLED', status: 'CANCELLED', cancellation_approved_by_provider: true }
+            : b
+        );
+        setLocal(STORAGE_KEYS.CUSTOMER_BOOKINGS, bookings, false);
       } catch (_) {}
 
-      // Add/update in c2b_refunds
       try {
-        const refList = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
+        const refList = [...(getLocal(STORAGE_KEYS.CUSTOMER_REFUNDS, []) || [])];
         const refundAmt = target.refundAmount || (target.financialImpact ? target.financialImpact.customerRefund : 1450);
         const refIdx = refList.findIndex((r) => r.booking_id === target.bookingId || r.bookingId === target.bookingId);
         const refItem = {
@@ -740,7 +741,7 @@ export async function updateServiceProviderResponse(ticketId, decision, remarks 
         } else {
           refList.unshift(refItem);
         }
-        localStorage.setItem('c2b_refunds', JSON.stringify(refList));
+        setLocal(STORAGE_KEYS.CUSTOMER_REFUNDS, refList, false);
       } catch (_) {}
     }
 
@@ -889,9 +890,9 @@ export async function confirmTicketResolution(ticketId, resolutionData, agentNam
 
   setLocal(STORAGE_KEYS.TICKETS, updatedTickets);
 
-  // Sync with c2b_support_requests for customer portal and broadcast across open tabs
+  // Sync with in-memory customer requests and broadcast across open tabs
   try {
-    const custReqs = JSON.parse(localStorage.getItem('c2b_support_requests') || '[]');
+    const custReqs = getLocal(STORAGE_KEYS.CUSTOMER_REQUESTS, []);
     let found = false;
     const updatedCust = custReqs.map((r) => {
       const id = r.requestId || r.request_id || r.id;
@@ -909,7 +910,7 @@ export async function confirmTicketResolution(ticketId, resolutionData, agentNam
       return r;
     });
     if (found) {
-      localStorage.setItem('c2b_support_requests', JSON.stringify(updatedCust));
+      setLocal(STORAGE_KEYS.CUSTOMER_REQUESTS, updatedCust, false);
     }
   } catch (_) {}
 
@@ -928,15 +929,12 @@ export async function confirmTicketResolution(ticketId, resolutionData, agentNam
   // Also sync refunds if applicable
   if (category === 'REFUND' && target.bookingId) {
     try {
-      const refunds = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
-      refunds.forEach((r) => {
-        if (r.booking_id === target.bookingId || r.bookingId === target.bookingId) {
-          r.status = 'COMPLETED';
-          r.refund_status = 'COMPLETED';
-          r.processed_date = now.split('T')[0];
-        }
-      });
-      localStorage.setItem('c2b_refunds', JSON.stringify(refunds));
+      const refunds = (getLocal(STORAGE_KEYS.CUSTOMER_REFUNDS, []) || []).map((r) =>
+        r.booking_id === target.bookingId || r.bookingId === target.bookingId
+          ? { ...r, status: 'COMPLETED', refund_status: 'COMPLETED', processed_date: now.split('T')[0] }
+          : r
+      );
+      setLocal(STORAGE_KEYS.CUSTOMER_REFUNDS, refunds, false);
     } catch (_) {}
   }
 
@@ -1031,16 +1029,11 @@ export async function getRefunds(forceRefresh = false) {
       }
     } catch (e) {}
 
-    let customerLocalRefunds = [];
-    try {
-      customerLocalRefunds = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
-    } catch (_) {}
-
-    let cancelledBookings = [];
-    try {
-      const bookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-      cancelledBookings = bookings.filter((b) => b.status === 'CANCELLED' || b.booking_status === 'CANCELLED');
-    } catch (_) {}
+    const customerLocalRefunds = getLocal(STORAGE_KEYS.CUSTOMER_REFUNDS, []);
+    const bookings = getLocal(STORAGE_KEYS.CUSTOMER_BOOKINGS, []);
+    const cancelledBookings = Array.isArray(bookings)
+      ? bookings.filter((b) => b.status === 'CANCELLED' || b.booking_status === 'CANCELLED')
+      : [];
 
     let supportLocalRefunds = getLocal(STORAGE_KEYS.REFUNDS, null);
     if (!supportLocalRefunds) {
@@ -1159,7 +1152,7 @@ export async function updateRefundStatus(refundId, newStatus) {
   setLocal(STORAGE_KEYS.REFUNDS, updated);
 
   try {
-    const custRefunds = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
+    const custRefunds = getLocal(STORAGE_KEYS.CUSTOMER_REFUNDS, []);
     if (Array.isArray(custRefunds)) {
       let found = false;
       const updatedCust = custRefunds.map((cr) => {
@@ -1176,8 +1169,7 @@ export async function updateRefundStatus(refundId, newStatus) {
         return cr;
       });
       if (found) {
-        localStorage.setItem('c2b_refunds', JSON.stringify(updatedCust));
-        window.dispatchEvent(new Event('storage'));
+        setLocal(STORAGE_KEYS.CUSTOMER_REFUNDS, updatedCust, false);
       }
     }
   } catch (_) {}

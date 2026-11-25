@@ -1,39 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { API } from '../services/api';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchActiveOffersThunk, showToastThunk } from '../store/actions';
 
-export default function Offers({ showToast }) {
+export default function Offers() {
+  const dispatch = useDispatch();
+  const offers = useSelector((state) => state.offers.items);
+  const loading = useSelector((state) => state.offers.loading);
+  const error = useSelector((state) => state.offers.error || '');
   const [copiedCode, setCopiedCode] = useState(null);
-  const [offers, setOffers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
-    let active = true;
-    const loadOffers = () => API.offers.getActive()
-      .then((data) => {
-        if (!active) return;
-        setOffers(Array.isArray(data) ? data : []);
-        setError('');
-      })
-      .catch((loadError) => active && setError(loadError.message || 'Could not load offers.'))
-      .finally(() => active && setLoading(false));
-    const onFocus = () => loadOffers();
+    const loadOffers = () => dispatch(fetchActiveOffersThunk());
     loadOffers();
     const timer = setInterval(loadOffers, 30000);
-    window.addEventListener('focus', onFocus);
+    window.addEventListener('focus', loadOffers);
     return () => {
-      active = false;
       clearInterval(timer);
-      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('focus', loadOffers);
     };
-  }, []);
+  }, [dispatch]);
 
   const handleCopy = (code) => {
     navigator.clipboard?.writeText(code).catch(() => {});
     setCopiedCode(code);
-    if (showToast) {
-      showToast(`🎟️ Coupon code "${code}" copied to clipboard!`, 'success');
-    }
+    dispatch(showToastThunk(`🎟️ Coupon code "${code}" copied to clipboard!`, 'success'));
     setTimeout(() => {
       setCopiedCode(null);
     }, 2000);

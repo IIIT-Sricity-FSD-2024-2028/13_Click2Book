@@ -1,5 +1,7 @@
 import React from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Bell } from 'lucide-react';
+import { setNotifOpen } from '../store/actions';
 
 const TAB_METADATA = {
   'search-trips': {
@@ -36,13 +38,13 @@ const TAB_METADATA = {
   },
 };
 
-export default function Header({
-  activeTab,
-  customer,
-  isApiLive,
-  unreadCount,
-  onOpenNotif,
-}) {
+export default function Header() {
+  const dispatch = useDispatch();
+  const activeTab = useSelector((state) => state.ui.activeTab);
+  const customer = useSelector((state) => state.auth.user);
+  const notifications = useSelector((state) => state.notifications.items);
+  const unreadCount = notifications.filter((n) => n.unread || !n.read).length;
+  const onOpenNotif = () => dispatch(setNotifOpen(true));
   const meta = TAB_METADATA[activeTab] || {
     title: 'Click2Book Portal',
     subtitle: 'Online bus reservation system',

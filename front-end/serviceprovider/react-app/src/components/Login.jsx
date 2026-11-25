@@ -1,13 +1,32 @@
-import React, { useState } from 'react';
-import { loginProvider } from '../services/api';
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { loginProviderThunk, clearAuthError } from '../store/actions';
 
-export default function Login({ onLogin, initialError = '' }) {
+export default function Login() {
+  const dispatch = useDispatch();
+  const initialError = useSelector((state) => state.auth.accountAccessError);
+  const authError = useSelector((state) => state.auth.error);
+  const loading = useSelector((state) => state.auth.loading);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [remember, setRemember] = useState(false);
-  const [error, setError] = useState(initialError);
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(initialError || '');
+
+  useEffect(() => {
+    if (initialError) setError(initialError);
+  }, [initialError]);
+
+  useEffect(() => {
+    if (authError) setError(authError);
+  }, [authError]);
+
+  useEffect(() => {
+    return () => {
+      dispatch(clearAuthError());
+    };
+  }, [dispatch]);
 
   const validate = () => {
     if (!email.trim()) return 'Please enter your provider email.';
@@ -23,28 +42,9 @@ export default function Login({ onLogin, initialError = '' }) {
     setError('');
     const validationErr = validate();
     if (validationErr) { setError(validationErr); return; }
-    setLoading(true);
-    try {
-      const result = await loginProvider(email.trim(), password);
-      const user = result.data;
-      sessionStorage.setItem('c2b_loggedIn',    'true');
-      sessionStorage.setItem('c2b_userName',    user.name);
-      sessionStorage.setItem('c2b_userEmail',   user.email);
-      sessionStorage.setItem('c2b_loggedInId',  user.id);
-      sessionStorage.setItem('c2b_role',        'PROVIDER');
-      sessionStorage.setItem('c2b_sessionVersion', String(user.sessionVersion ?? 0));
-      if (remember) {
-        localStorage.setItem('c2b_loggedIn',    'true');
-        localStorage.setItem('c2b_userName',    user.name);
-        localStorage.setItem('c2b_userEmail',   user.email);
-        localStorage.setItem('c2b_loggedInId',  user.id);
-        localStorage.setItem('c2b_sessionVersion', String(user.sessionVersion ?? 0));
-      }
-      onLogin(user);
-    } catch (err) {
-      setError(err.message || 'Invalid credentials. Contact admin if you need access.');
-    } finally {
-      setLoading(false);
+    const res = await dispatch(loginProviderThunk({ email: email.trim(), password }));
+    if (loginProviderThunk.rejected.match(res)) {
+      setError(res.payload || 'Invalid credentials. Contact admin if you need access.');
     }
   };
 

@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
-import { revenueRequest } from './revenueMock';
+import { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchPaymentsThunk, fetchRefundsThunk, processRefundThunk, setRefundFilter } from '../store/actions';
 
-const adminFetch = (path, opts) => revenueRequest(path, { role: 'ADMIN', ...opts });
 const inr = (r) => (Number(r) || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
 
 /** Recorded on the refund as the person who processed it. */
@@ -12,46 +12,31 @@ const BADGE = { REQUESTED: 'pending', PROCESSING: 'refunded', COMPLETED: 'succes
 
 /**
  * Customer refund requests: amounts and the Start / Pay out / Reject actions.
- * `onChange` runs after a refund changes (paying one out marks its payment refunded).
+ * Backed by Redux revenue store.
  */
 export default function RefundsCard({ onChange }) {
-  const [refunds, setRefunds] = useState(null);
-  const [customerOf, setCustomerOf] = useState({});
-  const [filter, setFilter] = useState('');
-  const [busy, setBusy] = useState('');
-  const [error, setError] = useState('');
-
-  const load = useCallback(async () => {
-    try {
-      const [all, bookings, customers] = await Promise.all([adminFetch('/refunds'), adminFetch('/bookings'), adminFetch('/customers')]);
-      const names = Object.fromEntries(customers.map((c) => [c.customerId, c.name]));
-      setCustomerOf(Object.fromEntries(bookings.map((b) => [b.bookingId, names[b.customerId] || b.customerId])));
-      setRefunds(all);
-      setError('');
-    } catch (err) {
-      setError('Could not load refunds: ' + err.message);
-    }
-  }, []);
+  const dispatch = useDispatch();
+  const refunds = useSelector((state) => state.revenue.refunds);
+  const customerOf = useSelector((state) => state.revenue.refundCustomers);
+  const busy = useSelector((state) => state.revenue.refundBusy);
+  const error = useSelector((state) => state.revenue.refundError);
+  const filter = useSelector((state) => state.ui.refundFilter);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    dispatch(fetchRefundsThunk());
+  }, [dispatch]);
+
+  const reload = () => dispatch(fetchRefundsThunk());
 
   const process = async (r, status) => {
     if (status === 'REJECTED' && !window.confirm(`Reject the ${inr(r.refundAmount)} refund for ${r.bookingId}?`)) return;
-    setBusy(r.bookingId);
-    try {
-      await adminFetch(`/refunds/booking/${r.bookingId}/process`, {
-        method: 'PATCH',
-        body: { adminId: SUPER_ADMIN_ID, refundStatus: status },
-      });
-      await load();
-      onChange?.();
-    } catch (err) {
-      alert('Failed to update refund: ' + err.message);
-    } finally {
-      setBusy('');
+    const res = await dispatch(processRefundThunk(r.bookingId, status, SUPER_ADMIN_ID));
+    if (!res?.success) {
+      alert('Failed to update refund: ' + res?.error);
+      return;
     }
+    if (onChange) onChange();
+    else dispatch(fetchPaymentsThunk());
   };
 
   const all = refunds || [];
@@ -67,7 +52,7 @@ export default function RefundsCard({ onChange }) {
         processing) · {count('REJECTED')} rejected. Paying out a refund marks its payment as refunded.
       </div>
       <div className="filter-bar">
-        <select id="refundStatusFilter" value={filter} onChange={(e) => setFilter(e.target.value)}>
+        <select id="refundStatusFilter" value={filter} onChange={(e) => dispatch(setRefundFilter(e.target.value))}>
           <option value="">All statuses</option>
           {STATUSES.map((s) => (
             <option key={s} value={s}>
@@ -75,7 +60,7 @@ export default function RefundsCard({ onChange }) {
             </option>
           ))}
         </select>{' '}
-        <button className="btn btn-ghost btn-sm" id="refreshRefundsBtn" onClick={load}>
+        <button className="btn btn-ghost btn-sm" id="refreshRefundsBtn" onClick={reload}>
           Refresh
         </button>
       </div>

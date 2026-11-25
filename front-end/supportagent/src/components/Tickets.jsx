@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   Search,
   Filter,
@@ -12,12 +13,16 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { CATEGORY_DEFINITIONS, CATEGORY_CHECKLISTS, detectTicketCategory, formatRupees } from '../services/api';
+import { setSelectedTicketId, setResolutionTicketId } from '../store/actions';
 
-export default function Tickets({
-  tickets = [],
-  onSelectTicket,
-  onResolveTicket, // This will now open the ResolutionWorkflowModal
-}) {
+export default function Tickets() {
+  const dispatch = useDispatch();
+  const tickets = useSelector((state) => state.tickets.items);
+  const onSelectTicket = (t) => dispatch(setSelectedTicketId(t?.id));
+  const onResolveTicket = (t) => {
+    dispatch(setSelectedTicketId(null));
+    dispatch(setResolutionTicketId(t?.id));
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');

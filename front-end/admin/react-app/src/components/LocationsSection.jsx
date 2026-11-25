@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import DataTable from './DataTable.jsx';
 import StatusBadge from './StatusBadge.jsx';
 import { apiFetch } from '../lib/api.js';
+import { fetchLocationsThunk, addApprovedCity } from '../store/actions';
 
 export default function LocationsSection({ onAction, busy = false }) {
+  const dispatch = useDispatch();
+  const adminId = useSelector((state) => state.auth.adminId || 'A001');
+  const requests = useSelector((state) => state.locations.requests);
+  const approvedLocations = useSelector((state) => state.locations.approvedLocations);
+
   const [activeTab, setActiveTab] = useState('requests'); // 'requests' | 'approved' | 'search_osm'
-  const [requests, setRequests] = useState([]);
-  const [approvedLocations, setApprovedLocations] = useState([]);
   const [requestFilter, setRequestFilter] = useState('ALL'); // 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
@@ -19,24 +24,11 @@ export default function LocationsSection({ onAction, busy = false }) {
   const loadData = useCallback(async () => {
     try {
       setError('');
-      // Load requests
-      const reqRes = await apiFetch('/locations/requests').catch(() => []);
-      setRequests(Array.isArray(reqRes) ? reqRes : reqRes.data || []);
-
-      // Load approved locations
-      const locRes = await apiFetch('/locations').catch(() => []);
-      const locList = Array.isArray(locRes) ? locRes : locRes.data || [];
-      setApprovedLocations(locList);
-
-      // Sync to localStorage for cross-actor compatibility
-      if (locList.length > 0) {
-        const cityNames = locList.map((l) => l.name);
-        localStorage.setItem('c2b_approved_cities', JSON.stringify(cityNames));
-      }
+      await dispatch(fetchLocationsThunk()).unwrap();
     } catch (cause) {
       setError(cause.message || 'Failed to load locations data');
     }
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
     loadData();
@@ -44,21 +36,13 @@ export default function LocationsSection({ onAction, busy = false }) {
 
   // Approve Request
   const handleApprove = async (req) => {
-    const adminId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'A001';
     await onAction(
       async () => {
         const res = await apiFetch(`/locations/requests/${req.requestId}/approve`, {
           method: 'PATCH',
           headers: { 'x-user-id': adminId },
         });
-
-        // Update local storage approved cities
-        const custom = JSON.parse(localStorage.getItem('c2b_approved_cities') || '[]');
-        if (!custom.some((c) => c.toLowerCase() === req.name.toLowerCase())) {
-          custom.push(req.name);
-          localStorage.setItem('c2b_approved_cities', JSON.stringify(custom));
-        }
-
+        dispatch(addApprovedCity(req.name));
         return res;
       },
       `Location "${req.name}" approved! It is now accessible to all service providers.`,
@@ -75,7 +59,6 @@ export default function LocationsSection({ onAction, busy = false }) {
     );
     if (reason === null) return;
 
-    const adminId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'A001';
     await onAction(
       () =>
         apiFetch(`/locations/requests/${req.requestId}/reject`, {

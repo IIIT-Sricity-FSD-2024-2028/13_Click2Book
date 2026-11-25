@@ -1,72 +1,59 @@
 /**
- * Platform settings set by the Super Admin (GET /platform/settings).
- *
- * Fetched once at start-up and again on every page change, so a change
- * made in the admin console reaches other portals on their next navigation.
- * Offline, the defaults below (the same as the backend's) apply.
+ * Platform settings backed by Redux memory (`platformSettingsSlice`) and synced with the backend.
  */
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { apiRequest } from './http';
+import {
+  DEFAULT_PLATFORM_SETTINGS_STATE,
+  setPlatformSettings,
+} from '../store/slices/platformSettingsSlice';
 
-export const DEFAULT_PLATFORM_SETTINGS = {
-  booking: { maxSeatsPerBooking: 4, bookingWindowDays: 60, allowGuestSearch: true },
-  cancellation: { allowCancellation: true, cancellationFee: 50, refundPercent: 100 },
-  fees: { convenienceFee: 25, gstPercent: 18 },
-  notifications: { announcement: '', announcementLevel: 'info', audience: 'ALL' },
-  security: {
-    maintenanceMode: false,
-    allowCustomerRegistration: true,
-    allowProviderRegistration: true,
-    maxLoginAttempts: 5,
-    lockoutMinutes: 15,
-  },
-};
+export const DEFAULT_PLATFORM_SETTINGS = DEFAULT_PLATFORM_SETTINGS_STATE;
 
-const merge = (base, over) =>
-  Object.fromEntries(
-    Object.entries(base).map(([k, v]) => [k, v && typeof v === 'object' ? { ...v, ...(over?.[k] || {}) } : (over?.[k] ?? v)]),
-  );
+let _store = null;
 
-let current = DEFAULT_PLATFORM_SETTINGS;
-let pending = null;
-const listeners = new Set();
-
-export const getPlatformSettings = () => current;
-
-/** Call `fn` now and whenever the settings change. Returns an unsubscribe function. */
-export function onPlatformSettings(fn) {
-  listeners.add(fn);
-  fn(current);
-  return () => listeners.delete(fn);
+export function injectPlatformSettingsStore(store) {
+  _store = store;
 }
 
-export function loadPlatformSettings(force = false) {
-  if (pending && !force) return pending;
-  pending = apiRequest('/platform/settings', { role: null })
-    .then((s) => {
-      const next = merge(DEFAULT_PLATFORM_SETTINGS, s);
-      if (JSON.stringify(next) !== JSON.stringify(current)) {
-        current = next;
-        listeners.forEach((fn) => fn(current));
-      }
-      return current;
-    })
-    .catch(() => current);
-  return pending;
+export function getPlatformSettings() {
+  if (_store) return _store.getState().platformSettings.settings;
+  return DEFAULT_PLATFORM_SETTINGS;
 }
 
-/** Settings as React state: re-renders when they change. */
+export async function loadPlatformSettings() {
+  try {
+    const data = await apiRequest('/platform/settings', { role: null });
+    if (data && _store) {
+      _store.dispatch(setPlatformSettings(data));
+    }
+  } catch {
+    /* keep existing Redux defaults */
+  }
+  return getPlatformSettings();
+}
+
 export function usePlatformSettings() {
-  const [s, setS] = useState(current);
+  const settings = useSelector((state) => state.platformSettings.settings);
+
   useEffect(() => {
-    const off = onPlatformSettings(setS);
-    loadPlatformSettings();
-    return off;
-  }, []);
-  return s;
+    if (settings.updatedAt === '1970-01-01T00:00:00.000Z') {
+      loadPlatformSettings();
+    }
+  }, [settings.updatedAt]);
+
+  return settings;
 }
 
-/** Refund for a cancelled ticket under the current rules. */
-export function refundFor(fare, s = current) {
-  return Math.max(0, Math.round((Number(fare) * s.cancellation.refundPercent) / 100 - s.cancellation.cancellationFee));
+/**
+ * Customer's cancellation refund breakdown for a booking using the platform rules.
+ */
+export function refundFor(fare, settings = getPlatformSettings()) {
+  const f = Math.max(0, Number(fare) || 0);
+  const { refundPercent, cancellationFee } = settings.cancellation;
+  const gross = (f * refundPercent) / 100;
+  const refund = Math.max(0, Math.round((gross - cancellationFee) * 100) / 100);
+  const retained = Math.max(0, Math.round((f - refund) * 100) / 100);
+  return { refund, retained, refundPercent, cancellationFee };
 }

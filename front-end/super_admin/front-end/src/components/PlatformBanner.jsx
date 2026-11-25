@@ -1,12 +1,13 @@
 /**
  * System-wide announcement + maintenance notice set by the Super Admin.
  * Shown as a floating card so it never shifts a page's own layout.
- * Settings are re-fetched on every navigation, so changes appear on the
- * next page the user opens.
+ * Settings and announcement dismissal state live in Redux memory.
  */
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
-import { loadPlatformSettings, usePlatformSettings } from '../lib/platformSettings';
+import { usePlatformSettings } from '../lib/platformSettings';
+import { dismissAnnouncementAction, fetchPlatformSettingsThunk } from '../store/actions';
 import './PlatformBanner.css';
 
 /** Which audience a path belongs to (admin pages see the preview in Settings instead). */
@@ -21,34 +22,25 @@ const ICON = { info: '📣', warning: '⚠️', success: '✅' };
 
 export default function PlatformBanner() {
   const { pathname } = useLocation();
+  const dispatch = useDispatch();
   const settings = usePlatformSettings();
-  const [dismissed, setDismissed] = useState(() => {
-    try {
-      return sessionStorage.getItem('c2b_dismissedAnnouncement') || '';
-    } catch {
-      return '';
-    }
-  });
+  const dismissed = useSelector((state) => state.platformSettings.dismissedAnnouncement);
 
   useEffect(() => {
-    loadPlatformSettings(true);
-  }, [pathname]);
+    dispatch(fetchPlatformSettingsThunk({ force: true }));
+  }, [pathname, dispatch]);
 
   const audience = audienceOf(pathname);
   if (!audience) return null;
 
   const { announcement, announcementLevel, audience: target } = settings.notifications;
-  const showAnnouncement = announcement && (target === 'ALL' || target === audience) && dismissed !== announcement;
+  const showAnnouncement =
+    announcement && (target === 'ALL' || target === audience) && dismissed !== announcement;
   const showMaintenance = settings.security.maintenanceMode && audience === 'CUSTOMER';
   if (!showAnnouncement && !showMaintenance) return null;
 
   const dismiss = () => {
-    setDismissed(announcement);
-    try {
-      sessionStorage.setItem('c2b_dismissedAnnouncement', announcement);
-    } catch {
-      /* ignore */
-    }
+    dispatch(dismissAnnouncementAction(announcement));
   };
 
   return (

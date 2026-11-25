@@ -1,4 +1,6 @@
 import React from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { navigateTabThunk, logoutProviderThunk } from '../store/actions';
 
 /* SVG icons (inline, matches original HTML) */
 const BusIcon = () => (
@@ -87,7 +89,12 @@ const NAV_ITEMS = [
   { id: 'escalations',      label: 'Support Escalations', Icon: ShieldIcon},
 ];
 
-export default function Sidebar({ activeTab, setActiveTab, provider, onLogout }) {
+export default function Sidebar() {
+  const dispatch = useDispatch();
+  const activeTab = useSelector((state) => state.ui.activeTab);
+  const provider = useSelector((state) => state.auth.provider);
+  const setActiveTab = (tab) => dispatch(navigateTabThunk(tab));
+  const onLogout = () => dispatch(logoutProviderThunk());
   const avatarText = provider?.name
     ? provider.name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
     : 'SP';

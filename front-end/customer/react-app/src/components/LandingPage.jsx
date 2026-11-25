@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   Search,
   ArrowLeftRight,
@@ -15,6 +16,12 @@ import {
   Mail,
   ArrowRight
 } from 'lucide-react';
+import {
+  setSearchParams,
+  navigateTabThunk,
+  setLoginModal,
+  logoutCustomerThunk,
+} from '../store/actions';
 import './LandingPage.css';
 
 const POPULAR_ROUTES = [
@@ -103,14 +110,17 @@ const DESTINATION_CARDS = [
   },
 ];
 
-export default function LandingPage({
-  user,
-  onSearchBuses,
-  onOpenLogin,
-  onOpenSignup,
-  onNavigate,
-  onLogout,
-}) {
+export default function LandingPage() {
+  const dispatch = useDispatch();
+  const user = useSelector((state) => state.auth.user);
+  const onSearchBuses = ({ from, to, date }) => {
+    dispatch(setSearchParams({ from, to, date, autoSearch: true }));
+    dispatch(navigateTabThunk('search-trips'));
+  };
+  const onOpenLogin = () => dispatch(setLoginModal({ isOpen: true, initialPanel: 'login' }));
+  const onOpenSignup = () => dispatch(setLoginModal({ isOpen: true, initialPanel: 'signup' }));
+  const onNavigate = (tab) => dispatch(navigateTabThunk(tab));
+  const onLogout = () => dispatch(logoutCustomerThunk());
   const [fromCity, setFromCity] = useState('Mumbai');
   const [toCity, setToCity] = useState('Pune');
 
@@ -157,19 +167,12 @@ export default function LandingPage({
       return;
     }
 
-    sessionStorage.setItem('searchFrom', from);
-    sessionStorage.setItem('searchTo', to);
-    sessionStorage.setItem('searchDate', travelDate);
-
     onSearchBuses({ from, to, date: travelDate });
   };
 
   const handleQuickRoute = (from, to) => {
     setFromCity(from);
     setToCity(to);
-    sessionStorage.setItem('searchFrom', from);
-    sessionStorage.setItem('searchTo', to);
-    sessionStorage.setItem('searchDate', travelDate);
     onSearchBuses({ from, to, date: travelDate });
   };
 

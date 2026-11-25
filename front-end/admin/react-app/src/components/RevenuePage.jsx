@@ -1,52 +1,29 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { loadAdminRevenueData } from '../lib/api.js';
+import React, { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { money } from '../lib/format.js';
-import { DASHBOARD_PATH } from '../lib/session.js';
+import { loadAdminRevenueThunk, navigateRouteThunk } from '../store/actions';
 import MetricCard from './MetricCard.jsx';
 import DataTable from './DataTable.jsx';
 import '../styles/revenue-dashboard.css';
 
-export default function RevenuePage({ onBack }) {
-  const [revenueData, setRevenueData] = useState({ bookings: [], refunds: [] });
-  const [couponFilter, setCouponFilter] = useState('all');
-  const [couponSearch, setCouponSearch] = useState('');
-  const [bookingStatusFilter, setBookingStatusFilter] = useState('all');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [error, setError] = useState('');
-  const [hasLoaded, setHasLoaded] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const requestRef = useRef(null);
-  const refreshRef = useRef(() => {});
+export default function RevenuePage() {
+  const dispatch = useDispatch();
+  const revenueData = useSelector((state) => state.reports.revenueData);
+  const hasLoaded = useSelector((state) => state.reports.hasLoadedRevenue);
+  const refreshing = useSelector((state) => state.ui.refreshing);
+  const error = useSelector((state) => state.ui.dataError);
+  const onBack = () => dispatch(navigateRouteThunk('dashboard'));
+
+  const [couponFilter, setCouponFilter] = React.useState('all');
+  const [couponSearch, setCouponSearch] = React.useState('');
+  const [bookingStatusFilter, setBookingStatusFilter] = React.useState('all');
+  const [startDate, setStartDate] = React.useState('');
+  const [endDate, setEndDate] = React.useState('');
+
+  const refreshRef = React.useRef(() => {});
 
   useEffect(() => {
-    let active = true;
-    const load = () => {
-      let request = requestRef.current;
-      if (!request) {
-        setRefreshing(true);
-        request = loadAdminRevenueData();
-        requestRef.current = request;
-      }
-      return request
-        .then((data) => {
-          if (!active) return;
-          setRevenueData({
-            bookings: data.bookings || [],
-            refunds: data.refunds || [],
-            totalRevenue: data.totalRevenue,
-            grossRevenue: data.grossRevenue,
-            totalRefunds: data.totalRefunds,
-          });
-          setError('');
-          setHasLoaded(true);
-        })
-        .catch((loadError) => active && setError(`Live revenue unavailable: ${loadError.message}`))
-        .finally(() => {
-          if (requestRef.current === request) requestRef.current = null;
-          if (active) setRefreshing(false);
-        });
-    };
+    const load = () => dispatch(loadAdminRevenueThunk());
     refreshRef.current = load;
     load();
     const timer = setInterval(load, 5000);
@@ -57,12 +34,11 @@ export default function RevenuePage({ onBack }) {
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
-      active = false;
       clearInterval(timer);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, []);
+  }, [dispatch]);
 
   const completedRefunds = revenueData.refunds.filter((refund) => String(refund.status).toLowerCase() === 'refunded');
   const paidBookings = revenueData.bookings.filter((booking) => ['SUCCESS', 'REFUNDED'].includes(String(booking.paymentStatus).toUpperCase()));

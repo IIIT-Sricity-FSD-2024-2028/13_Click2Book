@@ -1,12 +1,17 @@
 import React from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { X, CheckCircle, AlertTriangle, Info } from 'lucide-react';
+import { setNotifOpen, markAllNotificationsRead, showToastThunk } from '../store/actions';
 
-export default function NotificationDrawer({
-  isOpen,
-  onClose,
-  notifications,
-  onMarkAllRead,
-}) {
+export default function NotificationDrawer() {
+  const dispatch = useDispatch();
+  const isOpen = useSelector((state) => state.ui.isNotifOpen);
+  const notifications = useSelector((state) => state.notifications.items);
+  const onClose = () => dispatch(setNotifOpen(false));
+  const onMarkAllRead = () => {
+    dispatch(markAllNotificationsRead());
+    dispatch(showToastThunk('Notifications marked as read.', 'info'));
+  };
   if (!isOpen) return null;
 
   const getIcon = (type) => {

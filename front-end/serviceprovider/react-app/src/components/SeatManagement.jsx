@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { getSeatData, getFleetBuses, getProviderBookings } from '../services/api';
+import { memStorage } from '../store/memoryBridge';
+import { navigateTabThunk, showToastThunk } from '../store/actions';
 import BusSeatLayout from './BusSeatLayout';
 
-/* ── localStorage key for blocked seats ── */
 const BLOCKED_KEY = 'c2b_blocked_seats';
 
 /* ── Format date helper with Day of Week ── */
@@ -24,19 +26,17 @@ function fmtDate(raw) {
   } catch { return raw; }
 }
 
-/* ── Load all blocked seats from localStorage ── */
 function loadAllBlocked() {
   try {
-    return JSON.parse(localStorage.getItem(BLOCKED_KEY) || '{}');
+    return JSON.parse(memStorage.getItem(BLOCKED_KEY) || '{}');
   } catch { return {}; }
 }
 
-/* ── Save blocked seats for a trip ── */
 function saveBlocked(tripId, seats) {
   const all = loadAllBlocked();
   all[tripId] = seats;
-  localStorage.setItem(BLOCKED_KEY, JSON.stringify(all));
-  try { window.dispatchEvent(new Event('storage')); } catch {}
+  memStorage.setItem(BLOCKED_KEY, JSON.stringify(all));
+  try { window.dispatchEvent(new CustomEvent('c2b_sync', { detail: { type: 'SEATS_BLOCKED', tripId } })); } catch {}
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -178,7 +178,7 @@ function TripSeatModal({ bus, onClose, showToast }) {
   const [activeSeat, setActiveSeat] = useState(null);
   const [blockedSeats, setBlockedSeats] = useState([]);
 
-  /* Load & sync blocked seats for this trip from localStorage */
+  /* Load & sync blocked seats for this trip from Redux memory store */
   useEffect(() => {
     const updateBlocked = () => {
       const all = loadAllBlocked();
@@ -463,7 +463,11 @@ function BusTripCard({ bus, onView }) {
 /* ─────────────────────────────────────────────────────────────
    Main SeatManagement page
    ───────────────────────────────────────────────────────────── */
-export default function SeatManagement({ provider, onNavigate, showToast }) {
+export default function SeatManagement() {
+  const dispatch = useDispatch();
+  const provider = useSelector((state) => state.auth.provider);
+  const onNavigate = (tab) => dispatch(navigateTabThunk(tab));
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
   const [buses, setBuses]               = useState([]);
   const [selectedBusId, setSelectedBusId] = useState(null);
   const [search, setSearch]             = useState('');
@@ -496,7 +500,7 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
         let providerBookings = [];
         let hasProviderBookingSnapshot = false;
         try {
-          const providerId = provider?.id || sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId');
+          const providerId = provider?.id;
           if (providerId) {
             providerBookings = await getProviderBookings(providerId);
             hasProviderBookingSnapshot = true;
@@ -548,7 +552,7 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
 
           let localBookings = [];
           try {
-            localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
+            localBookings = JSON.parse(memStorage.getItem('c2b_bookings') || '[]');
           } catch {}
 
           const seatNumbers = [];

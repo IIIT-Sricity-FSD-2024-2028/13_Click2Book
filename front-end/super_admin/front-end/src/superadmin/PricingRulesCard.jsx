@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
-import { revenueRequest } from './revenueMock';
-import { DEFAULT_PLATFORM_SETTINGS, loadPlatformSettings } from '../lib/platformSettings';
+import { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { DEFAULT_PLATFORM_SETTINGS } from '../lib/platformSettings';
+import {
+  fetchPlatformSettingsThunk,
+  restorePlatformDefaultsThunk,
+  savePlatformSettingsThunk,
+  setPlatformSettingsMessage,
+} from '../store/actions';
 
 const inr = (r) => (Number(r) || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
 
@@ -21,51 +27,34 @@ const toPatch = (values) => {
 const fromSettings = (s) => Object.fromEntries(FIELDS.map(([section, key]) => [key, String(s[section][key])]));
 
 /**
- * Checkout fees and refund rules from the platform settings — the money part
- * of the settings, which the Admin console no longer edits.
+ * Checkout fees and refund rules from the platform settings — backed by Redux.
  */
 export default function PricingRulesCard() {
-  const [saved, setSaved] = useState(null);
-  const [f, setF] = useState(null);
-  const [message, setMessage] = useState(null); // { text, ok }
-  const [busy, setBusy] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      const s = await revenueRequest('/platform/settings', { role: null });
-      setSaved(s);
-      setF(fromSettings(s));
-    } catch (err) {
-      setMessage({ text: 'Could not load the platform settings: ' + err.message, ok: false });
-    }
-  }, []);
+  const dispatch = useDispatch();
+  const saved = useSelector((state) => state.platformSettings.settings);
+  const busy = useSelector((state) => state.platformSettings.saving);
+  const message = useSelector((state) => state.platformSettings.message);
+  const [f, setF] = useState(() => fromSettings(saved));
 
   useEffect(() => {
-    load();
-  }, [load]);
+    dispatch(fetchPlatformSettingsThunk({ useRevenueMock: true })).then((res) => {
+      if (res?.success && res.data) {
+        setF(fromSettings(res.data));
+      }
+    });
+  }, [dispatch]);
 
   const put = async (values, done) => {
     for (const [, key, label, min, max] of FIELDS) {
       const n = Number(values[key]);
-      if (values[key] === '' || !Number.isFinite(n) || n < min || n > max)
-        return setMessage({ text: `${label} must be between ${min} and ${max}.`, ok: false });
+      if (values[key] === '' || !Number.isFinite(n) || n < min || n > max) {
+        dispatch(setPlatformSettingsMessage({ text: `${label} must be between ${min} and ${max}.`, ok: false }));
+        return;
+      }
     }
-    setBusy(true);
-    try {
-      const s = await revenueRequest('/platform/settings', {
-        role: 'ADMIN',
-        method: 'PUT',
-        body: toPatch(values),
-        headers: { 'x-admin-email': 'Super Admin' },
-      });
-      setSaved(s);
-      setF(fromSettings(s));
-      setMessage({ text: done, ok: true });
-      loadPlatformSettings(true); // other pages pick up the new fees straight away
-    } catch (err) {
-      setMessage({ text: 'Failed to save: ' + err.message, ok: false });
-    } finally {
-      setBusy(false);
+    const res = await dispatch(savePlatformSettingsThunk(toPatch(values), done));
+    if (res?.success && res.data) {
+      setF(fromSettings(res.data));
     }
   };
 
@@ -73,9 +62,14 @@ export default function PricingRulesCard() {
     e.preventDefault();
     put(f, 'Fees and refund rules saved.');
   };
-  const restore = () => {
+  const restore = async () => {
     if (!window.confirm('Restore the fees and refund rules to their default values?')) return;
-    put(fromSettings(DEFAULT_PLATFORM_SETTINGS), 'Fees and refund rules restored to defaults.');
+    const res = await dispatch(restorePlatformDefaultsThunk());
+    if (res?.success && res.data) {
+      setF(fromSettings(res.data));
+    } else if (res?.success) {
+      setF(fromSettings(DEFAULT_PLATFORM_SETTINGS));
+    }
   };
 
   const dirty = saved && f && JSON.stringify(f) !== JSON.stringify(fromSettings(saved));

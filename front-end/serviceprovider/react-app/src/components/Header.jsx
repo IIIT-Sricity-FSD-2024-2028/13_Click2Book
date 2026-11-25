@@ -1,4 +1,6 @@
 import React from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { toggleNotifOpen } from '../store/actions';
 
 const PAGE_TITLES = {
   dashboard:          { title: 'Provider Dashboard',        sub: 'Service Provider Portal' },
@@ -13,7 +15,12 @@ const PAGE_TITLES = {
   settings:         { title: 'Settings',             sub: 'Manage your account preferences' },
 };
 
-export default function Header({ activeTab, unreadCount, onToggleNotifications }) {
+export default function Header() {
+  const dispatch = useDispatch();
+  const activeTab = useSelector((state) => state.ui.activeTab);
+  const notifications = useSelector((state) => state.notifications.items);
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  const onToggleNotifications = () => dispatch(toggleNotifOpen());
   const { title, sub } = PAGE_TITLES[activeTab] || { title: 'Provider Panel', sub: 'Click2Book' };
 
   return (

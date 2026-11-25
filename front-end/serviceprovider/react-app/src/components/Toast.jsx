@@ -1,6 +1,11 @@
 import React from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { dismissToast } from '../store/actions';
 
-export default function Toast({ toasts, onDismiss }) {
+export default function Toast() {
+  const dispatch = useDispatch();
+  const toasts = useSelector((state) => state.ui.toasts);
+  const onDismiss = (id) => dispatch(dismissToast(id));
   if (!toasts.length) return null;
   return (
     <div className="toast-container">

@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Calendar, Download, XCircle, RotateCcw, Navigation, MapPin, AlertTriangle, Radio, CheckCircle, ShieldAlert, X, Star } from 'lucide-react';
 import { API } from '../services/api';
 import LiveBusTrackerModal from './LiveBusTrackerModal';
+import {
+  navigateTabThunk,
+  showToastThunk,
+  submitReviewThunk,
+} from '../store/actions';
 
 function isDepartureTimeReached(journeyDate, departureTime) {
   try {
@@ -38,21 +44,26 @@ function isDepartureTimeReached(journeyDate, departureTime) {
   }
 }
 
-export default function MyBookings({
-  customer,
-  user,
-  showToast,
-  onNavigate,
-  onNavigateToCancel,
-  onNavigateToTrackRefund,
-  onNavigateToSearch,
-}) {
+export default function MyBookings() {
+  const dispatch = useDispatch();
+  const user = useSelector((state) => state.auth.user);
+  const customer = user;
+  const reduxBookings = useSelector((state) => state.bookings.items);
+  const reduxRefunds = useSelector((state) => state.refunds.items);
+  const reviewsList = useSelector((state) => state.reviews.items);
+  const tripStatuses = useSelector((state) => state.trips.tripStatuses);
+
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
+  const onNavigate = (tab) => dispatch(navigateTabThunk(tab));
+  const onNavigateToCancel = (b) => dispatch(navigateTabThunk('cancel-ticket', { booking: b }));
+  const onNavigateToTrackRefund = (bId) => dispatch(navigateTabThunk('track-refunds', { bookingId: bId }));
+  const onNavigateToSearch = () => dispatch(navigateTabThunk('search-trips'));
+
   const [filter, setFilter] = useState('all'); // 'all' | 'confirmed' | 'completed' | 'cancelled'
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Review State (Task 3)
-  const [reviewsList, setReviewsList] = useState([]);
   const [reviewingBooking, setReviewingBooking] = useState(null);
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '', punctuality: 5, cleanliness: 5, comfort: 5, staff: 5 });
   const [submittingReview, setSubmittingReview] = useState(false);
@@ -86,7 +97,6 @@ export default function MyBookings({
       }
     } catch {}
 
-    const tripStatuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
     const tStatus = tripStatuses[tripId];
     const timePassed = isDepartureTimeReached(booking.date, booking.departureTime);
     const hasStarted = tStatus === 'IN_PROGRESS' || (timePassed && tStatus !== 'COMPLETED');
@@ -220,17 +230,9 @@ export default function MyBookings({
       console.warn('API getMine bookings note:', e);
     }
 
-    // 2. Fetch local storage bookings and refunds
-    let localData = [];
-    let refundData = [];
-    try {
-      const local = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-      if (Array.isArray(local)) localData = local;
-      const refunds = JSON.parse(localStorage.getItem('c2b_refunds') || '[]');
-      if (Array.isArray(refunds)) refundData = refunds;
-    } catch (e) {
-      console.warn('localStorage reading note:', e);
-    }
+    // 2. Read Redux bookings and refunds
+    const localData = Array.isArray(reduxBookings) ? reduxBookings : [];
+    const refundData = Array.isArray(reduxRefunds) ? reduxRefunds : [];
 
     // 3. Unify and merge bookings by bookingId without duplicates
     const bookingMap = new Map();
@@ -329,29 +331,17 @@ export default function MyBookings({
       }
     });
 
-    try {
-      const revs = JSON.parse(localStorage.getItem('c2b_bus_reviews') || '[]');
-      setReviewsList(revs);
-    } catch {}
-
     setBookings(Array.from(bookingMap.values()));
     setLoading(false);
-  }, []);
+  }, [reduxBookings, reduxRefunds]);
 
   useEffect(() => {
     loadBookings();
 
-    const handleStorageChange = (e) => {
-      if (!e || !e.key || e.key === 'c2b_bookings' || e.key === 'c2b_refunds' || e.key === 'c2b_bus_reviews' || e.key === 'c2b_trip_statuses') {
-        loadBookings();
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
     window.addEventListener('c2b_sync', loadBookings);
     window.addEventListener('focus', loadBookings);
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('c2b_sync', loadBookings);
       window.removeEventListener('focus', loadBookings);
     };
@@ -371,32 +361,30 @@ export default function MyBookings({
       const customerId = customer?.id || user?.id || 'C001';
       const seatNumber = reviewingBooking.seats || '1';
 
-      await API.reviews.submit({
-        tripId: reviewingBooking.tripId || 'T001',
-        rating: reviewForm.rating,
-        comment: reviewForm.comment,
-        bookingId: reviewingBooking.bookingId,
-        seatNumber,
-        busName: reviewingBooking.busName,
-        route: `${reviewingBooking.from} → ${reviewingBooking.to}`,
-        customerName,
-        customerId,
-        categories: {
-          punctuality: reviewForm.punctuality,
-          cleanliness: reviewForm.cleanliness,
-          comfort: reviewForm.comfort,
-          staff: reviewForm.staff,
-        },
-      });
+      await dispatch(
+        submitReviewThunk({
+          tripId: reviewingBooking.tripId || 'T001',
+          rating: reviewForm.rating,
+          comment: reviewForm.comment,
+          bookingId: reviewingBooking.bookingId,
+          seatNumber,
+          busName: reviewingBooking.busName,
+          route: `${reviewingBooking.from} → ${reviewingBooking.to}`,
+          customerName,
+          customerId,
+          categories: {
+            punctuality: reviewForm.punctuality,
+            cleanliness: reviewForm.cleanliness,
+            comfort: reviewForm.comfort,
+            staff: reviewForm.staff,
+          },
+        })
+      );
 
-      const revs = JSON.parse(localStorage.getItem('c2b_bus_reviews') || '[]');
-      setReviewsList(revs);
       setReviewingBooking(null);
-      if (showToast) {
-        showToast('⭐ Thank you! Your review has been submitted to the bus operator.', 'success');
-      }
+      showToast('⭐ Thank you! Your review has been submitted to the bus operator.', 'success');
     } catch (err) {
-      if (showToast) showToast(err.message || 'Failed to submit review.', 'error');
+      showToast(err.message || 'Failed to submit review.', 'error');
     } finally {
       setSubmittingReview(false);
     }
@@ -474,8 +462,7 @@ export default function MyBookings({
             const isCancelled = b.status === 'CANCELLED';
             const isCancellable = b.status === 'CONFIRMED' || b.status === 'PENDING';
 
-            // Check live trip status from c2b_trip_statuses or departure time passed
-            const tripStatuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+            // Check live trip status from Redux tripStatuses or departure time passed
             const tStatus = tripStatuses[b.tripId];
             const timePassed = isDepartureTimeReached(b.date, b.departureTime);
             const hasStarted = tStatus === 'IN_PROGRESS' || (timePassed && tStatus !== 'COMPLETED');

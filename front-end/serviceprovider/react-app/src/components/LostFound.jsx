@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchLostFoundThunk, updateLostFoundStatusThunk, showToastThunk } from '../store/actions';
 import { fetchLostFound, updateLostFoundStatus } from '../services/api';
 
 const STATUS_BADGE = {
@@ -55,28 +57,29 @@ function LFCard({ item, onMarkStatus }) {
   );
 }
 
-export default function LostFound({ provider, onNavigate, showToast }) {
+export default function LostFound() {
+  const dispatch = useDispatch();
+  const provider = useSelector((state) => state.auth.provider);
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
 
-  const providerId = provider?.id
-    || sessionStorage.getItem('c2b_loggedInId')
-    || localStorage.getItem('c2b_loggedInId')
-    || 'P001';
+  const providerId = provider?.id || 'P001';
 
   const load = useCallback(async () => {
-    const { data, isLive: live } = await fetchLostFound(providerId);
-    setItems([...data].reverse());
-    setIsLive(live);
+    const action = await dispatch(fetchLostFoundThunk(providerId));
+    const list = Array.isArray(action.payload) ? action.payload : [];
+    setItems([...list].reverse());
+    setIsLive(true);
     setLoading(false);
-  }, [providerId]);
+  }, [dispatch, providerId]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleMarkStatus = async (itemId, status, note) => {
     try {
-      await updateLostFoundStatus(itemId, status, note);
+      await dispatch(updateLostFoundStatusThunk({ itemId, status, foundNote: note })).unwrap();
       showToast(`Item ${itemId} marked as ${status}.`, 'success');
       await load();
     } catch (e) {

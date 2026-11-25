@@ -6,60 +6,45 @@
 
 const API_BASE = '/api';
 
+let _storeRef = null;
+export function injectCustomerApiStore(store) {
+  _storeRef = store;
+}
+
 export function getRole() {
-  if (typeof window === 'undefined') return 'CUSTOMER';
-  return sessionStorage.getItem('c2b_role') || localStorage.getItem('c2b_role') || 'CUSTOMER';
+  const auth = _storeRef ? _storeRef.getState()?.auth : null;
+  return auth?.role || auth?.user?.role || 'CUSTOMER';
 }
 
 export function getCustomerId() {
-  if (typeof window === 'undefined') return 'C001';
-  return (
-    sessionStorage.getItem('c2b_loggedInId') ||
-    localStorage.getItem('c2b_loggedInId') ||
-    sessionStorage.getItem('c2b_userId') ||
-    localStorage.getItem('c2b_userId') ||
-    'C001'
-  );
+  const auth = _storeRef ? _storeRef.getState()?.auth : null;
+  return auth?.user?.id || auth?.user?.customerId || 'C001';
 }
 
 export function getCustomerName() {
-  if (typeof window === 'undefined') return 'Customer';
-  return sessionStorage.getItem('c2b_userName') || localStorage.getItem('c2b_userName') || 'Customer';
+  const auth = _storeRef ? _storeRef.getState()?.auth : null;
+  return auth?.user?.name || 'Customer';
 }
 
 export function getCustomerEmail() {
-  if (typeof window === 'undefined') return '';
-  return sessionStorage.getItem('c2b_userEmail') || localStorage.getItem('c2b_userEmail') || '';
+  const auth = _storeRef ? _storeRef.getState()?.auth : null;
+  return auth?.user?.email || '';
 }
 
 function clearCustomerSession() {
-  for (const storage of [sessionStorage, localStorage]) {
-    [
-      'c2b_loggedIn',
-      'c2b_loggedInId',
-      'c2b_userId',
-      'c2b_userName',
-      'c2b_userEmail',
-      'c2b_email',
-      'c2b_userPhone',
-      'c2b_user_avatar',
-      'c2b_role',
-      'c2b_sessionVersion',
-    ].forEach((key) => storage.removeItem(key));
-  }
+  // Handled by Redux store auth/deleteSession via c2b_account_deactivated event
 }
 
 export async function apiFetch(path, options = {}) {
+  const auth = _storeRef ? _storeRef.getState()?.auth : null;
   const role = getRole();
   const userId = getCustomerId();
-  const sessionVersion =
-    sessionStorage.getItem('c2b_sessionVersion') ||
-    localStorage.getItem('c2b_sessionVersion');
+  const sessionVersion = auth?.sessionVersion ?? auth?.user?.sessionVersion ?? null;
   const headers = {
     'Content-Type': 'application/json',
     'x-role': role,
     ...(userId ? { 'x-user-id': userId } : {}),
-    ...(sessionVersion ? { 'x-session-version': sessionVersion } : {}),
+    ...(sessionVersion !== null && sessionVersion !== undefined ? { 'x-session-version': String(sessionVersion) } : {}),
     ...(options.headers || {}),
   };
 
@@ -174,7 +159,7 @@ export const API = {
       if (offerCode) body.offerCode = offerCode;
       if (segment?.from) body.from = segment.from;
       if (segment?.to) body.to = segment.to;
-      const journeyDate = segment?.journeyDate || sessionStorage.getItem('searchDate');
+      const journeyDate = segment?.journeyDate || (_storeRef ? _storeRef.getState()?.trips?.searchDate : null);
       if (journeyDate) body.journeyDate = String(journeyDate).split('T')[0];
       if (segment?.passenger) {
         body.passengerName = segment.passenger.name || '';
@@ -339,13 +324,12 @@ export const API = {
         const res = await apiFetch(`/reviews?tripId=${encodeURIComponent(tripId)}`);
         return res?.data || res || [];
       } catch {
-        const local = JSON.parse(localStorage.getItem('c2b_bus_reviews') || '[]');
+        const local = _storeRef ? _storeRef.getState()?.reviews?.items || [] : [];
         return tripId ? local.filter((r) => r.tripId === tripId) : local;
       }
     },
     async submit({ tripId, rating, comment, bookingId, seatNumber, busName, route, customerName, customerId, categories }) {
       const ratingNum = Math.min(5, Math.max(1, parseInt(rating || 5, 10)));
-      const reviews = JSON.parse(localStorage.getItem('c2b_bus_reviews') || '[]');
       const reviewId = `REV-${Date.now()}`;
       const newReview = {
         reviewId,
@@ -371,9 +355,6 @@ export const API = {
         verifiedBooking: true,
       };
 
-      reviews.unshift(newReview);
-      localStorage.setItem('c2b_bus_reviews', JSON.stringify(reviews));
-
       try {
         await apiFetch('/reviews', {
           method: 'POST',
@@ -385,11 +366,10 @@ export const API = {
           }),
         });
       } catch (err) {
-        console.warn('Backend /reviews note (saved locally):', err?.message);
+        console.warn('Backend /reviews note (saved in Redux memory):', err?.message);
       }
 
       try {
-        window.dispatchEvent(new Event('storage'));
         window.dispatchEvent(new CustomEvent('c2b_sync', {
           detail: { type: 'REVIEW_SUBMITTED', review: newReview }
         }));

@@ -1,5 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { api } from '../services/api';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  fetchSupportRequestsThunk,
+  submitSupportRequestThunk,
+  showToastThunk,
+} from '../store/actions';
 
 const ISSUE_CATEGORIES = [
   { id: 'booking', label: 'Booking Issue', icon: '📋' },
@@ -8,7 +13,12 @@ const ISSUE_CATEGORIES = [
   { id: 'other', label: 'Other', icon: '📄' },
 ];
 
-export default function GetSupport({ user, showToast }) {
+export default function GetSupport() {
+  const dispatch = useDispatch();
+  const user = useSelector((state) => state.auth.user);
+  const requestsList = useSelector((state) => state.supportRequests.items);
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
+
   const [activeTab, setActiveTab] = useState('create'); // 'create' | 'requests' | 'success'
   const [selectedIssue, setSelectedIssue] = useState('Booking Issue');
   const [bookingId, setBookingId] = useState('');
@@ -16,68 +26,19 @@ export default function GetSupport({ user, showToast }) {
   const [errorMessage, setErrorMessage] = useState('');
   const [generatedTicketId, setGeneratedTicketId] = useState('');
 
-  // Requests state
-  const [requestsList, setRequestsList] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const customerId = user?.id || localStorage.getItem('c2b_loggedInId') || sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_userId') || sessionStorage.getItem('c2b_userId') || 'C001';
-  const customerName = user?.name || sessionStorage.getItem('c2b_userName') || localStorage.getItem('c2b_userName') || 'Customer';
+  const customerId = user?.id || 'C001';
+  const customerName = user?.name || 'Customer';
 
-  // Load existing requests
-  const loadRequests = async () => {
-    const map = new Map();
-
-    // 1. Read from localStorage
-    try {
-      const local = JSON.parse(localStorage.getItem('c2b_support_requests') || '[]');
-      if (Array.isArray(local)) {
-        local.forEach((item) => {
-          const id = item.requestId || item.request_id || item.id;
-          if (id) map.set(id, item);
-        });
-      }
-    } catch {
-      // Ignore parse error
-    }
-
-    // 2. Try API (authoritative backend)
-    try {
-      const live = await api.supportRequests.getMine(customerId);
-      if (Array.isArray(live) && live.length > 0) {
-        live.forEach((item) => {
-          const id = item.requestId || item.request_id || item.id;
-          if (id) {
-            const existing = map.get(id) || {};
-            map.set(id, { ...existing, ...item });
-          }
-        });
-      }
-    } catch {
-      // Backend offline fallback
-    }
-
-    // Default mock ticket if completely empty
-    if (map.size === 0) {
-      map.set('REQ-DEMO101', {
-        requestId: 'REQ-DEMO101',
-        category: 'Booking Issue',
-        bookingId: 'BK1002',
-        description: 'Seat assignment preference was modified unexpectedly during boarding.',
-        status: 'RESOLVED',
-        createdAt: '2026-03-28',
-        resolution: 'Support Agent checked with the operator and restored your seat.',
-        response: 'Support Agent checked with the operator and restored your seat.',
-      });
-    }
-
-    setRequestsList(Array.from(map.values()));
-  };
+  const loadRequests = useCallback(() => {
+    dispatch(fetchSupportRequestsThunk(customerId));
+  }, [dispatch, customerId]);
 
   useEffect(() => {
     loadRequests();
 
-    // 1. Cross-portal Real-time BroadcastChannel listener
     let syncChannel = null;
     try {
       if (typeof window !== 'undefined' && typeof window.BroadcastChannel === 'function') {
@@ -91,15 +52,6 @@ export default function GetSupport({ user, showToast }) {
       }
     } catch (_) {}
 
-    // 2. Storage event listener (same-origin tab support)
-    const handleStorageChange = (e) => {
-      if (!e.key || e.key.includes('support') || e.key.includes('ticket')) {
-        loadRequests();
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-
-    // 3. Tab visibility / window focus listener
     const handleFocus = () => {
       if (typeof document !== 'undefined' && !document.hidden) {
         loadRequests();
@@ -108,11 +60,9 @@ export default function GetSupport({ user, showToast }) {
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
 
-    // 4. Background poll every 4 seconds
     const interval = setInterval(loadRequests, 4000);
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
       if (syncChannel) {
@@ -120,7 +70,7 @@ export default function GetSupport({ user, showToast }) {
       }
       clearInterval(interval);
     };
-  }, [customerId]);
+  }, [loadRequests]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -144,7 +94,7 @@ export default function GetSupport({ user, showToast }) {
     let ticketId = 'TKT-' + Math.floor(10000 + Math.random() * 90000);
     const today = new Date().toISOString().split('T')[0];
 
-    let newTicket = {
+    const newTicket = {
       requestId: ticketId,
       customerId,
       supporterId: 'SUP001',
@@ -156,36 +106,10 @@ export default function GetSupport({ user, showToast }) {
       createdAt: today,
     };
 
-    // 1. Call API first
-    try {
-      const liveRes = await api.supportRequests.create(newTicket);
-      if (liveRes && (liveRes.requestId || liveRes.id)) {
-        ticketId = liveRes.requestId || liveRes.id;
-        newTicket = { ...newTicket, ...liveRes, requestId: ticketId };
-      }
-    } catch (err) {
-      console.warn('[GetSupport] API submission fallback:', err.message);
+    const actionRes = await dispatch(submitSupportRequestThunk(newTicket));
+    if (actionRes.payload?.requestId) {
+      ticketId = actionRes.payload.requestId;
     }
-
-    // 2. Persist in localStorage
-    try {
-      const existing = JSON.parse(localStorage.getItem('c2b_support_requests') || '[]');
-      const filtered = Array.isArray(existing) ? existing.filter((t) => (t.requestId || t.id) !== ticketId) : [];
-      filtered.unshift(newTicket);
-      localStorage.setItem('c2b_support_requests', JSON.stringify(filtered));
-    } catch {}
-
-    // 3. Real-time Cross-Portal broadcast so Support Agent Portal instantly sees the ticket
-    try {
-      if (typeof window !== 'undefined' && typeof window.BroadcastChannel === 'function') {
-        const ch = new BroadcastChannel('click2book_support_sync');
-        ch.postMessage({
-          type: 'NEW_CUSTOMER_TICKET',
-          ticket: newTicket,
-        });
-        setTimeout(() => { try { ch.close(); } catch (_) {} }, 200);
-      }
-    } catch (_) {}
 
     setIsSubmitting(false);
     setGeneratedTicketId(ticketId);

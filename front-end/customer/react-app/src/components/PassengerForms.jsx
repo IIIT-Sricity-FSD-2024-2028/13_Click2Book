@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { User, Mail, Phone, ArrowLeft, ArrowRight } from 'lucide-react';
+import { setPassengers as setReduxPassengers } from '../store/actions';
 
 export default function PassengerForms({
   selectedSeats,
@@ -7,6 +9,7 @@ export default function PassengerForms({
   onProceed,
   onBack,
 }) {
+  const dispatch = useDispatch();
   const [passengers, setPassengers] = useState(() => {
     return selectedSeats.map((seat, idx) => ({
       seat,
@@ -93,7 +96,7 @@ export default function PassengerForms({
       }
     }
 
-    sessionStorage.setItem('c2b_passengers', JSON.stringify(passengers));
+    dispatch(setReduxPassengers(passengers));
     onProceed(passengers);
   };
 

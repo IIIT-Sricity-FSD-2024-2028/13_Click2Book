@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import BrandMark from './BrandMark.jsx';
-import { API_BASE } from '../lib/api.js';
 import { EMAIL_PATTERN } from '../lib/format.js';
-import { saveAdminSession } from '../lib/session.js';
+import { loginAdminThunk } from '../store/actions';
 import '../styles/login.css';
 
 const FEATURES = [
@@ -12,22 +12,14 @@ const FEATURES = [
   ['🖥️', 'Infrastructure Monitoring'],
 ];
 
-export default function LoginPage({ onLoginSuccess }) {
+export default function LoginPage() {
+  const dispatch = useDispatch();
+  const busy = useSelector((state) => state.auth.loading);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  const signIn = (user) => {
-    saveAdminSession(remember ? localStorage : sessionStorage, user);
-    if (onLoginSuccess) {
-      onLoginSuccess(user);
-    } else {
-      location.href = '#dashboard';
-    }
-  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -38,24 +30,9 @@ export default function LoginPage({ onLoginSuccess }) {
     if (!password) return setError('Please enter your password.');
     if (password.length < 6) return setError('Password must be at least 6 characters.');
 
-    setBusy(true);
-    try {
-      const response = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, password }),
-      });
-      const json = await response.json();
-      if (!response.ok || !json.success || json.data?.role !== 'ADMIN') {
-        throw new Error(json.message || 'Invalid credentials. Check your admin email and password.');
-      }
-      signIn(json.data);
-    } catch (requestError) {
-      setError(requestError instanceof TypeError
-        ? 'Admin API is unavailable. Please try again.'
-        : requestError.message);
-    } finally {
-      setBusy(false);
+    const res = await dispatch(loginAdminThunk({ email: cleanEmail, password }));
+    if (loginAdminThunk.rejected.match(res)) {
+      setError(res.payload || 'Invalid credentials.');
     }
   };
 

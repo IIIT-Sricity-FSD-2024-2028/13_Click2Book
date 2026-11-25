@@ -1,7 +1,15 @@
 import React, { useState, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Search, User, Phone, Mail, MapPin, BookOpen, AlertCircle } from 'lucide-react';
+import { setSelectedCustomerId, showToastThunk } from '../store/actions';
 
-export default function CustomerLookup({ customers = [], onSelectCustomer }) {
+export default function CustomerLookup() {
+  const dispatch = useDispatch();
+  const customers = useSelector((state) => state.customers.items);
+  const onSelectCustomer = (c) => {
+    dispatch(setSelectedCustomerId(c.id));
+    dispatch(showToastThunk(`Viewing passenger record for ${c.name}`, 'info'));
+  };
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {

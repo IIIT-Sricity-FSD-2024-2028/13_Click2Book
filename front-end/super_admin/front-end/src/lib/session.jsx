@@ -1,91 +1,98 @@
 /**
- * Session helpers shared by every portal.
- *
- * Login pages write the signed-in user into sessionStorage and/or
- * localStorage under `c2b_*` keys; everything else reads them back here.
+ * Session helpers for the Super Admin portal backed by Redux memory state.
+ * Zero browser storage is used.
  */
+import {
+  clearCustomerSessionState,
+  clearSuperUserAuth,
+  createSessionRecord,
+  setSuperUserAuth,
+  updateSessionRecord,
+} from '../store/slices/authSlice';
 
-const ss = (k) => sessionStorage.getItem(k);
-const ls = (k) => localStorage.getItem(k);
+let _store = null;
 
-/** Read a key from sessionStorage first, then localStorage. */
+export function injectSessionStore(store) {
+  _store = store;
+}
+
+const getAuthState = () => (_store ? _store.getState().auth : null);
+
 export function getSessionValue(key) {
-  return ss(key) || ls(key);
+  const auth = getAuthState();
+  if (!auth) return null;
+  if (key === 'superUserAuth') return auth.superUserAuth ? 'true' : null;
+  if (key in auth.session) return auth.session[key] || null;
+  return auth.extraKeys?.[key] ?? null;
 }
 
-export function getRole(fallback = 'CUSTOMER') {
-  return getSessionValue('c2b_role') || fallback;
-}
+export const isSuperUserAuthenticated = () => Boolean(getAuthState()?.superUserAuth);
 
-/** Current customer ID, falling back to the demo customer C001. */
-export function getCustomerId() {
-  return getSessionValue('c2b_loggedInId') || getSessionValue('c2b_userId') || 'C001';
-}
+export const setSuperUserAuthenticated = (authenticated = true, email = '') => {
+  if (_store) _store.dispatch(setSuperUserAuth({ authenticated, email }));
+};
 
-export function getUserName(fallback = 'Customer') {
-  return getSessionValue('c2b_userName') || fallback;
-}
+export const clearSuperUserAuthenticated = () => {
+  if (_store) _store.dispatch(clearSuperUserAuth());
+};
 
-export function isLoggedIn() {
-  return ss('c2b_loggedIn') === 'true' || ls('c2b_loggedIn') === 'true';
-}
+/** Normalised role of the currently logged-in user, or `'GUEST'`. */
+export const getRole = () => (getSessionValue('c2b_userRole') || 'GUEST').toUpperCase();
 
-export function initials(name, fallback = 'CU') {
-  const ini = String(name || '')
+export const getCustomerId = () =>
+  getSessionValue('c2b_customerId') || getSessionValue('c2b_loggedInId') || 'C001';
+
+export const getUserName = () => getSessionValue('c2b_userName') || 'Guest User';
+
+export const isLoggedIn = () => getSessionValue('c2b_loggedIn') === 'true';
+
+/** Up to two uppercase initials for the sidebar/header avatar pill. */
+export const initials = (name) =>
+  (name || 'U')
     .trim()
     .split(/\s+/)
-    .map((w) => w[0] || '')
+    .map((w) => w[0])
     .join('')
     .toUpperCase()
     .slice(0, 2);
-  return ini || fallback;
-}
 
-/** Keep c2b_userId and c2b_loggedInId pointing at the same account. */
+const ROLE_ID_KEY = {
+  CUSTOMER: 'c2b_userId',
+  PROVIDER: 'c2b_providerId',
+  SUPPORT: 'c2b_agentId',
+  ADMIN: 'c2b_adminId',
+};
+
+/**
+ * Copy the active user's ID into the per-role key read by CRUD helpers.
+ */
 export function syncActiveUserId() {
-  const activeId = getSessionValue('c2b_loggedInId') || getSessionValue('c2b_userId');
-  if (!activeId) return;
-  for (const store of [sessionStorage, localStorage]) {
-    store.setItem('c2b_loggedInId', activeId);
-    store.setItem('c2b_userId', activeId);
+  const id = getSessionValue('c2b_loggedInId');
+  const key = ROLE_ID_KEY[getRole()];
+  if (id && key && _store) {
+    _store.dispatch(updateSessionRecord({ [key]: id }));
   }
 }
 
 /**
- * Write a signed-in user ({ id, name, email, role }) into the given stores.
- * sessionStorage is always written; pass `remember` to also persist it.
+ * Save a user's session in Redux memory after login/signup.
  */
-export function storeSession(user, { remember = false, also = [] } = {}) {
-  const stores = new Set([sessionStorage, ...(remember ? [localStorage] : []), ...also]);
-  for (const store of stores) {
-    store.setItem('c2b_loggedIn', 'true');
-    store.setItem('c2b_userName', user.name);
-    store.setItem('c2b_userId', user.id || '');
-    store.setItem('c2b_loggedInId', user.id || '');
-    store.setItem('c2b_role', user.role);
-    store.setItem('c2b_userEmail', user.email || '');
+export function storeSession(role, { id, name, email } = {}) {
+  if (_store) {
+    _store.dispatch(createSessionRecord({ role, id, name, email }));
   }
 }
 
-/** Landing route for each role after signing in. */
+/** Where a user lands after signing in from the staff access page. */
 export function homeForRole(role) {
-  switch (role) {
-    case 'ADMIN':
-      return '/admin/admin-dashboard';
-    case 'PROVIDER':
-      return '/provider/dashboard';
-    case 'SUPPORT':
-      return '/support';
-    default:
-      return '/customer/search-trips';
-  }
+  if (role === 'CUSTOMER') return '/';
+  if (role === 'PROVIDER' || role === 'SUPPORT' || role === 'ADMIN') return '/';
+  return '/';
 }
 
-const CUSTOMER_KEYS = ['c2b_loggedIn', 'c2b_userName', 'c2b_userId', 'c2b_loggedInId', 'c2b_userEmail'];
-
+/** Clear all portal session fields in Redux memory. */
 export function clearCustomerSession() {
-  for (const key of CUSTOMER_KEYS) {
-    sessionStorage.removeItem(key);
-    localStorage.removeItem(key);
+  if (_store) {
+    _store.dispatch(clearCustomerSessionState());
   }
 }

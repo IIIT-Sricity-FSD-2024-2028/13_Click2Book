@@ -1,4 +1,5 @@
 import React from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   Bus,
   Search,
@@ -12,14 +13,21 @@ import {
   LogOut,
   LogIn,
 } from 'lucide-react';
+import {
+  navigateTabThunk,
+  logoutCustomerThunk,
+  setLoginModal,
+  setRedirectAfterLogin,
+} from '../store/actions';
 
-export default function Sidebar({
-  activeTab,
-  setActiveTab,
-  customer,
-  onLogout,
-  onOpenLogin,
-}) {
+export default function Sidebar() {
+  const dispatch = useDispatch();
+  const activeTab = useSelector((state) => state.ui.activeTab);
+  const customer = useSelector((state) => state.auth.user);
+  const setActiveTab = (tab) => dispatch(navigateTabThunk(tab));
+  const onNavigate = setActiveTab;
+  const onLogout = () => dispatch(logoutCustomerThunk());
+  const onOpenLogin = (opts) => dispatch(setLoginModal({ isOpen: true, ...(opts || {}) }));
   const isLoggedIn = Boolean(customer && customer.isLoggedIn);
   const name = customer?.name || 'Customer';
   const initials = name
@@ -103,7 +111,7 @@ export default function Sidebar({
                   const msg = item.id === 'get-support'
                     ? 'Please sign in to access customer support.'
                     : `Please sign in to access ${item.label.toLowerCase()}.`;
-                  sessionStorage.setItem('c2b_redirectAfterLogin', `#${item.id}`);
+                  dispatch(setRedirectAfterLogin(`#${item.id}`));
                   if (onOpenLogin) {
                     onOpenLogin({
                       promptMessage: msg,

@@ -1,22 +1,25 @@
 import React, { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
+import { clearToast } from '../store/actions';
 
-export default function Toast({ toasts, onDismiss, toast, onClose }) {
-  const list = toasts || (toast ? [toast] : []);
+export default function Toast() {
+  const dispatch = useDispatch();
+  const toast = useSelector((state) => state.ui.toast);
+  const list = toast ? [toast] : [];
 
-  const handleDismiss = (id) => {
-    if (typeof onDismiss === 'function') onDismiss(id);
-    if (typeof onClose === 'function') onClose(id);
+  const handleDismiss = () => {
+    dispatch(clearToast());
   };
 
   useEffect(() => {
     if (list.length > 0) {
       const timer = setTimeout(() => {
-        handleDismiss(list[0]?.id);
+        dispatch(clearToast());
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [list]);
+  }, [toast, dispatch]);
 
   if (!list || list.length === 0) return null;
 

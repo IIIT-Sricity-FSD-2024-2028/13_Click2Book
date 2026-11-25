@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Headphones, Mail, Lock, Eye, EyeOff, LogIn, ShieldCheck } from 'lucide-react';
-import { API_BASE } from '../services/api';
+import { loginSupportAgentThunk, clearAuthError } from '../store/actions';
 
 const COMPREHENSIVE_AGENTS = [
   {
@@ -71,44 +72,31 @@ const COMPREHENSIVE_AGENTS = [
   },
 ];
 
-export default function Login({ onLogin, initialError = '' }) {
-  const [email, setEmail] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('c2b_saved_agent') || '';
-    }
-    return '';
-  });
+export default function Login() {
+  const dispatch = useDispatch();
+  const accountAccessError = useSelector((state) => state.auth.accountAccessError);
+  const authError = useSelector((state) => state.auth.error);
+  const isSubmitting = useSelector((state) => state.auth.loading);
+
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
-  const [errorMsg, setErrorMsg] = useState(initialError);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(accountAccessError || '');
 
-  const completeLogin = (matched) => {
-    // Persist session across BOTH sessionStorage and localStorage for reliable multi-page navigation
-    try {
-      sessionStorage.setItem('c2b_loggedIn', 'true');
-      sessionStorage.setItem('c2b_userName', matched.name);
-      sessionStorage.setItem('c2b_userEmail', matched.email);
-      sessionStorage.setItem('c2b_loggedInId', matched.id);
-      sessionStorage.setItem('c2b_role', 'SUPPORT');
-      sessionStorage.setItem('c2b_sessionVersion', String(matched.sessionVersion ?? 0));
+  useEffect(() => {
+    if (accountAccessError) setErrorMsg(accountAccessError);
+  }, [accountAccessError]);
 
-      localStorage.setItem('c2b_loggedIn', 'true');
-      localStorage.setItem('c2b_userName', matched.name);
-      localStorage.setItem('c2b_userEmail', matched.email);
-      localStorage.setItem('c2b_loggedInId', matched.id);
-      localStorage.setItem('c2b_role', 'SUPPORT');
-      localStorage.setItem('c2b_sessionVersion', String(matched.sessionVersion ?? 0));
+  useEffect(() => {
+    if (authError) setErrorMsg(authError);
+  }, [authError]);
 
-      if (remember) {
-        localStorage.setItem('c2b_saved_agent', matched.email);
-      }
-    } catch (_) {}
-
-    setIsSubmitting(false);
-    onLogin(matched);
-  };
+  useEffect(() => {
+    return () => {
+      dispatch(clearAuthError());
+    };
+  }, [dispatch]);
 
   const findAgentMatch = (identifier) => {
     const cleanId = (identifier || '').trim().toLowerCase();
@@ -117,12 +105,6 @@ export default function Login({ onLogin, initialError = '' }) {
         a.email.toLowerCase() === cleanId ||
         a.aliases.some((alias) => alias.toLowerCase() === cleanId)
       ));
-  };
-
-  const clearSupportSession = () => {
-    for (const storage of [sessionStorage, localStorage]) {
-      ['c2b_loggedIn', 'c2b_userName', 'c2b_userEmail', 'c2b_loggedInId', 'c2b_role', 'c2b_sessionVersion'].forEach((key) => storage.removeItem(key));
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -142,37 +124,7 @@ export default function Login({ onLogin, initialError = '' }) {
 
     const matched = findAgentMatch(cleanInput);
     const loginEmail = matched?.email || cleanInput;
-    setIsSubmitting(true);
-    try {
-      const response = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginEmail, password }),
-        signal: AbortSignal.timeout(10000),
-      });
-      const json = await response.json().catch(() => ({}));
-      const userData = json?.data;
-      if (!response.ok || !json.success || userData?.role !== 'SUPPORT') {
-        const message = json.message || 'Invalid credentials. Please enter a valid support agent email and password.';
-        if (message.includes('customer support account has been deactivated')) clearSupportSession();
-        setErrorMsg(message);
-        return;
-      }
-      completeLogin({
-        ...matched,
-        id: userData.id,
-        name: userData.name,
-        email: userData.email,
-        role: 'SUPPORT',
-        sessionVersion: userData.sessionVersion,
-      });
-    } catch (requestError) {
-      setErrorMsg(requestError instanceof TypeError
-        ? 'The service is temporarily unavailable. Please try again.'
-        : requestError.message || 'Unable to sign in. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    dispatch(loginSupportAgentThunk({ email: loginEmail, password, matched }));
   };
 
   return (

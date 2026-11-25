@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   Ticket,
   Clock,
@@ -16,13 +17,21 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { CATEGORY_DEFINITIONS, CATEGORY_CHECKLISTS, detectTicketCategory, formatRupees } from '../services/api';
+import {
+  setSelectedTicketId,
+  setResolutionTicketId,
+  navigateTabThunk,
+} from '../store/actions';
 
-export default function Dashboard({
-  tickets = [],
-  onSelectTicket,
-  onNavigate,
-  onResolveTicket, // Opens ResolutionWorkflowModal
-}) {
+export default function Dashboard() {
+  const dispatch = useDispatch();
+  const tickets = useSelector((state) => state.tickets.items);
+  const onSelectTicket = (t) => dispatch(setSelectedTicketId(t?.id));
+  const onNavigate = (tab) => dispatch(navigateTabThunk(tab));
+  const onResolveTicket = (t) => {
+    dispatch(setSelectedTicketId(null));
+    dispatch(setResolutionTicketId(t?.id));
+  };
   const [filterCategory, setFilterCategory] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [searchQuery, setSearchQuery] = useState('');

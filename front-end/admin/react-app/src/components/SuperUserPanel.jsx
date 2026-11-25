@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { DB } from '../lib/db.js';
 import { isRemoteTable, pullAll, remoteDelete, remoteSave } from '../lib/remote.js';
-import { SUPER_USER_AUTH_KEY, SUPER_USER_LOGIN_PATH } from '../lib/session.js';
+import { SUPER_USER_LOGIN_PATH } from '../lib/session.js';
+import { setSuperUserAuthed } from '../store/actions';
 import '../styles/super-user-panel.css';
 import ConfirmDelete from './ConfirmDelete.jsx';
 import RecordModal from './RecordModal.jsx';
@@ -28,14 +30,11 @@ function CellValue({ column, value, isPk }) {
 
 // The super-user login page sends us back with ?superUser=open once
 // unlocked. That unlock lasts for this page view only.
-function readUnlockRequest() {
-  const requested = new URLSearchParams(location.search).get('superUser') === 'open';
-  return requested && sessionStorage.getItem(SUPER_USER_AUTH_KEY) === 'true';
-}
-
 export default function SuperUserPanel({ actorLabel = 'Super User Portal', onDataChange }) {
-  const [unlocked] = useState(readUnlockRequest);
-  const [open, setOpen] = useState(unlocked);
+  const dispatch = useDispatch();
+  const superUserAuthed = useSelector((state) => state.auth.superUserAuthed);
+  const requested = new URLSearchParams(location.search).get('superUser') === 'open';
+  const [open, setOpen] = useState(requested && superUserAuthed);
   const [tableKey, setTableKey] = useState(DEFAULT_TABLE);
   const [filter, setFilter] = useState('');
   const [editing, setEditing] = useState(null); // { record } — record null means "add"
@@ -45,11 +44,11 @@ export default function SuperUserPanel({ actorLabel = 'Super User Portal', onDat
   const toastTimer = useRef();
 
   useEffect(() => {
-    sessionStorage.removeItem(SUPER_USER_AUTH_KEY);
+    dispatch(setSuperUserAuthed(false));
     if (new URLSearchParams(location.search).has('superUser')) {
       window.history.replaceState({}, document.title, location.pathname);
     }
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => () => clearTimeout(toastTimer.current), []);
 
@@ -102,7 +101,7 @@ export default function SuperUserPanel({ actorLabel = 'Super User Portal', onDat
   };
 
   const openPanel = () => {
-    if (unlocked) setOpen(true);
+    if (superUserAuthed) setOpen(true);
     else location.href = SUPER_USER_LOGIN_PATH;
   };
 
@@ -146,7 +145,7 @@ export default function SuperUserPanel({ actorLabel = 'Super User Portal', onDat
 
   return (
     <>
-      {unlocked && (
+      {superUserAuthed && (
         <div className="admin-notice superuser-ready">Super user access enabled. Use the Super User button to manage system entities.</div>
       )}
 

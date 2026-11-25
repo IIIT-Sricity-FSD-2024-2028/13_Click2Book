@@ -6,10 +6,11 @@
  * revenue endpoints below for the rest of the session. Saving, refunds and resolving
  * tickets all work on that copy; a page reload starts again from the same demo data.
  */
-import { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { apiRequest } from '../lib/http';
 import { localISODate } from '../lib/dates';
 import { DEFAULT_PLATFORM_SETTINGS } from '../lib/platformSettings';
+import { setRevenueDemoMode } from '../store/slices/revenueSlice';
 
 const CUSTOMERS = [
   ['C001', 'Aakash Sharma'],
@@ -256,23 +257,21 @@ function handle(method, path, body) {
   return fail(`Demo data has no ${method} ${route}`);
 }
 
-/* ── Demo mode switch ── */
-let demo = false;
-const listeners = new Set();
+/* ── Demo mode switch backed by Redux memory ── */
+let _store = null;
+
+export function injectRevenueMockStore(store) {
+  _store = store;
+}
 
 /** True once the backend could not be reached; the page then shows demo data. */
 export function useRevenueDemo() {
-  const [on, setOn] = useState(demo);
-  useEffect(() => {
-    listeners.add(setOn);
-    setOn(demo);
-    return () => listeners.delete(setOn);
-  }, []);
-  return on;
+  return useSelector((state) => state.revenue.demoMode);
 }
 
 /** `apiRequest()` for the Revenue page, falling back to demo data when the backend is offline. */
 export async function revenueRequest(path, opts = {}) {
+  const demo = _store ? _store.getState().revenue.demoMode : false;
   if (!demo) {
     try {
       return await apiRequest(path, opts);
@@ -280,8 +279,9 @@ export async function revenueRequest(path, opts = {}) {
       // fetch() rejects with a TypeError only when the server cannot be reached;
       // API errors (validation, not found…) are real answers and are passed on.
       if (!(err instanceof TypeError)) throw err;
-      demo = true;
-      listeners.forEach((fn) => fn(true));
+      if (_store) {
+        _store.dispatch(setRevenueDemoMode(true));
+      }
     }
   }
   const json = copy(handle(String(opts.method || 'GET').toUpperCase(), path, opts.body || {}));

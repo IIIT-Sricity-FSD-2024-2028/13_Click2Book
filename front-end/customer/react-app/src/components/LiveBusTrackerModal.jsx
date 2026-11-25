@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSelector } from 'react-redux';
 import { Navigation, MapPin, AlertTriangle, ShieldAlert, X } from 'lucide-react';
 
 /* ── Google Maps JavaScript API Loader ── */
@@ -42,9 +43,10 @@ export default function LiveBusTrackerModal({
   const busType = item.busType || item.vehicleType || item.type || 'AC';
   const bookingId = item.bookingId || item.pnr || `TRIP-${tripId}`;
 
+  const tripStatuses = useSelector((state) => state.trips.tripStatuses);
+
   const [telemetry, setTelemetry] = useState(() => {
-    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
-    const st = statuses[tripId] || item.status || 'SCHEDULED';
+    const st = tripStatuses[tripId] || item.status || 'SCHEDULED';
     return {
       lat: 13.5684,
       lng: 80.0215,
@@ -71,11 +73,10 @@ export default function LiveBusTrackerModal({
     || (typeof window !== 'undefined' && (window.VITE_GOOGLE_MAPS_API_KEY || window.GOOGLE_MAPS_API_KEY))
     || '';
 
-  // Poll live telemetry from localStorage and events
+  // Poll live telemetry from Redux state and events
   useEffect(() => {
     const updateTelemetry = () => {
-      const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
-      const st = statuses[tripId] || item.status || 'SCHEDULED';
+      const st = tripStatuses[tripId] || item.status || 'SCHEDULED';
 
       setTelemetry((prev) => ({
         ...prev,
@@ -89,15 +90,13 @@ export default function LiveBusTrackerModal({
     };
 
     updateTelemetry();
-    window.addEventListener('storage', updateTelemetry);
     window.addEventListener('c2b_sync', updateTelemetry);
     const interval = setInterval(updateTelemetry, 4000);
     return () => {
-      window.removeEventListener('storage', updateTelemetry);
       window.removeEventListener('c2b_sync', updateTelemetry);
       clearInterval(interval);
     };
-  }, [tripId, fromCity, toCity, item.status]);
+  }, [tripId, tripStatuses, item.status, fromCity, toCity]);
 
   // Google Maps SDK Initialization
   useEffect(() => {

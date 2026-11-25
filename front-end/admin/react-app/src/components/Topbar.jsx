@@ -1,20 +1,35 @@
 import React, { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { SECTIONS } from '../data/sections.js';
+import { initialsOf } from '../lib/session.js';
+import {
+  loadAdminDashboardThunk,
+  navigateSectionThunk,
+  setBookingSearch,
+  showToastThunk,
+  logoutAdminThunk,
+} from '../store/actions';
 
-export default function Topbar({
-  title,
-  initials,
-  onSearch,
-  onNotify,
-  onRefresh,
-  refreshing,
-  onLogout,
-}) {
+export default function Topbar() {
+  const dispatch = useDispatch();
+  const section = useSelector((state) => state.ui.section);
+  const refreshing = useSelector((state) => state.ui.refreshing);
+  const adminName = useSelector((state) => state.auth.user?.name || 'Admin User');
+  const initials = initialsOf(adminName) || 'AD';
+  const title = (SECTIONS.find(([id]) => id === section) || SECTIONS[0])[2];
+
   const [search, setSearch] = useState('');
 
   const handleSearch = (value) => {
     setSearch(value);
-    if (value) onSearch(value);
+    if (value) {
+      dispatch(setBookingSearch(value));
+      dispatch(navigateSectionThunk('bookings'));
+    }
   };
+  const onRefresh = () => dispatch(loadAdminDashboardThunk());
+  const onNotify = (msg) => dispatch(showToastThunk(msg));
+  const onLogout = () => dispatch(logoutAdminThunk());
 
   return (
     <header className="topbar">

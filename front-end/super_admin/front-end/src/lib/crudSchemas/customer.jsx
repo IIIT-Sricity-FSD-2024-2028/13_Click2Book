@@ -5,10 +5,11 @@
  * field types: text | number | date | time | select
  */
 import DB from '../db';
+import { getSessionValue } from '../session';
 
 export function createCustomerSchemas() {
-  /* Logged-in customer — set on login, falls back to C001 for demo */
-  const CURRENT_CUSTOMER_ID = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId') || 'C001';
+  /* Logged-in customer — read from Redux memory session, falls back to C001 for demo */
+  const CURRENT_CUSTOMER_ID = getSessionValue('c2b_loggedInId') || 'C001';
 
   return {
     /* ── MY BOOKINGS ──────────────────────────────────────── */

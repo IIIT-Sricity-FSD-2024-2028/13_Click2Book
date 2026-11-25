@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { fetchLiveTrips, confirmTrip, startTrip, endTrip, updateLocation, getFleetBuses } from '../services/api';
+import { memStorage } from '../store/memoryBridge';
+import { navigateTabThunk, showToastThunk } from '../store/actions';
 import { fmtDateWithDay } from './ManageSchedules';
 
 /* ── Helper: check if a trip's departure time has passed ── */
@@ -33,7 +36,7 @@ function hasDepartureTimePassed(item) {
 
 /* ── Auto-start any SCHEDULED / CONFIRMED trip whose departure time has passed ── */
 function autoStartDueTrips(trips) {
-  const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+  const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
   let changed = false;
 
   (trips || []).forEach((item) => {
@@ -48,14 +51,11 @@ function autoStartDueTrips(trips) {
   });
 
   if (changed) {
-    localStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
+    memStorage.setItem('c2b_trip_statuses', JSON.stringify(statuses));
   }
   return changed;
 }
 
-/* ─────────────────────────────────────────────────────────────
-   TripCard (reactive, optimistic status handling & tracking)
-   ───────────────────────────────────────────────────────────── */
 function TripCard({ item, onConfirm, onStart, onEnd, onUpdateLocation }) {
   const { trip, schedule, route, vehicle } = item;
   const [lat, setLat] = useState('');
@@ -64,22 +64,19 @@ function TripCard({ item, onConfirm, onStart, onEnd, onUpdateLocation }) {
   const [nextStop, setNextStop] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [localStatus, setLocalStatus] = useState(() => {
-    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
     return statuses[trip?.tripId] || trip?.tripStatus || 'SCHEDULED';
   });
 
-  // Sync localStatus whenever localStorage may have been updated by auto-start or trip updates
   useEffect(() => {
     const updateFreshStatus = () => {
-      const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+      const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
       const fresh = statuses[trip?.tripId] || trip?.tripStatus || 'SCHEDULED';
       setLocalStatus(fresh);
     };
     updateFreshStatus();
-    window.addEventListener('storage', updateFreshStatus);
     window.addEventListener('c2b_sync', updateFreshStatus);
     return () => {
-      window.removeEventListener('storage', updateFreshStatus);
       window.removeEventListener('c2b_sync', updateFreshStatus);
     };
   }, [trip, trip?.tripId, trip?.tripStatus]);
@@ -374,7 +371,12 @@ function TripCard({ item, onConfirm, onStart, onEnd, onUpdateLocation }) {
 /* ─────────────────────────────────────────────────────────────
    Main ConfirmTrips page
    ───────────────────────────────────────────────────────────── */
-export default function ConfirmTrips({ provider, onNavigate, showToast }) {
+export default function ConfirmTrips() {
+  const dispatch = useDispatch();
+  const provider = useSelector((state) => state.auth.provider);
+  const onNavigate = (tab) => dispatch(navigateTabThunk(tab));
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
+
   const [trips,          setTrips]          = useState([]);
   const [isLive,         setIsLive]         = useState(false);
   const [loading,        setLoading]        = useState(true);
@@ -385,10 +387,7 @@ export default function ConfirmTrips({ provider, onNavigate, showToast }) {
   const [datePreset,     setDatePreset]     = useState('today');
   const [specificDate,   setSpecificDate]   = useState(new Date().toISOString().split('T')[0]);
 
-  const providerId = provider?.id
-    || sessionStorage.getItem('c2b_loggedInId')
-    || localStorage.getItem('c2b_loggedInId')
-    || 'P001';
+  const providerId = provider?.id || 'P001';
 
   // Read registered fleet buses from Bus Fleet Management to ensure strict alignment
   const fleetBuses = useMemo(() => {
@@ -422,7 +421,7 @@ export default function ConfirmTrips({ provider, onNavigate, showToast }) {
     try {
       const { data, isLive: live } = await fetchLiveTrips(providerId);
       autoStartDueTrips(data);
-      const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+      const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
       const synced = (data || []).map((item) => {
         const tid = item?.trip?.tripId;
         return {
@@ -468,7 +467,7 @@ export default function ConfirmTrips({ provider, onNavigate, showToast }) {
       const changed = autoStartDueTrips(curTrips);
 
       if (changed) {
-        const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+        const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
         curTrips.forEach((item) => {
           const tripId = item?.trip?.tripId;
           if (
@@ -551,7 +550,7 @@ export default function ConfirmTrips({ provider, onNavigate, showToast }) {
 
   // Filter trips by category, bus number, and date
   const filteredTrips = trips.filter((item) => {
-    const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
+    const statuses = JSON.parse(memStorage.getItem('c2b_trip_statuses') || '{}');
     const tripId = item?.trip?.tripId || item?.tripId || item?.id;
     const currentStatus = (statuses[tripId] || item?.trip?.tripStatus || item?.status || 'SCHEDULED').toUpperCase();
 

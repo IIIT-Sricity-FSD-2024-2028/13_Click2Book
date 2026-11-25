@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   AlertTriangle,
   ShieldCheck,
@@ -20,15 +21,27 @@ import {
   detectTicketCategory,
   CATEGORY_DEFINITIONS,
 } from '../services/api';
+import {
+  setSelectedTicketId,
+  setResolutionTicketId,
+  providerDecisionThunk,
+} from '../store/actions';
 
-export default function EscalatedIssues({
-  tickets = [],
-  resolvedEscalations = [],
-  onDeescalateTicket,
-  onSelectTicket,
-  onProviderDecision,
-  onOpenResolutionModal,
-}) {
+export default function EscalatedIssues() {
+  const dispatch = useDispatch();
+  const tickets = useSelector((state) => state.tickets.items);
+  const resolvedEscalations = useSelector((state) => state.escalations.resolvedEscalations);
+  const onSelectTicket = (t) => dispatch(setSelectedTicketId(t?.id));
+  const onOpenResolutionModal = (t) => {
+    dispatch(setSelectedTicketId(null));
+    dispatch(setResolutionTicketId(t?.id));
+  };
+  const onDeescalateTicket = (ticketId) => {
+    const target = tickets.find((t) => t.id === ticketId);
+    if (target) onOpenResolutionModal(target);
+  };
+  const onProviderDecision = (ticketId, decision, remarks = '') =>
+    dispatch(providerDecisionThunk({ ticketId, decision, remarks }));
   const [filterType, setFilterType] = useState('ALL'); // 'ALL' | 'PROVIDER' | 'TECH'
 
   const escalatedTickets = tickets.filter((t) => {

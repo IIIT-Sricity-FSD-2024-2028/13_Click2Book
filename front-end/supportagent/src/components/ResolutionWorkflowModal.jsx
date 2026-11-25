@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   X,
   CheckCircle2,
@@ -26,17 +27,35 @@ import {
   detectTicketCategory,
   formatRupees,
 } from '../services/api';
+import {
+  setResolutionTicketId,
+  saveTicketProgressThunk,
+  escalateToProviderThunk,
+  escalateToTechThunk,
+  providerDecisionThunk,
+  confirmResolutionThunk,
+} from '../store/actions';
 
-export default function ResolutionWorkflowModal({
-  ticket,
-  onClose,
-  onSaveProgress,
-  onEscalateToProvider,
-  onEscalateToTech,
-  onProviderDecision,
-  onConfirmResolution,
-  agentName = 'Support Agent',
-}) {
+export default function ResolutionWorkflowModal() {
+  const dispatch = useDispatch();
+  const resolutionTicketId = useSelector((state) => state.tickets.resolutionTicketId);
+  const ticket = useSelector((state) =>
+    state.tickets.items.find((t) => t.id === resolutionTicketId) || null
+  );
+  const agentName = useSelector((state) => state.auth.agent?.name || 'Support Agent');
+
+  const onClose = () => dispatch(setResolutionTicketId(null));
+  const onSaveProgress = (ticketId, data) =>
+    dispatch(saveTicketProgressThunk({ ticketId, data }));
+  const onEscalateToProvider = (ticketId, escalationData) =>
+    dispatch(escalateToProviderThunk({ ticketId, escalationData }));
+  const onEscalateToTech = (ticketId, techData) =>
+    dispatch(escalateToTechThunk({ ticketId, techData }));
+  const onProviderDecision = (ticketId, decision, remarks = '') =>
+    dispatch(providerDecisionThunk({ ticketId, decision, remarks }));
+  const onConfirmResolution = (ticketId, resolutionData) =>
+    dispatch(confirmResolutionThunk({ ticketId, resolutionData }));
+
   if (!ticket) return null;
 
   // Intelligent category detection & dynamic procedure switching

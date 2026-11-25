@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Bell } from 'lucide-react';
+import { toggleNotifOpen } from '../store/actions';
 
 const TAB_TITLES = {
   dashboard: {
@@ -24,13 +26,13 @@ const TAB_TITLES = {
   },
 };
 
-export default function Header({
-  activeTab,
-  isLive,
-  unreadCount = 0,
-  onToggleNotifications,
-  agent,
-}) {
+export default function Header() {
+  const dispatch = useDispatch();
+  const activeTab = useSelector((state) => state.ui.activeTab);
+  const agent = useSelector((state) => state.auth.agent);
+  const notifications = useSelector((state) => state.notifications.items);
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  const onToggleNotifications = () => dispatch(toggleNotifOpen());
   const [timeStr, setTimeStr] = useState('');
 
   useEffect(() => {

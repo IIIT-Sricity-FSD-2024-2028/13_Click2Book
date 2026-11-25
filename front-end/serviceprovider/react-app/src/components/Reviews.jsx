@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   getBusReviews,
   submitCustomerReview,
@@ -7,6 +8,7 @@ import {
   getProviderFleetRatingSummary,
   getDashboardData,
 } from '../services/api';
+import { navigateTabThunk, showToastThunk } from '../store/actions';
 
 /* Quick Reply Templates for Service Provider */
 const QUICK_REPLIES = [
@@ -17,7 +19,11 @@ const QUICK_REPLIES = [
   '💺 Thank you for noticing our comfortable seating and AC. Have a wonderful day!',
 ];
 
-export default function Reviews({ provider, showToast, onNavigate }) {
+export default function Reviews() {
+  const dispatch = useDispatch();
+  const provider = useSelector((state) => state.auth.provider);
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
+  const onNavigate = (tab) => dispatch(navigateTabThunk(tab));
   const [reviews, setReviews] = useState([]);
   const [filterTrip, setFilterTrip] = useState('ALL');
   const [filterRating, setFilterRating] = useState('ALL');
@@ -266,7 +272,7 @@ export default function Reviews({ provider, showToast, onNavigate }) {
                 🤝 Ready-to-Connect Customer Contract (Ratings &amp; Coupons)
               </h4>
               <p style={{ fontSize: '0.82rem', color: '#334155', margin: '0 0 10px', lineHeight: 1.5 }}>
-                Your friend working on the <strong>Customer module</strong> can immediately plug into both reviews and coupons using the standard localStorage contracts or the global helper methods:
+                Your friend working on the <strong>Customer module</strong> can immediately plug into both reviews and coupons using the Redux memory store contracts or the global helper methods:
               </p>
             </div>
             <button
@@ -291,8 +297,8 @@ window.Click2BookReviewAPI.submit({
   categories: { punctuality: 5, cleanliness: 5, comfort: 5, staff: 4 }
 });
 
-// 2. Or standard storage key:
-localStorage.getItem('c2b_bus_reviews');`}
+// 2. Or via Redux reviews slice / API helper:
+window.Click2BookReviewAPI.getAll();`}
               </code>
             </div>
 

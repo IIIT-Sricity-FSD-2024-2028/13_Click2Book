@@ -1,10 +1,12 @@
-// localStorage-backed CRUD store — ES-module port of
-// /crud functions/js/script.js. It reads and writes the same "c2b_<table>"
-// keys, so edits made here show up in the other portals and vice versa.
+// In-memory Redux-backed CRUD store — ES-module port of
+// /crud functions/js/script.js. Reads and writes directly to Redux `tables` slice.
 
-import { SEED } from './mockData.js';
-
-const STORAGE_PREFIX = 'c2b_';
+import {
+  createTableRecord,
+  updateTableRecord,
+  deleteTableRecord,
+  resetAllTables,
+} from '../store/slices/tablesSlice';
 
 const PRIMARY_KEYS = {
   customers: 'customer_id',
@@ -25,30 +27,17 @@ const PRIMARY_KEYS = {
   supportRequests: 'request_id',
 };
 
+let _storeRef = null;
+export function injectAdminDataStore(store) {
+  _storeRef = store;
+}
+
 function load(key) {
-  try {
-    const raw = localStorage.getItem(STORAGE_PREFIX + key);
-    return raw ? JSON.parse(raw) : null;
-  } catch (error) {
-    console.warn(`[DB] Failed to load "${key}" from localStorage:`, error);
-    return null;
-  }
-}
-
-function save(key, data) {
-  try {
-    localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(data));
-  } catch (error) {
-    console.warn(`[DB] Failed to save "${key}" to localStorage:`, error);
-  }
-}
-
-function seedIfEmpty(key) {
-  if (localStorage.getItem(STORAGE_PREFIX + key) === null) save(key, SEED[key]);
+  return _storeRef ? _storeRef.getState()?.tables?.data?.[key] || [] : [];
 }
 
 function createTable(key, pkField) {
-  const rows = () => load(key) || [];
+  const rows = () => load(key);
   const notFound = (id) => ({ success: false, error: `No "${key}" record with ${pkField} = "${id}"` });
 
   return {
@@ -67,8 +56,9 @@ function createTable(key, pkField) {
       if (data.some((row) => row[pkField] === record[pkField])) {
         return { success: false, error: `"${record[pkField]}" already exists in ${key}.` };
       }
-      data.push({ ...record });
-      save(key, data);
+      if (_storeRef) {
+        _storeRef.dispatch(createTableRecord({ tableKey: key, record }));
+      }
       return { success: true, data: { ...record }, message: `Record created in ${key}.` };
     },
 
@@ -76,31 +66,33 @@ function createTable(key, pkField) {
       const data = rows();
       const index = data.findIndex((row) => row[pkField] === id);
       if (index === -1) return notFound(id);
+      if (_storeRef) {
+        _storeRef.dispatch(updateTableRecord({ tableKey: key, pkField, id, changes }));
+      }
       const { [pkField]: _ignored, ...safeChanges } = changes;
-      data[index] = { ...data[index], ...safeChanges };
-      save(key, data);
-      return { success: true, data: { ...data[index] }, message: `Record updated in ${key}.` };
+      return { success: true, data: { ...data[index], ...safeChanges }, message: `Record updated in ${key}.` };
     },
 
     delete(id) {
       const data = rows();
       const index = data.findIndex((row) => row[pkField] === id);
       if (index === -1) return notFound(id);
-      const [deleted] = data.splice(index, 1);
-      save(key, data);
+      const deleted = data[index];
+      if (_storeRef) {
+        _storeRef.dispatch(deleteTableRecord({ tableKey: key, pkField, id }));
+      }
       return { success: true, data: { ...deleted }, message: `Record deleted from ${key}.` };
     },
   };
 }
 
-Object.keys(SEED).forEach(seedIfEmpty);
-
 export const DB = Object.fromEntries(
   Object.entries(PRIMARY_KEYS).map(([key, pkField]) => [key, createTable(key, pkField)]),
 );
 
-// Wipe every table and re-seed from the mock data.
 DB.resetAll = () => {
-  Object.keys(SEED).forEach((key) => save(key, SEED[key]));
+  if (_storeRef) {
+    _storeRef.dispatch(resetAllTables());
+  }
   return { success: true, message: 'Database reset to original mock data.' };
 };

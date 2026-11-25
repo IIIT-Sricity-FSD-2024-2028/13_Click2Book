@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { getDashboardData } from '../services/api';
+import { navigateTabThunk, showToastThunk } from '../store/actions';
 
-export default function Dashboard({ provider, onNavigate, showToast }) {
+export default function Dashboard() {
+  const dispatch = useDispatch();
+  const provider = useSelector((state) => state.auth.provider);
+  const onNavigate = (tab) => dispatch(navigateTabThunk(tab));
+  const showToast = (msg, type = 'info') => dispatch(showToastThunk(msg, type));
   const [data, setData] = useState({ buses: [], totalPax: 0, totalRev: 0, activeBusesCount: 0 });
 
   useEffect(() => {

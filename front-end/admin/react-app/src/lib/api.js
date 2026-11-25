@@ -4,8 +4,13 @@ const API_HOST = location.hostname === 'localhost' || location.hostname === '127
 
 export const API_BASE = `http://${API_HOST}:3000/api`;
 
+let _storeRef = null;
+export function injectAdminApiStore(store) {
+  _storeRef = store;
+}
+
 export async function apiFetch(path, options = {}) {
-  const userId = sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId');
+  const userId = _storeRef ? _storeRef.getState()?.auth?.adminId : null;
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     ...(String(options.method || 'GET').toUpperCase() === 'GET' && options.cache === undefined ? { cache: 'no-store' } : {}),
@@ -90,13 +95,7 @@ export async function loadAdminDashboardData() {
     };
   });
 
-  const localBookings = (() => {
-    try {
-      return JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-    } catch (_) {
-      return [];
-    }
-  })();
+  const localBookings = _storeRef ? _storeRef.getState()?.tables?.data?.bookings || [] : [];
   const localByBookingId = new Map(localBookings.map((b) => [b.bookingId || b.booking_id, b]));
 
   const dashboardBookings = bookings.map((booking) => {
@@ -225,13 +224,7 @@ export async function loadAdminRevenueData() {
   const refundBookingIds = new Set(refunds.map((refund) => refund.bookingId));
   const paidPayments = payments.filter((payment) => ['SUCCESS', 'REFUNDED'].includes(String(payment.paymentStatus).toUpperCase()));
 
-  const localBookings = (() => {
-    try {
-      return JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-    } catch (_) {
-      return [];
-    }
-  })();
+  const localBookings = _storeRef ? _storeRef.getState()?.tables?.data?.bookings || [] : [];
   const localByBookingId = new Map(localBookings.map((b) => [b.bookingId || b.booking_id, b]));
 
   const completedRefunds = [

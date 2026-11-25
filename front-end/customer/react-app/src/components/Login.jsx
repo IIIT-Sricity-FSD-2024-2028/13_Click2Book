@@ -1,15 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { API } from '../services/api';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  loginCustomerThunk,
+  registerCustomerThunk,
+  closeLoginModal,
+  clearAuthError,
+} from '../store/actions';
 import './Login.css';
 
-export default function Login({
-  isOpen = true,
-  onClose,
-  onLoginSuccess,
-  showToast,
-  initialPanel = 'login',
-  promptMessage = '',
-}) {
+export default function Login() {
+  const dispatch = useDispatch();
+  const loginModal = useSelector((state) => state.auth.loginModal);
+  const loginPrompt = useSelector((state) => state.auth.loginPrompt);
+  const authError = useSelector((state) => state.auth.error);
+  const authLoading = useSelector((state) => state.auth.loading);
+
+  const isOpen = loginModal.isOpen;
+  const initialPanel = loginModal.initialPanel || 'login';
+  const promptMessage = loginModal.promptMessage || loginPrompt || '';
+  const onClose = () => {
+    dispatch(closeLoginModal());
+    const curHash = window.location.hash || '';
+    if (curHash.includes('login') || curHash.includes('signup')) {
+      window.location.hash = '';
+    }
+  };
   const [hashTab, setHashTab] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.location.hash || '';
@@ -103,55 +118,12 @@ export default function Login({
     if (btn) btn.disabled = true;
     setLoading(true);
 
-    try {
-      const user = await API.auth.login(email, pass);
-
-      // Persist to session and localStorage
-      const store = rememberMe ? localStorage : sessionStorage;
-      store.setItem('c2b_loggedIn', 'true');
-      store.setItem('c2b_userName', user.name);
-      store.setItem('c2b_userId', user.id || user.customerId || 'C001');
-      store.setItem('c2b_role', user.role || 'CUSTOMER');
-      store.setItem('c2b_email', user.email || '');
-      store.setItem('c2b_userEmail', user.email || '');
-      store.setItem('c2b_loggedInId', user.id || user.customerId || 'C001');
-      store.setItem('c2b_sessionVersion', String(user.sessionVersion ?? 0));
-
-      sessionStorage.setItem('c2b_loggedIn', 'true');
-      sessionStorage.setItem('c2b_userName', user.name);
-      sessionStorage.setItem('c2b_userId', user.id || user.customerId || 'C001');
-      sessionStorage.setItem('c2b_role', user.role || 'CUSTOMER');
-      sessionStorage.setItem('c2b_userEmail', user.email || '');
-      sessionStorage.setItem('c2b_loggedInId', user.id || user.customerId || 'C001');
-      sessionStorage.setItem('c2b_sessionVersion', String(user.sessionVersion ?? 0));
-
-      if (showToast) {
-        showToast(`Welcome back, ${user.name}!`, 'success');
-      }
-      if (onLoginSuccess) {
-        onLoginSuccess({
-          id: user.id || user.customerId || 'C001',
-          name: user.name,
-          email: user.email,
-          role: user.role || 'CUSTOMER',
-          sessionVersion: user.sessionVersion ?? 0,
-          isLoggedIn: true,
-        });
-      }
-      if (onClose) {
-        onClose();
-      }
-      if (window.location.hash.includes('login') || window.location.hash.includes('signup')) {
-        const redirect = sessionStorage.getItem('c2b_redirectAfterLogin') || '#search-trips';
-        sessionStorage.removeItem('c2b_redirectAfterLogin');
-        window.location.hash = redirect;
-      }
-    } catch (err) {
-      setErrorMsg(err.message || 'Invalid email or password.');
-    } finally {
-      setLoading(false);
-      if (btn) btn.disabled = false;
+    const result = await dispatch(loginCustomerThunk({ email, password: pass }));
+    if (loginCustomerThunk.rejected.match(result)) {
+      setErrorMsg(result.payload || 'Invalid email or password.');
     }
+    setLoading(false);
+    if (btn) btn.disabled = false;
   };
 
   const handleSignup = async (e) => {
@@ -198,69 +170,14 @@ export default function Login({
     if (btn) btn.disabled = true;
     setLoading(true);
 
-    try {
-      const userId = 'C_' + Date.now();
-      let createdUser = {
-        id: userId,
-        name: name,
-        email: email.toLowerCase(),
-        phone: digits,
-        role: 'CUSTOMER',
-        sessionVersion: 0,
-      };
-
-      try {
-        const res = await API.auth.register(name, email, pass, digits);
-        if (res && (res.customerId || res.id)) {
-          createdUser.id = res.customerId || res.id;
-          createdUser.name = res.name || createdUser.name;
-        }
-      } catch (err) {
-        console.warn('Backend signup fallback used:', err.message);
-      }
-
-      // Save user to registered users list in localStorage
-      const registered = JSON.parse(localStorage.getItem('c2b_registered_users') || '[]');
-      registered.unshift({ ...createdUser, password: pass });
-      localStorage.setItem('c2b_registered_users', JSON.stringify(registered));
-
-      // Save session & local storage
-      localStorage.setItem('c2b_loggedIn', 'true');
-      localStorage.setItem('c2b_userName', createdUser.name);
-      localStorage.setItem('c2b_userEmail', createdUser.email);
-      localStorage.setItem('c2b_loggedInId', createdUser.id);
-      localStorage.setItem('c2b_sessionVersion', String(createdUser.sessionVersion));
-      localStorage.setItem('c2b_userId', createdUser.id);
-      localStorage.setItem('c2b_role', 'CUSTOMER');
-
-      sessionStorage.setItem('c2b_loggedIn', 'true');
-      sessionStorage.setItem('c2b_userName', createdUser.name);
-      sessionStorage.setItem('c2b_userEmail', createdUser.email);
-      sessionStorage.setItem('c2b_loggedInId', createdUser.id);
-      sessionStorage.setItem('c2b_sessionVersion', String(createdUser.sessionVersion));
-      sessionStorage.setItem('c2b_userId', createdUser.id);
-      sessionStorage.setItem('c2b_role', 'CUSTOMER');
-
-      if (showToast) {
-        showToast('Account created successfully! Welcome to Click2Book.', 'success');
-      }
-      if (onLoginSuccess) {
-        onLoginSuccess({ ...createdUser, isLoggedIn: true });
-      }
-      if (onClose) {
-        onClose();
-      }
-      if (window.location.hash.includes('login') || window.location.hash.includes('signup')) {
-        const redirect = sessionStorage.getItem('c2b_redirectAfterLogin') || '#search-trips';
-        sessionStorage.removeItem('c2b_redirectAfterLogin');
-        window.location.hash = redirect;
-      }
-    } catch (err) {
-      setErrorMsg(err.message || 'Account registration failed.');
-    } finally {
-      setLoading(false);
-      if (btn) btn.disabled = false;
+    const result = await dispatch(
+      registerCustomerThunk({ name, email, password: pass, phone: digits })
+    );
+    if (registerCustomerThunk.rejected.match(result)) {
+      setErrorMsg(result.payload || 'Account registration failed.');
     }
+    setLoading(false);
+    if (btn) btn.disabled = false;
   };
 
   const handleForgot = (e) => {
@@ -280,7 +197,7 @@ export default function Login({
 
   if (!shouldRender) return null;
 
-  const activePrompt = promptMessage || sessionStorage.getItem('c2b_loginPrompt') || '';
+  const activePrompt = promptMessage || authError || '';
 
   return (
     <div className="c2b-login-page">

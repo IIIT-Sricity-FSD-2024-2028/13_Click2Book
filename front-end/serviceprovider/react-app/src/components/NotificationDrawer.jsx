@@ -1,6 +1,12 @@
 import React from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { setNotifOpen } from '../store/actions';
 
-export default function NotificationDrawer({ isOpen, onClose, notifications }) {
+export default function NotificationDrawer() {
+  const dispatch = useDispatch();
+  const isOpen = useSelector((state) => state.ui.isNotifOpen);
+  const notifications = useSelector((state) => state.notifications.items);
+  const onClose = () => dispatch(setNotifOpen(false));
   const iconFor = (type) => {
     if (type === 'warn') return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:15,height:15}}>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   getFleetBuses,
+  getBackendFleetBuses,
   getFleetStats,
   registerNewBus,
   saveBusSeatLayout,
@@ -215,6 +216,24 @@ export default function BusFleetManagement({ provider, showToast, onNavigate }) 
     setBuses(list);
     setStats(getFleetStats(providerId));
     setApprovedCities(getApprovedCities());
+    getBackendFleetBuses(providerId).then((backendBuses) => {
+      const merged = [...list];
+      backendBuses.forEach((backendBus) => {
+        const match = merged.findIndex((bus) =>
+          bus.vehicleId === backendBus.vehicleId ||
+          String(bus.vehicleNumber || bus.regNo || '').toUpperCase() === String(backendBus.vehicleNumber || '').toUpperCase()
+        );
+        if (match >= 0) merged[match] = { ...merged[match], ...backendBus };
+        else merged.push(backendBus);
+      });
+      setBuses(merged);
+      setStats({
+        totalBuses: merged.length,
+        assignedBuses: merged.filter((bus) => bus.status === 'Assigned' || bus.assignedRoute).length,
+        availableBuses: merged.filter((bus) => bus.status === 'Available' && !bus.assignedRoute).length,
+        maintenanceBuses: merged.filter((bus) => bus.status === 'Maintenance').length,
+      });
+    }).catch(() => {});
   };
 
   useEffect(() => {

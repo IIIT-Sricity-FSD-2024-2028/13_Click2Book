@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getSeatData, getFleetBuses, getTripBookings } from '../services/api';
+import { getSeatData, getFleetBuses, getProviderBookings } from '../services/api';
 import BusSeatLayout from './BusSeatLayout';
 
 /* ── localStorage key for blocked seats ── */
@@ -10,16 +10,9 @@ function fmtDate(raw) {
   if (!raw || raw === '—') return '—';
   try {
     let d;
-    if (String(raw).includes('T')) {
-      d = new Date(raw);
-    } else {
-      const parts = String(raw).split('-').map(Number);
-      if (parts.length === 3) {
-        d = new Date(parts[0], parts[1] - 1, parts[2]);
-      } else {
-        d = new Date(raw);
-      }
-    }
+    const datePart = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (datePart) d = new Date(Number(datePart[1]), Number(datePart[2]) - 1, Number(datePart[3]));
+    else d = new Date(raw);
     if (isNaN(d.getTime())) return raw;
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -129,7 +122,11 @@ function PassengerDrawer({ seat, passenger, onClose, onBlock, onUnblock, isBlock
               <span className="pax-field-value mono">{passenger.bookingId}</span>
             </div>
             <div className="pax-field">
-              <span className="pax-field-label">📅 Booked On</span>
+              <span className="pax-field-label">📅 Journey Date</span>
+              <span className="pax-field-value">{fmtDate(passenger.journeyDate)}</span>
+            </div>
+            <div className="pax-field">
+              <span className="pax-field-label">🕒 Booked On</span>
               <span className="pax-field-value">{fmtDate(passenger.bookingDate)}</span>
             </div>
             <div className="pax-field">
@@ -140,6 +137,14 @@ function PassengerDrawer({ seat, passenger, onClose, onBlock, onUnblock, isBlock
                   : '—'}
               </span>
             </div>
+            {passenger.couponCode && (
+              <div className="pax-field" style={{ background: '#fff7ed', borderRadius: 8, padding: '8px 10px' }}>
+                <span className="pax-field-label">Coupon Used</span>
+                <span className="pax-field-value" style={{ color: '#9a3412', fontWeight: 700 }}>
+                  {passenger.couponCode}{Number(passenger.couponDiscount) > 0 ? ` · Saved ₹${Number(passenger.couponDiscount).toLocaleString('en-IN')}` : ''}
+                </span>
+              </div>
+            )}
             {passenger.seats && (
               <div className="pax-field">
                 <span className="pax-field-label">🪑 All Seats</span>
@@ -486,74 +491,60 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
       if (refreshing) return;
       refreshing = true;
       try {
-        // 1. Proactively synchronize unified state from backend /api/sync/state
-        try {
-          const syncRes = await fetch('/api/sync/state');
-          const syncJson = await syncRes.json();
-          const serverBookings = syncJson?.data?.bookings || (Array.isArray(syncJson?.bookings) ? syncJson.bookings : []);
-          if (Array.isArray(serverBookings) && serverBookings.length > 0) {
-            const cur = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
-            const curMap = new Map();
-            cur.forEach((b) => {
-              const bId = b.bookingId || b.booking_id || b.id;
-              if (bId) curMap.set(bId, b);
-            });
-            let changed = false;
-            serverBookings.forEach((sb) => {
-              const sbId = sb.bookingId || sb.booking_id || sb.id;
-              if (sbId) {
-                const existing = curMap.get(sbId);
-                const isCancelled =
-                  sb.bookingStatus === 'CANCELLED' ||
-                  sb.status === 'CANCELLED' ||
-                  sb.booking_status === 'CANCELLED';
-
-                if (isCancelled) {
-                  if (!existing || existing.status !== 'CANCELLED' || existing.bookingStatus !== 'CANCELLED') {
-                    curMap.set(sbId, { ...existing, ...sb, status: 'CANCELLED', booking_status: 'CANCELLED', bookingStatus: 'CANCELLED' });
-                    changed = true;
-                  }
-                } else if (!existing) {
-                  curMap.set(sbId, sb);
-                  changed = true;
-                } else if (!existing.passengers && sb.passengers) {
-                  curMap.set(sbId, { ...existing, ...sb });
-                  changed = true;
-                }
-              }
-            });
-            if (changed) {
-              localStorage.setItem('c2b_bookings', JSON.stringify(Array.from(curMap.values())));
-            }
-          }
-        } catch {
-          // Fallback gracefully
-        }
-
         const data = getSeatData(provider?.id);
         const baseBuses = Array.isArray(data) ? data : [];
-        let bookingFetchError = null;
-        const merged = await Promise.all(baseBuses.map(async (bus) => {
+        let providerBookings = [];
+        let hasProviderBookingSnapshot = false;
+        try {
+          const providerId = provider?.id || sessionStorage.getItem('c2b_loggedInId') || localStorage.getItem('c2b_loggedInId');
+          if (providerId) {
+            providerBookings = await getProviderBookings(providerId);
+            hasProviderBookingSnapshot = true;
+          }
+        } catch (error) {
+          console.warn('[SeatManagement] Provider booking list is unavailable; showing local booking records.', error);
+        }
+        const cancelledBookingIds = new Set();
+        const isCancelledBooking = (booking) => [booking.status, booking.booking_status, booking.bookingStatus]
+          .some((status) => String(status || '').toUpperCase() === 'CANCELLED');
+        providerBookings.forEach((booking) => {
+          if (!isCancelledBooking(booking)) return;
+          [booking.bookingId, booking.booking_id, booking.aliasId]
+            .filter(Boolean)
+            .forEach((id) => cancelledBookingIds.add(String(id).trim().toUpperCase()));
+        });
+        const isCancelledLocalBooking = (booking) => {
+          const ids = [booking.bookingId, booking.booking_id, booking.id, booking.primaryBackendId]
+            .filter(Boolean)
+            .map((id) => String(id).trim().toUpperCase());
+          return ids.some((id) => cancelledBookingIds.has(id) ||
+            cancelledBookingIds.has(id.replace(/-\d+$/, '')) ||
+            [...cancelledBookingIds].some((cancelledId) => cancelledId.startsWith(`${id}-`)));
+        };
+        const merged = baseBuses.map((bus) => {
           const tripIds = [
             bus.backendTripId,
             bus.tripId,
             bus.id,
           ].filter(Boolean);
-          let bookings = [];
-          for (const tripId of [...new Set(tripIds)]) {
-            try {
-              const found = await getTripBookings(tripId);
-              if (Array.isArray(found)) {
-                bookings = [...bookings, ...found];
-              }
-            } catch (error) {
-              bookingFetchError = error;
-              break;
-            }
-          }
+          const normalizedTripIds = new Set(tripIds.map((id) => String(id).trim().toUpperCase()));
+          const busPlate = String(bus.vehicleNumber || bus.plateNumber || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+          const busDate = String(bus.journeyDate || bus.date || '').split('T')[0];
+          const bookings = providerBookings.filter((booking) => {
+            const tripMatch = normalizedTripIds.has(String(booking.tripId || '').trim().toUpperCase());
+            const bookingPlate = String(booking.vehicleNumber || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const dateMatch = !busDate || !booking.journeyDate || String(booking.journeyDate).split('T')[0] === busDate;
+            // A canonical trip ID identifies this exact run, so it takes
+            // precedence over local date metadata. Plate matching is the
+            // fallback for buses whose local schedule has a synthetic trip ID.
+            return tripMatch || (busPlate && bookingPlate === busPlate && dateMatch);
+          });
           const activeBookings = bookings
-            .filter((b) => (b.bookingStatus === 'CONFIRMED' || b.bookingStatus === 'PENDING') &&
-                           b.bookingStatus !== 'CANCELLED' && b.status !== 'CANCELLED');
+            .filter((booking) => {
+              if (isCancelledBooking(booking)) return false;
+              const status = String(booking.bookingStatus || booking.booking_status || booking.status || '').toUpperCase();
+              return status === 'CONFIRMED' || status === 'PENDING';
+            });
 
           let localBookings = [];
           try {
@@ -580,6 +571,11 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
             }
             return seatId;
           };
+          const cancelledSeats = new Set(bookings
+            .filter(isCancelledBooking)
+            .map((booking) => normalizeBookedSeat(booking.seatNumber))
+            .filter(Boolean));
+          const cleanCity = (value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 
           const bookingMatchesTripDirection = (booking) => {
             const bookingFrom = cleanCity(booking.from || booking.source || '');
@@ -602,15 +598,20 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
             if (bookingStart !== -1 && bookingEnd !== -1) return bookingStart < bookingEnd;
             return bookingFrom === tripFrom && bookingTo === tripTo;
           };
-          const routeMatchedBookings = activeBookings.filter(bookingMatchesTripDirection);
+          const routeMatchedBookings = activeBookings.filter((booking) =>
+            normalizedTripIds.has(String(booking.tripId || '').trim().toUpperCase()) ||
+            bookingMatchesTripDirection(booking)
+          );
 
           // Merge local confirmed bookings with backend bookings.
-          const busPlate = String(bus.vehicleNumber || bus.plateNumber || '')
-            .trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-          const busDate = String(bus.journeyDate || bus.date || '').split('T')[0];
-          const cleanCity = (value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-
           localBookings.forEach((booking) => {
+            // Once the provider API responds, its booking list is the source of
+            // truth. Local browser bookings can be stale and must not restore
+            // a seat that the customer has cancelled.
+            if (hasProviderBookingSnapshot) return;
+            // Backend status is authoritative: don't let a stale local copy
+            // put a cancelled customer booking back onto the provider's seat map.
+            if (isCancelledLocalBooking(booking)) return;
             if (
               booking.status === 'CANCELLED' ||
               booking.booking_status === 'CANCELLED' ||
@@ -658,10 +659,12 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
             });
           });
 
-          (Array.isArray(bus.bookedSeatList) ? bus.bookedSeatList : []).forEach((seat) => {
-            const normalized = normalizeBookedSeat(seat);
-            if (normalized && !seatNumbers.includes(normalized)) seatNumbers.push(normalized);
-          });
+          if (!hasProviderBookingSnapshot) {
+            (Array.isArray(bus.bookedSeatList) ? bus.bookedSeatList : []).forEach((seat) => {
+              const normalized = normalizeBookedSeat(seat);
+              if (normalized && !cancelledSeats.has(normalized) && !seatNumbers.includes(normalized)) seatNumbers.push(normalized);
+            });
+          }
 
           routeMatchedBookings.forEach((booking) => {
             const seat = normalizeBookedSeat(booking.seatNumber);
@@ -680,6 +683,8 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
             );
             const customerId = String(booking?.customerId || booking?.customer_id || '').trim();
             const local = localBookings.find((b) => {
+              if (isCancelledLocalBooking(b) || [b.status, b.booking_status, b.bookingStatus]
+                .some((status) => String(status || '').toUpperCase() === 'CANCELLED')) return false;
               const sameCustomer = !customerId ||
                 String(b.customerId || b.customer_id || '') === customerId;
               if (!sameCustomer) return false;
@@ -710,17 +715,20 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
               gender: matchingPassenger?.gender || local?.gender || booking?.passengers?.find?.((p) => {
                 const pSeat = String(p.seat || p.seatNumber || '').trim().toUpperCase();
                 return pSeat === seat.toUpperCase() || normalizeBookedSeat(pSeat) === normalizeBookedSeat(seat);
-              })?.gender || 'General',
+                })?.gender || booking?.gender || 'General',
               age: matchingPassenger?.age || local?.age ||
                 booking?.passengers?.find?.((p) => {
                   const pSeat = String(p.seat || p.seatNumber || '').trim().toUpperCase();
                   return pSeat === seat.toUpperCase() || normalizeBookedSeat(pSeat) === normalizeBookedSeat(seat);
-                })?.age || '—',
+                })?.age || booking?.age || '—',
               phone: matchingPassenger?.phone || local?.phone || booking?.phone || '—',
               email: matchingPassenger?.email || local?.email || booking?.email || '—',
               bookingId: local?.primaryBackendId || local?.bookingId || booking?.bookingId || '—',
               bookingDate: local?.bookingDate || local?.createdAt || booking?.bookingDate || '—',
+              journeyDate: booking?.journeyDate || bus.journeyDate || bus.date || '—',
               fare: local?.fare || local?.total || '—',
+              couponCode: booking?.offerCode || booking?.couponCode || local?.offerCode || local?.couponCode || null,
+              couponDiscount: Number(booking?.couponDiscountAmount ?? booking?.couponDiscount ?? local?.couponDiscount ?? local?.discount ?? 0),
               status: booking?.bookingStatus || 'CONFIRMED',
               seats: customerSeats.length > 0 ? customerSeats : [seat],
               from: local?.from || bus.from,
@@ -744,7 +752,11 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
             bookedVisualSeats.add(`${row}${col}`);
           });
 
-          const expandedPassengerMap = { ...(bus.passengerMap || {}) };
+          const expandedPassengerMap = Object.fromEntries(
+            Object.entries(bus.passengerMap || {}).filter(([seat]) =>
+              !cancelledSeats.has(normalizeBookedSeat(seat))
+            ),
+          );
           Object.entries(passengerMap).forEach(([seat, passenger]) => {
             const n = parseInt(seat, 10);
             expandedPassengerMap[seat] = passenger;
@@ -768,12 +780,7 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
             bookedCount,
             actualBookedCount: bookedCount,
           };
-        }));
-        if (bookingFetchError) {
-          console.warn('[SeatManagement] Keeping the last seat snapshot; booking service is unavailable.', bookingFetchError);
-          setBuses((current) => current.length > 0 ? current : baseBuses);
-          return;
-        }
+        });
         setBuses(merged);
       } catch (err) {
         console.error('Error refreshing seat data:', err);
@@ -783,7 +790,7 @@ export default function SeatManagement({ provider, onNavigate, showToast }) {
     };
 
     refresh();
-    timer = setInterval(refresh, 3000);
+    timer = setInterval(refresh, 10000);
     window.addEventListener('storage', refresh);
     window.addEventListener('c2b_sync', refresh);
     window.addEventListener('focus', refresh);

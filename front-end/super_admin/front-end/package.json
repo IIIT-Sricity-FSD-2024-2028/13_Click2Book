@@ -23,10 +23,7 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "globals": "^15.12.0",
     "prettier": "^3.3.3",
-    "vite": "^8.3.4"
-  },
-  "overrides": {
-    "rollup": "npm:@rollup/wasm-node@4.28.1"
+    "vite": "^7.3.1"
   },
   "description": "Click2Book Super Admin + Admin portals (standalone copy of the main frontend)"
 }

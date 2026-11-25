@@ -6,6 +6,8 @@ import {
   Body,
   Param,
   Query,
+  Headers,
+  ForbiddenException,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -74,6 +76,21 @@ export class BookingController {
   })
   findByCustomer(@Param('customerId') customerId: string) {
     return this.bookingService.findByCustomer(customerId);
+  }
+
+  @Get('provider/:providerId')
+  @Roles(Role.PROVIDER, Role.ADMIN)
+  @ApiOperation({ summary: 'Get all bookings for one provider in a single request' })
+  @ApiParam({ name: 'providerId', example: 'P001' })
+  findByProvider(
+    @Param('providerId') providerId: string,
+    @Headers('x-role') role: string,
+    @Headers('x-user-id') userId: string,
+  ) {
+    if (role === Role.PROVIDER && userId !== providerId) {
+      throw new ForbiddenException('You can only view bookings for your own provider account.');
+    }
+    return this.bookingService.findByProvider(providerId);
   }
 
   @Get('trip/:tripId')

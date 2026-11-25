@@ -106,6 +106,7 @@ export class BookingService {
     }
     if (!vehicle)
       throw new BadRequestException('No vehicle is available for this trip');
+    const ticketFare = Number(vehicle.roundTripSchedule?.fare || tripSchedule?.fare || 0);
 
     // 3. Check if seat already booked by this customer (idempotent retry for pending booking)
     const existingMine = this.bookingRepo.findByCustomerAndTripAndSeat(
@@ -131,6 +132,26 @@ export class BookingService {
       (existingMine.bookingStatus === BookingStatus.PENDING ||
         existingMine.bookingStatus === BookingStatus.CONFIRMED)
     ) {
+      // A pending reservation may be retried with a newly selected coupon.
+      // Refresh its validated coupon snapshot so payment uses the same discount.
+      if (existingMine.bookingStatus === BookingStatus.PENDING) {
+        const currentCode = String(existingMine.offerCode || '').trim().toUpperCase();
+        const requestedCode = String(dto.offerCode || '').trim().toUpperCase();
+        if (requestedCode || currentCode) {
+          let coupon: ReturnType<OfferService['validateAndApply']> | undefined;
+          if (requestedCode) {
+            const fare = ticketFare;
+            if (fare == null) throw new BadRequestException('Fare is unavailable for this trip');
+            coupon = this.offerService.validateAndApply(requestedCode, fare, dto.customerId);
+          }
+          this.bookingRepo.update(existingMine.bookingId, {
+            offerId: coupon?.offerId,
+            offerCode: coupon?.offerCode,
+            couponDiscountAmount: coupon?.discountAmount,
+            couponGrossAmount: coupon?.grossAmount,
+          });
+        }
+      }
       return successResponse(
         existingMine.bookingStatus === BookingStatus.CONFIRMED
           ? 'Existing confirmed booking retrieved.'
@@ -172,8 +193,8 @@ export class BookingService {
     // 6. Apply offer if provided
     let coupon: ReturnType<OfferService['validateAndApply']> | undefined;
     if (dto.offerCode) {
-      const fare = this.scheduleRepo.findById(trip.scheduleId)?.fare;
-      if (fare == null)
+      const fare = ticketFare;
+      if (fare <= 0)
         throw new BadRequestException('Fare is unavailable for this trip');
       coupon = this.offerService.validateAndApply(
         dto.offerCode,
@@ -185,8 +206,24 @@ export class BookingService {
     // 7. Create booking (PENDING — awaiting payment)
     const booking = this.bookingRepo.create({
       customerId: dto.customerId,
+      providerId: tripSchedule?.providerId || vehicle.providerId,
       tripId: trip.tripId,
       seatNumber: dto.seatNumber,
+      // Seed schedules are recurring templates. Preserve the travel date the
+      // customer selected instead of copying the template's old journey date.
+      journeyDate: dto.journeyDate || tripSchedule?.journeyDate,
+      fareAmount: ticketFare,
+      vehicleId: vehicle.vehicleId,
+      vehicleNumber: vehicle.vehicleNumber,
+      busName: vehicle.busName,
+      busType: vehicle.vehicleType,
+      departureTime: tripSchedule?.departureTime,
+      arrivalTime: tripSchedule?.arrivalTime,
+      passengerName: dto.passengerName,
+      phone: dto.phone,
+      email: dto.email,
+      gender: dto.gender,
+      age: dto.age,
       from: dto.from?.trim(),
       to: dto.to?.trim(),
       offerId: coupon?.offerId,
@@ -198,7 +235,12 @@ export class BookingService {
     // 8. The seat reservation is persisted by the trip-specific booking record.
 
     // 9. Snapshot the fare split onto a new transaction ledger row
-    this.ledgerService.createForBooking(booking.bookingId, trip.tripId);
+    this.ledgerService.createForBooking(
+      booking.bookingId,
+      trip.tripId,
+      booking.couponDiscountAmount || 0,
+      ticketFare,
+    );
 
     return successResponse(
       'Booking created. Proceed to payment to confirm.',
@@ -318,6 +360,39 @@ export class BookingService {
       };
     });
     return successResponse('Customer bookings', enriched);
+  }
+
+  findByProvider(providerId: string) {
+    const bookings = this.bookingRepo.findAll().flatMap((booking) => {
+      const trip = this.tripRepo.findById(booking.tripId);
+      const schedule = trip ? this.scheduleRepo.findById(trip.scheduleId) : null;
+      const vehicle = this.vehicleRepo.findById(booking.vehicleId || trip?.vehicleId || '');
+      const bookingProviderId = booking.providerId || schedule?.providerId || vehicle?.providerId;
+      if (bookingProviderId !== providerId) return [];
+      const route = schedule ? this.routeRepo.findById(schedule.routeId) : null;
+      const isRecurringSeedSchedule = /^SCH0(0[1-9]|1[0-9]|2[0-7])$/.test(
+        schedule?.scheduleId || '',
+      );
+      const storedJourneyDate = booking.journeyDate || booking.date;
+      const seedDateWasCopied = isRecurringSeedSchedule &&
+        storedJourneyDate === schedule?.journeyDate &&
+        booking.bookingDate > (schedule?.journeyDate || '');
+      return [{
+        ...booking,
+        journeyDate: seedDateWasCopied
+          ? booking.date || booking.bookingDate
+          : storedJourneyDate || schedule?.journeyDate || booking.bookingDate,
+        departureTime: booking.departureTime || schedule?.departureTime,
+        arrivalTime: booking.arrivalTime || schedule?.arrivalTime,
+        from: booking.from || route?.source,
+        to: booking.to || route?.destination,
+        vehicleId: booking.vehicleId || trip?.vehicleId,
+        vehicleNumber: booking.vehicleNumber || vehicle?.vehicleNumber,
+        busName: booking.busName || vehicle?.busName,
+        providerId: bookingProviderId,
+      }];
+    });
+    return successResponse('Provider bookings', bookings);
   }
 
   confirm(bookingId: string) {
@@ -476,11 +551,15 @@ export class BookingService {
         'Only CONFIRMED or PENDING bookings can be cancelled',
       );
 
-    const baseId = bookingId.replace(/-\d+$/, '');
+    // Resolve aliases before finding the whole booking group. Customers can
+    // cancel with a per-seat ID while the stored booking uses its canonical ID.
+    const canonicalId = booking.bookingId;
+    const baseId = canonicalId.replace(/-\d+$/, '');
     this.bookingRepo.findAll().forEach((b) => {
       if (
         b.bookingId === baseId ||
         b.bookingId.startsWith(baseId + '-') ||
+        b.bookingId === canonicalId ||
         ((booking as any).aliasId && b.bookingId === (booking as any).aliasId)
       ) {
         this.bookingRepo.update(b.bookingId, {

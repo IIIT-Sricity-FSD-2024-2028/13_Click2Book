@@ -27,7 +27,23 @@ export class OfferService {
   }
 
   findAll() {
-    return successResponse('All offers', this.offerRepo.findAll());
+    const offers = this.offerRepo.findAll().map((offer) => {
+      const redemptions = this.offerRepo.findRedemptions(offer.offerId);
+      return {
+        ...offer,
+        usedCount: redemptions.length,
+        redemptions: redemptions.map((redemption) => ({
+          redemptionId: redemption.bookingId,
+          bookingId: redemption.bookingId,
+          customerId: redemption.customerId,
+          customerName: redemption.customerId,
+          ticketsBooked: 1,
+          discountAmount: redemption.discountAmount,
+          redeemedAt: redemption.redeemedAt,
+        })),
+      };
+    });
+    return successResponse('All offers', offers);
   }
   findActive() {
     const today = new Date().toISOString().slice(0, 10);

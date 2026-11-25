@@ -42,6 +42,14 @@ export class PaymentService {
       );
     }
     if (
+      Number(booking.fareAmount) > 0 &&
+      Number(dto.amount) + discountAmount < Number(booking.fareAmount)
+    ) {
+      throw new BadRequestException(
+        'Payment amount is below the provider-set ticket fare after the validated coupon',
+      );
+    }
+    if (
       booking.offerId &&
       Number(dto.amount) <
         Math.max(0, Number(booking.couponGrossAmount || 0) - discountAmount)

@@ -10,6 +10,7 @@ import {
   Length,
   IsArray,
   IsBoolean,
+  IsObject,
 } from 'class-validator';
 import { VehicleType } from '../enums/vehicle-type.enum';
 
@@ -215,6 +216,7 @@ export class ChangeRouteDto extends AssignRouteDto {
 
 export class SaveRoundTripScheduleDto {
   @ApiProperty()
+  @IsObject()
   upSchedule: {
     departureTime: string;
     arrivalTime: string;
@@ -224,6 +226,7 @@ export class SaveRoundTripScheduleDto {
   };
 
   @ApiProperty()
+  @IsObject()
   downSchedule: {
     departureTime: string;
     arrivalTime: string;
@@ -234,10 +237,31 @@ export class SaveRoundTripScheduleDto {
 
   @ApiProperty({ example: 650 })
   @IsNumber()
+  @Min(1, { message: 'Ticket fare must be greater than zero' })
   fare: number;
 
   @ApiPropertyOptional({ example: '2026-11-25' })
   @IsOptional()
   @IsString()
   validFrom?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  validUntil?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  vehicleId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  assignmentId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  restMinutesBetweenJourneys?: number;
 }

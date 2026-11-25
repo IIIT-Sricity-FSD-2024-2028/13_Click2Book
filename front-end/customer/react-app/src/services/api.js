@@ -174,6 +174,15 @@ export const API = {
       if (offerCode) body.offerCode = offerCode;
       if (segment?.from) body.from = segment.from;
       if (segment?.to) body.to = segment.to;
+      const journeyDate = segment?.journeyDate || sessionStorage.getItem('searchDate');
+      if (journeyDate) body.journeyDate = String(journeyDate).split('T')[0];
+      if (segment?.passenger) {
+        body.passengerName = segment.passenger.name || '';
+        body.phone = segment.passenger.phone || '';
+        body.email = segment.passenger.email || '';
+        body.gender = segment.passenger.gender || '';
+        body.age = segment.passenger.age ?? '';
+      }
       return apiFetch('/bookings', {
         method: 'POST',
         body: JSON.stringify(body),

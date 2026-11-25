@@ -30,7 +30,12 @@ export class LedgerService {
   // Called from BookingService.create() right after a booking is created.
   // base_fare AND providerId are read from Schedule (via Trip) here — providerId lives
   // on Schedule, not Vehicle — and neither is ever re-read live again.
-  createForBooking(bookingId: string, tripId: string): TransactionLedger {
+  createForBooking(
+    bookingId: string,
+    tripId: string,
+    discountAmount = 0,
+    ticketFare?: number,
+  ): TransactionLedger {
     const trip = this.tripRepo.findById(tripId);
     if (!trip) throw new NotFoundException(`Trip ${tripId} not found`);
     const schedule = this.scheduleRepo.findById(trip.scheduleId);
@@ -61,14 +66,16 @@ export class LedgerService {
     }
 
     const config = this.revenueSplitService.getActiveConfig();
-    const baseFare = toPaise(schedule.fare);
+    const baseFare = toPaise(Number(ticketFare) > 0 ? Number(ticketFare) : schedule.fare);
+    const discountPaise = Math.min(baseFare, toPaise(discountAmount));
+    const netFare = baseFare - discountPaise;
     const platformCommission = Math.round(
-      (baseFare * config.commissionPct) / 100,
+      (netFare * config.commissionPct) / 100,
     );
-    const operatorPayout = baseFare - platformCommission;
+    const operatorPayout = netFare - platformCommission;
     const convenienceFee = config.convenienceFeeFlat;
     const platformPool = platformCommission + convenienceFee;
-    const gatewayFee = Math.round((baseFare * config.gatewayFeePct) / 100);
+    const gatewayFee = Math.round((netFare * config.gatewayFeePct) / 100);
     const supportCost = 0;
     const adminNet = platformPool - gatewayFee - supportCost;
 
@@ -77,6 +84,8 @@ export class LedgerService {
       providerId: provider.providerId,
       adminId: primaryAdmin.adminId,
       baseFare,
+      discountAmount: discountPaise,
+      netFare,
       convenienceFee,
       platformCommission,
       operatorPayout,

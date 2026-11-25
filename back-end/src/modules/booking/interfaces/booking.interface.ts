@@ -3,11 +3,13 @@ import { BookingStatus } from '../enums/booking-status.enum';
 export interface Booking {
   bookingId: string;
   customerId: string;
+  providerId?: string;
   tripId: string;
   offerId?: string;
   offerCode?: string;
   couponDiscountAmount?: number;
   couponGrossAmount?: number;
+  fareAmount?: number;
   seatNumber: number;
   bookingDate: string;
   bookingStatus: BookingStatus;
@@ -16,6 +18,8 @@ export interface Booking {
   passengerName?: string;
   phone?: string;
   email?: string;
+  gender?: string;
+  age?: string | number;
   passengers?: Array<{
     seat?: string;
     seatNumber?: string | number;

@@ -5,6 +5,7 @@ import {
   toggleCouponStatus,
   deleteProviderCoupon,
   simulateCustomerRedemption,
+  getBackendProviderCoupons,
   getApprovedCities,
 } from '../services/api';
 
@@ -40,15 +41,45 @@ export default function Coupons({ provider, showToast, onNavigate }) {
   const approvedCities = useMemo(() => getApprovedCities(), []);
 
   const loadCoupons = () => {
-    setCoupons(getProviderCoupons());
+    const localCoupons = getProviderCoupons();
+    setCoupons(localCoupons);
+    getBackendProviderCoupons(provider?.id).then((backendCoupons) => {
+      const merged = [...localCoupons];
+      backendCoupons.forEach((backendCoupon) => {
+        const index = merged.findIndex((coupon) => coupon.code.toUpperCase() === backendCoupon.code.toUpperCase());
+        if (index >= 0) {
+          merged[index] = {
+            ...merged[index],
+            ...backendCoupon,
+            id: merged[index].id,
+            backendOfferId: backendCoupon.backendOfferId,
+          };
+        } else {
+          merged.push(backendCoupon);
+        }
+      });
+      setCoupons(merged);
+    }).catch(() => {});
   };
 
   useEffect(() => {
     loadCoupons();
     const handleSync = () => loadCoupons();
     window.addEventListener('storage', handleSync);
-    return () => window.removeEventListener('storage', handleSync);
-  }, []);
+    window.addEventListener('focus', handleSync);
+    const refreshTimer = window.setInterval(handleSync, 30000);
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('focus', handleSync);
+      window.clearInterval(refreshTimer);
+    };
+  }, [provider?.id]);
+
+  useEffect(() => {
+    if (!selectedCouponForManifest) return;
+    const latest = coupons.find((coupon) => coupon.code === selectedCouponForManifest.code);
+    if (latest && latest !== selectedCouponForManifest) setSelectedCouponForManifest(latest);
+  }, [coupons, selectedCouponForManifest]);
 
   const handleCreateCoupon = async (e) => {
     e.preventDefault();

@@ -93,9 +93,16 @@ function clearProviderSession() {
   }
 }
 
-export async function getTripBookings(tripId) {
-  if (!tripId) return [];
-  return await spFetch(`/bookings/trip/${encodeURIComponent(tripId)}`);
+export async function getProviderBookings(providerId) {
+  const id = providerId ||
+    sessionStorage.getItem('c2b_loggedInId') ||
+    localStorage.getItem('c2b_loggedInId');
+  if (!id) return [];
+  const result = await spFetch(`/bookings/provider/${encodeURIComponent(id)}`);
+  if (Array.isArray(result)) return result;
+  if (Array.isArray(result?.bookings)) return result.bookings;
+  if (Array.isArray(result?.items)) return result.items;
+  return [];
 }
 
 /* ── Centralized Real-Time Event Dispatcher for Same-Tab and Cross-Tab Reactivity ── */
@@ -2321,8 +2328,69 @@ export async function updateLostFoundStatus(itemId, status, foundNote) {
 /* ── Revenue ── */
 export async function fetchRevenue(providerId) {
   try {
-    const data = await spFetch(`/revenue?providerId=${encodeURIComponent(providerId)}`);
-    return { data, isLive: true };
+    const [revenue, bookings] = await Promise.all([
+      spFetch(`/providers/${encodeURIComponent(providerId)}/revenue`),
+      getProviderBookings(providerId),
+    ]);
+    const ledger = Array.isArray(revenue?.ledger) ? revenue.ledger : [];
+    const paidBookings = bookings.filter((booking) => booking.bookingStatus === 'CONFIRMED');
+    const paidIds = new Set(paidBookings.map((booking) => booking.bookingId));
+    const rowsByBus = new Map();
+    const enrichedBookings = bookings.map((booking) => {
+      const row = ledger.find((item) => item.bookingId === booking.bookingId);
+      const grossFare = Number(row?.baseFare || 0) / 100;
+      const couponDiscount = row
+        ? Number(row.discountAmount || 0) / 100
+        : Number(booking.couponDiscountAmount || 0);
+      const operatorPayout = Number(row?.operatorPayout || 0) / 100;
+      const fareAfterCoupon = Number(
+        row?.netFare ?? (Number(row?.baseFare || 0) - Number(row?.discountAmount || 0)),
+      ) / 100;
+      const busName = booking.busName || booking.vehicleNumber || 'Provider Bus';
+      const route = [booking.from, booking.to].filter(Boolean).join(' → ') || 'Route';
+      const key = booking.vehicleId || booking.busName || booking.tripId;
+      const aggregate = rowsByBus.get(key) || { busName, route, gross: 0, discount: 0, afterCoupon: 0, net: 0, bookingCount: 0, passengerCount: 0 };
+      if (booking.bookingStatus === 'CONFIRMED') {
+        aggregate.gross += grossFare;
+        aggregate.discount += couponDiscount;
+        aggregate.afterCoupon += fareAfterCoupon || Math.max(0, grossFare - couponDiscount);
+        aggregate.net += operatorPayout;
+        aggregate.bookingCount += 1;
+        aggregate.passengerCount += 1;
+        rowsByBus.set(key, aggregate);
+      }
+      return {
+        ...booking,
+        busName,
+        grossFare,
+        subtotal: grossFare,
+        fare: grossFare,
+        couponCode: booking.offerCode,
+        couponDiscount,
+        fareAfterCoupon: fareAfterCoupon || Math.max(0, grossFare - couponDiscount),
+        platformCommission: Number(row?.platformCommission || 0) / 100,
+        operatorPayout,
+        platformFee: Number(row?.convenienceFee || 0) / 100,
+      };
+    });
+    const paidLedger = ledger.filter((row) => paidIds.has(row.bookingId) && row.status !== 'cancelled');
+    return {
+      data: {
+        totalGross: paidLedger.reduce((sum, row) => sum + Number(row.baseFare || 0), 0) / 100,
+        totalDiscount: paidLedger.reduce((sum, row) => sum + Number(row.discountAmount || 0), 0) / 100,
+        totalAfterCoupon: paidLedger.reduce(
+          (sum, row) => sum + Number(row.netFare ?? (Number(row.baseFare || 0) - Number(row.discountAmount || 0))),
+          0,
+        ) / 100,
+        totalNet: paidLedger.reduce((sum, row) => sum + Number(row.operatorPayout || 0), 0) / 100,
+        totalBookings: paidLedger.length,
+        totalSeats: paidLedger.length,
+        breakdown: Array.from(rowsByBus.values()),
+      },
+      localBookings: enrichedBookings,
+      localSchedules: [],
+      isLive: true,
+    };
   } catch {
     // Fallback: compute from localStorage bookings
     const localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
@@ -5180,6 +5248,38 @@ export function getFleetBuses(providerId) {
   }
 }
 
+/* Load the provider's backend vehicles and normalize the API response to a list. */
+export async function getBackendFleetBuses(providerId) {
+  const targetId = providerId ||
+    sessionStorage.getItem('c2b_loggedInId') ||
+    localStorage.getItem('c2b_loggedInId') ||
+    'P001';
+  const result = await spFetch(`/vehicles?providerId=${encodeURIComponent(targetId)}`);
+  if (Array.isArray(result)) return result;
+  if (Array.isArray(result?.vehicles)) return result.vehicles;
+  if (Array.isArray(result?.items)) return result.items;
+  return [];
+}
+
+export async function getBackendProviderCoupons(providerId) {
+  const targetId = providerId ||
+    sessionStorage.getItem('c2b_loggedInId') ||
+    localStorage.getItem('c2b_loggedInId') ||
+    'P001';
+  const result = await spFetch('/offers');
+  const offers = Array.isArray(result) ? result : result?.offers;
+  if (!Array.isArray(offers)) return [];
+  return offers
+    .filter((offer) => !offer.providerId || String(offer.providerId) === String(targetId))
+    .map((offer) => ({
+      ...offer,
+      id: offer.id || offer.offerId,
+      code: offer.code || offer.offerCode,
+      title: offer.title || offer.description || offer.offerCode,
+      expiryDate: offer.expiryDate || offer.endDate,
+    }));
+}
+
 /* ── Get Fleet Overview Statistics ── */
 export function getFleetStats(providerId) {
   const buses = getFleetBuses(providerId);
@@ -5367,13 +5467,43 @@ export function checkBusActiveBookings(vehicleNumber) {
 export async function assignBusToRoute(busId, routeData) {
   initFleetStorage();
   const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
-  const idx = all.findIndex((b) => b.vehicleId === busId || b.id === busId || b.vehicleNumber === busId);
+  const cleanId = (value) => String(value || '').trim().toUpperCase();
+  let idx = all.findIndex((b) =>
+    [b.vehicleId, b.id, b.backendVehicleId, b.vehicleNumber, b.regNo]
+      .some((value) => cleanId(value) === cleanId(busId))
+  );
+  let bus = idx >= 0 ? all[idx] : null;
 
-  if (idx === -1) {
-    throw new Error(`Bus ${busId} not found.`);
+  // The assignment selector also includes backend-only vehicles. Resolve those
+  // into local fleet state before applying provider-side schedule generation.
+  let backendFleet;
+  try {
+    backendFleet = await getBackendFleetBuses(bus?.providerId);
+  } catch (err) {
+    throw new Error(`Could not load the backend fleet before assigning this bus: ${err.message}`);
+  }
+  if (!bus) {
+    bus = backendFleet.find((b) =>
+      [b.vehicleId, b.id, b.vehicleNumber, b.regNo]
+        .some((value) => cleanId(value) === cleanId(busId))
+    );
+    if (!bus) throw new Error(`Bus ${busId} is not present in the saved fleet. Refresh the fleet and select a registered bus.`);
+    bus = { ...bus, backendVehicleId: bus.vehicleId || bus.id };
+    all.push(bus);
+    idx = all.length - 1;
   }
 
-  const bus = all[idx];
+  const normalizePlate = (value) => cleanId(value).replace(/[^A-Z0-9]/g, '');
+  const backendBus = backendFleet.find((candidate) =>
+    cleanId(candidate.vehicleId || candidate.id) === cleanId(bus.vehicleId || bus.id || busId) ||
+    (normalizePlate(candidate.vehicleNumber || candidate.regNo) &&
+      normalizePlate(candidate.vehicleNumber || candidate.regNo) === normalizePlate(bus.vehicleNumber || bus.regNo))
+  );
+  const backendVehicleId = backendBus?.vehicleId || backendBus?.id || bus.backendVehicleId;
+  if (!backendVehicleId) {
+    throw new Error(`Bus ${bus.vehicleNumber || busId} has no matching backend vehicle record. Refresh the fleet or register this bus with the backend before assigning a route.`);
+  }
+  bus.backendVehicleId = backendVehicleId;
 
   if (bus.status === 'Maintenance') {
     throw new Error(`Cannot assign route: Bus ${bus.vehicleNumber} is currently under Maintenance.`);
@@ -5460,6 +5590,22 @@ export async function assignBusToRoute(busId, routeData) {
     restMinutesBetweenJourneys: restMinutes,
   };
 
+  // Persist the backend assignment first. Never report success or save a
+  // browser-only assignment when the server rejected the selected vehicle.
+  await spFetch(`/vehicles/${encodeURIComponent(backendVehicleId)}/assign-route`, {
+    method: 'POST',
+    body: JSON.stringify({
+      originCity: newAssignment.originCity,
+      destCity: newAssignment.destCity,
+      corridorId: newAssignment.corridorId,
+      corridorName: newAssignment.corridorName,
+      distanceKm: newAssignment.distanceKm,
+      durationEst: newAssignment.durationEst,
+      intermediateStops: newAssignment.intermediateStops,
+      effectiveDate: newAssignment.effectiveDate,
+    }),
+  });
+
   localStorage.setItem('c2b_registered_fleet', JSON.stringify(all));
 
   // Clean any prior cancellation locks for this bus so new assignment schedules generate freely
@@ -5486,16 +5632,6 @@ export async function assignBusToRoute(busId, routeData) {
 
   // Generate actual bookable recurring schedule instances into c2b_bus_schedules
   generateRecurringJourneyInstances(bus, bus.roundTripSchedule);
-
-  // Sync to backend
-  try {
-    await spFetch(`/vehicles/${busId}/assign-route`, {
-      method: 'POST',
-      body: JSON.stringify(newAssignment),
-    });
-  } catch (err) {
-    console.warn('Backend assign-route sync note:', err?.message);
-  }
 
   notifyChange('FLEET_ASSIGNED', { busId: bus.vehicleId, vehicleNumber: bus.vehicleNumber });
   try { liveSync.syncVehicle(bus); } catch {}
@@ -5597,11 +5733,22 @@ export async function saveRoundTripSchedules(busId, scheduleConfig) {
       intermediateStopDetails: downDetails,
       active: true,
     },
-    fare: Number(fare) || 650,
+    fare: Number(fare),
     validFrom: scheduleConfig.validFrom || new Date().toISOString().split('T')[0],
     validUntil: scheduleConfig.validUntil || '',
     restMinutesBetweenJourneys: restMinutes,
   };
+
+  if (!Number.isFinite(roundTripData.fare) || roundTripData.fare <= 0) {
+    throw new Error('Ticket fare must be greater than zero.');
+  }
+
+  // Save the configured fare to the shared backend before advertising a local
+  // success. Customer search on another app origin reads this backend record.
+  await spFetch(`/vehicles/${encodeURIComponent(bus.backendVehicleId || bus.vehicleId)}/schedules`, {
+    method: 'POST',
+    body: JSON.stringify(roundTripData),
+  });
 
   bus.roundTripSchedule = roundTripData;
   bus.updatedAt = new Date().toISOString();
@@ -5632,16 +5779,6 @@ export async function saveRoundTripSchedules(busId, scheduleConfig) {
 
   // Generate actual bookable recurring schedule instances into c2b_bus_schedules (Module 5)
   generateRecurringJourneyInstances(bus, roundTripData);
-
-  // Sync to backend
-  try {
-    await spFetch(`/vehicles/${busId}/schedules`, {
-      method: 'POST',
-      body: JSON.stringify(roundTripData),
-    });
-  } catch (err) {
-    console.warn('Backend save-schedules sync note:', err?.message);
-  }
 
   notifyChange('SCHEDULES_SAVED', { busId: bus.vehicleId, vehicleNumber: bus.vehicleNumber });
   return bus;
@@ -5875,8 +6012,27 @@ export async function updateBusStatus(busId, newStatus) {
 export async function deleteBus(busId) {
   initFleetStorage();
   const all = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
-  const idx = all.findIndex((b) => b.vehicleId === busId || b.id === busId || b.vehicleNumber === busId);
+  const normalize = (value) => String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const idx = all.findIndex((b) =>
+    [b.vehicleId, b.backendVehicleId, b.id, b.vehicleNumber, b.regNo]
+      .some((value) => normalize(value) === normalize(busId))
+  );
   const bus = idx !== -1 ? all[idx] : null;
+
+  // Deleting only browser storage leaves backend trips bookable by customers.
+  // Resolve the backend vehicle by canonical ID or registration plate and remove
+  // it there first; trip search filters out trips whose vehicle no longer exists.
+  const backendFleet = await getBackendFleetBuses(bus?.providerId);
+  const backendBus = backendFleet.find((candidate) =>
+    [candidate.vehicleId, candidate.id, candidate.vehicleNumber, candidate.regNo]
+      .some((value) => normalize(value) === normalize(busId)) ||
+    (bus && normalize(candidate.vehicleNumber || candidate.regNo) === normalize(bus.vehicleNumber || bus.regNo))
+  );
+  if (backendBus) {
+    await spFetch(`/vehicles/${encodeURIComponent(backendBus.vehicleId || backendBus.id)}`, {
+      method: 'DELETE',
+    });
+  }
 
   // Mark in deleted buses blacklist immediately so it NEVER re-appears on refresh
   markBusDeleted(bus || { vehicleId: busId });
@@ -5948,16 +6104,6 @@ export async function deleteBus(busId) {
     });
     if (compChanged) localStorage.setItem('c2b_trip_completions', JSON.stringify(completions));
   } catch {}
-
-  // Sync to backend DELETE /vehicles/:id with x-role header
-  try {
-    await spFetch(`/vehicles/${busId}`, {
-      method: 'DELETE',
-      headers: { 'x-role': 'PROVIDER' },
-    });
-  } catch (err) {
-    console.warn('Backend delete vehicle sync note:', err?.message);
-  }
 
   notifyChange('BUS_DELETED', { busId, vehicleNumber: bus?.vehicleNumber });
   try { liveSync.broadcast('BUS_DELETED', { busId, vehicleNumber: bus?.vehicleNumber }); } catch {}

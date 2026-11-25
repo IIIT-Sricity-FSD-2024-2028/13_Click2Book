@@ -38,4 +38,33 @@ export class CreateBookingDto {
   @IsOptional()
   @IsString()
   to?: string;
+
+  @ApiPropertyOptional({ example: '2026-11-26', description: 'Journey date selected by the customer' })
+  @IsOptional()
+  @IsString()
+  journeyDate?: string;
+
+  @ApiPropertyOptional({ example: 'Passenger Name' })
+  @IsOptional()
+  @IsString()
+  passengerName?: string;
+
+  @ApiPropertyOptional({ example: '+919876543210' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiPropertyOptional({ example: 'passenger@example.com' })
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @ApiPropertyOptional({ example: 'General' })
+  @IsOptional()
+  @IsString()
+  gender?: string;
+
+  @ApiPropertyOptional({ example: 30 })
+  @IsOptional()
+  age?: string | number;
 }

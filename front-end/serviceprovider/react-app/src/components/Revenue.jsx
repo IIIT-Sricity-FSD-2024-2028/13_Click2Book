@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { fetchRevenue } from '../services/api';
 
 export default function Revenue({ provider, onNavigate, showToast }) {
-  const [stats, setStats] = useState({ totalGross: 0, totalNet: 0, totalBookings: 0, totalSeats: 0 });
+  const [stats, setStats] = useState({ totalGross: 0, totalDiscount: 0, totalAfterCoupon: 0, totalNet: 0, totalBookings: 0, totalSeats: 0 });
   const [rows, setRows] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [isLive, setIsLive] = useState(false);
@@ -25,6 +25,8 @@ export default function Revenue({ provider, onNavigate, showToast }) {
           // Use API data shape
           setStats({
             totalGross: data.totalGross || 0,
+            totalDiscount: data.totalDiscount || 0,
+            totalAfterCoupon: data.totalAfterCoupon || 0,
             totalNet:   data.totalNet   || 0,
             totalBookings: data.totalBookings || 0,
             totalSeats: data.totalSeats || 0,
@@ -35,13 +37,13 @@ export default function Revenue({ provider, onNavigate, showToast }) {
           const busMap = {};
           schedules.forEach((s) => {
             const key = s.id || s.tripId;
-            busMap[key] = { ...s, gross: 0, bookingCount: 0, passengerCount: 0, seats: [] };
+            busMap[key] = { ...s, gross: 0, discount: 0, afterCoupon: 0, bookingCount: 0, passengerCount: 0, seats: [] };
           });
 
-          let totalGross = 0, totalBookings = 0, totalSeats = 0;
+          let totalGross = 0, totalDiscount = 0, totalAfterCoupon = 0, totalBookings = 0, totalSeats = 0;
           const seenIds = new Set();
           bookings.forEach((b) => {
-            if (!b?.bookingId || seenIds.has(b.bookingId) || b.status === 'CANCELLED' || b.booking_status === 'CANCELLED') return;
+            if (!b?.bookingId || seenIds.has(b.bookingId) || b.status === 'CANCELLED' || b.booking_status === 'CANCELLED' || b.bookingStatus === 'CANCELLED') return;
             seenIds.add(b.bookingId);
             const seatArr = Array.isArray(b.seat_list) ? b.seat_list : Array.isArray(b.seats) ? b.seats : typeof b.seats === 'string' ? b.seats.split(',') : [];
             let matchKey = Object.keys(busMap).find((k) =>
@@ -50,7 +52,9 @@ export default function Revenue({ provider, onNavigate, showToast }) {
               (b.from && b.to && busMap[k]?.from && busMap[k]?.to && busMap[k].from.toLowerCase() === b.from.toLowerCase() && busMap[k].to.toLowerCase() === b.to.toLowerCase())
             );
             const amount = Number(b.grossFare) || Number(b.subtotal) || Number(b.fare ? b.fare * (seatArr.length || 1) : 0) || Number(b.total) || 500;
-            totalGross += amount; totalBookings += 1; totalSeats += (seatArr.length || 1);
+            const discount = Number(b.couponDiscount || b.discount || 0);
+            const afterCoupon = Math.max(0, amount - discount);
+            totalGross += amount; totalDiscount += discount; totalAfterCoupon += afterCoupon; totalBookings += 1; totalSeats += (seatArr.length || 1);
             if (!matchKey) {
               matchKey = b.tripId || `trip_${b.busName || 'bus'}_${b.from || ''}_${b.to || ''}`;
               busMap[matchKey] = {
@@ -60,41 +64,44 @@ export default function Revenue({ provider, onNavigate, showToast }) {
                 from: b.from || 'Origin',
                 to: b.to || 'Destination',
                 gross: 0,
+                discount: 0,
+                afterCoupon: 0,
                 bookingCount: 0,
                 passengerCount: 0,
                 seats: [],
               };
             }
             busMap[matchKey].gross += amount;
+            busMap[matchKey].discount += discount;
+            busMap[matchKey].afterCoupon += afterCoupon;
             busMap[matchKey].bookingCount += 1;
             busMap[matchKey].passengerCount += (seatArr.length || 1);
           });
 
           const busList = Object.values(busMap);
-          // Default fleet if no data
-          const defaultRows = [
-            { busName: 'Volvo A/C B12', route: 'SriCity → Chennai', gross: 16000, net: 14400, bookingCount: 8, passengerCount: 32 },
-            { busName: 'Scania AC',     route: 'Tada → Vizag',      gross: 11200, net: 10080, bookingCount: 7, passengerCount: 28 },
-            { busName: 'Sleeper Bus',   route: 'Pune → Mumbai',     gross:  7500, net:  6750, bookingCount: 5, passengerCount: 15 },
-          ];
-
-          const finalRows = busList.length > 0
-            ? busList.map((b) => ({
+          const finalRows = busList.map((b) => ({
                 busName:        b.busName  || 'Express Bus',
                 route:          b.from && b.to ? `${b.from} → ${b.to}` : 'Unknown',
                 gross:          b.gross,
-                net:            Math.round(b.gross * 0.9),
+                discount:       b.discount || 0,
+                afterCoupon:    b.afterCoupon || Math.max(0, b.gross - (b.discount || 0)),
+                net:            b.net ?? Math.round((b.afterCoupon || Math.max(0, b.gross - (b.discount || 0))) * 0.9),
                 bookingCount:   b.bookingCount,
                 passengerCount: b.passengerCount,
-              }))
-            : defaultRows;
+              }));
 
-          const finalGross = totalGross || defaultRows.reduce((s, r) => s + r.gross, 0);
+          const finalGross = totalGross;
+          const finalNet = busList.reduce(
+            (sum, b) => sum + (Number(b.net) || Math.round(Number(b.afterCoupon ?? (Number(b.gross || 0) - Number(b.discount || 0))) * 0.9)),
+            0,
+          );
           setStats({
             totalGross:    finalGross,
-            totalNet:      Math.round(finalGross * 0.9),
-            totalBookings: totalBookings || defaultRows.reduce((s, r) => s + r.bookingCount, 0),
-            totalSeats:    totalSeats    || defaultRows.reduce((s, r) => s + r.passengerCount, 0),
+            totalDiscount,
+            totalAfterCoupon,
+            totalNet:      finalNet,
+            totalBookings,
+            totalSeats,
           });
           setRows(finalRows);
         }
@@ -109,13 +116,14 @@ export default function Revenue({ provider, onNavigate, showToast }) {
 
           const seatArr = Array.isArray(b.seat_list) ? b.seat_list : Array.isArray(b.seats) ? b.seats : typeof b.seats === 'string' ? b.seats.split(',').map((s) => s.trim()).filter(Boolean) : [];
           const seatCount = seatArr.length || 1;
-          const isCancelled = b.status === 'CANCELLED' || b.booking_status === 'CANCELLED';
+          const isCancelled = b.status === 'CANCELLED' || b.booking_status === 'CANCELLED' || b.bookingStatus === 'CANCELLED';
 
           const customerName = b.customerName || b.passengerName || (Array.isArray(b.passengers) && b.passengers[0]?.name) || 'Customer';
           const couponCode = b.couponCode && b.couponCode !== 'NONE' ? b.couponCode : (b.offerCode || null);
           const couponDiscount = Number(b.discount || b.couponDiscount || 0);
 
           const grossFare = Number(b.grossFare || b.subtotal || (b.fare ? b.fare * seatCount : 0) || (b.total ? Math.max(0, b.total - 25 - Math.round((b.total - 25) * 0.18 / 1.18) + couponDiscount) : 500));
+          const fareAfterCoupon = Number(b.fareAfterCoupon ?? Math.max(0, grossFare - couponDiscount));
           const gst = Number(b.gst || Math.round(grossFare * 0.18));
           const platformFee = Number(b.platformFee || 25);
           const platformCommission = isCancelled ? 0 : Number(b.platformCommission || Math.round(grossFare * 0.10));
@@ -134,6 +142,7 @@ export default function Revenue({ provider, onNavigate, showToast }) {
             platformFee,
             couponCode,
             couponDiscount,
+            fareAfterCoupon,
             platformCommission,
             operatorPayout,
             status: isCancelled ? 'CANCELLED' : (b.status || 'CONFIRMED'),
@@ -160,8 +169,10 @@ export default function Revenue({ provider, onNavigate, showToast }) {
   const fmtInr = (n) => `₹${Number(n).toLocaleString('en-IN')}`;
 
   const statCards = [
-    { label: 'Total Gross Revenue', value: fmtInr(stats.totalGross), color: '#f97316' },
-    { label: 'Net Operator Revenue (90%)', value: fmtInr(stats.totalNet), color: '#22c55e' },
+    { label: 'Ticket Fare (excl. GST)', value: fmtInr(stats.totalGross), color: '#f97316' },
+    { label: 'Coupon Discounts', value: `−${fmtInr(stats.totalDiscount)}`, color: '#b45309' },
+    { label: 'Fare After Coupon (excl. GST)', value: fmtInr(stats.totalAfterCoupon), color: '#2563eb' },
+    { label: 'Net Operator Payout', value: fmtInr(stats.totalNet), color: '#22c55e' },
     { label: 'Total Bookings', value: stats.totalBookings, color: '#3b82f6' },
     { label: 'Total Passengers', value: stats.totalSeats, color: '#a855f7' },
   ];
@@ -193,7 +204,7 @@ export default function Revenue({ provider, onNavigate, showToast }) {
       <div className="card">
         <div className="card-header">
           <h3>Revenue Breakdown per Bus</h3>
-          <span style={{ fontSize: '0.78rem', color: '#6b7280' }}>10% platform commission deducted</span>
+          <span style={{ fontSize: '0.78rem', color: '#6b7280' }}>Ticket fare and coupon totals exclude GST</span>
         </div>
         <div className="table-wrap">
           <table>
@@ -203,14 +214,16 @@ export default function Revenue({ provider, onNavigate, showToast }) {
                 <th>ROUTE</th>
                 <th>BOOKINGS</th>
                 <th>PASSENGERS</th>
-                <th style={{ textAlign: 'right' }}>GROSS</th>
-                <th style={{ textAlign: 'right' }}>NET (90%)</th>
+                <th style={{ textAlign: 'right' }}>TICKET FARE (excl. GST)</th>
+                <th style={{ textAlign: 'right' }}>COUPON SAVED</th>
+                <th style={{ textAlign: 'right' }}>AFTER COUPON (excl. GST)</th>
+                <th style={{ textAlign: 'right' }}>OPERATOR PAYOUT</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>
                     No revenue data available yet. Add schedules and bookings to see earnings.
                   </td>
                 </tr>
@@ -222,6 +235,8 @@ export default function Revenue({ provider, onNavigate, showToast }) {
                     <td>{r.bookingCount}</td>
                     <td>{r.passengerCount}</td>
                     <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmtInr(r.gross)}</td>
+                    <td style={{ textAlign: 'right', color: '#b45309' }}>−{fmtInr(r.discount || 0)}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#2563eb' }}>{fmtInr(r.afterCoupon ?? Math.max(0, r.gross - (r.discount || 0)))}</td>
                     <td style={{ textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>{fmtInr(r.net)}</td>
                   </tr>
                 ))
@@ -252,8 +267,9 @@ export default function Revenue({ provider, onNavigate, showToast }) {
                 <th>CUSTOMER &amp; PASSENGERS</th>
                 <th>BUS / ROUTE</th>
                 <th>SEATS</th>
-                <th style={{ textAlign: 'right' }}>GROSS FARE</th>
+                <th style={{ textAlign: 'right' }}>TICKET FARE (excl. GST)</th>
                 <th style={{ textAlign: 'center' }}>COUPON / DISCOUNT</th>
+                <th style={{ textAlign: 'right' }}>AFTER COUPON (excl. GST)</th>
                 <th style={{ textAlign: 'right' }}>TAXES &amp; FEES</th>
                 <th style={{ textAlign: 'right' }}>PLATFORM COMM. (10%)</th>
                 <th style={{ textAlign: 'right' }}>NET OPERATOR PAYOUT</th>
@@ -263,7 +279,7 @@ export default function Revenue({ provider, onNavigate, showToast }) {
             <tbody>
               {transactions.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>
+                  <td colSpan={11} style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>
                     No booking transactions recorded yet. Once customers book seats, financial breakdowns and payouts will appear here.
                   </td>
                 </tr>
@@ -308,6 +324,9 @@ export default function Revenue({ provider, onNavigate, showToast }) {
                         ) : (
                           <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>None</span>
                         )}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: '#2563eb' }}>
+                        {isCanc ? fmtInr(0) : fmtInr(tx.fareAfterCoupon)}
                       </td>
                       <td style={{ textAlign: 'right', fontSize: '0.75rem', color: '#64748b' }}>
                         <div>GST: ₹{tx.gst}</div>

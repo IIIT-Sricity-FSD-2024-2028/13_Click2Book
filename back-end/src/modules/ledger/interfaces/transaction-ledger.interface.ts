@@ -6,6 +6,8 @@ export interface TransactionLedger {
   providerId: string; // resolved from Trip.scheduleId -> Schedule.providerId, immutable
   adminId: string; // owning platform admin (see LedgerService.createForBooking), immutable
   baseFare: number; // paise — snapshotted at booking creation, immutable
+  discountAmount: number; // validated coupon discount in paise
+  netFare: number; // ticket fare after discount, in paise
   convenienceFee: number; // paise — immutable, never refunded/reduced
   platformCommission: number; // paise
   operatorPayout: number; // paise — immutable

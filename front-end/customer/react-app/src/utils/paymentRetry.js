@@ -96,7 +96,13 @@ export async function executeSeatPayments({
     throw new Error('Payment function (payFn) must be provided.');
   }
 
-  const distributions = calculateSeatDistributions(totalAmount, totalDiscount, seatBookings.length);
+  const distributions = discountAllocation === 'first'
+    ? calculateSeatDistributions(
+        (Number(totalAmount) || 0) + (Number(totalDiscount) || 0),
+        0,
+        seatBookings.length,
+      )
+    : calculateSeatDistributions(totalAmount, totalDiscount, seatBookings.length);
 
   for (let sIdx = 0; sIdx < seatBookings.length; sIdx++) {
     const sb = seatBookings[sIdx];
@@ -111,10 +117,11 @@ export async function executeSeatPayments({
       throw new Error(`Cannot pay for seat ${sb.seatLabel || sIdx}: missing valid backend booking ID.`);
     }
 
-    const { amount } = distributions[sIdx];
+    const grossShare = distributions[sIdx].amount;
     const discount = discountAllocation === 'first'
       ? (sIdx === 0 ? Math.max(0, Number(totalDiscount) || 0) : 0)
       : distributions[sIdx].discount;
+    const amount = Math.max(0, grossShare - discount);
 
     // 3. Call payment API
     await payFn(sb.bookingId, amount, paymentMethod, discount);

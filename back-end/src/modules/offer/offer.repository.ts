@@ -16,6 +16,18 @@ export class OfferRepository {
 
   private offers: Offer[] = [
     {
+      offerId: 'O015',
+      providerId: 'P001',
+      offerCode: 'RIDE50',
+      description: 'Save ₹50 on an eligible APSRTC bus booking',
+      flatDiscount: 50,
+      minFare: 0,
+      maxUsage: 500,
+      startDate: '2025-01-01',
+      endDate: '2028-12-31',
+      status: OfferStatus.ACTIVE,
+    },
+    {
       offerId: 'O001',
       providerId: 'P001',
       offerCode: 'SUMMER20',

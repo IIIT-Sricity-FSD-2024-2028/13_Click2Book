@@ -487,7 +487,7 @@ export default function SearchTrips({
     const localSchedules = JSON.parse(localStorage.getItem('c2b_bus_schedules') || '[]');
     const localBookings = JSON.parse(localStorage.getItem('c2b_bookings') || '[]');
     const statuses = JSON.parse(localStorage.getItem('c2b_trip_statuses') || '{}');
-    const providerSchedulesForDate = localSchedules.filter((schedule) =>
+    let providerSchedulesForDate = localSchedules.filter((schedule) =>
       schedule &&
       String(schedule.journeyDate || schedule.date || '').split('T')[0] === targetDate &&
       !schedule.isSegment &&
@@ -508,11 +508,29 @@ export default function SearchTrips({
     } catch {}
 
     let fleetBuses = JSON.parse(localStorage.getItem('c2b_registered_fleet') || '[]');
+    let backendFleetLoaded = false;
     try {
       const vRes = await safeFetch('/vehicles', { timeout: 1200 });
       const bVehicles = Array.isArray(vRes?.data) ? vRes.data : Array.isArray(vRes) ? vRes : [];
+      backendFleetLoaded = true;
       const deletedBuses = JSON.parse(localStorage.getItem('c2b_deleted_buses') || '[]');
       const clean = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      // The backend fleet is authoritative across browser ports/devices. Drop
+      // locally cached vehicles and schedules that a provider has deleted.
+      const activeVehicleKeys = new Set(bVehicles.flatMap((vehicle) => [
+        vehicle.vehicleId || vehicle.id,
+        vehicle.vehicleNumber || vehicle.regNo,
+      ].map(clean).filter(Boolean)));
+      fleetBuses = fleetBuses.filter((vehicle) =>
+        activeVehicleKeys.has(clean(vehicle.vehicleId || vehicle.id)) ||
+        activeVehicleKeys.has(clean(vehicle.vehicleNumber || vehicle.regNo))
+      );
+      providerSchedulesForDate = providerSchedulesForDate.filter((schedule) =>
+        activeVehicleKeys.has(clean(schedule.vehicleId || schedule.backendVehicleId)) ||
+        activeVehicleKeys.has(clean(schedule.vehicleNumber || schedule.plateNumber))
+      );
+      localStorage.setItem('c2b_registered_fleet', JSON.stringify(fleetBuses));
 
       if (bVehicles.length > 0) {
         let updatedFleet = false;
@@ -555,6 +573,17 @@ export default function SearchTrips({
         }
       }
     } catch {}
+
+    if (!backendFleetLoaded) {
+      // Keep the cached display available during a temporary API outage.
+      providerSchedulesForDate = localSchedules.filter((schedule) =>
+        schedule &&
+        String(schedule.journeyDate || schedule.date || '').split('T')[0] === targetDate &&
+        !schedule.isSegment &&
+        statuses[schedule.backendTripId || schedule.tripId || schedule.id] !== 'COMPLETED' &&
+        statuses[schedule.backendTripId || schedule.tripId || schedule.id] !== 'CANCELLED'
+      );
+    }
 
     const normTargetFrom = normalizeCityName(targetFrom);
     const normTargetTo = normalizeCityName(targetTo);
@@ -1410,15 +1439,40 @@ export default function SearchTrips({
       let effectiveTripId = (selectedBus?.backendTripId && /^T\d+$/.test(selectedBus.backendTripId))
         ? selectedBus.backendTripId
         : (selectedBus?.tripId && /^T\d+$/.test(selectedBus.tripId) ? selectedBus.tripId : null);
+      const normalizeVehicleId = (value) => String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const selectedPlate = normalizeVehicleId(selectedBus?.vehicleNumber || selectedBus?.plateNumber);
+      const selectedBusName = String(selectedBus?.busName || '').trim().toLowerCase();
+      const selectedProviderId = String(selectedBus?.providerId || '').trim();
 
       const safeFetch = async (endpoint, opts = {}) => {
+        const providerId = selectedBus?.providerId;
+        const providerSessionVersion =
+          sessionStorage.getItem('c2b_sessionVersion') ||
+          localStorage.getItem('c2b_sessionVersion');
+        const headers = {
+          'Content-Type': 'application/json',
+          'x-role': 'PROVIDER',
+          ...(providerId ? { 'x-user-id': providerId } : {}),
+          ...(providerSessionVersion ? { 'x-session-version': providerSessionVersion } : {}),
+          ...(opts.headers || {}),
+        };
         try {
-          const r = await fetch(endpoint.startsWith('/api') ? endpoint : `/api${endpoint}`, opts);
-          return await r.json().catch(() => ({}));
+          const r = await fetch(endpoint.startsWith('/api') ? endpoint : `/api${endpoint}`, { ...opts, headers });
+          const body = await r.json().catch(() => ({}));
+          if (!r.ok || body.success === false) {
+            const message = Array.isArray(body.message) ? body.message.join(', ') : body.message;
+            throw new Error(message || `Backend request failed (${r.status})`);
+          }
+          return body;
         } catch {
           const direct = endpoint.startsWith('/api') ? `http://localhost:3000${endpoint}` : `http://localhost:3000/api${endpoint}`;
-          const r = await fetch(direct, opts);
-          return await r.json().catch(() => ({}));
+          const r = await fetch(direct, { ...opts, headers });
+          const body = await r.json().catch(() => ({}));
+          if (!r.ok || body.success === false) {
+            const message = Array.isArray(body.message) ? body.message.join(', ') : body.message;
+            throw new Error(message || `Backend request failed (${r.status})`);
+          }
+          return body;
         }
       };
 
@@ -1430,9 +1484,16 @@ export default function SearchTrips({
             effectiveTripId = null; // Trip does not exist on backend, must resolve/create
           } else {
             const td = tripCheck.data;
-            if (!td?.vehicle || !td.vehicle.vehicleId) {
+            const tripVehicle = td?.vehicle;
+            if (!tripVehicle?.vehicleId) {
               effectiveTripId = null;
             }
+            const tripPlate = normalizeVehicleId(tripVehicle?.vehicleNumber);
+            const tripBusName = String(tripVehicle?.busName || '').trim().toLowerCase();
+            const tripProviderId = String(td?.schedule?.providerId || tripVehicle?.providerId || '').trim();
+            if (selectedPlate && tripPlate && selectedPlate !== tripPlate) effectiveTripId = null;
+            if (!selectedPlate && selectedBusName && tripBusName && selectedBusName !== tripBusName) effectiveTripId = null;
+            if (selectedProviderId && tripProviderId && selectedProviderId !== tripProviderId) effectiveTripId = null;
             const s = (td?.source || td?.route || td?.trip?.source || '').toLowerCase();
             const d = (td?.destination || td?.route || td?.trip?.destination || '').toLowerCase();
             const targetS = fromCity.trim().toLowerCase();
@@ -1453,12 +1514,20 @@ export default function SearchTrips({
           // First, check if backend already has an authoritative trip for this route and bus
           const src = encodeURIComponent(fromCity.trim());
           const dst = encodeURIComponent(toCity.trim());
-          const tripsRes = await safeFetch(`/trips?source=${src}&destination=${dst}`);
+          const date = encodeURIComponent(String(travelDate || '').split('T')[0]);
+          const tripsRes = await safeFetch(`/trips?source=${src}&destination=${dst}&date=${date}`);
           const tripsList = Array.isArray(tripsRes?.data) ? tripsRes.data : (Array.isArray(tripsRes) ? tripsRes : []);
-          const matchedTrip = tripsList.find((t) =>
-            (t.busName && selectedBus?.busName && t.busName.toLowerCase() === selectedBus.busName.toLowerCase()) ||
-            (selectedBus?.departureTime && t.departureTime === selectedBus.departureTime)
-          ) || (tripsList.length > 0 ? tripsList[0] : null);
+          const matchedTrip = tripsList.find((trip) => {
+            const tripPlate = normalizeVehicleId(trip.vehicleNumber || trip.vehicle?.vehicleNumber);
+            const plateMatches = selectedPlate && tripPlate === selectedPlate;
+            const nameMatches = !selectedPlate && selectedBusName &&
+              String(trip.busName || '').trim().toLowerCase() === selectedBusName;
+            const providerMatches = !selectedProviderId || !trip.providerId ||
+              String(trip.providerId).trim() === selectedProviderId;
+            const timeMatches = !selectedBus?.departureTime || !trip.departureTime ||
+              trip.departureTime === selectedBus.departureTime;
+            return (plateMatches || nameMatches) && providerMatches && timeMatches;
+          });
 
           if (matchedTrip?.tripId && /^T\d+$/.test(matchedTrip.tripId)) {
             effectiveTripId = matchedTrip.tripId;
@@ -1508,9 +1577,8 @@ export default function SearchTrips({
               });
               const vehList = Array.isArray(vehListRes?.data) ? vehListRes.data : (Array.isArray(vehListRes) ? vehListRes : []);
               const existingVeh = vehList.find((v) =>
-                v.vehicleNumber?.toUpperCase() === cleanVNum.toUpperCase() ||
-                (v.busName && selectedBus?.busName && v.busName.toLowerCase() === selectedBus.busName.toLowerCase()) ||
-                v.vehicleNumber?.toUpperCase() === selectedBus?.busName?.toUpperCase()
+                normalizeVehicleId(v.vehicleNumber) === normalizeVehicleId(cleanVNum) &&
+                (!selectedProviderId || !v.providerId || String(v.providerId).trim() === selectedProviderId)
               );
               if (existingVeh?.vehicleId) {
                 vehicleId = existingVeh.vehicleId;
@@ -1605,6 +1673,29 @@ export default function SearchTrips({
         }
       }
 
+      // Recalculate coupon and checkout totals against the backend's canonical
+      // schedule fare. A provider's local bus card can carry a stale fare.
+      const selectedCouponCode = paymentDetails.offerCode || paymentDetails.couponCode;
+      if (selectedCouponCode) {
+        const canonicalTrip = await API.trips.getById(effectiveTripId);
+        const canonicalFare = Number(canonicalTrip?.schedule?.fare);
+        if (!Number.isFinite(canonicalFare) || canonicalFare <= 0) {
+          throw new Error('Could not confirm this bus fare. Please retry from the trip list.');
+        }
+        const validatedCoupon = await API.offers.validate(selectedCouponCode, canonicalFare);
+        const validatedDiscount = Number(validatedCoupon?.discountAmount);
+        if (!Number.isFinite(validatedDiscount) || validatedDiscount < 0) {
+          throw new Error('Coupon validation returned an invalid discount. Please choose another coupon.');
+        }
+        const fareSubtotal = canonicalFare * selectedSeats.length;
+        const fareGst = Math.round(fareSubtotal * 0.18);
+        const platformFee = Number(paymentDetails.platformFee ?? 25);
+        paymentDetails.subtotal = fareSubtotal;
+        paymentDetails.gst = fareGst;
+        paymentDetails.discount = validatedDiscount;
+        paymentDetails.total = Math.max(0, fareSubtotal + fareGst + platformFee - validatedDiscount);
+      }
+
       // Only consider pendingBackendBookings if it matches the current trip and bus
       const isMatchingPendingTrip =
         pendingBackendBookings &&
@@ -1654,17 +1745,28 @@ export default function SearchTrips({
           }
         }
 
-        if (needsCreate) {
+        // Re-submit the primary pending reservation on retries so the backend
+        // can refresh its validated coupon snapshot if the customer changed it.
+        const refreshCoupon = sIdx === 0 && !sb.paid;
+        if (needsCreate || refreshCoupon) {
           if (sIdx === 0) {
             primaryBackendId = null;
           }
           // Apply offerCode only on primary seat reservation so discount is not multiplied per seat
           const offerToPass = sIdx === 0 ? paymentDetails.offerCode : null;
+          const passengerForSeat = passengers.find((passenger) =>
+            String(passenger.seat || passenger.seatNumber || '').trim().toUpperCase() === String(sb.seatLabel).trim().toUpperCase()
+          ) || passengers[sIdx] || {};
           const bRes = await API.bookings.create(
             effectiveTripId,
             sb.numericSeat,
             offerToPass,
-            { from: fromCity.trim(), to: toCity.trim() },
+            {
+              from: fromCity.trim(),
+              to: toCity.trim(),
+              journeyDate: travelDate,
+              passenger: passengerForSeat,
+            },
           );
           const backendId = bRes?.bookingId || bRes?.data?.bookingId;
           if (!backendId) {

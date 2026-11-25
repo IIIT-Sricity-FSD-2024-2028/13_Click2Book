@@ -96,12 +96,13 @@ export class TripService {
         journeyDate:
           schedule?.journeyDate || new Date().toISOString().split('T')[0],
         busName: vehicle?.busName || 'Express Bus',
+        vehicleNumber: vehicle?.vehicleNumber,
         vehicleType: vehicle?.vehicleType || 'AC',
         totalSeats,
         availableSeats: remainingSeats,
         remainingSeats,
-        fare: schedule?.fare || 500,
-        price: schedule?.fare || 500,
+        fare: Number(vehicle?.roundTripSchedule?.fare || schedule?.fare || 500),
+        price: Number(vehicle?.roundTripSchedule?.fare || schedule?.fare || 500),
         providerId: schedule?.providerId || 'P001',
         providerName: provider?.name || 'Bus Operator',
         rating: vehicle?.rating || 4.5,
@@ -328,6 +329,7 @@ export class TripService {
           availableSeats: remainingSeats,
           totalSeats: vehicle.totalSeats,
           vehicleType: vehicle.vehicleType,
+          vehicleNumber: vehicle.vehicleNumber,
           amenities: v.amenities || [],
           boardingPoint: intermediateMatch
             ? source || route.source
@@ -359,8 +361,11 @@ export class TripService {
   findById(id: string) {
     const trip = this.tripRepo.findById(id);
     if (!trip) throw new NotFoundException(`Trip ${id} not found`);
-    const schedule = this.scheduleRepo.findById(trip.scheduleId);
+    const storedSchedule = this.scheduleRepo.findById(trip.scheduleId);
     const vehicle = this.vehicleRepo.findById(trip.vehicleId);
+    const schedule = storedSchedule && vehicle?.roundTripSchedule?.fare
+      ? { ...storedSchedule, fare: Number(vehicle.roundTripSchedule.fare) }
+      : storedSchedule;
     return successResponse('Trip details', { trip, schedule, vehicle });
   }
 

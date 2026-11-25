@@ -18,7 +18,7 @@ export default function PaymentModal({
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [availableOffers, setAvailableOffers] = useState([]);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
-
+  const [authoritativeFare, setAuthoritativeFare] = useState(null);
   useEffect(() => {
     let active = true;
     const loadOffers = () => API.offers.getActive()
@@ -35,9 +35,28 @@ export default function PaymentModal({
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const tripId = bus?.backendTripId || bus?.tripId;
+    setAuthoritativeFare(null);
+    if (!/^T\d+$/.test(String(tripId || ''))) return () => { active = false; };
+    API.trips.getById(tripId)
+      .then((trip) => {
+        const fare = Number(trip?.schedule?.fare);
+        if (active && Number.isFinite(fare) && fare > 0) setAuthoritativeFare(fare);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [bus?.backendTripId, bus?.tripId]);
+
   const count = selectedSeats.length || 1;
-  const baseFare = bus.price || 500;
+  const baseFare = Number(authoritativeFare || bus.price || 500);
   const subtotal = baseFare * count;
+  const providerOffers = availableOffers.filter((offer) =>
+    String(offer.providerId || '').toUpperCase() === String(bus?.providerId || '').toUpperCase() &&
+    (offer.minFare == null || baseFare >= Number(offer.minFare))
+  ).sort((a, b) => (a.offerCode === 'RIDE50' ? -1 : b.offerCode === 'RIDE50' ? 1 : 0));
+  const featuredOffer = providerOffers.find((offer) => offer.offerCode === 'RIDE50');
   const gst = Math.round(subtotal * 0.18);
   const platformFee = 25;
   const grossTotal = subtotal + gst + platformFee;
@@ -57,10 +76,19 @@ export default function PaymentModal({
 
     setValidatingCoupon(true);
     try {
+      const offer = providerOffers.find((item) => String(item.offerCode || '').toUpperCase() === code);
+      if (!offer) throw new Error('This coupon is not available for the selected bus.');
+      if (offer.minFare != null && baseFare < Number(offer.minFare)) {
+        throw new Error(`Minimum booking fare of ₹${offer.minFare} is required.`);
+      }
       const validated = await API.offers.validate(code, baseFare);
-      setAppliedOffer({ code, discountAmount: Number(validated.discountAmount) });
+      const discountAmount = Number(validated.discountAmount);
+      if (!Number.isFinite(discountAmount) || discountAmount < 0) {
+        throw new Error('The coupon returned an invalid discount. Please try another coupon.');
+      }
+      setAppliedOffer({ code, discountAmount });
       setCouponCode(code);
-      setCouponMessage({ text: `Coupon "${code}" applied. You save ₹${validated.discountAmount}.`, error: false });
+      setCouponMessage({ text: `Coupon "${code}" applied. You save ₹${discountAmount}.`, error: false });
     } catch (error) {
       setAppliedOffer(null);
       setCouponMessage({ text: error.message || 'Coupon could not be applied.', error: true });
@@ -153,13 +181,32 @@ export default function PaymentModal({
           </button>
         </div>
 
+        {featuredOffer && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', margin: '12px 0', padding: '12px 14px', border: '1px solid #fdba74', borderRadius: '10px', background: '#fff7ed' }}>
+            <div>
+              <div style={{ fontWeight: 800, color: '#9a3412' }}>Recommended: {featuredOffer.offerCode}</div>
+              <div style={{ fontSize: '0.75rem', color: '#7c2d12' }}>{featuredOffer.description || 'Save ₹50 on this provider’s bus'}</div>
+            </div>
+            <button type="button" className="btn-orange" disabled={validatingCoupon || appliedOffer?.code === featuredOffer.offerCode} onClick={() => handleApplyCoupon(featuredOffer.offerCode)} style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
+              {appliedOffer?.code === featuredOffer.offerCode ? 'Applied' : 'Apply RIDE50'}
+            </button>
+          </div>
+        )}
+
         <div className="coupon-input-wrap">
           <input
             type="text"
             className="coupon-input"
             placeholder="ENTER PROMO CODE"
             value={couponCode}
-            onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+            onChange={(e) => {
+              const nextCode = e.target.value.toUpperCase();
+              setCouponCode(nextCode);
+              if (appliedOffer && nextCode.trim() !== appliedOffer.code) {
+                setAppliedOffer(null);
+                setCouponMessage({ text: 'Apply the edited coupon code before paying.', error: true });
+              }
+            }}
           />
           {appliedOffer ? (
             <button
@@ -200,7 +247,7 @@ export default function PaymentModal({
         {/* Collapsible Offers Accordion */}
         {showOffersPanel && (
           <div style={{ marginTop: '14px', borderTop: '1px dashed #fed7aa', paddingTop: '12px' }}>
-            {availableOffers.map((o) => (
+            {providerOffers.map((o) => (
               <div
                 key={o.offerId}
                 onClick={() => handleApplyCoupon(o.offerCode)}
@@ -230,6 +277,7 @@ export default function PaymentModal({
                 </button>
               </div>
             ))}
+            {providerOffers.length === 0 && <p style={{ fontSize: '0.76rem', color: '#64748b' }}>No active coupons are available for this bus.</p>}
           </div>
         )}
       </div>
